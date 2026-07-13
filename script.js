@@ -1129,12 +1129,15 @@ function renderMetrics() {
     const statsGrid = document.getElementById('statsGrid');
     statsGrid.innerHTML = '';
     
+    const savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
+    
     HABITS.forEach(habit => {
         const statCard = document.createElement('div');
         statCard.className = 'stat-card';
         
         const dot = document.createElement('div');
         dot.className = `stat-dot ${habit}`;
+        dot.style.backgroundColor = savedColors[habit] || '#3498db';
         
         const value = document.createElement('span');
         value.className = 'stat-value';
