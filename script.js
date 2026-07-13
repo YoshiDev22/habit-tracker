@@ -11,6 +11,7 @@ const HABIT_LABELS = {};
 // Variables para el modal de acción de hábito
 let pendingHabitToRemove = null;
 let previousHabits = [];
+let initialSelectedHabits = [];
 
 const habitActionModal = document.getElementById('habitActionModal');
 const habitActionMessage = document.getElementById('habitActionMessage');
@@ -201,8 +202,9 @@ async function handleRegister(event) {
         showMainApp();
         updateUserBar();
         
-        // Cargar hábitos del backend
-        loadHabitsFromAPI();
+        // Cargar definiciones y datos de hábitos del backend
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
     } catch (error) {
         showError(registerError, error.message);
     }
@@ -225,8 +227,9 @@ async function handleLogin(event) {
         showMainApp();
         updateUserBar();
         
-        // Cargar hábitos del backend
-        loadHabitsFromAPI();
+        // Cargar definiciones y datos de hábitos del backend
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
     } catch (error) {
         showError(loginError, error.message);
     }
@@ -313,8 +316,84 @@ const DEFAULT_HABIT_LABELS = {
     nofumar: 'No fumar'
 };
 
-function showHabitsSetup() {
-    showModal(habitsSetupModal);
+async function showHabitsSetup() {
+    const token = getToken();
+    
+    if (token) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/habits/definitions`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            });
+            
+            if (!response.ok) {
+                showModal(habitsSetupModal);
+                return;
+            }
+            
+            const data = await response.json();
+            
+            const backendKeys = new Set();
+            if (data.habits && data.habits.length > 0) {
+                data.habits.forEach(h => {
+                    backendKeys.add(h.key);
+                });
+            }
+            
+            const defaultCheckboxes = habitsOptions.querySelectorAll('.habit-option:not(.dynamic-habit-row):not(#customHabitRow)');
+            defaultCheckboxes.forEach(checkbox => {
+                const key = checkbox.querySelector('input[type="checkbox"]').value;
+                const cb = checkbox.querySelector('input[type="checkbox"]');
+                if (backendKeys.has(key)) {
+                    cb.checked = true;
+                } else {
+                    cb.checked = false;
+                }
+            });
+            
+            const existingDynamicRows = habitsOptions.querySelectorAll('.dynamic-habit-row');
+            existingDynamicRows.forEach(row => row.remove());
+            
+            data.habits.forEach(h => {
+                if (!['lectura', 'gym', 'dieta', 'estudio', 'nofumar'].includes(h.key)) {
+                    const newOption = document.createElement('label');
+                    newOption.className = 'habit-option dynamic-habit-row';
+                    newOption.setAttribute('data-habit-key', h.key);
+                    newOption.setAttribute('data-habit-label', h.label);
+                    newOption.setAttribute('data-habit-color', h.color || '#95a5a6');
+                    
+                    newOption.innerHTML = `
+                        <input type="checkbox" value="${h.key}" checked data-dynamic-key="${h.key}">
+                        <span class="habit-check"></span>
+                        <span>🎯 ${h.label}</span>
+                        <input type="color" value="${h.color || '#95a5a6'}" data-habit="${h.key}" class="habit-color">
+                        <button type="button" class="remove-habit-btn" title="Eliminar hábito" data-dynamic-key="${h.key}">×</button>
+                    `;
+                    
+                    const customRow = document.getElementById('customHabitRow');
+                    habitsOptions.insertBefore(newOption, customRow);
+                    
+                    const removeBtn = newOption.querySelector('.remove-habit-btn');
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const key = removeBtn.getAttribute('data-dynamic-key');
+                        newOption.remove();
+                        const hiddenHabits = JSON.parse(localStorage.getItem('hidden_habits') || '[]');
+                        const newHidden = hiddenHabits.filter(hh => hh !== key);
+                        localStorage.setItem('hidden_habits', JSON.stringify(newHidden));
+                    });
+                }
+            });
+            
+            showModal(habitsSetupModal);
+        } catch (error) {
+            console.error('Error cargando hábitos para setup:', error);
+            showModal(habitsSetupModal);
+        }
+    } else {
+        showModal(habitsSetupModal);
+    }
 }
 
 function hideHabitsSetup() {
@@ -361,10 +440,6 @@ async function handleSaveHabits() {
     // Guardar hábitos en localStorage
     localStorage.setItem('user_habits', JSON.stringify(selectedHabits));
     
-    // Actualizar la variable global HABITS
-    HABITS.length = 0;
-    selectedHabits.forEach(h => HABITS.push(h));
-    
     // Guardar etiquetas de hábitos predefinidos
     const labels = {};
     const checkboxes = habitsOptions.querySelectorAll('input[type="checkbox"]');
@@ -385,42 +460,166 @@ async function handleSaveHabits() {
     });
     
     localStorage.setItem('habit_labels', JSON.stringify(labels));
-    Object.assign(HABIT_LABELS, labels);
     
     // Cargar colores y renderizar popover
     loadSavedColors();
     
-    // Renderizar popover con los nuevos hábitos
-    renderHabitPopoverButtons();
-    
-    // Enviar hábitos dinámicos al backend
     const token = getToken();
     if (token) {
-        for (const row of dynamicHabits) {
-            const key = row.getAttribute('data-habit-key');
-            const label = row.getAttribute('data-habit-label');
-            const color = row.getAttribute('data-habit-color');
-            const icon = '🎯';
+        try {
+            const existingResponse = await fetch(`${API_BASE_URL}/api/habits/definitions?include_inactive=true`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            });
             
-            try {
-                await fetch(`${API_BASE_URL}/api/habits/definitions`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        key: key,
-                        label: label,
-                        icon: icon,
-                        color: color,
-                        order: 0
-                    })
-                });
-            } catch (error) {
-                console.error(`Error al crear hábito dinámico '${key}':`, error);
+            let existingKeys = new Set();
+            let existingHabitsMap = {};
+            if (existingResponse.ok) {
+                const existingData = await existingResponse.json();
+                if (existingData.habits && existingData.habits.length > 0) {
+                    existingData.habits.forEach(h => {
+                        existingKeys.add(h.key);
+                        existingHabitsMap[h.key] = h;
+                    });
+                }
+                
+                const selectedSet = new Set(selectedHabits);
+                for (const key of existingKeys) {
+                    if (!selectedSet.has(key) && existingHabitsMap[key]) {
+                        try {
+                            await fetch(`${API_BASE_URL}/api/habits/definitions/${existingHabitsMap[key].id}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ is_active: false })
+                            });
+                            console.log(`Hábito '${key}' archivado en backend`);
+                        } catch (error) {
+                            console.error(`Error al archivar hábito '${key}':`, error);
+                        }
+                    }
+                }
             }
+            
+            const defaultIcons = {
+                lectura: '📚',
+                gym: '💪',
+                dieta: '🥗',
+                estudio: '📖',
+                nofumar: '🚭'
+            };
+            
+            for (const checkbox of checkboxes) {
+                if (checkbox.checked && checkbox.id !== 'customHabitCheckbox') {
+                    const key = checkbox.value;
+                    if (existingKeys.has(key) && existingHabitsMap[key]?.is_active) continue;
+                    
+                    if (existingKeys.has(key) && existingHabitsMap[key]) {
+                        try {
+                            await fetch(`${API_BASE_URL}/api/habits/definitions/${existingHabitsMap[key].id}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ is_active: true })
+                            });
+                            existingHabitsMap[key].is_active = true;
+                            console.log(`Hábito '${key}' reactivado en backend`);
+                        } catch (error) {
+                            console.error(`Error al reactivar hábito '${key}':`, error);
+                        }
+                        continue;
+                    }
+                    
+                    const labelSpan = checkbox.nextElementSibling.nextElementSibling;
+                    const label = labelSpan.textContent;
+                    const colorInput = habitsOptions.querySelector(`input[type="color"][data-habit="${key}"]`);
+                    const color = colorInput ? colorInput.value : '#3498db';
+                    
+                    try {
+                        await fetch(`${API_BASE_URL}/api/habits/definitions`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                key: key,
+                                label: label,
+                                icon: defaultIcons[key] || '✅',
+                                color: color,
+                                order: 0
+                            })
+                        });
+                        existingKeys.add(key);
+                    } catch (error) {
+                        console.error(`Error al crear hábito '${key}':`, error);
+                    }
+                }
+            }
+            
+            for (const row of dynamicHabits) {
+                const key = row.getAttribute('data-habit-key');
+                if (existingKeys.has(key) && existingHabitsMap[key]?.is_active) continue;
+                
+                if (existingKeys.has(key) && existingHabitsMap[key]) {
+                    try {
+                        await fetch(`${API_BASE_URL}/api/habits/definitions/${existingHabitsMap[key].id}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ is_active: true })
+                        });
+                        existingHabitsMap[key].is_active = true;
+                        console.log(`Hábito dinámico '${key}' reactivado en backend`);
+                    } catch (error) {
+                        console.error(`Error al reactivar hábito dinámico '${key}':`, error);
+                    }
+                    continue;
+                }
+                
+                const label = row.getAttribute('data-habit-label');
+                const color = row.getAttribute('data-habit-color');
+                const icon = '🎯';
+                
+                try {
+                    await fetch(`${API_BASE_URL}/api/habits/definitions`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            key: key,
+                            label: label,
+                            icon: icon,
+                            color: color,
+                            order: 0
+                        })
+                    });
+                    existingKeys.add(key);
+                } catch (error) {
+                    console.error(`Error al crear hábito dinámico '${key}':`, error);
+                }
+            }
+            
+            await loadHabitDefinitionsFromAPI();
+            await loadHabitsFromAPI();
+        } catch (error) {
+            console.error('Error en handleSaveHabits:', error);
         }
+    } else {
+        HABITS.length = 0;
+        selectedHabits.forEach(h => HABITS.push(h));
+        Object.assign(HABIT_LABELS, labels);
+        renderHabitPopoverButtons();
+        renderCalendar();
     }
     
     // Ocultar modal de manera forzada
@@ -430,10 +629,8 @@ async function handleSaveHabits() {
         overlay.style.display = 'none';
     }
     
-    // Renderizar calendario con nuevos hábitos
     renderCalendar();
     
-    // Forzar actualización visual
     setTimeout(() => {
         renderCalendar();
     }, 100);
@@ -538,7 +735,13 @@ deleteHabitBtn.addEventListener('click', async () => {
     
     hideHabitActionModal();
     hideHabitsSetup();
-    loadHabitsFromAPI();
+    
+    if (token) {
+        loadHabitDefinitionsFromAPI();
+        loadHabitsFromAPI();
+    } else {
+        renderCalendar();
+    }
 });
 
 // Cancelar
@@ -688,6 +891,46 @@ async function loadHabitsFromAPI() {
         // Si hay error, usar datos locales vacíos
         habitsData = {};
         renderCalendar();
+    }
+}
+
+async function loadHabitDefinitionsFromAPI() {
+    try {
+        const token = getToken();
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/habits/definitions`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                handleLogout();
+                return;
+            }
+            throw new Error('Error al cargar definiciones de hábitos');
+        }
+
+        const data = await response.json();
+
+        HABITS.length = 0;
+        Object.keys(HABIT_LABELS).forEach(key => delete HABIT_LABELS[key]);
+
+        if (data.habits && data.habits.length > 0) {
+            data.habits.sort((a, b) => (a.order || 0) - (b.order || 0));
+            data.habits.forEach(h => {
+                HABITS.push(h.key);
+                HABIT_LABELS[h.key] = h.label;
+            });
+        }
+
+        loadSavedColors();
+        renderHabitPopoverButtons();
+        renderCalendar();
+    } catch (error) {
+        console.error('Error cargando definiciones de hábitos:', error);
     }
 }
 
@@ -1134,7 +1377,7 @@ document.addEventListener('click', (e) => {
 // Inicialización
 // ============================================
 
-function initApp() {
+async function initApp() {
     // Limpiar hábitos dinámicos al iniciar
     const dynamicHabits = habitsOptions.querySelectorAll('.dynamic-habit-row');
     dynamicHabits.forEach(h => h.remove());
@@ -1146,32 +1389,13 @@ function initApp() {
         showMainApp();
         updateUserBar();
         
-        // Verificar si es usuario nuevo (sin hábitos guardados localmente)
-        const userHabits = localStorage.getItem('user_habits');
+        // Cargar definiciones y datos de hábitos del backend
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
         
-        if (!userHabits || JSON.parse(userHabits).length === 0) {
-            // Usuario nuevo - mostrar popup de configuración de hábitos
+        // Si no hay hábitos definidos en el backend, mostrar popup de configuración
+        if (HABITS.length === 0) {
             showHabitsSetup();
-            renderCalendar();
-        } else {
-            // Cargar hábitos guardados
-            const habits = JSON.parse(userHabits);
-            HABITS.length = 0;
-            habits.forEach(h => HABITS.push(h));
-            
-            // Cargar etiquetas guardadas
-            const savedLabels = localStorage.getItem('habit_labels');
-            if (savedLabels) {
-                const labels = JSON.parse(savedLabels);
-                Object.assign(HABIT_LABELS, labels);
-            }
-            
-            // Cargar colores guardados y renderizar popover
-            loadSavedColors();
-            renderHabitPopoverButtons();
-            
-            // Cargar datos de la API
-            loadHabitsFromAPI();
         }
     } else {
         // Mostrar pantalla de autenticación
