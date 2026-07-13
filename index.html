@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Pantalla de Autenticación -->
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1 class="auth-title">Habit Tracker</h1>
+                <p class="auth-subtitle">Gestiona tus hábitos diarios</p>
+            </div>
+            
+            <div class="auth-buttons">
+                <button id="showLoginBtn" class="auth-btn primary">Iniciar Sesión</button>
+                <button id="showRegisterBtn" class="auth-btn secondary">Registrarse</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Login -->
+    <div id="loginModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <button class="modal-close" data-close-modal>&times;</button>
+            <h2 class="modal-title">Iniciar Sesión</h2>
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" name="email" required placeholder="tu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Contraseña</label>
+                    <input type="password" id="loginPassword" name="password" required placeholder="••••••••">
+                </div>
+                <div id="loginError" class="form-error hidden"></div>
+                <button type="submit" class="submit-btn">Iniciar Sesión</button>
+            </form>
+            <p class="auth-switch">
+                ¿No tienes cuenta? 
+                <button type="button" class="link-btn" data-switch-to="register">Regístrate</button>
+            </p>
+        </div>
+    </div>
+
+    <!-- Modal de Registro -->
+    <div id="registerModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <button class="modal-close" data-close-modal>&times;</button>
+            <h2 class="modal-title">Crear Cuenta</h2>
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" name="email" required placeholder="tu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Contraseña</label>
+                    <input type="password" id="registerPassword" name="password" required placeholder="••••••••" minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Confirmar Contraseña</label>
+                    <input type="password" id="registerConfirmPassword" name="confirmPassword" required placeholder="••••••••" minlength="6">
+                </div>
+                <div id="registerError" class="form-error hidden"></div>
+                <button type="submit" class="submit-btn">Crear Cuenta</button>
+            </form>
+            <p class="auth-switch">
+                ¿Ya tienes cuenta? 
+                <button type="button" class="link-btn" data-switch-to="login">Inicia sesión</button>
+            </p>
+        </div>
+    </div>
+
+    <!-- Aplicación Principal (oculta hasta autenticarse) -->
+    <div id="mainApp" class="app-container hidden">
+        <header class="header">
+            <button id="prevMonth" class="nav-btn"><</button>
+            <h1 id="monthTitle">Marzo 2026</h1>
+            <button id="nextMonth" class="nav-btn">></button>
+        </header>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <span id="progressText" class="progress-text">0%</span>
+        </div>
+
+        <div class="calendar">
+            <div class="weekdays">
+                <div>Dom</div>
+                <div>Lun</div>
+                <div>Mar</div>
+                <div>Mié</div>
+                <div>Jue</div>
+                <div>Vie</div>
+                <div>Sáb</div>
+            </div>
+            <div id="daysGrid" class="days-grid"></div>
+        </div>
+
+        <div id="habitPopover" class="habit-popover hidden">
+            <div class="popover-date" id="popoverDate"></div>
+            <div class="habits-list" id="habitsList"></div>
+        </div>
+
+        <!-- Métricas Section -->
+        <section class="metrics-section">
+            <div class="metrics-header">
+                <h2 class="metrics-title">Métricas</h2>
+            </div>
+            
+            <div class="streak-container">
+                <div class="streak-icon">🔥</div>
+                <div class="streak-info">
+                    <span class="streak-count" id="streakCount">0</span>
+                    <span class="streak-label">días seguidos</span>
+                </div>
+            </div>
+
+            <div class="habit-stats">
+                <h3 class="stats-title">Este mes</h3>
+                <div class="stats-grid" id="statsGrid"></div>
+            </div>
+        </section>
+    </div>
+
+    </div>
+
+    <!-- Usuario logueado - mostrar logout -->
+    <div id="userBar" class="user-bar hidden">
+        <button id="settingsBtn" class="settings-btn">⚙️</button>
+        <span id="userEmail"></span>
+        <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
+    </div>
+
+    <!-- Popup de Bienvenida / Configuración de Hábitos -->
+    <div id="habitsSetupModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal">
+            <h2 class="modal-title">¡Bienvenido! 👋</h2>
+            <p class="setup-subtitle">Selecciona los hábitos que quieres seguir:</p>
+            
+            <div class="habits-options" id="habitsOptions">
+                <label class="habit-option">
+                    <input type="checkbox" value="lectura">
+                    <span class="habit-check"></span>
+                    <span>📚 Lectura</span>
+                    <input type="color" value="#3498db" data-habit="lectura" class="habit-color">
+                </label>
+                <label class="habit-option">
+                    <input type="checkbox" value="gym">
+                    <span class="habit-check"></span>
+                    <span>💪 Gym</span>
+                    <input type="color" value="#e74c3c" data-habit="gym" class="habit-color">
+                </label>
+                <label class="habit-option">
+                    <input type="checkbox" value="dieta">
+                    <span class="habit-check"></span>
+                    <span>🥗 Dieta</span>
+                    <input type="color" value="#27ae60" data-habit="dieta" class="habit-color">
+                </label>
+                <label class="habit-option">
+                    <input type="checkbox" value="estudio">
+                    <span class="habit-check"></span>
+                    <span>📖 Estudio</span>
+                    <input type="color" value="#9b59b6" data-habit="estudio" class="habit-color">
+                </label>
+                <label class="habit-option">
+                    <input type="checkbox" value="nofumar">
+                    <span class="habit-check"></span>
+                    <span>🚭 No fumar</span>
+                    <input type="color" value="#f39c12" data-habit="nofumar" class="habit-color">
+                </label>
+                <label class="habit-option custom-habit" id="customHabitRow">
+                    <input type="checkbox" id="customHabitCheckbox">
+                    <span class="habit-check"></span>
+                    <span>➕ Otro:</span>
+                    <input type="text" id="customHabitInput" placeholder="Escribe tu hábito">
+                    <input type="color" value="#95a5a6" id="customHabitColor" class="habit-color">
+                    <button type="button" id="addCustomHabitBtn" class="add-custom-btn" title="Agregar hábito">+</button>
+                </label>
+            </div>
+
+            <div id="setupError" class="form-error hidden"></div>
+            <button id="saveHabitsBtn" class="submit-btn">Guardar Hábitos</button>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación para Ocultar/Eliminar Hábito -->
+    <div id="habitActionModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal" style="max-width: 400px;">
+            <h2 class="modal-title">¿Qué quieres hacer?</h2>
+            <p id="habitActionMessage" class="setup-subtitle">Selecciona una opción para el hábito:</p>
+            <div class="habit-action-options">
+                <button id="hideHabitBtn" class="submit-btn" style="background: #f39c12;">
+                    👁️ Ocultar (mantener historial)
+                </button>
+                <button id="deleteHabitBtn" class="submit-btn" style="background: #e74c3c;">
+                    🗑️ Eliminar (borrar datos)
+                </button>
+                <button id="cancelHabitBtn" class="submit-btn" style="background: #95a5a6;">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

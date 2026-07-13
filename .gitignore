@@ -1,0 +1,28 @@
+# Entornos virtuales de Python
+venv/
+env/
+.venv/
+
+# Base de datos local
+*.db
+*.sqlite
+*.sqlite3
+backend/habits.db
+habits.db
+
+# Variables de entorno (Claves secretas)
+.env
+.env.*
+
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos del sistema (Mac/Windows)
+.DS_Store
+Thumbs.db
+
+# Configuraciones de editores
+.vscode/
+.idea/
