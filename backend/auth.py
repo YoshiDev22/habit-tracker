@@ -15,7 +15,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuración de seguridad desde .env
-SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key_change_in_production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY no está definida. Crea backend/.env a partir de backend/.env.example"
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
