@@ -7,12 +7,16 @@ env/
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 backend/habits.db
 habits.db
 
 # Variables de entorno (Claves secretas)
 .env
 .env.*
+!.env.example
 
 # Archivos compilados de Python
 __pycache__/
