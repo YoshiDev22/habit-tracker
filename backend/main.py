@@ -10,8 +10,10 @@ from backend.routers import auth, habits
 # Rutas de los archivos frontend (directorio raíz del proyecto)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Cargar variables de entorno
-load_dotenv()
+# Cargar variables de entorno. Ruta explícita: bajo `uvicorn --reload` en Windows,
+# el subproceso relanzado (multiprocessing spawn) rompe la detección automática
+# de load_dotenv() basada en el stack frame, y nunca encuentra backend/.env.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # Crear las tablas en la base de datos
 create_db_and_tables()

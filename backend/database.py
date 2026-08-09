@@ -3,8 +3,9 @@ from sqlmodel import SQLModel, create_engine, Session
 from typing import Generator
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde .env
-load_dotenv()
+# Cargar variables de entorno desde .env. Ruta explícita: bajo `uvicorn --reload`
+# en Windows, load_dotenv() sin ruta no encuentra backend/.env en el subproceso spawneado.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # Obtener DATABASE_URL del .env (valor por defecto para desarrollo)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./habits.db")

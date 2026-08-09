@@ -11,8 +11,9 @@ from backend.database import get_session
 from backend.models import User
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
-load_dotenv()
+# Cargar variables de entorno. Ruta explícita: bajo `uvicorn --reload` en Windows,
+# load_dotenv() sin ruta no encuentra backend/.env en el subproceso spawneado.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # Configuración de seguridad desde .env
 SECRET_KEY = os.getenv("SECRET_KEY")
