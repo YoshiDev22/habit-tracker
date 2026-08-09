@@ -15,6 +15,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # de load_dotenv() basada en el stack frame, y nunca encuentra backend/.env.
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
+# Leer versión desde el archivo VERSION en la raíz del repo
+with open(os.path.join(BASE_DIR, "VERSION"), encoding="utf-8") as f:
+    APP_VERSION = f.read().strip()
+
 # Crear las tablas en la base de datos
 create_db_and_tables()
 
@@ -22,7 +26,7 @@ create_db_and_tables()
 app = FastAPI(
     title="Habits Tracker API",
     description="API para gestionar hábitos con autenticación",
-    version="1.0.0",
+    version=APP_VERSION,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json"
@@ -78,7 +82,7 @@ def api_info():
     """API info"""
     return {
         "message": "Habits Tracker API",
-        "version": "1.0.0",
+        "version": APP_VERSION,
         "docs": "/api/docs"
     }
 

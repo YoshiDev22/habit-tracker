@@ -115,6 +115,18 @@ function updateUserBar() {
     }
 }
 
+async function loadAppVersion() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api`);
+        const data = await response.json();
+        const versionText = `v${data.version}`;
+        document.getElementById('authVersion').textContent = versionText;
+        document.getElementById('mainVersion').textContent = versionText;
+    } catch (error) {
+        console.error('Error al obtener la versión de la app:', error);
+    }
+}
+
 // ============================================
 // Funciones de API - Auth
 // ============================================
@@ -1381,6 +1393,8 @@ document.addEventListener('click', (e) => {
 // ============================================
 
 async function initApp() {
+    loadAppVersion();
+
     // Limpiar hábitos dinámicos al iniciar
     const dynamicHabits = habitsOptions.querySelectorAll('.dynamic-habit-row');
     dynamicHabits.forEach(h => h.remove());
