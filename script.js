@@ -4,6 +4,23 @@
 
 const API_BASE_URL = '';  // Usar URL relativa
 
+// Hooks para que archivos cargados después de este (projects.js, pomodoro.js)
+// puedan engancharse al ciclo de vida de la app sin que este archivo los conozca.
+window.appInitHooks = [];    // corren al final de initApp(), siempre
+window.appDataHooks = [];    // corren cuando el usuario queda autenticado (login/register/reload)
+window.appLogoutHooks = [];  // corren como PRIMERA acción de handleLogout(), antes de removeToken()
+
+// Ejecuta una lista de hooks en orden; un hook que falla no detiene a los demás.
+async function runHooks(hooks) {
+    for (const hook of hooks) {
+        try {
+            await hook();
+        } catch (error) {
+            console.error('Error en hook:', error);
+        }
+    }
+}
+
 const HABITS = [];
 
 const HABIT_LABELS = {};
@@ -56,6 +73,57 @@ function saveToken(token) {
 
 function getToken() {
     return localStorage.getItem('access_token');
+}
+
+// Error de API con el status HTTP adjunto, para que el caller pueda
+// distinguir p.ej. un 409 (conflicto) de un error genérico.
+class ApiError extends Error {
+    constructor(message, status) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
+}
+
+// Helper de fetch autenticado, para código NUEVO (projects.js, pomodoro.js).
+// No reemplaza los fetch existentes en este archivo — ver nota en handleSaveHabits.
+async function apiFetch(path, options = {}) {
+    const opts = { ...options, headers: { ...(options.headers || {}) } };
+
+    const token = getToken();
+    if (token) {
+        opts.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    if (options.json !== undefined) {
+        opts.body = JSON.stringify(options.json);
+        opts.headers['Content-Type'] = 'application/json';
+        delete opts.json;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${path}`, opts);
+
+    if (response.status === 401) {
+        handleLogout();
+        throw new ApiError('Sesión expirada', 401);
+    }
+
+    if (!response.ok) {
+        let detail = 'Error de red';
+        try {
+            const data = await response.json();
+            detail = data.detail || detail;
+        } catch (e) {
+            // Respuesta sin cuerpo JSON, usar el mensaje genérico
+        }
+        throw new ApiError(detail, response.status);
+    }
+
+    if (response.status === 204) {
+        return null;
+    }
+
+    return response.json();
 }
 
 function removeToken() {
@@ -217,6 +285,7 @@ async function handleRegister(event) {
         // Cargar definiciones y datos de hábitos del backend
         await loadHabitDefinitionsFromAPI();
         await loadHabitsFromAPI();
+        await runHooks(window.appDataHooks);
     } catch (error) {
         showError(registerError, error.message);
     }
@@ -242,12 +311,16 @@ async function handleLogin(event) {
         // Cargar definiciones y datos de hábitos del backend
         await loadHabitDefinitionsFromAPI();
         await loadHabitsFromAPI();
+        await runHooks(window.appDataHooks);
     } catch (error) {
         showError(loginError, error.message);
     }
 }
 
 function handleLogout() {
+    // Hooks primero: el token todavía existe en este punto, algún hook
+    // (ej. pomodoro) puede necesitarlo para un último POST antes de perderlo.
+    runHooks(window.appLogoutHooks);
     removeToken();
     currentUser = null;
     habitsData = {};
@@ -873,30 +946,15 @@ async function loadHabitsFromAPI() {
         const token = getToken();
         if (!token) return;
 
-        const response = await fetch(`${API_BASE_URL}/api/habits`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-            }
-        });
+        const data = await apiFetch('/api/habits');
 
-        if (!response.ok) {
-            if (response.status === 401) {
-                // Token expirado o inválido
-                handleLogout();
-                return;
-            }
-            throw new Error('Error al cargar hábitos');
-        }
-
-        const data = await response.json();
-        
         // Convertir formato del backend al formato local
         habitsData = {};
         data.entries.forEach(entry => {
             const dateKey = entry.date;
             habitsData[dateKey] = entry.habits_data || {};
         });
-        
+
         renderCalendar();
     } catch (error) {
         console.error('Error cargando hábitos:', error);
@@ -911,21 +969,7 @@ async function loadHabitDefinitionsFromAPI() {
         const token = getToken();
         if (!token) return;
 
-        const response = await fetch(`${API_BASE_URL}/api/habits/definitions`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-            }
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                handleLogout();
-                return;
-            }
-            throw new Error('Error al cargar definiciones de hábitos');
-        }
-
-        const data = await response.json();
+        const data = await apiFetch('/api/habits/definitions');
 
         HABITS.length = 0;
         Object.keys(HABIT_LABELS).forEach(key => delete HABIT_LABELS[key]);
@@ -951,28 +995,10 @@ async function saveHabitToAPI(dateKey, habits) {
         const token = getToken();
         if (!token) return;
 
-        // Convertir fecha al formato YYYY-MM-DD
-        const date = dateKey;
-        
-        const response = await fetch(`${API_BASE_URL}/api/habits`, {
+        await apiFetch('/api/habits', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                date: date,
-                habits: habits
-            })
+            json: { date: dateKey, habits: habits }
         });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                handleLogout();
-                return;
-            }
-            throw new Error('Error al guardar hábito');
-        }
 
         // Actualizar datos locales
         habitsData[dateKey] = habits;
@@ -1409,7 +1435,8 @@ async function initApp() {
         // Cargar definiciones y datos de hábitos del backend
         await loadHabitDefinitionsFromAPI();
         await loadHabitsFromAPI();
-        
+        await runHooks(window.appDataHooks);
+
         // Si no hay hábitos definidos en el backend, mostrar popup de configuración
         if (HABITS.length === 0) {
             showHabitsSetup();
@@ -1418,6 +1445,8 @@ async function initApp() {
         // Mostrar pantalla de autenticación
         showAuthScreen();
     }
+
+    await runHooks(window.appInitHooks);
 }
 
 // Función para obtener hábitos activos (no ocultos)
@@ -1485,4 +1514,7 @@ customHabitInput.disabled = true;
 customHabitColor.disabled = true;
 addCustomHabitBtn.disabled = true;
 
-initApp();
+// DOMContentLoaded (no una llamada directa) para que, cuando existan más
+// <script src> después de este (projects.js, pomodoro.js), sus funciones ya
+// estén definidas antes de que initApp() los invoque vía los hooks de arriba.
+document.addEventListener('DOMContentLoaded', initApp);
