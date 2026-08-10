@@ -114,3 +114,111 @@ class HabitListResponse(SQLModel):
     """Lista de hábitos del usuario (activos e inactivos)"""
     habits: List[HabitResponse]
     total: int
+
+
+# ==================== Project Schemas ====================
+
+class ProjectCreate(SQLModel):
+    """Esquema para crear un proyecto"""
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    order: Optional[int] = 0
+
+
+class ProjectUpdate(SQLModel):
+    """
+    Esquema para actualizar un proyecto existente.
+    Todos los campos son opcionales (PATCH parcial).
+    """
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    order: Optional[int] = None
+    is_active: Optional[bool] = None  # False = archivar (conserva las tareas)
+
+
+class ProjectResponse(SQLModel):
+    """Esquema de respuesta para un proyecto"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    order: int
+    is_active: bool
+    created_at: date_type
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectListResponse(SQLModel):
+    """Lista de proyectos del usuario (activos e inactivos)"""
+    projects: List[ProjectResponse]
+    total: int
+
+
+class ProjectSummary(SQLModel):
+    """
+    Resumen de un proyecto: progreso de tareas y tiempo dedicado.
+    total_seconds/session_count quedan en 0 hasta que exista Pomodoro.
+    """
+    project_id: int
+    name: str
+    color: Optional[str] = None
+    task_total: int
+    task_done: int
+    total_seconds: int
+    session_count: int
+
+
+class ProjectSummaryListResponse(SQLModel):
+    """Lista de resúmenes de proyectos"""
+    summaries: List[ProjectSummary]
+    total: int
+
+
+# ==================== Task Schemas ====================
+
+class TaskCreate(SQLModel):
+    """Esquema para crear una tarea"""
+    project_id: int
+    title: str
+    notes: Optional[str] = None
+    order: Optional[int] = 0
+
+
+class TaskUpdate(SQLModel):
+    """
+    Esquema para actualizar una tarea existente.
+    Todos los campos son opcionales (PATCH parcial).
+    """
+    title: Optional[str] = None
+    notes: Optional[str] = None
+    is_done: Optional[bool] = None
+    order: Optional[int] = None
+    project_id: Optional[int] = None  # mover la tarea a otro proyecto
+
+
+class TaskResponse(SQLModel):
+    """Esquema de respuesta para una tarea"""
+    id: int
+    project_id: int
+    title: str
+    notes: Optional[str] = None
+    is_done: bool
+    order: int
+    completed_at: Optional[date_type] = None
+    created_at: date_type
+
+    class Config:
+        from_attributes = True
+
+
+class TaskListResponse(SQLModel):
+    """Lista de tareas"""
+    tasks: List[TaskResponse]
+    total: int

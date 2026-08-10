@@ -94,58 +94,84 @@
 
     <!-- Aplicación Principal (oculta hasta autenticarse) -->
     <div id="mainApp" class="app-container hidden">
-        <header class="header">
-            <button id="prevMonth" class="nav-btn"><</button>
-            <h1 id="monthTitle">Marzo 2026</h1>
-            <button id="nextMonth" class="nav-btn">></button>
-        </header>
+        <nav class="tabs" role="tablist" aria-label="Vistas">
+            <button id="tabCalendar" class="tab-btn active" role="tab"
+                    aria-selected="true" aria-controls="viewCalendar" data-view="0" tabindex="0">Calendario</button>
+            <button id="tabProjects" class="tab-btn" role="tab"
+                    aria-selected="false" aria-controls="viewProjects" data-view="1" tabindex="-1">Proyectos</button>
+            <span class="tab-indicator" aria-hidden="true"></span>
+        </nav>
 
-        <div class="progress-container">
-            <div class="progress-bar">
-                <div id="progressFill" class="progress-fill"></div>
+        <div id="viewsViewport" class="views-viewport">
+            <div id="viewsTrack" class="views-track">
+                <section id="viewCalendar" class="view" role="tabpanel" aria-labelledby="tabCalendar">
+                    <header class="header">
+                        <button id="prevMonth" class="nav-btn"><</button>
+                        <h1 id="monthTitle">Marzo 2026</h1>
+                        <button id="nextMonth" class="nav-btn">></button>
+                    </header>
+
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                        <span id="progressText" class="progress-text">0%</span>
+                    </div>
+
+                    <div class="calendar">
+                        <div class="weekdays">
+                            <div>Dom</div>
+                            <div>Lun</div>
+                            <div>Mar</div>
+                            <div>Mié</div>
+                            <div>Jue</div>
+                            <div>Vie</div>
+                            <div>Sáb</div>
+                        </div>
+                        <div id="daysGrid" class="days-grid"></div>
+                    </div>
+
+                    <!-- Métricas Section -->
+                    <section class="metrics-section">
+                        <div class="metrics-header">
+                            <h2 class="metrics-title">Métricas</h2>
+                        </div>
+
+                        <div class="streak-container">
+                            <div class="streak-icon">🔥</div>
+                            <div class="streak-info">
+                                <span class="streak-count" id="streakCount">0</span>
+                                <span class="streak-label">días seguidos</span>
+                            </div>
+                        </div>
+
+                        <div class="habit-stats">
+                            <h3 class="stats-title">Este mes</h3>
+                            <div class="stats-grid" id="statsGrid"></div>
+                        </div>
+                    </section>
+                </section>
+
+                <section id="viewProjects" class="view" role="tabpanel" aria-labelledby="tabProjects">
+                    <div class="section-header">
+                        <h2 class="section-title">Proyectos</h2>
+                        <button id="addProjectBtn" class="icon-btn" type="button" aria-label="Nuevo proyecto">+</button>
+                    </div>
+                    <div id="projectsList" class="projects-list"></div>
+                    <p id="projectsEmpty" class="empty-state hidden">
+                        Todavía no tienes proyectos. Usa el botón "+" para crear el primero.
+                    </p>
+                </section>
             </div>
-            <span id="progressText" class="progress-text">0%</span>
         </div>
 
-        <div class="calendar">
-            <div class="weekdays">
-                <div>Dom</div>
-                <div>Lun</div>
-                <div>Mar</div>
-                <div>Mié</div>
-                <div>Jue</div>
-                <div>Vie</div>
-                <div>Sáb</div>
-            </div>
-            <div id="daysGrid" class="days-grid"></div>
-        </div>
-
+        <!-- Hijo directo de .app-container, FUERA del track: showHabitPopover()
+             mide contra .app-container y solo se muestra con el track en la
+             vista Calendario, así que no necesita moverse con el swipe. -->
         <div id="habitPopover" class="habit-popover hidden">
             <div class="popover-date" id="popoverDate"></div>
             <div class="habits-list" id="habitsList"></div>
         </div>
-
-        <!-- Métricas Section -->
-        <section class="metrics-section">
-            <div class="metrics-header">
-                <h2 class="metrics-title">Métricas</h2>
-            </div>
-            
-            <div class="streak-container">
-                <div class="streak-icon">🔥</div>
-                <div class="streak-info">
-                    <span class="streak-count" id="streakCount">0</span>
-                    <span class="streak-label">días seguidos</span>
-                </div>
-            </div>
-
-            <div class="habit-stats">
-                <h3 class="stats-title">Este mes</h3>
-                <div class="stats-grid" id="statsGrid"></div>
-            </div>
-        </section>
-    </div>
-
     </div>
 
     <!-- Usuario logueado - mostrar logout -->
@@ -230,6 +256,56 @@
         </div>
     </div>
 
+    <!-- Modal de Crear/Editar Proyecto -->
+    <div id="projectModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <button class="modal-close" type="button" id="closeProjectModalBtn">&times;</button>
+            <h2 class="modal-title" id="projectModalTitle">Nuevo Proyecto</h2>
+            <form id="projectForm" class="auth-form">
+                <div class="form-group">
+                    <label for="projectName">Nombre</label>
+                    <input type="text" id="projectName" name="name" required maxlength="80" placeholder="Ej: Tesis">
+                </div>
+                <div class="form-group">
+                    <label for="projectDescription">Descripción (opcional)</label>
+                    <input type="text" id="projectDescription" name="description" maxlength="200" placeholder="Ej: Proyecto final de la universidad">
+                </div>
+                <div class="form-group">
+                    <label for="projectIcon">Ícono (emoji, opcional)</label>
+                    <input type="text" id="projectIcon" name="icon" maxlength="4" placeholder="🎯">
+                </div>
+                <div class="form-group">
+                    <label for="projectColor">Color</label>
+                    <input type="color" id="projectColor" name="color" value="#3498db" class="habit-color">
+                </div>
+                <div id="projectFormError" class="form-error hidden"></div>
+                <button type="submit" class="submit-btn" id="saveProjectBtn">Guardar Proyecto</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación para Archivar/Eliminar Proyecto -->
+    <div id="projectActionModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal" style="max-width: 400px;">
+            <h2 class="modal-title">¿Qué quieres hacer?</h2>
+            <p id="projectActionMessage" class="setup-subtitle">Selecciona una opción para el proyecto:</p>
+            <div class="habit-action-options">
+                <button id="archiveProjectBtn" type="button" class="submit-btn btn-warning">
+                    📦 Archivar (mantener historial)
+                </button>
+                <button id="deleteProjectBtn" type="button" class="submit-btn btn-danger">
+                    🗑️ Eliminar (borrar datos)
+                </button>
+                <button id="cancelProjectActionBtn" type="button" class="submit-btn btn-neutral">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
+    <script src="projects.js"></script>
 </body>
 </html>

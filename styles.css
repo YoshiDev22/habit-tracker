@@ -121,6 +121,248 @@ body {
     margin-top: 60px; /* despeja la user-bar fija */
 }
 
+/* ============================================
+   Tabs + swipe (Calendario / Proyectos)
+   ============================================ */
+
+.tabs {
+    position: relative;
+    display: flex;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 12px 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.tab-btn.active {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.tab-indicator {
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    width: 50%;
+    background: var(--accent);
+    transition: transform 0.3s ease;
+}
+
+.views-viewport {
+    overflow-x: hidden;
+    touch-action: pan-y;
+}
+
+.views-track {
+    display: flex;
+    align-items: flex-start;
+    transition: transform 0.3s ease;
+}
+
+.view {
+    flex: 0 0 100%;
+    min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .views-track {
+        transition: none;
+    }
+}
+
+/* Vista de Proyectos */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 0 8px;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.icon-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+}
+
+.icon-btn:hover {
+    background: var(--accent-hover);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.projects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.project-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-surface);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.project-chip {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.project-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.project-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.project-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.project-toggle,
+.project-menu {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.project-toggle:hover,
+.project-menu:hover {
+    background: var(--bg-hover);
+}
+
+.project-toggle[aria-expanded="true"] {
+    transform: rotate(180deg);
+}
+
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 16px 12px 40px;
+    background: var(--bg-surface);
+    border-radius: 0 0 12px 12px;
+    margin-top: -10px;
+}
+
+.task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px;
+}
+
+.task-row .task-check {
+    flex-shrink: 0;
+}
+
+.task-title {
+    flex: 1;
+    font-size: 0.875rem;
+}
+
+.task-row.done .task-title {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.task-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.task-delete:hover {
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+}
+
+.task-add {
+    display: flex;
+    gap: 6px;
+    padding-top: 6px;
+}
+
+.task-add input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+}
+
+.task-add button {
+    background: var(--accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 6px;
+    padding: 0 12px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
 /* Header */
 .header {
     display: flex;

@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from backend.database import create_db_and_tables
-from backend.routers import auth, habits
+from backend.routers import auth, habits, projects, tasks
 
 # Rutas de los archivos frontend (directorio raíz del proyecto)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -44,6 +44,8 @@ app.add_middleware(
 # Incluir routers
 app.include_router(auth.router, prefix="/api/auth")
 app.include_router(habits.router, prefix="/api/habits")
+app.include_router(projects.router, prefix="/api/projects")
+app.include_router(tasks.router, prefix="/api/tasks")
 
 
 def get_frontend_path(filename: str = "index.html") -> str:
@@ -74,6 +76,12 @@ def styles_css():
 def script_js():
     """Serve script.js"""
     return FileResponse(get_frontend_path("script.js"))
+
+
+@app.get("/projects.js")
+def projects_js():
+    """Serve projects.js"""
+    return FileResponse(get_frontend_path("projects.js"))
 
 
 # API info endpoint
