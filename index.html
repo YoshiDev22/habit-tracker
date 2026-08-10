@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Habit Tracker</title>
+    <meta name="theme-color" id="themeColorMeta" content="#fafafa">
+    <script>
+    // Resuelve el tema ANTES del primer paint, para evitar el flash de tema
+    // incorrecto (FOUC). Debe ir antes del <link> de estilos.
+    (function () {
+        var pref = 'system';
+        try { pref = localStorage.getItem('theme') || 'system'; } catch (e) {}
+        var dark = pref === 'dark' || (pref === 'system' &&
+            window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        root.setAttribute('data-theme-pref', pref);
+    })();
+    </script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -136,6 +150,7 @@
 
     <!-- Usuario logueado - mostrar logout -->
     <div id="userBar" class="user-bar hidden">
+        <button id="themeToggle" class="settings-btn" type="button" title="Tema: Sistema" aria-label="Tema: Sistema">🖥️</button>
         <button id="settingsBtn" class="settings-btn">⚙️</button>
         <span id="userEmail"></span>
         <span class="app-version" id="mainVersion"></span>
@@ -202,13 +217,13 @@
             <h2 class="modal-title">¿Qué quieres hacer?</h2>
             <p id="habitActionMessage" class="setup-subtitle">Selecciona una opción para el hábito:</p>
             <div class="habit-action-options">
-                <button id="hideHabitBtn" class="submit-btn" style="background: #f39c12;">
+                <button id="hideHabitBtn" class="submit-btn btn-warning">
                     👁️ Ocultar (mantener historial)
                 </button>
-                <button id="deleteHabitBtn" class="submit-btn" style="background: #e74c3c;">
+                <button id="deleteHabitBtn" class="submit-btn btn-danger">
                     🗑️ Eliminar (borrar datos)
                 </button>
-                <button id="cancelHabitBtn" class="submit-btn" style="background: #95a5a6;">
+                <button id="cancelHabitBtn" class="submit-btn btn-neutral">
                     Cancelar
                 </button>
             </div>

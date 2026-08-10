@@ -5,19 +5,103 @@
 }
 
 :root {
-    --bg-color: #fafafa;
-    --text-color: #333;
+    color-scheme: light;
+
+    --bg-app: #fafafa;
+    --bg-surface: #ffffff;
+    --bg-surface-2: #f8f9fa;
+    --bg-surface-3: #e9ecef;
+    --bg-hover: #f0f0f0;
+    --bg-disabled: #eeeeee;
+    --bg-overlay: rgba(0, 0, 0, 0.5);
+
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-muted: #888888;
+    --text-on-accent: #ffffff;
+
     --border-color: #e0e0e0;
-    --hover-color: #f0f0f0;
-    
-    --habit-study: #e74c3c;
-    --habit-capoeira: #27ae60;
-    --habit-reading: #3498db;
-    --habit-diet: #2c3e50;
-    --habit-others: #95a5a6;
-    
+    --border-strong: #dddddd;
+    --focus-ring: rgba(102, 126, 234, 0.1);
+
+    --accent: #667eea;
+    --accent-hover: #5568d3;
+    --accent-soft: rgba(102, 126, 234, 0.4);
+
+    --danger-bg: #fee2e2;
+    --danger-fg: #dc2626;
+    --danger-solid: #e74c3c;
+    --warning-solid: #f39c12;
+    --neutral-solid: #95a5a6;
+
+    --streak-bg: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    --streak-count-color: #e65100;
+    --streak-label-color: #bf360c;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+    --dot-inactive: #cccccc;
     --dot-size: 6px;
     --dot-gap: 3px;
+
+    /* Alias de compatibilidad: el resto del archivo sigue usando estos
+       nombres, así que no hace falta tocar cada sitio que los consume. */
+    --bg-color: var(--bg-app);
+    --text-color: var(--text-primary);
+    --hover-color: var(--bg-hover);
+}
+
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    --bg-app: #14161a;
+    --bg-surface: #1e2127;
+    --bg-surface-2: #262a32;
+    --bg-surface-3: #323741;
+    --bg-hover: #2a2f38;
+    --bg-disabled: #20242b;
+    --bg-overlay: rgba(0, 0, 0, 0.65);
+
+    --text-primary: #e6e8ec;
+    --text-secondary: #a8adb8;
+    --text-muted: #7a8090;
+    --text-on-accent: #ffffff;
+
+    --border-color: #333944;
+    --border-strong: #414855;
+    --focus-ring: rgba(129, 140, 248, 0.25);
+
+    --accent: #7c83f5;
+    --accent-hover: #8f95f7;
+    --accent-soft: rgba(124, 131, 245, 0.35);
+
+    --danger-bg: #3f1d1d;
+    --danger-fg: #f87171;
+    --danger-solid: #e05a4d;
+    --warning-solid: #e0a53a;
+    --neutral-solid: #6c7a7b;
+
+    --streak-bg: linear-gradient(135deg, #3a2a12 0%, #4a3418 100%);
+    --streak-count-color: #ffb74d;
+    --streak-label-color: #ffcc80;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.7);
+
+    --dot-inactive: #3a3f4a;
+}
+
+/* Anillo sutil para que colores de hábito muy oscuros (elegidos por el
+   usuario) no se pierdan sobre una superficie oscura. No se toca el color
+   elegido, solo se le da un borde de contraste. */
+[data-theme="dark"] .habit-dot.active,
+[data-theme="dark"] .stat-dot {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 body {
@@ -34,6 +118,7 @@ body {
     width: 100%;
     max-width: 600px;
     position: relative;
+    margin-top: 60px; /* despeja la user-bar fija */
 }
 
 /* Header */
@@ -100,10 +185,10 @@ body {
 
 /* Calendar */
 .calendar {
-    background-color: white;
+    background-color: var(--bg-surface);
     border-radius: 16px;
     padding: 16px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .weekdays {
@@ -112,7 +197,7 @@ body {
     text-align: center;
     font-size: 0.75rem;
     font-weight: 500;
-    color: #888;
+    color: var(--text-muted);
     margin-bottom: 8px;
 }
 
@@ -173,22 +258,16 @@ body {
     width: var(--dot-size);
     height: var(--dot-size);
     border-radius: 50%;
-    background-color: var(--border-color);
+    background-color: var(--dot-inactive);
 }
-
-.habit-dot.active.study { background-color: var(--habit-study); }
-.habit-dot.active.capoeira { background-color: var(--habit-capoeira); }
-.habit-dot.active.reading { background-color: var(--habit-reading); }
-.habit-dot.active.diet { background-color: var(--habit-diet); }
-.habit-dot.active.others { background-color: var(--habit-others); }
 
 /* Habit Popover */
 .habit-popover {
     position: absolute;
-    background-color: white;
+    background-color: var(--bg-surface);
     border-radius: 12px;
     padding: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--shadow-lg);
     z-index: 100;
     min-width: 180px;
     transform: translateX(-50%);
@@ -200,7 +279,7 @@ body {
 
 .popover-date {
     font-size: 0.75rem;
-    color: #888;
+    color: var(--text-muted);
     margin-bottom: 12px;
     text-align: center;
 }
@@ -223,6 +302,7 @@ body {
     transition: background-color 0.15s ease;
     width: 100%;
     text-align: left;
+    color: var(--text-color);
 }
 
 .habit-btn:hover {
@@ -235,21 +315,9 @@ body {
     flex-shrink: 0;
 }
 
-.habit-btn .habit-dot.study { background-color: var(--habit-study); }
-.habit-btn .habit-dot.capoeira { background-color: var(--habit-capoeira); }
-.habit-btn .habit-dot.reading { background-color: var(--habit-reading); }
-.habit-btn .habit-dot.diet { background-color: var(--habit-diet); }
-.habit-btn .habit-dot.others { background-color: var(--habit-others); }
-
 .habit-btn.completed .habit-dot {
-    box-shadow: 0 0 0 2px white, 0 0 0 4px currentColor;
+    box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px currentColor;
 }
-
-.habit-btn.completed.study { color: var(--habit-study); }
-.habit-btn.completed.capoeira { color: var(--habit-capoeira); }
-.habit-btn.completed.reading { color: var(--habit-reading); }
-.habit-btn.completed.diet { color: var(--habit-diet); }
-.habit-btn.completed.others { color: var(--habit-others); }
 
 .habit-label {
     font-size: 0.875rem;
@@ -260,38 +328,38 @@ body {
     body {
         padding: 12px;
     }
-    
+
     .header h1 {
         font-size: 1.25rem;
     }
-    
+
     .calendar {
         padding: 12px;
     }
-    
+
     .day-cell {
         min-height: 44px;
     }
-    
+
     .day-number {
         font-size: 0.75rem;
     }
-    
+
     .habit-dot {
         width: 5px;
         height: 5px;
     }
-    
+
     .habit-popover {
         min-width: 160px;
         padding: 10px;
     }
-    
+
     /* Métricas responsive */
     .metrics-section {
         padding: 12px;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -303,10 +371,10 @@ body {
 
 .metrics-section {
     margin-top: 24px;
-    background-color: white;
+    background-color: var(--bg-surface);
     border-radius: 16px;
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .metrics-header {
@@ -325,7 +393,7 @@ body {
     align-items: center;
     gap: 12px;
     padding: 16px;
-    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    background: var(--streak-bg);
     border-radius: 12px;
     margin-bottom: 20px;
 }
@@ -342,13 +410,13 @@ body {
 .streak-count {
     font-size: 1.75rem;
     font-weight: 700;
-    color: #e65100;
+    color: var(--streak-count-color);
     line-height: 1;
 }
 
 .streak-label {
     font-size: 0.75rem;
-    color: #bf360c;
+    color: var(--streak-label-color);
     margin-top: 2px;
 }
 
@@ -360,7 +428,7 @@ body {
 .stats-title {
     font-size: 0.75rem;
     font-weight: 500;
-    color: #888;
+    color: var(--text-muted);
     margin-bottom: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -393,12 +461,6 @@ body {
     margin-bottom: 8px;
 }
 
-.stat-dot.study { background-color: var(--habit-study); }
-.stat-dot.capoeira { background-color: var(--habit-capoeira); }
-.stat-dot.reading { background-color: var(--habit-reading); }
-.stat-dot.diet { background-color: var(--habit-diet); }
-.stat-dot.others { background-color: var(--habit-others); }
-
 .stat-value {
     font-size: 1.25rem;
     font-weight: 600;
@@ -407,7 +469,7 @@ body {
 
 .stat-label {
     font-size: 0.625rem;
-    color: #888;
+    color: var(--text-muted);
     margin-top: 2px;
     text-align: center;
 }
@@ -431,6 +493,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Splash de marca: se deja igual en ambos temas a propósito. */
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     z-index: 999;
 }
@@ -441,10 +504,10 @@ body {
 
 .auth-container {
     text-align: center;
-    background: white;
+    background: var(--bg-surface);
     padding: 40px;
     border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-xl);
     max-width: 400px;
     width: 100%;
     margin: 20px;
@@ -456,12 +519,12 @@ body {
 
 .auth-title {
     font-size: 2rem;
-    color: #333;
+    color: var(--text-primary);
     margin: 0 0 8px 0;
 }
 
 .auth-subtitle {
-    color: #666;
+    color: var(--text-secondary);
     margin: 0;
 }
 
@@ -472,7 +535,7 @@ body {
 }
 
 .app-version {
-    color: #aaa;
+    color: var(--text-muted);
     font-size: 0.75rem;
     margin: 24px 0 0 0;
 }
@@ -488,25 +551,25 @@ body {
 }
 
 .auth-btn.primary {
-    background: #667eea;
-    color: white;
+    background: var(--accent);
+    color: var(--text-on-accent);
 }
 
 .auth-btn.primary:hover {
-    background: #5568d3;
+    background: var(--accent-hover);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px var(--accent-soft);
 }
 
 .auth-btn.secondary {
     background: transparent;
-    color: #667eea;
-    border: 2px solid #667eea;
+    color: var(--accent);
+    border: 2px solid var(--accent);
 }
 
 .auth-btn.secondary:hover {
-    background: #667eea;
-    color: white;
+    background: var(--accent);
+    color: var(--text-on-accent);
 }
 
 /* Modales */
@@ -532,16 +595,16 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--bg-overlay);
     backdrop-filter: blur(4px);
 }
 
 .modal-content {
     position: relative;
-    background: white;
+    background: var(--bg-surface);
     padding: 32px;
     border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-xl);
     max-width: 400px;
     width: 90%;
     animation: modalSlideIn 0.3s ease;
@@ -565,7 +628,7 @@ body {
     background: none;
     border: none;
     font-size: 24px;
-    color: #999;
+    color: var(--text-muted);
     cursor: pointer;
     width: 32px;
     height: 32px;
@@ -577,13 +640,13 @@ body {
 }
 
 .modal-close:hover {
-    background: #f5f5f5;
-    color: #333;
+    background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .modal-title {
     font-size: 1.5rem;
-    color: #333;
+    color: var(--text-primary);
     margin: 0 0 24px 0;
     text-align: center;
 }
@@ -603,31 +666,33 @@ body {
 
 .form-group label {
     font-size: 0.9rem;
-    color: #555;
+    color: var(--text-secondary);
     font-weight: 500;
 }
 
 .form-group input {
     padding: 12px 16px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--border-color);
     border-radius: 8px;
     font-size: 1rem;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
     transition: all 0.3s ease;
 }
 
 .form-group input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .form-group input::placeholder {
-    color: #aaa;
+    color: var(--text-muted);
 }
 
 .form-error {
-    background: #fee2e2;
-    color: #dc2626;
+    background: var(--danger-bg);
+    color: var(--danger-fg);
     padding: 12px;
     border-radius: 8px;
     font-size: 0.9rem;
@@ -640,8 +705,8 @@ body {
 
 .submit-btn {
     padding: 14px 24px;
-    background: #667eea;
-    color: white;
+    background: var(--accent);
+    color: var(--text-on-accent);
     border: none;
     border-radius: 8px;
     font-size: 1rem;
@@ -652,25 +717,39 @@ body {
 }
 
 .submit-btn:hover {
-    background: #5568d3;
+    background: var(--accent-hover);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px var(--accent-soft);
 }
 
 .submit-btn:active {
     transform: translateY(0);
 }
 
+/* Variantes de color para submit-btn, usadas en el modal de confirmación
+   de hábitos (antes eran style="background:..." inline). */
+.btn-warning {
+    background: var(--warning-solid);
+}
+
+.btn-danger {
+    background: var(--danger-solid);
+}
+
+.btn-neutral {
+    background: var(--neutral-solid);
+}
+
 .auth-switch {
     text-align: center;
     margin-top: 20px;
-    color: #666;
+    color: var(--text-secondary);
 }
 
 .link-btn {
     background: none;
     border: none;
-    color: #667eea;
+    color: var(--accent);
     font-weight: 600;
     cursor: pointer;
     font-size: inherit;
@@ -684,7 +763,7 @@ body {
     text-align: center;
     padding: 10px;
     font-size: 12px;
-    color: #666;
+    color: var(--text-secondary);
 }
 
 .habit-action-options {
@@ -703,12 +782,12 @@ body {
     position: fixed;
     top: 0;
     right: 0;
-    background: white;
+    background: var(--bg-surface);
     padding: 12px 20px;
     display: flex;
     align-items: center;
     gap: 16px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     z-index: 100;
     border-radius: 0 0 0 16px;
 }
@@ -718,14 +797,14 @@ body {
 }
 
 #userEmail {
-    color: #666;
+    color: var(--text-secondary);
     font-size: 0.9rem;
 }
 
 .logout-btn {
     padding: 8px 16px;
-    background: #f5f5f5;
-    color: #666;
+    background: var(--bg-hover);
+    color: var(--text-secondary);
     border: none;
     border-radius: 6px;
     font-size: 0.85rem;
@@ -734,16 +813,11 @@ body {
 }
 
 .logout-btn:hover {
-    background: #e0e0e0;
-    color: #333;
+    background: var(--border-color);
+    color: var(--text-primary);
 }
 
-/* App container adjustments for fixed user bar */
-.app-container {
-    margin-top: 60px;
-}
-
-/* Settings button */
+/* Settings button (también usado por el toggle de tema) */
 .settings-btn {
     background: none;
     border: none;
@@ -755,7 +829,7 @@ body {
 }
 
 .settings-btn:hover {
-    background: #f0f0f0;
+    background: var(--hover-color);
 }
 
 /* Setup Modal */
@@ -765,7 +839,7 @@ body {
 
 .setup-subtitle {
     text-align: center;
-    color: #666;
+    color: var(--text-secondary);
     margin-bottom: 24px;
 }
 
@@ -781,14 +855,14 @@ body {
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    background: #f8f9fa;
+    background: var(--bg-surface-2);
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .habit-option:hover {
-    background: #e9ecef;
+    background: var(--bg-surface-3);
 }
 
 .habit-option input[type="checkbox"] {
@@ -798,7 +872,7 @@ body {
 .habit-check {
     width: 20px;
     height: 20px;
-    border: 2px solid #ddd;
+    border: 2px solid var(--border-strong);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -807,13 +881,13 @@ body {
 }
 
 .habit-option input[type="checkbox"]:checked + .habit-check {
-    background: #667eea;
-    border-color: #667eea;
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 .habit-option input[type="checkbox"]:checked + .habit-check::after {
     content: '✓';
-    color: white;
+    color: var(--text-on-accent);
     font-size: 12px;
 }
 
@@ -825,18 +899,20 @@ body {
     flex: 1;
     min-width: 120px;
     padding: 8px 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-strong);
     border-radius: 4px;
     font-size: 0.9rem;
+    background: var(--bg-surface);
+    color: var(--text-primary);
 }
 
 .habit-option input[type="text"]:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--accent);
 }
 
 .habit-option input[type="text"]:disabled {
-    background: #eee;
+    background: var(--bg-disabled);
     cursor: not-allowed;
 }
 
@@ -855,17 +931,17 @@ body {
 }
 
 .habit-color::-webkit-color-swatch {
-    border: 2px solid #ddd;
+    border: 2px solid var(--border-strong);
     border-radius: 50%;
 }
 
 .add-custom-btn {
     width: 30px;
     height: 30px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--accent);
     border-radius: 50%;
-    background: white;
-    color: #667eea;
+    background: var(--bg-surface);
+    color: var(--accent);
     font-size: 1.2rem;
     font-weight: bold;
     cursor: pointer;
@@ -879,15 +955,15 @@ body {
 }
 
 .add-custom-btn:hover {
-    background: #667eea;
-    color: white;
+    background: var(--accent);
+    color: var(--text-on-accent);
 }
 
 .add-custom-btn:disabled {
-    border-color: #ddd;
-    color: #ddd;
+    border-color: var(--border-strong);
+    color: var(--border-strong);
     cursor: not-allowed;
-    background: #f5f5f5;
+    background: var(--bg-hover);
 }
 
 .dynamic-habit-row {
@@ -910,8 +986,8 @@ body {
     height: 24px;
     border: none;
     border-radius: 50%;
-    background: #fee2e2;
-    color: #dc2626;
+    background: var(--danger-bg);
+    color: var(--danger-fg);
     font-size: 0.9rem;
     cursor: pointer;
     padding: 0;
@@ -923,8 +999,8 @@ body {
 }
 
 .remove-habit-btn:hover {
-    background: #dc2626;
-    color: white;
+    background: var(--danger-fg);
+    color: var(--text-on-accent);
 }
 
 /* ============================================
@@ -935,15 +1011,15 @@ body {
     .auth-container {
         padding: 24px;
     }
-    
+
     .auth-title {
         font-size: 1.5rem;
     }
-    
+
     .modal-content {
         padding: 24px;
     }
-    
+
     .user-bar {
         padding: 8px 12px;
         gap: 8px;

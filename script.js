@@ -1272,7 +1272,9 @@ function renderCalendar() {
                 dot.classList.add('active');
                 dot.style.backgroundColor = habitColor;
             } else {
-                dot.style.backgroundColor = '#ccc'; // Gris para no completados
+                // Sin color inline: .habit-dot ya trae var(--dot-inactive) en CSS,
+                // así el punto sigue el tema en vez de quedar gris fijo.
+                dot.style.backgroundColor = '';
             }
             
             dotsContainer.appendChild(dot);
@@ -1321,7 +1323,7 @@ function showHabitPopover(dateKey, targetCell) {
         if (dot) {
             const savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
             const habitColor = savedColors[habit] || '#3498db';
-            dot.style.backgroundColor = isCompleted ? habitColor : '#ccc';
+            dot.style.backgroundColor = isCompleted ? habitColor : '';
         }
     });
     
@@ -1498,16 +1500,90 @@ function renderHabitPopoverButtons() {
 function loadSavedColors() {
     // Cargar colores guardados y renderizar popover
     renderHabitPopoverButtons();
-    
-    const savedColors = localStorage.getItem('habit_colors');
-    if (savedColors) {
-        const colors = JSON.parse(savedColors);
-        // Actualizar variables CSS con los colores guardados
-        Object.keys(colors).forEach(habit => {
-            document.documentElement.style.setProperty(`--habit-${habit}`, colors[habit]);
-        });
+}
+
+// ============================================
+// Modo oscuro
+// ============================================
+
+const THEME_CYCLE = ['system', 'light', 'dark'];
+const THEME_ICONS = { system: '🖥️', light: '☀️', dark: '🌙' };
+const THEME_LABELS = { system: 'Sistema', light: 'Claro', dark: 'Oscuro' };
+
+const themeToggleBtn = document.getElementById('themeToggle');
+const themeColorMeta = document.getElementById('themeColorMeta');
+
+function getSystemPrefersDark() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
+function getThemePref() {
+    try {
+        return localStorage.getItem('theme') || 'system';
+    } catch (e) {
+        return 'system';
     }
 }
+
+function setThemePref(pref) {
+    try {
+        localStorage.setItem('theme', pref);
+    } catch (e) {
+        // localStorage puede lanzar en navegación privada; el tema
+        // simplemente no persiste entre recargas en ese caso.
+    }
+}
+
+function applyTheme(pref) {
+    const dark = pref === 'dark' || (pref === 'system' && getSystemPrefersDark());
+    const root = document.documentElement;
+    root.setAttribute('data-theme', dark ? 'dark' : 'light');
+    root.setAttribute('data-theme-pref', pref);
+
+    if (themeColorMeta) {
+        themeColorMeta.setAttribute('content', dark ? '#14161a' : '#fafafa');
+    }
+    if (themeToggleBtn) {
+        themeToggleBtn.textContent = THEME_ICONS[pref];
+        const label = `Tema: ${THEME_LABELS[pref]}`;
+        themeToggleBtn.title = label;
+        themeToggleBtn.setAttribute('aria-label', label);
+    }
+}
+
+function cycleTheme() {
+    const current = getThemePref();
+    const next = THEME_CYCLE[(THEME_CYCLE.indexOf(current) + 1) % THEME_CYCLE.length];
+    setThemePref(next);
+    applyTheme(next);
+}
+
+function initTheme() {
+    // El <script> inline en <head> ya aplicó el tema antes del primer paint;
+    // esto solo sincroniza el ícono/label del botón y engancha los listeners.
+    applyTheme(getThemePref());
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', cycleTheme);
+    }
+
+    if (window.matchMedia) {
+        const mql = window.matchMedia('(prefers-color-scheme: dark)');
+        const onSystemChange = () => {
+            // Solo re-aplicar si el usuario sigue en modo "sistema"
+            if (getThemePref() === 'system') {
+                applyTheme('system');
+            }
+        };
+        if (typeof mql.addEventListener === 'function') {
+            mql.addEventListener('change', onSystemChange);
+        } else if (typeof mql.addListener === 'function') {
+            mql.addListener(onSystemChange); // Safari viejo
+        }
+    }
+}
+
+window.appInitHooks.push(initTheme);
 
 // Inicializar estado disabled de campos custom
 customHabitInput.disabled = true;
