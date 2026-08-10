@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User, Project, Task
+from backend.models import User, Project, Task, PomodoroSession
 from backend.schemas import TaskCreate, TaskUpdate, TaskResponse, TaskListResponse
 from backend.auth import get_current_user
 
@@ -147,8 +147,17 @@ def delete_task(
             detail="Tarea no encontrada"
         )
 
-    # TODO Fase 3 (Pomodoro): en vez de borrar sesiones de esta tarea,
-    # ponerles task_id=NULL para conservar el total histórico del proyecto.
+    # El tiempo sigue siendo real aunque la tarea se borre: conservamos las
+    # sesiones (y el total del proyecto), solo se les quita la referencia.
+    pomodoro_sessions = session.exec(
+        select(PomodoroSession).where(
+            PomodoroSession.task_id == task_id,
+            PomodoroSession.user_id == current_user.id
+        )
+    ).all()
+    for s in pomodoro_sessions:
+        s.task_id = None
+        session.add(s)
 
     session.delete(task)
     session.commit()

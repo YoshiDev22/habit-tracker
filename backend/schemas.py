@@ -1,6 +1,6 @@
 from sqlmodel import Field, SQLModel
 from typing import Optional, Dict, List
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 from sqlalchemy import JSON
 
 
@@ -222,3 +222,53 @@ class TaskListResponse(SQLModel):
     """Lista de tareas"""
     tasks: List[TaskResponse]
     total: int
+
+
+# ==================== Pomodoro Schemas ====================
+
+class PomodoroSessionCreate(SQLModel):
+    """Esquema para registrar una sesión de pomodoro ya finalizada"""
+    project_id: Optional[int] = None
+    task_id: Optional[int] = None
+    session_date: date_type
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: int
+    planned_seconds: Optional[int] = 1500
+    mode: Optional[str] = "focus"
+    was_completed: Optional[bool] = True
+    note: Optional[str] = None
+
+
+class PomodoroSessionResponse(SQLModel):
+    """Esquema de respuesta para una sesión de pomodoro"""
+    id: int
+    project_id: Optional[int] = None
+    task_id: Optional[int] = None
+    session_date: date_type
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: int
+    planned_seconds: int
+    mode: str
+    was_completed: bool
+    note: Optional[str] = None
+    created_at: date_type
+
+    class Config:
+        from_attributes = True
+
+
+class PomodoroSessionListResponse(SQLModel):
+    """Lista de sesiones de pomodoro"""
+    sessions: List[PomodoroSessionResponse]
+    total: int
+
+
+class PomodoroStatsResponse(SQLModel):
+    """Estadísticas agregadas de pomodoros"""
+    total_seconds: int
+    session_count: int
+    today_seconds: int
+    by_project: Dict[str, int]
+    by_date: Dict[str, int]

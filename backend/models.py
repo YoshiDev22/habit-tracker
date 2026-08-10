@@ -108,3 +108,37 @@ class Task(SQLModel, table=True):
 
     completed_at: Optional[date_type] = Field(default=None)
     created_at: date_type = Field(default_factory=date_type.today)
+
+
+class PomodoroSession(SQLModel, table=True):
+    """
+    Registro de una sesión de pomodoro. Append-only (no se edita, solo se
+    crea o se borra). Tabla NUEVA, aditiva — ver nota en Project.
+    """
+    __tablename__ = "pomodoro_sessions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    project_id: Optional[int] = Field(default=None, foreign_key="projects.id", index=True)
+    task_id: Optional[int] = Field(default=None, foreign_key="tasks.id", index=True)
+
+    # Fecha LOCAL del usuario, calculada en el cliente (getDateKey()) y no
+    # derivada de started_at en el servidor: agrupar por date(started_at)
+    # archivaría sesiones nocturnas bajo el día equivocado según el huso
+    # horario del usuario. Toda la agregación por día/mes usa esta columna.
+    session_date: date_type = Field(index=True)
+
+    # UTC naive, igual que backend/auth.py (datetime.utcnow()). El cliente
+    # nunca parsea estos valores para la lógica del timer (solo Date.now()
+    # + localStorage), evitando el problema de que un datetime naive se
+    # interprete como hora local al hacer new Date(...) en el navegador.
+    started_at: datetime = Field()
+    ended_at: datetime = Field()
+
+    duration_seconds: int = Field()  # medido, no planeado
+    planned_seconds: int = Field(default=1500)
+    mode: str = Field(default="focus", index=True)  # focus | short_break | long_break
+    was_completed: bool = Field(default=True)
+    note: Optional[str] = Field(default=None)
+
+    created_at: date_type = Field(default_factory=date_type.today)

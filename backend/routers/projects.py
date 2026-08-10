@@ -1,9 +1,9 @@
-from typing import Optional, Dict
+from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User, Project, Task
+from backend.models import User, Project, Task, PomodoroSession
 from backend.schemas import (
     ProjectCreate,
     ProjectUpdate,
@@ -86,8 +86,8 @@ def get_projects_summary(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Resumen por proyecto: progreso de tareas y tiempo dedicado.
-    total_seconds/session_count quedan en 0 hasta que exista Pomodoro.
+    Resumen por proyecto: progreso de tareas y tiempo dedicado (suma de
+    PomodoroSession con mode='focus').
     """
     projects = session.exec(
         select(Project).where(
@@ -100,9 +100,24 @@ def get_projects_summary(
         select(Task).where(Task.user_id == current_user.id)
     ).all()
 
+    pomodoro_sessions = session.exec(
+        select(PomodoroSession).where(
+            PomodoroSession.user_id == current_user.id,
+            PomodoroSession.mode == "focus"
+        )
+    ).all()
+
     tasks_by_project: Dict[int, list] = {}
     for t in tasks:
         tasks_by_project.setdefault(t.project_id, []).append(t)
+
+    seconds_by_project: Dict[int, int] = {}
+    sessions_by_project: Dict[int, int] = {}
+    for s in pomodoro_sessions:
+        if s.project_id is None:
+            continue
+        seconds_by_project[s.project_id] = seconds_by_project.get(s.project_id, 0) + s.duration_seconds
+        sessions_by_project[s.project_id] = sessions_by_project.get(s.project_id, 0) + 1
 
     summaries = []
     for p in projects:
@@ -113,8 +128,8 @@ def get_projects_summary(
             color=p.color,
             task_total=len(project_tasks),
             task_done=sum(1 for t in project_tasks if t.is_done),
-            total_seconds=0,
-            session_count=0,
+            total_seconds=seconds_by_project.get(p.id, 0),
+            session_count=sessions_by_project.get(p.id, 0),
         ))
 
     return ProjectSummaryListResponse(summaries=summaries, total=len(summaries))
@@ -224,7 +239,14 @@ def delete_project(
     for t in tasks:
         session.delete(t)
 
-    # TODO Fase 3 (Pomodoro): borrar también las PomodoroSession de este proyecto aquí.
+    pomodoro_sessions = session.exec(
+        select(PomodoroSession).where(
+            PomodoroSession.project_id == project_id,
+            PomodoroSession.user_id == current_user.id
+        )
+    ).all()
+    for s in pomodoro_sessions:
+        session.delete(s)
 
     session.delete(project)
     session.commit()

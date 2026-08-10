@@ -153,6 +153,36 @@
                 </section>
 
                 <section id="viewProjects" class="view" role="tabpanel" aria-labelledby="tabProjects">
+                    <div class="pomodoro-card">
+                        <div class="pomodoro-modes">
+                            <button type="button" class="pomodoro-mode-btn active" data-mode="focus">Enfoque</button>
+                            <button type="button" class="pomodoro-mode-btn" data-mode="short_break">Descanso</button>
+                            <button type="button" class="pomodoro-mode-btn" data-mode="long_break">Descanso largo</button>
+                        </div>
+
+                        <div class="pomodoro-display" id="pomoDisplay" role="timer" aria-live="off">25:00</div>
+                        <p class="pomodoro-status" id="pomoStatus" aria-live="polite"></p>
+
+                        <div class="pomodoro-selects">
+                            <select id="pomoProjectSelect" aria-label="Proyecto">
+                                <option value="">Sin proyecto</option>
+                            </select>
+                            <select id="pomoTaskSelect" aria-label="Tarea" disabled>
+                                <option value="">Sin tarea</option>
+                            </select>
+                        </div>
+
+                        <div class="pomodoro-controls">
+                            <button type="button" id="pomoStartBtn" class="submit-btn">Iniciar</button>
+                            <button type="button" id="pomoPauseBtn" class="submit-btn btn-neutral hidden">Pausar</button>
+                            <button type="button" id="pomoStopBtn" class="submit-btn btn-danger hidden">Detener</button>
+                            <button type="button" id="pomoSoundBtn" class="icon-btn" aria-label="Sonido activado" title="Sonido activado">🔊</button>
+                        </div>
+
+                        <p class="pomodoro-today" id="pomoToday">Hoy: 0m</p>
+                        <p class="pomodoro-note">El sonido solo suena si esta pestaña está activa.</p>
+                    </div>
+
                     <div class="section-header">
                         <h2 class="section-title">Proyectos</h2>
                         <button id="addProjectBtn" class="icon-btn" type="button" aria-label="Nuevo proyecto">+</button>
@@ -181,6 +211,18 @@
         <span id="userEmail"></span>
         <span class="app-version" id="mainVersion"></span>
         <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
+    </div>
+
+    <!-- Hijo directo de <body>, NUNCA de una vista dentro del track de swipe:
+         el transform del track rompería un position:fixed anidado ahí. -->
+    <div id="pomodoroBar" class="pomodoro-bar hidden">
+        <div class="pomodoro-bar-progress" id="pomodoroBarProgress"></div>
+        <div class="pomodoro-bar-content">
+            <span class="pomodoro-bar-label" id="pomodoroBarLabel">Enfoque</span>
+            <span class="pomodoro-bar-time" id="pomodoroBarTime">25:00</span>
+            <button type="button" class="pomodoro-bar-btn" id="pomodoroBarPauseBtn" aria-label="Pausar">⏸</button>
+            <button type="button" class="pomodoro-bar-btn" id="pomodoroBarStopBtn" aria-label="Detener">■</button>
+        </div>
     </div>
 
     <!-- Popup de Bienvenida / Configuración de Hábitos -->
@@ -307,5 +349,6 @@
 
     <script src="script.js"></script>
     <script src="projects.js"></script>
+    <script src="pomodoro.js"></script>
 </body>
 </html>
