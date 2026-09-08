@@ -82,6 +82,21 @@
                     <label for="registerConfirmPassword">Confirmar Contraseña</label>
                     <input type="password" id="registerConfirmPassword" name="confirmPassword" required placeholder="••••••••" minlength="6">
                 </div>
+
+                <p class="form-hint">Opcional: para que la app te llame por tu alias en vez de por tu correo.</p>
+                <div class="form-group">
+                    <label for="registerDisplayName">Alias</label>
+                    <input type="text" id="registerDisplayName" name="displayName" placeholder="Cómo quieres que te llamemos" maxlength="40">
+                </div>
+                <div class="form-group">
+                    <label for="registerFirstName">Nombre</label>
+                    <input type="text" id="registerFirstName" name="firstName" placeholder="Tu nombre" maxlength="60">
+                </div>
+                <div class="form-group">
+                    <label for="registerLastName">Apellido</label>
+                    <input type="text" id="registerLastName" name="lastName" placeholder="Tus apellidos" maxlength="60">
+                </div>
+
                 <div id="registerError" class="form-error hidden"></div>
                 <button type="submit" class="submit-btn">Crear Cuenta</button>
             </form>

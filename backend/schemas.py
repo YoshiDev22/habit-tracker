@@ -10,6 +10,9 @@ class UserCreate(SQLModel):
     """Esquema para crear usuario"""
     email: str
     password: str
+    display_name: Optional[str] = Field(default=None, max_length=40)
+    first_name: Optional[str] = Field(default=None, max_length=60)
+    last_name: Optional[str] = Field(default=None, max_length=60)
 
 
 class UserResponse(SQLModel):
@@ -17,6 +20,9 @@ class UserResponse(SQLModel):
     id: int
     email: str
     is_active: bool
+    display_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 
 class Token(SQLModel):

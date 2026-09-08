@@ -17,6 +17,13 @@ from backend.auth import (
 router = APIRouter(tags=["auth"])
 
 
+def clean_optional(value):
+    """Un campo opcional en blanco se guarda como NULL, no como cadena vacía"""
+    if value is None:
+        return None
+    return value.strip() or None
+
+
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, session: Session = Depends(get_session)):
     """
@@ -35,7 +42,10 @@ def register(user: UserCreate, session: Session = Depends(get_session)):
     hashed_password = get_password_hash(user.password)
     new_user = User(
         email=user.email,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        display_name=clean_optional(user.display_name),
+        first_name=clean_optional(user.first_name),
+        last_name=clean_optional(user.last_name)
     )
     
     session.add(new_user)

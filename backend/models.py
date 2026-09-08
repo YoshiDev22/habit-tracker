@@ -13,6 +13,12 @@ class User(SQLModel, table=True):
     hashed_password: str
     is_active: bool = Field(default=True)
 
+    # Perfil, todo opcional y solo cosmético: el login sigue siendo por email.
+    # Nullable a propósito, para que las cuentas que ya existen sigan valiendo.
+    display_name: Optional[str] = Field(default=None)
+    first_name: Optional[str] = Field(default=None)
+    last_name: Optional[str] = Field(default=None)
+
 
 class HabitEntry(SQLModel, table=True):
     """Modelo de Entrada de Hábito (día específico) — se mantiene sin cambios"""

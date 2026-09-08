@@ -1107,6 +1107,14 @@ body.has-pomodoro-bar {
     color: var(--text-muted);
 }
 
+.form-hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+}
+
 .form-error {
     background: var(--danger-bg);
     color: var(--danger-fg);

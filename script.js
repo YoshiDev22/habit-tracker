@@ -177,9 +177,19 @@ function showError(errorDiv, message) {
     errorDiv.classList.remove('hidden');
 }
 
+// Cómo llamar al usuario en la UI. En cascada, para que las cuentas que ya
+// existen —sin alias ni nombre— tampoco enseñen el correo entero.
+function getUserLabel(user) {
+    if (!user) {
+        return '';
+    }
+    return user.display_name || user.first_name || (user.email || '').split('@')[0];
+}
+
 function updateUserBar() {
     if (currentUser) {
-        userEmail.textContent = currentUser.email;
+        userEmail.textContent = getUserLabel(currentUser);
+        userEmail.title = currentUser.email || '';
     }
 }
 
@@ -202,14 +212,14 @@ async function loadAppVersion() {
 // Funciones de API - Auth
 // ============================================
 
-async function register(email, password) {
+async function register(email, password, profile = {}) {
     try {
         const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password, ...profile })
         });
 
         const data = await response.json();
@@ -274,7 +284,11 @@ async function handleRegister(event) {
     }
 
     try {
-        const user = await register(email, password);
+        const user = await register(email, password, {
+            display_name: document.getElementById('registerDisplayName').value,
+            first_name: document.getElementById('registerFirstName').value,
+            last_name: document.getElementById('registerLastName').value
+        });
         
         // Después de registro exitoso, hacer login automáticamente
         const tokenData = await login(email, password);
@@ -303,9 +317,10 @@ async function handleLogin(event) {
     try {
         const tokenData = await login(email, password);
         saveToken(tokenData.access_token);
-        
-        // Obtener info del usuario (del token decodificado o hacer una llamada)
-        currentUser = { email: email };
+
+        // El login solo devuelve el token, sin datos del usuario: el alias y el
+        // nombre salen de /me, igual que al recargar la página.
+        currentUser = await apiFetch('/api/auth/me');
         
         hideAllModals();
         showMainApp();
