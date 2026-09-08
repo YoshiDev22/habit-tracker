@@ -185,13 +185,16 @@ function updateUserBar() {
 
 async function loadAppVersion() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api`);
+        const response = await fetch(`${API_BASE_URL}/api/version`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
         const versionText = `v${data.version}`;
         document.getElementById('authVersion').textContent = versionText;
         document.getElementById('mainVersion').textContent = versionText;
     } catch (error) {
-        console.error('Error al obtener la versión de la app:', error);
+        console.warn('Could not load app version from /api/version:', error);
     }
 }
 

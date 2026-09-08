@@ -91,15 +91,29 @@ def pomodoro_js():
     return FileResponse(get_frontend_path("pomodoro.js"))
 
 
-# API info endpoint
-@app.get("/api")
-def api_info():
-    """API info"""
+def build_api_info() -> dict:
+    """Payload shared by /api and /api/version"""
     return {
         "message": "Habits Tracker API",
         "version": APP_VERSION,
         "docs": "/api/docs"
     }
+
+
+# API info endpoint
+@app.get("/api")
+def api_info():
+    """API info"""
+    return build_api_info()
+
+
+# Same payload under /api/<segment>: the reverse proxy in production only
+# forwards paths with a segment after /api, so /api itself never reaches the
+# app. The frontend reads the version from here.
+@app.get("/api/version")
+def api_version():
+    """API info, reachable behind the reverse proxy"""
+    return build_api_info()
 
 
 @app.get("/health")
