@@ -22,7 +22,12 @@ if not SECRET_KEY:
         "SECRET_KEY no está definida. Crea backend/.env a partir de backend/.env.example"
     )
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# 7 días. Antes eran 30 minutos, que es exactamente lo que dura el pomodoro
+# más largo: al terminar uno, el POST que lo guardaba recibía un 401, el
+# frontend cerraba sesión y el usuario perdía la sesión de golpe.
+# Subirlo invalida los tokens ya emitidos: todos vuelven a iniciar sesión una vez.
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")

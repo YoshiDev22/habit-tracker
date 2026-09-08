@@ -25,6 +25,8 @@ function createIdlePomoState(mode = 'focus') {
 let pomoState = createIdlePomoState();
 let pomoIntervalId = null;
 let audioCtx = null;
+// Osciladores del pitido de fin ya encolados en el reloj de WebAudio.
+let scheduledBeep = [];
 
 // ============================================
 // Elementos del DOM
@@ -235,6 +237,8 @@ function startPomodoro() {
     // Debe crearse/reanudarse dentro de un gesto de usuario (este click) para
     // que el navegador permita reproducir audio más adelante.
     ensureAudioContext();
+    requestNotificationPermission();
+    scheduleEndBeep(plannedSeconds * 1000);
 
     pomoStatusEl.textContent = '';
     savePomoState();
@@ -247,6 +251,7 @@ function pausePomodoro() {
     pomoState.pausedRemainingMs = pomoState.targetEpochMs - Date.now();
     pomoState.status = 'paused';
     stopTicking();
+    cancelScheduledBeep();
     savePomoState();
     renderPomoUI();
 }
@@ -258,12 +263,14 @@ function resumePomodoro() {
     pomoState.status = 'running';
     savePomoState();
     startTicking();
+    scheduleEndBeep(pomoState.targetEpochMs - Date.now());
     renderPomoUI();
 }
 
 async function stopPomodoro() {
     if (pomoState.status !== 'running' && pomoState.status !== 'paused') return;
     stopTicking();
+    cancelScheduledBeep();
 
     const finishedState = pomoState;
     const now = Date.now();
@@ -317,8 +324,18 @@ async function finishPomodoro(endedEpochMs, announce) {
     }
 
     if (announce) {
-        playBeep();
+        // Si el pitido estaba programado, ya sonó a su hora aunque este código
+        // llegue tarde por el frenado de la pestaña; volver a llamarlo aquí
+        // haría sonar el aviso dos veces.
+        if (scheduledBeep.length === 0) {
+            playBeep();
+        }
+        scheduledBeep = [];
+
+        notifyPomodoroEnd(finishedState.mode);
         pomoStatusEl.textContent = wasFocus ? '¡Pomodoro completado!' : 'Descanso terminado.';
+    } else {
+        cancelScheduledBeep();
     }
 }
 
@@ -373,7 +390,7 @@ function renderPomoUI() {
 }
 
 // ============================================
-// Sonido (WebAudio, sin Notification API — ver plan de la fase)
+// Sonido (WebAudio) y avisos del sistema (Notification API)
 // ============================================
 
 function ensureAudioContext() {
@@ -388,10 +405,12 @@ function ensureAudioContext() {
     }
 }
 
-function playBeep() {
-    if (!isSoundEnabled() || !audioCtx) return;
+// Dos tonos cortos y ascendentes (la 880 Hz, mi 1320 Hz). Sintetizados, sin
+// archivo de audio que descargar.
+function playBeepAt(startTime) {
+    if (!isSoundEnabled() || !audioCtx) return [];
 
-    const now = audioCtx.currentTime;
+    const oscillators = [];
     [880, 1320].forEach((freq, i) => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -399,13 +418,64 @@ function playBeep() {
         osc.connect(gain);
         gain.connect(audioCtx.destination);
 
-        const start = now + i * 0.18;
+        const start = startTime + i * 0.18;
         gain.gain.setValueAtTime(0, start);
         gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
         gain.gain.linearRampToValueAtTime(0, start + 0.15);
         osc.start(start);
         osc.stop(start + 0.16);
+        oscillators.push(osc);
     });
+    return oscillators;
+}
+
+function playBeep() {
+    if (!audioCtx) return;
+    playBeepAt(audioCtx.currentTime);
+}
+
+// El tick de setInterval se frena en pestañas de segundo plano, así que
+// esperar a que el tick detecte el final haría sonar el aviso tarde. El reloj
+// de WebAudio no se frena: dejando el pitido programado a una hora exacta
+// suena puntual aunque estés en otra pestaña.
+function scheduleEndBeep(remainingMs) {
+    cancelScheduledBeep();
+    if (!isSoundEnabled() || !audioCtx || remainingMs <= 0) return;
+    scheduledBeep = playBeepAt(audioCtx.currentTime + remainingMs / 1000);
+}
+
+function cancelScheduledBeep() {
+    scheduledBeep.forEach(osc => {
+        try { osc.stop(); } catch (e) {}
+    });
+    scheduledBeep = [];
+}
+
+// La notificación del sistema es lo que te avisa estés donde estés, incluso
+// con el navegador de fondo. Pedir permiso exige un gesto del usuario, así que
+// se pide al pulsar Iniciar y no al cargar la página.
+function requestNotificationPermission() {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'default') return;
+    try {
+        Notification.requestPermission().catch(() => {});
+    } catch (e) {}
+}
+
+function notifyPomodoroEnd(mode) {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    const titles = {
+        focus: '¡Pomodoro completado!',
+        short_break: 'Descanso terminado',
+        long_break: 'Descanso largo terminado',
+    };
+    try {
+        new Notification(titles[mode] || 'Pomodoro', {
+            body: mode === 'focus' ? 'Hora de descansar.' : 'Hora de volver al trabajo.',
+            // Reemplaza el aviso anterior en vez de apilarlos.
+            tag: 'pomodoro-end',
+        });
+    } catch (e) {}
 }
 
 function updateSoundBtn() {
@@ -498,6 +568,14 @@ pomoStopBtn.addEventListener('click', stopPomodoro);
 
 pomoSoundBtn.addEventListener('click', () => {
     setSoundEnabled(!isSoundEnabled());
+    // El pitido se encola al arrancar: si el sonido se enciende o se apaga con
+    // el timer corriendo, hay que rehacer esa reserva.
+    if (pomoState.status === 'running') {
+        ensureAudioContext();
+        scheduleEndBeep(pomoState.targetEpochMs - Date.now());
+    } else {
+        cancelScheduledBeep();
+    }
     updateSoundBtn();
 });
 
@@ -573,6 +651,11 @@ async function initPomodoro() {
     } else if (pomoState.status === 'running' && Date.now() < pomoState.targetEpochMs) {
         startTicking();
         renderPomoUI();
+        // Tras recargar la página no hay gesto del usuario todavía, así que el
+        // navegador no deja crear el AudioContext y esto no encola nada. En ese
+        // caso el aviso depende del tick, que basta con la pestaña delante; en
+        // cuanto se toque cualquier control del timer vuelve a programarse.
+        scheduleEndBeep(pomoState.targetEpochMs - Date.now());
     } else if (pomoState.status === 'running') {
         // Terminó mientras la pestaña estaba cerrada.
         const endedEpochMs = pomoState.targetEpochMs;
@@ -838,6 +921,10 @@ document.getElementById('closeLogTimeBtn').addEventListener('click', () => hideM
 logTimeModal.querySelector('.modal-overlay').addEventListener('click', () => hideModal(logTimeModal));
 
 window.appInitHooks.push(initPomodoro);
+// initPomodoro solo corre al cargar la página. Sin esto, una sesión que quedó
+// pendiente por un 401 esperaría a un F5: iniciar sesión otra vez en la misma
+// pestaña no la reenviaba.
+window.appDataHooks.push(flushPendingSessions);
 // Los selects se llenan desde projectsState, así que se enganchan al hook de
 // projects.js en vez de a appDataHooks: corre al cargar los proyectos (login)
 // y además en cada alta, edición o borrado de proyecto o tarea, sin que el
