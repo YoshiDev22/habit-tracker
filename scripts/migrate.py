@@ -32,6 +32,7 @@ MIGRATIONS = [
     {"table": "users", "column": "display_name", "type": "VARCHAR"},
     {"table": "users", "column": "first_name", "type": "VARCHAR"},
     {"table": "users", "column": "last_name", "type": "VARCHAR"},
+    {"table": "pomodoro_sessions", "column": "source", "type": "VARCHAR", "default": "timer"},
 ]
 
 

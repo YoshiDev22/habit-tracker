@@ -374,6 +374,45 @@
     </div>
 
     <!-- Modal de Confirmación para Archivar/Eliminar Proyecto -->
+    <!-- Registro manual de tiempo: para cuando se trabajó sin arrancar el timer -->
+    <div id="logTimeModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <button class="modal-close" type="button" id="closeLogTimeBtn">&times;</button>
+            <h2 class="modal-title">Registrar tiempo</h2>
+            <p class="setup-subtitle" id="logTimeProject"></p>
+            <form id="logTimeForm" class="auth-form">
+                <div class="form-group">
+                    <label for="logTimeDate">Fecha</label>
+                    <input type="date" id="logTimeDate" required>
+                </div>
+                <div class="log-time-range">
+                    <div class="form-group">
+                        <label for="logTimeStart">Inicio</label>
+                        <input type="time" id="logTimeStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="logTimeEnd">Fin</label>
+                        <input type="time" id="logTimeEnd" required>
+                    </div>
+                </div>
+                <p class="log-time-duration" id="logTimeDuration">Duración: —</p>
+                <div class="form-group">
+                    <label for="logTimeTask">Tarea (opcional)</label>
+                    <select id="logTimeTask">
+                        <option value="">Sin tarea</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="logTimeNote">Nota (opcional)</label>
+                    <input type="text" id="logTimeNote" maxlength="200" placeholder="Qué hiciste en ese rato">
+                </div>
+                <div id="logTimeError" class="form-error hidden"></div>
+                <button type="submit" class="submit-btn">Guardar</button>
+            </form>
+        </div>
+    </div>
+
     <div id="projectActionModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal" style="max-width: 400px;">

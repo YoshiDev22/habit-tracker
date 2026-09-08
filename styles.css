@@ -289,6 +289,38 @@ body {
 }
 
 .project-toggle,
+.project-log-time {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.project-log-time:hover {
+    background: var(--bg-hover);
+}
+
+/* Inicio y fin, lado a lado */
+.log-time-range {
+    display: flex;
+    gap: 12px;
+}
+
+.log-time-range .form-group {
+    flex: 1;
+}
+
+.log-time-duration {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
 .project-menu {
     background: none;
     border: none;

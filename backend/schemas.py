@@ -257,6 +257,7 @@ class PomodoroSessionCreate(SQLModel):
     mode: Optional[str] = "focus"
     was_completed: Optional[bool] = True
     note: Optional[str] = None
+    source: Optional[str] = "timer"
 
 
 class PomodoroSessionResponse(SQLModel):
@@ -272,6 +273,7 @@ class PomodoroSessionResponse(SQLModel):
     mode: str
     was_completed: bool
     note: Optional[str] = None
+    source: str = "timer"
     created_at: date_type
 
     class Config:

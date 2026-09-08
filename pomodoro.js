@@ -586,10 +586,153 @@ async function initPomodoro() {
     await flushPendingSessions();
 }
 
+// ============================================
+// Registro manual de tiempo
+// ============================================
+
+const logTimeModal = document.getElementById('logTimeModal');
+const logTimeForm = document.getElementById('logTimeForm');
+const logTimeProjectEl = document.getElementById('logTimeProject');
+const logTimeDateEl = document.getElementById('logTimeDate');
+const logTimeStartEl = document.getElementById('logTimeStart');
+const logTimeEndEl = document.getElementById('logTimeEnd');
+const logTimeDurationEl = document.getElementById('logTimeDuration');
+const logTimeTaskEl = document.getElementById('logTimeTask');
+const logTimeNoteEl = document.getElementById('logTimeNote');
+const logTimeErrorEl = document.getElementById('logTimeError');
+
+let logTimeProjectId = null;
+
+// "HH:MM" del <input type="time"> a segundos desde medianoche.
+function parseClockValue(value) {
+    const match = /^(\d{2}):(\d{2})$/.exec(value || '');
+    if (!match) return null;
+    return Number(match[1]) * 3600 + Number(match[2]) * 60;
+}
+
+function logTimeDurationSeconds() {
+    const start = parseClockValue(logTimeStartEl.value);
+    const end = parseClockValue(logTimeEndEl.value);
+    if (start === null || end === null || end <= start) return null;
+    return end - start;
+}
+
+function renderLogTimeDuration() {
+    const seconds = logTimeDurationSeconds();
+    logTimeDurationEl.textContent = seconds === null
+        ? 'Duración: —'
+        : `Duración: ${formatDuration(seconds)}`;
+}
+
+async function fillLogTimeTasks(projectId) {
+    logTimeTaskEl.innerHTML = '<option value="">Sin tarea</option>';
+    try {
+        const data = await apiFetch(`/api/tasks?project_id=${projectId}&include_done=false`);
+        data.tasks.forEach(task => {
+            const option = document.createElement('option');
+            option.value = String(task.id);
+            option.textContent = task.title;
+            logTimeTaskEl.appendChild(option);
+        });
+    } catch (error) {
+        console.warn('Could not load tasks for the time log:', error);
+    }
+}
+
+function openLogTimeModal(projectId) {
+    const project = projectsState.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    logTimeProjectId = projectId;
+    logTimeProjectEl.textContent = project.name;
+
+    // El calendario nativo abre en el día actual y no deja elegir futuro.
+    const today = getDateKey(new Date());
+    logTimeDateEl.value = today;
+    logTimeDateEl.max = today;
+
+    logTimeStartEl.value = '';
+    logTimeEndEl.value = '';
+    logTimeNoteEl.value = '';
+    renderLogTimeDuration();
+    fillLogTimeTasks(projectId);
+
+    showModal(logTimeModal);
+}
+
+// "2026-09-08" + segundos desde medianoche -> instante LOCAL, y de ahí a UTC
+// naive con el mismo helper que usa el timer, para que ambos orígenes queden
+// guardados en el mismo formato.
+function localEpochMs(dateKey, secondsFromMidnight) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0).getTime() + secondsFromMidnight * 1000;
+}
+
+async function submitLogTime(event) {
+    event.preventDefault();
+    logTimeErrorEl.classList.add('hidden');
+
+    const duration = logTimeDurationSeconds();
+    if (duration === null) {
+        showError(logTimeErrorEl, 'La hora de fin debe ser posterior a la de inicio.');
+        return;
+    }
+
+    const dateKey = logTimeDateEl.value;
+    if (dateKey > getDateKey(new Date())) {
+        showError(logTimeErrorEl, 'No se puede registrar trabajo en una fecha futura.');
+        return;
+    }
+
+    const startedEpochMs = localEpochMs(dateKey, parseClockValue(logTimeStartEl.value));
+    const taskId = logTimeTaskEl.value ? Number(logTimeTaskEl.value) : null;
+    const note = logTimeNoteEl.value.trim();
+
+    try {
+        await apiFetch('/api/pomodoro', {
+            method: 'POST',
+            json: {
+                project_id: logTimeProjectId,
+                task_id: taskId,
+                session_date: dateKey,
+                started_at: toNaiveUtcIso(startedEpochMs),
+                ended_at: toNaiveUtcIso(startedEpochMs + duration * 1000),
+                duration_seconds: duration,
+                planned_seconds: duration,
+                mode: 'focus',
+                was_completed: true,
+                note: note || null,
+                source: 'manual',
+            }
+        });
+
+        hideModal(logTimeModal);
+        // loadProjects() dispara projectsChangedHooks, que refresca el "Hoy".
+        await loadProjects();
+    } catch (error) {
+        showError(logTimeErrorEl, error.message);
+    }
+}
+
+projectsList.addEventListener('click', (event) => {
+    const btn = event.target.closest('.project-log-time');
+    if (!btn) return;
+    openLogTimeModal(Number(btn.closest('.project-card').dataset.projectId));
+});
+
+logTimeForm.addEventListener('submit', submitLogTime);
+logTimeStartEl.addEventListener('input', renderLogTimeDuration);
+logTimeEndEl.addEventListener('input', renderLogTimeDuration);
+document.getElementById('closeLogTimeBtn').addEventListener('click', () => hideModal(logTimeModal));
+logTimeModal.querySelector('.modal-overlay').addEventListener('click', () => hideModal(logTimeModal));
+
 window.appInitHooks.push(initPomodoro);
 // Los selects se llenan desde projectsState, así que se enganchan al hook de
 // projects.js en vez de a appDataHooks: corre al cargar los proyectos (login)
 // y además en cada alta, edición o borrado de proyecto o tarea, sin que el
 // usuario tenga que recargar la página.
 window.projectsChangedHooks.push(populateProjectSelect);
+// El total de hoy cambia al registrar tiempo a mano, no solo al terminar un
+// pomodoro, y ese registro pasa por loadProjects().
+window.projectsChangedHooks.push(refreshTodaySeconds);
 window.appLogoutHooks.push(handlePomodoroLogout);

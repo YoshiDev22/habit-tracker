@@ -282,6 +282,15 @@ function buildProjectCard(project) {
     toggleBtn.setAttribute('aria-label', isExpanded ? 'Ocultar tareas' : 'Mostrar tareas');
     toggleBtn.textContent = '▾';
 
+    // El comportamiento vive en pomodoro.js, que escucha este botón por
+    // delegación: es quien sabe construir una sesión.
+    const logTimeBtn = document.createElement('button');
+    logTimeBtn.type = 'button';
+    logTimeBtn.className = 'project-log-time';
+    logTimeBtn.setAttribute('aria-label', 'Registrar tiempo trabajado');
+    logTimeBtn.title = 'Registrar tiempo trabajado';
+    logTimeBtn.textContent = '⏱';
+
     const menuBtn = document.createElement('button');
     menuBtn.type = 'button';
     menuBtn.className = 'project-menu';
@@ -290,6 +299,7 @@ function buildProjectCard(project) {
 
     card.appendChild(chip);
     card.appendChild(main);
+    card.appendChild(logTimeBtn);
     card.appendChild(toggleBtn);
     card.appendChild(menuBtn);
 

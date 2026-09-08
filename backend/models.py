@@ -147,4 +147,10 @@ class PomodoroSession(SQLModel, table=True):
     was_completed: bool = Field(default=True)
     note: Optional[str] = Field(default=None)
 
+    # "timer": la midió el cronómetro. "manual": la escribió el usuario a
+    # posteriori. Columna AÑADIDA a una tabla existente, así que necesita
+    # scripts/migrate.py; las filas previas se rellenan con "timer", que es
+    # la verdad para todo lo registrado hasta ahora.
+    source: str = Field(default="timer", index=True)
+
     created_at: date_type = Field(default_factory=date_type.today)

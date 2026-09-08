@@ -1,4 +1,4 @@
-from datetime import date as date_type
+from datetime import date as date_type, timedelta
 from typing import Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
@@ -31,6 +31,27 @@ def create_pomodoro_session(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="duration_seconds fuera de rango"
         )
+
+    source = session_in.source or "timer"
+    if source not in ("timer", "manual"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="source debe ser 'timer' o 'manual'"
+        )
+
+    if source == "manual":
+        # Un día de margen: session_date es la fecha LOCAL del usuario y puede
+        # ir por delante de la del servidor según su huso horario.
+        if session_in.session_date > date_type.today() + timedelta(days=1):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se puede registrar trabajo en una fecha futura"
+            )
+        if session_in.ended_at <= session_in.started_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La hora de fin debe ser posterior a la de inicio"
+            )
 
     if session_in.project_id is not None:
         project = session.exec(
@@ -70,6 +91,7 @@ def create_pomodoro_session(
         mode=session_in.mode or "focus",
         was_completed=session_in.was_completed if session_in.was_completed is not None else True,
         note=session_in.note,
+        source=source,
     )
     session.add(new_session)
     session.commit()
