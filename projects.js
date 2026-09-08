@@ -299,6 +299,10 @@ function buildProjectCard(project) {
 function fillTaskListElement(container, projectId) {
     container.innerHTML = '';
     const tasks = projectsState.tasksByProject[projectId];
+    const summary = projectsState.summaryByProject[projectId];
+    // Clave string: el backend serializa task_id así porque JSON no admite
+    // claves numéricas.
+    const secondsByTask = (summary && summary.seconds_by_task) || {};
 
     if (!tasks) {
         const loading = document.createElement('p');
@@ -320,6 +324,8 @@ function fillTaskListElement(container, projectId) {
             title.className = 'task-title';
             title.textContent = task.title;
 
+            const taskSeconds = secondsByTask[String(task.id)] || 0;
+
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'task-delete';
@@ -328,9 +334,24 @@ function fillTaskListElement(container, projectId) {
 
             row.appendChild(checkbox);
             row.appendChild(title);
+            if (taskSeconds > 0) {
+                const time = document.createElement('span');
+                time.className = 'task-time';
+                time.textContent = formatDuration(taskSeconds);
+                row.appendChild(time);
+            }
             row.appendChild(deleteBtn);
             container.appendChild(row);
         });
+
+        // El tiempo registrado en el proyecto sin elegir tarea. Sin esta línea
+        // las tareas no sumarían el total que muestra la tarjeta.
+        if (summary && summary.seconds_no_task > 0) {
+            const orphan = document.createElement('p');
+            orphan.className = 'task-orphan-time';
+            orphan.textContent = `Sin tarea: ${formatDuration(summary.seconds_no_task)}`;
+            container.appendChild(orphan);
+        }
     }
 
     const form = document.createElement('form');

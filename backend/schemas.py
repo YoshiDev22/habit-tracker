@@ -184,6 +184,12 @@ class ProjectSummary(SQLModel):
     color: Optional[str] = None
     task_total: int
     task_done: int
+
+    # Desglose de total_seconds por tarea. Clave: task_id como string (JSON no
+    # admite claves numéricas). El tiempo registrado sin tarea no aparece aquí,
+    # va en seconds_no_task, de forma que la suma de ambos da total_seconds.
+    seconds_by_task: Dict[str, int] = {}
+    seconds_no_task: int = 0
     total_seconds: int
     session_count: int
 

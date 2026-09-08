@@ -341,6 +341,20 @@ body {
     text-decoration: line-through;
 }
 
+.task-time {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.task-orphan-time {
+    padding: 6px 4px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 .task-delete {
     background: none;
     border: none;

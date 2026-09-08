@@ -113,11 +113,22 @@ def get_projects_summary(
 
     seconds_by_project: Dict[int, int] = {}
     sessions_by_project: Dict[int, int] = {}
+    # Desglose dentro de cada proyecto: {project_id: {task_id: segundos}}. Las
+    # sesiones sin tarea se acumulan aparte para que el desglose y el resto
+    # sumen siempre el total del proyecto.
+    seconds_by_task: Dict[int, Dict[int, int]] = {}
+    seconds_no_task: Dict[int, int] = {}
     for s in pomodoro_sessions:
         if s.project_id is None:
             continue
         seconds_by_project[s.project_id] = seconds_by_project.get(s.project_id, 0) + s.duration_seconds
         sessions_by_project[s.project_id] = sessions_by_project.get(s.project_id, 0) + 1
+
+        if s.task_id is None:
+            seconds_no_task[s.project_id] = seconds_no_task.get(s.project_id, 0) + s.duration_seconds
+        else:
+            per_task = seconds_by_task.setdefault(s.project_id, {})
+            per_task[s.task_id] = per_task.get(s.task_id, 0) + s.duration_seconds
 
     summaries = []
     for p in projects:
@@ -130,6 +141,11 @@ def get_projects_summary(
             task_done=sum(1 for t in project_tasks if t.is_done),
             total_seconds=seconds_by_project.get(p.id, 0),
             session_count=sessions_by_project.get(p.id, 0),
+            seconds_by_task={
+                str(task_id): seconds
+                for task_id, seconds in seconds_by_task.get(p.id, {}).items()
+            },
+            seconds_no_task=seconds_no_task.get(p.id, 0),
         ))
 
     return ProjectSummaryListResponse(summaries=summaries, total=len(summaries))
