@@ -53,6 +53,7 @@ const authScreen = document.getElementById('authScreen');
 const mainApp = document.getElementById('mainApp');
 const userBar = document.getElementById('userBar');
 const userEmail = document.getElementById('userEmail');
+const brandGreeting = document.getElementById('brandGreeting');
 const loginModal = document.getElementById('loginModal');
 const registerModal = document.getElementById('registerModal');
 const showLoginBtn = document.getElementById('showLoginBtn');
@@ -192,8 +193,10 @@ function getUserLabel(user) {
 
 function updateUserBar() {
     if (currentUser) {
-        userEmail.textContent = getUserLabel(currentUser);
+        const label = getUserLabel(currentUser);
+        userEmail.textContent = label;
         userEmail.title = currentUser.email || '';
+        brandGreeting.textContent = `Sigamos adelante, ${label}`;
     }
 }
 
