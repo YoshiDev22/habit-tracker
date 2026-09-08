@@ -10,6 +10,7 @@ from backend.auth import (
     verify_password, 
     get_password_hash, 
     create_access_token,
+    get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
@@ -76,3 +77,12 @@ def login(
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=UserResponse)
+def read_current_user(current_user: User = Depends(get_current_user)):
+    """
+    Retorna el usuario dueño del token. El frontend lo usa al recargar la
+    página, donde solo conserva el token y no sabe a quién pertenece.
+    """
+    return current_user

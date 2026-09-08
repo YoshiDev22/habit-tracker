@@ -1432,8 +1432,18 @@ async function initApp() {
     dynamicHabitCounter = 0;
     
     if (isAuthenticated()) {
-        // Usuario ya autenticado, mostrar app y cargar datos
-        currentUser = { email: 'Usuario' };
+        // Usuario ya autenticado. El token es lo único que sobrevive a un F5,
+        // así que hay que preguntarle al backend de quién es.
+        try {
+            currentUser = await apiFetch('/api/auth/me');
+        } catch (error) {
+            // Token inválido o expirado: apiFetch ya cerró sesión y dejó la
+            // pantalla de login a la vista, así que no hay app que montar.
+            console.warn('Could not restore the session:', error);
+            await runHooks(window.appInitHooks);
+            return;
+        }
+
         showMainApp();
         updateUserBar();
         
