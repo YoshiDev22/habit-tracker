@@ -25,6 +25,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
 | 10 | P4 | `passlib` declarado y sin usar | diagnosticado |
 | 11 | P4 | `/health` sin uso y 404 detrás del proxy | reproducido |
+| 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 
 ---
 
@@ -296,3 +297,46 @@ y reportaría la app como caída estando sana.
 **Aceptación.** Según el camino: o `curl -s -o /dev/null -w "%{http_code}"
 https://habits.yoshidev22.com/health` devuelve `200`, o `grep -rn "/health"` no encuentra
 nada en el repo.
+
+---
+
+## 12 · P2 · Pestaña de Reportes sobre el tiempo registrado
+
+**Síntoma.** Ninguno: es una feature pedida, no un fallo. Hoy el tiempo solo se ve como
+un total por proyecto y un desglose por tarea dentro de cada tarjeta. No hay forma de
+responder "¿a qué hora rindo más?" ni "¿en qué se me fue la semana?".
+
+**Estado actual — lo que ya está listo y no hay que construir:**
+
+- **La hora exacta de cada sesión ya está guardada**, y desde el primer pomodoro:
+  `started_at` y `ended_at` en [backend/models.py:141](backend/models.py#L141), UTC naive.
+  Todo el histórico sirve para un reporte de productividad por hora sin migrar nada.
+- **`GET /api/pomodoro/stats`** ya devuelve `by_date` y `by_project` agregados
+  ([backend/routers/pomodoro.py:107](backend/routers/pomodoro.py#L107)), y acepta
+  `date_from` / `date_to`.
+- **`GET /api/pomodoro`** lista sesiones crudas, filtrables por proyecto y rango.
+- **`source`** distingue lo cronometrado de lo escrito a mano.
+- **`seconds_by_task`** en `/api/projects/summary` da el desglose por tarea.
+- **El sistema de vistas ya soporta una tercera pestaña**: `goToView()` en
+  [projects.js:57](projects.js#L57) usa `VIEW_COUNT` y `translateX(-100 * i%)`, sin nada
+  cableado a dos vistas. Falta el `<section>`, el `<button>` de tab, subir `VIEW_COUNT` y
+  añadir la tab al array de `goToView()`.
+
+**Arreglo.** Vista "Reportes" como tercera pestaña, después de Proyectos. Contenido
+mínimo útil:
+
+- Tiempo por día en un rango (ya está en `by_date`).
+- Tiempo por proyecto en ese rango (ya está en `by_project`).
+- **Productividad por hora del día**: agrupar las sesiones por la hora local de
+  `started_at`. Es lo único que necesita cálculo nuevo; se puede hacer en el cliente
+  sobre `GET /api/pomodoro`, o como endpoint `by_hour` si la lista crece.
+- Opcional: filtrar por `source` para ver cuánto se está registrando a mano.
+
+**Cuidado con el huso horario.** Los datetimes se guardan en UTC y la hora local se
+calcula con el desfase *actual* del navegador. Registros hechos desde otro huso se
+pintarían corridos. Para un solo usuario en un huso fijo da igual; si algún día importa,
+la solución es guardar el offset en una columna nueva vía `scripts/migrate.py`.
+
+**Aceptación.** Con sesiones repartidas en varias horas y días, la pestaña muestra el
+total por día, por proyecto y por hora del día, y las cifras cuadran con las que ya
+muestran las tarjetas de proyecto.
