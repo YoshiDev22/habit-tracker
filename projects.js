@@ -12,6 +12,11 @@ const projectsState = {
 let editingProjectId = null;
 let pendingProjectId = null;
 
+// Hooks que corren cada vez que cambian los proyectos o sus tareas. Se declara
+// aquí porque projects.js es el dueño de ese estado; pomodoro.js se engancha
+// para mantener sus selects al día sin que este archivo lo conozca.
+window.projectsChangedHooks = [];
+
 // ============================================
 // Elementos del DOM
 // ============================================
@@ -196,6 +201,10 @@ async function loadProjects() {
         });
 
         renderProjects();
+
+        // Toda mutación de proyecto o tarea termina llamando a loadProjects(),
+        // así que este es el único punto que necesita avisar a los demás módulos.
+        await runHooks(window.projectsChangedHooks);
     } catch (error) {
         console.error('Error al cargar proyectos:', error);
     }

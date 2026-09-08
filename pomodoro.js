@@ -438,6 +438,7 @@ function populateProjectSelect() {
 }
 
 async function populateTaskSelect() {
+    const previousValue = pomoTaskSelect.value;
     pomoTaskSelect.innerHTML = '<option value="">Sin tarea</option>';
     const projectId = pomoProjectSelect.value;
     pomoTaskSelect.disabled = !projectId || pomoState.status !== 'idle';
@@ -452,6 +453,11 @@ async function populateTaskSelect() {
             option.textContent = task.title;
             pomoTaskSelect.appendChild(option);
         });
+
+        // Conservar la tarea elegida: ahora esto corre en cada cambio de tarea,
+        // y marcar otra como hecha no debe perder la selección del usuario.
+        const stillExists = Array.from(pomoTaskSelect.options).some(o => o.value === previousValue);
+        pomoTaskSelect.value = stillExists ? previousValue : '';
     } catch (error) {
         console.error('Error al cargar tareas para el selector de pomodoro:', error);
     }
@@ -581,5 +587,9 @@ async function initPomodoro() {
 }
 
 window.appInitHooks.push(initPomodoro);
-window.appDataHooks.push(populateProjectSelect);
+// Los selects se llenan desde projectsState, así que se enganchan al hook de
+// projects.js en vez de a appDataHooks: corre al cargar los proyectos (login)
+// y además en cada alta, edición o borrado de proyecto o tarea, sin que el
+// usuario tenga que recargar la página.
+window.projectsChangedHooks.push(populateProjectSelect);
 window.appLogoutHooks.push(handlePomodoroLogout);
