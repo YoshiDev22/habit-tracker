@@ -379,13 +379,24 @@
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <button class="modal-close" type="button" id="closeLogTimeBtn">&times;</button>
-            <h2 class="modal-title">Registrar tiempo</h2>
+            <h2 class="modal-title" id="logTimeTitle">Registrar tiempo</h2>
             <p class="setup-subtitle" id="logTimeProject"></p>
             <form id="logTimeForm" class="auth-form">
                 <div class="form-group">
                     <label for="logTimeDate">Fecha</label>
                     <input type="date" id="logTimeDate" required>
                 </div>
+                <div class="log-time-range">
+                    <div class="form-group">
+                        <label for="logTimeHours">Horas</label>
+                        <input type="number" id="logTimeHours" min="0" max="23" step="1" placeholder="0" inputmode="numeric">
+                    </div>
+                    <div class="form-group">
+                        <label for="logTimeMinutes">Minutos</label>
+                        <input type="number" id="logTimeMinutes" min="0" max="59" step="1" placeholder="0" inputmode="numeric">
+                    </div>
+                </div>
+                <p class="form-hint log-time-hint">Al escribir la duración, el inicio y el fin se rellenan solos restando ese rato a la hora actual. Puedes corregirlos.</p>
                 <div class="log-time-range">
                     <div class="form-group">
                         <label for="logTimeStart">Inicio</label>
@@ -408,8 +419,26 @@
                     <input type="text" id="logTimeNote" maxlength="200" placeholder="Qué hiciste en ese rato">
                 </div>
                 <div id="logTimeError" class="form-error hidden"></div>
-                <button type="submit" class="submit-btn">Guardar</button>
+                <button type="submit" class="submit-btn" id="logTimeSubmitBtn">Guardar</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Confirmación antes de borrar un registro: el borrado no se deshace -->
+    <div id="sessionDeleteModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal" style="max-width: 400px;">
+            <h2 class="modal-title">¿Eliminar este registro?</h2>
+            <p class="setup-subtitle" id="sessionDeleteDetail"></p>
+            <p class="form-hint">El tiempo se descontará del total del proyecto y de la tarea. No se puede deshacer.</p>
+            <div class="habit-action-options">
+                <button id="confirmSessionDeleteBtn" type="button" class="submit-btn btn-danger">
+                    🗑️ Eliminar
+                </button>
+                <button id="cancelSessionDeleteBtn" type="button" class="submit-btn btn-neutral">
+                    Cancelar
+                </button>
+            </div>
         </div>
     </div>
 

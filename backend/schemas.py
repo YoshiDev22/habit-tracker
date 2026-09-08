@@ -260,6 +260,20 @@ class PomodoroSessionCreate(SQLModel):
     source: Optional[str] = "timer"
 
 
+class PomodoroSessionUpdate(SQLModel):
+    """
+    Esquema para corregir una sesión ya registrada (PATCH parcial).
+    No se puede mover de proyecto ni cambiar el origen: para eso, borrar y
+    volver a crear.
+    """
+    task_id: Optional[int] = None
+    session_date: Optional[date_type] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    note: Optional[str] = None
+
+
 class PomodoroSessionResponse(SQLModel):
     """Esquema de respuesta para una sesión de pomodoro"""
     id: int

@@ -364,8 +364,11 @@ body {
 }
 
 .task-title {
-    flex: 1;
+    /* Sin flex:1 para que el tiempo quede pegado al nombre y no en el borde */
+    flex: 0 1 auto;
+    min-width: 0;
     font-size: 0.875rem;
+    overflow-wrap: anywhere;
 }
 
 .task-row.done .task-title {
@@ -374,6 +377,8 @@ body {
 }
 
 .task-time {
+    /* margin-right:auto empuja la × al borde y deja el tiempo junto al nombre */
+    margin-right: auto;
     flex-shrink: 0;
     font-size: 0.75rem;
     color: var(--text-muted);
@@ -432,6 +437,16 @@ body {
     font-size: 0.75rem;
     color: var(--text-muted);
     overflow-wrap: anywhere;
+}
+
+.session-edit {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0 4px;
+    flex-shrink: 0;
 }
 
 .session-delete {

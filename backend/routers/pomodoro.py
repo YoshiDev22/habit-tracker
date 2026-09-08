@@ -7,6 +7,7 @@ from backend.database import get_session
 from backend.models import User, Project, Task, PomodoroSession
 from backend.schemas import (
     PomodoroSessionCreate,
+    PomodoroSessionUpdate,
     PomodoroSessionResponse,
     PomodoroSessionListResponse,
     PomodoroStatsResponse,
@@ -172,6 +173,74 @@ def get_pomodoro_stats(
         by_project=by_project,
         by_date=by_date,
     )
+
+
+@router.patch("/{session_id}", response_model=PomodoroSessionResponse)
+def update_pomodoro_session(
+    session_id: int,
+    session_in: PomodoroSessionUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Corrige una sesión ya registrada: tarea, fecha, horas, duración o nota.
+    El proyecto y el origen no se tocan.
+    """
+    pomodoro_session = session.exec(
+        select(PomodoroSession).where(
+            PomodoroSession.id == session_id,
+            PomodoroSession.user_id == current_user.id
+        )
+    ).first()
+
+    if not pomodoro_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registro no encontrado"
+        )
+
+    update_data = session_in.model_dump(exclude_unset=True)
+
+    if update_data.get("task_id") is not None:
+        task = session.exec(
+            select(Task).where(
+                Task.id == update_data["task_id"],
+                Task.user_id == current_user.id
+            )
+        ).first()
+        if not task:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tarea no encontrada"
+            )
+
+    for field, value in update_data.items():
+        setattr(pomodoro_session, field, value)
+
+    # Se valida el resultado del merge, no lo que vino en el cuerpo: un PATCH
+    # parcial puede dejar la sesión inconsistente combinándose con lo que ya
+    # había guardado.
+    if pomodoro_session.duration_seconds <= 0 or pomodoro_session.duration_seconds > 86400:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="duration_seconds fuera de rango"
+        )
+    if pomodoro_session.ended_at <= pomodoro_session.started_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La hora de fin debe ser posterior a la de inicio"
+        )
+    if pomodoro_session.session_date > date_type.today() + timedelta(days=1):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede registrar trabajo en una fecha futura"
+        )
+
+    session.add(pomodoro_session)
+    session.commit()
+    session.refresh(pomodoro_session)
+
+    return PomodoroSessionResponse.model_validate(pomodoro_session)
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

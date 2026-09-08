@@ -244,6 +244,39 @@ async function loadSessions(projectId) {
     }
 }
 
+const sessionDeleteModal = document.getElementById('sessionDeleteModal');
+const sessionDeleteDetail = document.getElementById('sessionDeleteDetail');
+let pendingSessionDelete = null;
+
+function askSessionDelete(projectId, sessionId) {
+    const sessions = projectsState.sessionsByProject[projectId] || [];
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    pendingSessionDelete = { projectId, sessionId };
+    sessionDeleteDetail.textContent =
+        `${formatShortDate(session.session_date)} · ${formatClockRange(session)} · ${formatDuration(session.duration_seconds)}`;
+    showModal(sessionDeleteModal);
+}
+
+document.getElementById('confirmSessionDeleteBtn').addEventListener('click', () => {
+    if (!pendingSessionDelete) return;
+    const { projectId, sessionId } = pendingSessionDelete;
+    pendingSessionDelete = null;
+    hideModal(sessionDeleteModal);
+    removeSession(projectId, sessionId);
+});
+
+document.getElementById('cancelSessionDeleteBtn').addEventListener('click', () => {
+    pendingSessionDelete = null;
+    hideModal(sessionDeleteModal);
+});
+
+sessionDeleteModal.querySelector('.modal-overlay').addEventListener('click', () => {
+    pendingSessionDelete = null;
+    hideModal(sessionDeleteModal);
+});
+
 async function removeSession(projectId, sessionId) {
     try {
         await apiFetch(`/api/pomodoro/${sessionId}`, { method: 'DELETE' });
@@ -386,14 +419,16 @@ function fillTaskListElement(container, projectId) {
             deleteBtn.setAttribute('aria-label', 'Eliminar tarea');
             deleteBtn.textContent = '×';
 
+            // Siempre visible, incluso en 0m: si solo apareciera cuando hay
+            // tiempo, una tarea sin registros no se distinguiría de una a la
+            // que la columna no llega.
+            const time = document.createElement('span');
+            time.className = 'task-time';
+            time.textContent = formatDuration(taskSeconds);
+
             row.appendChild(checkbox);
             row.appendChild(title);
-            if (taskSeconds > 0) {
-                const time = document.createElement('span');
-                time.className = 'task-time';
-                time.textContent = formatDuration(taskSeconds);
-                row.appendChild(time);
-            }
+            row.appendChild(time);
             row.appendChild(deleteBtn);
             container.appendChild(row);
         });
@@ -497,6 +532,14 @@ function buildSessionLog(projectId, tasks) {
             body.appendChild(detail);
         }
 
+        // El comportamiento vive en pomodoro.js, que reabre su propio modal.
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'session-edit';
+        editBtn.setAttribute('aria-label', 'Editar registro');
+        editBtn.title = 'Editar registro';
+        editBtn.textContent = '✎';
+
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'session-delete';
@@ -505,6 +548,7 @@ function buildSessionLog(projectId, tasks) {
 
         row.appendChild(origin);
         row.appendChild(body);
+        row.appendChild(editBtn);
         row.appendChild(deleteBtn);
         wrapper.appendChild(row);
     });
@@ -581,7 +625,7 @@ projectsList.addEventListener('click', (event) => {
     if (deleteSessionBtn) {
         const sessionId = Number(deleteSessionBtn.closest('.session-row').dataset.sessionId);
         const projectId = Number(deleteSessionBtn.closest('.task-list').dataset.projectId);
-        removeSession(projectId, sessionId);
+        askSessionDelete(projectId, sessionId);
         return;
     }
 

@@ -118,8 +118,9 @@ class Task(SQLModel, table=True):
 
 class PomodoroSession(SQLModel, table=True):
     """
-    Registro de una sesión de pomodoro. Append-only (no se edita, solo se
-    crea o se borra). Tabla NUEVA, aditiva — ver nota en Project.
+    Registro de una sesión de pomodoro. La crea el timer al terminar, o el
+    usuario a mano; en ambos casos se puede corregir o borrar después.
+    Tabla NUEVA, aditiva — ver nota en Project.
     """
     __tablename__ = "pomodoro_sessions"
 

@@ -594,14 +594,20 @@ const logTimeModal = document.getElementById('logTimeModal');
 const logTimeForm = document.getElementById('logTimeForm');
 const logTimeProjectEl = document.getElementById('logTimeProject');
 const logTimeDateEl = document.getElementById('logTimeDate');
+const logTimeHoursEl = document.getElementById('logTimeHours');
+const logTimeMinutesEl = document.getElementById('logTimeMinutes');
 const logTimeStartEl = document.getElementById('logTimeStart');
 const logTimeEndEl = document.getElementById('logTimeEnd');
 const logTimeDurationEl = document.getElementById('logTimeDuration');
 const logTimeTaskEl = document.getElementById('logTimeTask');
 const logTimeNoteEl = document.getElementById('logTimeNote');
 const logTimeErrorEl = document.getElementById('logTimeError');
+const logTimeTitleEl = document.getElementById('logTimeTitle');
+const logTimeSubmitBtn = document.getElementById('logTimeSubmitBtn');
 
 let logTimeProjectId = null;
+// null = registro nuevo; un id = se está corrigiendo ese registro.
+let logTimeSessionId = null;
 
 // "HH:MM" del <input type="time"> a segundos desde medianoche.
 function parseClockValue(value) {
@@ -624,6 +630,59 @@ function renderLogTimeDuration() {
         : `Duración: ${formatDuration(seconds)}`;
 }
 
+function secondsToClockValue(secondsFromMidnight) {
+    const hours = Math.floor(secondsFromMidnight / 3600);
+    const minutes = Math.floor((secondsFromMidnight % 3600) / 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+// Duración escrita a mano -> horas de inicio y fin. El fin es la hora actual
+// (al minuto, que es la resolución de <input type="time">) y el inicio sale de
+// restarle el rato indicado.
+function applyTypedDuration() {
+    const hours = Number(logTimeHoursEl.value) || 0;
+    const minutes = Number(logTimeMinutesEl.value) || 0;
+    const requested = hours * 3600 + minutes * 60;
+
+    if (requested <= 0) {
+        return;
+    }
+
+    const now = new Date();
+    let end = now.getHours() * 3600 + now.getMinutes() * 60;
+    let start = end - requested;
+
+    // El rato no cabe antes de la hora actual: cruzaría a ayer, y una sesión
+    // que salta la medianoche no se puede representar con dos horas del mismo
+    // día. Se ancla al arranque del día y se avisa, en vez de guardar un rango
+    // inválido en silencio.
+    let clamped = false;
+    if (start < 0) {
+        start = 0;
+        clamped = true;
+    }
+
+    logTimeStartEl.value = secondsToClockValue(start);
+    logTimeEndEl.value = secondsToClockValue(end);
+    renderLogTimeDuration();
+
+    if (clamped) {
+        logTimeDurationEl.textContent += ' — ajustado, ese rato empezaba ayer';
+        syncTypedDurationFields();
+    }
+}
+
+// El camino inverso: si se corrigen las horas a mano, los campos de duración
+// dejan de mentir.
+function syncTypedDurationFields() {
+    const seconds = logTimeDurationSeconds();
+    if (seconds === null) {
+        return;
+    }
+    logTimeHoursEl.value = String(Math.floor(seconds / 3600));
+    logTimeMinutesEl.value = String(Math.floor((seconds % 3600) / 60));
+}
+
 async function fillLogTimeTasks(projectId) {
     logTimeTaskEl.innerHTML = '<option value="">Sin tarea</option>';
     try {
@@ -639,25 +698,48 @@ async function fillLogTimeTasks(projectId) {
     }
 }
 
-function openLogTimeModal(projectId) {
+async function openLogTimeModal(projectId, session = null) {
     const project = projectsState.projects.find(p => p.id === projectId);
     if (!project) return;
 
     logTimeProjectId = projectId;
+    logTimeSessionId = session ? session.id : null;
     logTimeProjectEl.textContent = project.name;
+    logTimeTitleEl.textContent = session ? 'Editar registro' : 'Registrar tiempo';
+    logTimeSubmitBtn.textContent = session ? 'Guardar cambios' : 'Guardar';
 
     // El calendario nativo abre en el día actual y no deja elegir futuro.
     const today = getDateKey(new Date());
-    logTimeDateEl.value = today;
     logTimeDateEl.max = today;
 
-    logTimeStartEl.value = '';
-    logTimeEndEl.value = '';
-    logTimeNoteEl.value = '';
-    renderLogTimeDuration();
-    fillLogTimeTasks(projectId);
+    if (session) {
+        // Las horas se pintan en local: el backend las guarda en UTC sin 'Z'.
+        const start = parseUtcIso(session.started_at);
+        const end = parseUtcIso(session.ended_at);
+        logTimeDateEl.value = session.session_date;
+        logTimeStartEl.value = secondsToClockValue(start.getHours() * 3600 + start.getMinutes() * 60);
+        logTimeEndEl.value = secondsToClockValue(end.getHours() * 3600 + end.getMinutes() * 60);
+        logTimeNoteEl.value = session.note || '';
+        renderLogTimeDuration();
+        syncTypedDurationFields();
+    } else {
+        logTimeDateEl.value = today;
+        logTimeHoursEl.value = '';
+        logTimeMinutesEl.value = '';
+        logTimeStartEl.value = '';
+        logTimeEndEl.value = '';
+        logTimeNoteEl.value = '';
+        renderLogTimeDuration();
+    }
 
     showModal(logTimeModal);
+
+    // Después de mostrar, porque la lista viene de la red: al editar hay que
+    // esperarla para poder preseleccionar la tarea del registro.
+    await fillLogTimeTasks(projectId);
+    if (session && session.task_id) {
+        logTimeTaskEl.value = String(session.task_id);
+    }
 }
 
 // "2026-09-08" + segundos desde medianoche -> instante LOCAL, y de ahí a UTC
@@ -688,23 +770,34 @@ async function submitLogTime(event) {
     const taskId = logTimeTaskEl.value ? Number(logTimeTaskEl.value) : null;
     const note = logTimeNoteEl.value.trim();
 
+    // Al corregir, la duración es siempre el rango de horas que se ve en el
+    // formulario: si no, un registro editado podría mostrar unas horas y
+    // contar otra cosa distinta en los totales.
+    const payload = {
+        task_id: taskId,
+        session_date: dateKey,
+        started_at: toNaiveUtcIso(startedEpochMs),
+        ended_at: toNaiveUtcIso(startedEpochMs + duration * 1000),
+        duration_seconds: duration,
+        note: note || null,
+    };
+
     try {
-        await apiFetch('/api/pomodoro', {
-            method: 'POST',
-            json: {
-                project_id: logTimeProjectId,
-                task_id: taskId,
-                session_date: dateKey,
-                started_at: toNaiveUtcIso(startedEpochMs),
-                ended_at: toNaiveUtcIso(startedEpochMs + duration * 1000),
-                duration_seconds: duration,
-                planned_seconds: duration,
-                mode: 'focus',
-                was_completed: true,
-                note: note || null,
-                source: 'manual',
-            }
-        });
+        if (logTimeSessionId) {
+            await apiFetch(`/api/pomodoro/${logTimeSessionId}`, { method: 'PATCH', json: payload });
+        } else {
+            await apiFetch('/api/pomodoro', {
+                method: 'POST',
+                json: {
+                    ...payload,
+                    project_id: logTimeProjectId,
+                    planned_seconds: duration,
+                    mode: 'focus',
+                    was_completed: true,
+                    source: 'manual',
+                }
+            });
+        }
 
         hideModal(logTimeModal);
         // loadProjects() dispara projectsChangedHooks, que refresca el "Hoy".
@@ -715,14 +808,32 @@ async function submitLogTime(event) {
 }
 
 projectsList.addEventListener('click', (event) => {
-    const btn = event.target.closest('.project-log-time');
-    if (!btn) return;
-    openLogTimeModal(Number(btn.closest('.project-card').dataset.projectId));
+    const logBtn = event.target.closest('.project-log-time');
+    if (logBtn) {
+        openLogTimeModal(Number(logBtn.closest('.project-card').dataset.projectId));
+        return;
+    }
+
+    const editBtn = event.target.closest('.session-edit');
+    if (editBtn) {
+        const projectId = Number(editBtn.closest('.task-list').dataset.projectId);
+        const sessionId = Number(editBtn.closest('.session-row').dataset.sessionId);
+        const session = (projectsState.sessionsByProject[projectId] || []).find(s => s.id === sessionId);
+        if (session) openLogTimeModal(projectId, session);
+    }
 });
 
 logTimeForm.addEventListener('submit', submitLogTime);
-logTimeStartEl.addEventListener('input', renderLogTimeDuration);
-logTimeEndEl.addEventListener('input', renderLogTimeDuration);
+logTimeHoursEl.addEventListener('input', applyTypedDuration);
+logTimeMinutesEl.addEventListener('input', applyTypedDuration);
+logTimeStartEl.addEventListener('input', () => {
+    renderLogTimeDuration();
+    syncTypedDurationFields();
+});
+logTimeEndEl.addEventListener('input', () => {
+    renderLogTimeDuration();
+    syncTypedDurationFields();
+});
 document.getElementById('closeLogTimeBtn').addEventListener('click', () => hideModal(logTimeModal));
 logTimeModal.querySelector('.modal-overlay').addEventListener('click', () => hideModal(logTimeModal));
 
