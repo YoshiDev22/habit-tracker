@@ -24,6 +24,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 8 | P3 | `datetime.utcnow()` deprecado | diagnosticado |
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
 | 10 | P4 | `passlib` declarado y sin usar | diagnosticado |
+| 11 | P4 | `/health` sin uso y 404 detrás del proxy | reproducido |
 
 ---
 
@@ -261,3 +262,37 @@ importa: el hashing usa `bcrypt` directamente en
 
 **Aceptación.** `grep -rn passlib backend/` no devuelve nada, y la app arranca y hace login
 con el entorno reinstalado desde cero.
+
+---
+
+## 11 · P4 · `/health` sin uso y 404 detrás del proxy
+
+**Síntoma.** Ninguno hoy. `GET https://habits.yoshidev22.com/health` responde `404` con
+cuerpo vacío, pero nada lo consume, así que no rompe nada. Verificado con `curl` contra
+producción el 2026-09-08.
+
+**Causa.** Dos cosas independientes:
+
+1. El endpoint existe en [backend/main.py:119](backend/main.py#L119) y devuelve
+   `{"status": "healthy"}`, pero ningún cliente lo llama. `grep -rn "/health"` sobre el
+   repo solo lo encuentra en su propia definición y mencionado en `README.md` y
+   `CLAUDE.md`. Quedó ahí sin consumidor.
+2. La regla del reverse proxy en el VPS solo reenvía rutas con un segmento después de
+   `/api`, así que `/health` — que cuelga de la raíz — nunca llega a la app. Es la misma
+   causa que dejaba la versión en blanco en producción, arreglada en `d0d8886` moviendo
+   el dato a `/api/version`.
+
+**Arreglo.** Decisión pendiente, no hay prisa. Tres caminos:
+
+- Dejarlo como está mientras no haya monitorización.
+- Si se conecta un monitor de uptime: arreglar la regla de Caddy para que `/health` pase
+  al backend. Es cambio en el VPS, deploy manual.
+- Si se descarta monitorizar así: borrar el endpoint y su mención en `README.md` y
+  `CLAUDE.md`.
+
+**Riesgo de no hacer nada.** Un monitor futuro apuntando a `/health` daría 404 permanente
+y reportaría la app como caída estando sana.
+
+**Aceptación.** Según el camino: o `curl -s -o /dev/null -w "%{http_code}"
+https://habits.yoshidev22.com/health` devuelve `200`, o `grep -rn "/health"` no encuentra
+nada en el repo.
