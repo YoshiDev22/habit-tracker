@@ -6,6 +6,7 @@ const projectsState = {
     projects: [],            // ProjectResponse[] (id, name, description, color, icon, ...)
     summaryByProject: {},    // { [id]: ProjectSummary }
     tasksByProject: {},      // { [id]: TaskResponse[] } — cache, se invalida en cada mutación
+    sessionsByProject: {},   // { [id]: PomodoroSessionResponse[] } — mismo criterio
     expanded: new Set(),
 };
 
@@ -196,6 +197,9 @@ async function loadProjects() {
 
         projectsState.projects = listData.projects;
         projectsState.summaryByProject = {};
+        // Los registros de tiempo cambian con cada alta o borrado; se vuelven a
+        // pedir para los proyectos que estén desplegados.
+        projectsState.sessionsByProject = {};
         summaryData.summaries.forEach(s => {
             projectsState.summaryByProject[s.project_id] = s;
         });
@@ -207,6 +211,46 @@ async function loadProjects() {
         await runHooks(window.projectsChangedHooks);
     } catch (error) {
         console.error('Error al cargar proyectos:', error);
+    }
+}
+
+// El backend guarda datetimes UTC naive (sin 'Z'). new Date() sin la 'Z' los
+// interpretaría como hora LOCAL y pintaría el reloj corrido por el huso.
+function parseUtcIso(value) {
+    return new Date(value.endsWith('Z') ? value : `${value}Z`);
+}
+
+function formatClockRange(session) {
+    const start = parseUtcIso(session.started_at);
+    const end = parseUtcIso(session.ended_at);
+    const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return `${hhmm(start)}–${hhmm(end)}`;
+}
+
+function formatShortDate(dateKey) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${day} ${MONTHS[month - 1]}`;
+}
+
+async function loadSessions(projectId) {
+    try {
+        const data = await apiFetch(`/api/pomodoro?project_id=${projectId}`);
+        projectsState.sessionsByProject[projectId] = data.sessions;
+        const container = document.getElementById(`tasks-${projectId}`);
+        if (container) fillTaskListElement(container, projectId);
+    } catch (error) {
+        console.error('Error al cargar los registros de tiempo:', error);
+    }
+}
+
+async function removeSession(projectId, sessionId) {
+    try {
+        await apiFetch(`/api/pomodoro/${sessionId}`, { method: 'DELETE' });
+        delete projectsState.sessionsByProject[projectId];
+        await loadProjects();
+    } catch (error) {
+        console.error('Error al eliminar el registro:', error);
     }
 }
 
@@ -380,6 +424,99 @@ function fillTaskListElement(container, projectId) {
     form.appendChild(input);
     form.appendChild(submitBtn);
     container.appendChild(form);
+
+    container.appendChild(buildSessionLog(projectId, tasks));
+}
+
+// Historial de tiempo del proyecto. Los registros son append-only: se crean y
+// se borran, no se editan, así que esta lista es la única forma de deshacer
+// un registro equivocado desde la UI.
+function buildSessionLog(projectId, tasks) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'session-log';
+
+    const heading = document.createElement('h4');
+    heading.className = 'session-log-title';
+    heading.textContent = 'Registros de tiempo';
+    wrapper.appendChild(heading);
+
+    const sessions = projectsState.sessionsByProject[projectId];
+    if (!sessions) {
+        const loading = document.createElement('p');
+        loading.className = 'empty-state';
+        loading.textContent = 'Cargando registros...';
+        wrapper.appendChild(loading);
+        loadSessions(projectId);
+        return wrapper;
+    }
+
+    if (sessions.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = 'Todavía no hay tiempo registrado en este proyecto.';
+        wrapper.appendChild(empty);
+        return wrapper;
+    }
+
+    const titleByTask = {};
+    (tasks || []).forEach(task => { titleByTask[task.id] = task.title; });
+
+    const RECENT_LIMIT = 10;
+    sessions.slice(0, RECENT_LIMIT).forEach(session => {
+        const row = document.createElement('div');
+        row.className = 'session-row';
+        row.dataset.sessionId = String(session.id);
+
+        const origin = document.createElement('span');
+        origin.className = 'session-origin';
+        const isManual = session.source === 'manual';
+        origin.textContent = isManual ? '✍️' : '⏱';
+        origin.title = isManual ? 'Registrado a mano' : 'Medido con el timer';
+
+        const body = document.createElement('div');
+        body.className = 'session-body';
+
+        const when = document.createElement('span');
+        when.className = 'session-when';
+        when.textContent = `${formatShortDate(session.session_date)} · ${formatClockRange(session)} · ${formatDuration(session.duration_seconds)}`;
+        body.appendChild(when);
+
+        // El título solo está disponible si las tareas ya se cargaron; una tarea
+        // borrada deja registros huérfanos que siguen contando en el total.
+        const details = [];
+        if (session.task_id && titleByTask[session.task_id]) {
+            details.push(titleByTask[session.task_id]);
+        }
+        if (session.note) {
+            details.push(session.note);
+        }
+        if (details.length > 0) {
+            const detail = document.createElement('span');
+            detail.className = 'session-detail';
+            detail.textContent = details.join(' — ');
+            body.appendChild(detail);
+        }
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'session-delete';
+        deleteBtn.setAttribute('aria-label', 'Eliminar registro');
+        deleteBtn.textContent = '×';
+
+        row.appendChild(origin);
+        row.appendChild(body);
+        row.appendChild(deleteBtn);
+        wrapper.appendChild(row);
+    });
+
+    if (sessions.length > RECENT_LIMIT) {
+        const more = document.createElement('p');
+        more.className = 'session-more';
+        more.textContent = `Mostrando ${RECENT_LIMIT} de ${sessions.length} registros.`;
+        wrapper.appendChild(more);
+    }
+
+    return wrapper;
 }
 
 function buildTaskListElement(projectId) {
@@ -437,6 +574,14 @@ projectsList.addEventListener('click', (event) => {
         const projectId = Number(mainArea.closest('.project-card').dataset.projectId);
         const project = projectsState.projects.find(p => p.id === projectId);
         if (project) openEditProjectModal(project);
+        return;
+    }
+
+    const deleteSessionBtn = event.target.closest('.session-delete');
+    if (deleteSessionBtn) {
+        const sessionId = Number(deleteSessionBtn.closest('.session-row').dataset.sessionId);
+        const projectId = Number(deleteSessionBtn.closest('.task-list').dataset.projectId);
+        removeSession(projectId, sessionId);
         return;
     }
 
