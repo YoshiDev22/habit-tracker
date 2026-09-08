@@ -62,6 +62,9 @@ const registerForm = document.getElementById('registerForm');
 const loginError = document.getElementById('loginError');
 const registerError = document.getElementById('registerError');
 const logoutBtn = document.getElementById('logoutBtn');
+const profileModal = document.getElementById('profileModal');
+const profileForm = document.getElementById('profileForm');
+const profileError = document.getElementById('profileError');
 
 // ============================================
 // Funciones de Autenticación - Token
@@ -170,6 +173,7 @@ function hideModal(modal) {
 function hideAllModals() {
     hideModal(loginModal);
     hideModal(registerModal);
+    hideModal(profileModal);
 }
 
 function showError(errorDiv, message) {
@@ -332,6 +336,37 @@ async function handleLogin(event) {
         await runHooks(window.appDataHooks);
     } catch (error) {
         showError(loginError, error.message);
+    }
+}
+
+function showProfile() {
+    if (!currentUser) {
+        return;
+    }
+    document.getElementById('profileEmail').textContent = `Sesión iniciada como ${currentUser.email}`;
+    document.getElementById('profileDisplayName').value = currentUser.display_name || '';
+    document.getElementById('profileFirstName').value = currentUser.first_name || '';
+    document.getElementById('profileLastName').value = currentUser.last_name || '';
+    showModal(profileModal);
+}
+
+async function handleProfileSave(event) {
+    event.preventDefault();
+
+    try {
+        currentUser = await apiFetch('/api/auth/me', {
+            method: 'PATCH',
+            json: {
+                display_name: document.getElementById('profileDisplayName').value,
+                first_name: document.getElementById('profileFirstName').value,
+                last_name: document.getElementById('profileLastName').value
+            }
+        });
+
+        updateUserBar();
+        hideAllModals();
+    } catch (error) {
+        showError(profileError, error.message);
     }
 }
 
@@ -859,6 +894,8 @@ habitActionModal.querySelector('.modal-overlay').addEventListener('click', hideH
 
 // Configuración desde la barra de usuario
 settingsBtn.addEventListener('click', showHabitsSetup);
+userEmail.addEventListener('click', showProfile);
+profileForm.addEventListener('submit', handleProfileSave);
 
 // ============================================
 // Hábitos Dinámicos (Custom)

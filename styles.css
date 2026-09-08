@@ -1226,6 +1226,22 @@ body.has-pomodoro-bar {
     font-size: 0.9rem;
 }
 
+/* El nombre abre el perfil, pero se sigue leyendo como texto, no como botón */
+.user-label-btn {
+    padding: 0;
+    background: none;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+}
+
+.user-label-btn:hover {
+    color: var(--text-primary);
+}
+
 .logout-btn {
     padding: 8px 16px;
     background: var(--bg-hover);

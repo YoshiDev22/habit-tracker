@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from backend.database import get_session
 from backend.models import User
-from backend.schemas import UserCreate, UserResponse, Token
+from backend.schemas import UserCreate, UserUpdate, UserResponse, Token
 from backend.auth import (
     verify_password, 
     get_password_hash, 
@@ -95,4 +95,27 @@ def read_current_user(current_user: User = Depends(get_current_user)):
     Retorna el usuario dueño del token. El frontend lo usa al recargar la
     página, donde solo conserva el token y no sabe a quién pertenece.
     """
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_current_user(
+    user_in: UserUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Actualiza el perfil del usuario del token: alias, nombre y apellido.
+    Es la vía para que una cuenta ya creada rellene unos campos que no
+    existían cuando se registró. Email y contraseña no se tocan aquí.
+    """
+    # Aplicar solo los campos enviados (PATCH parcial)
+    update_data = user_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(current_user, field, clean_optional(value))
+
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+
     return current_user

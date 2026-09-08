@@ -25,6 +25,13 @@ class UserResponse(SQLModel):
     last_name: Optional[str] = None
 
 
+class UserUpdate(SQLModel):
+    """Esquema para actualizar el perfil (todo opcional, PATCH parcial)"""
+    display_name: Optional[str] = Field(default=None, max_length=40)
+    first_name: Optional[str] = Field(default=None, max_length=60)
+    last_name: Optional[str] = Field(default=None, max_length=60)
+
+
 class Token(SQLModel):
     """Esquema para token de acceso"""
     access_token: str
