@@ -27,6 +27,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 11 | P4 | `/health` sin uso y 404 detrás del proxy | reproducido |
 | 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
+| 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 
 ---
 
@@ -390,3 +391,75 @@ nueva.
 **Aceptación.** Cambiar el enfoque a 50 minutos y el descanso largo a 30, recargar, y ver
 que el timer arranca con esos valores. Las sesiones anteriores siguen mostrando su
 duración original en el historial del proyecto.
+
+---
+
+## 14 · P4 · Pestañas añadidas por el usuario, a partir de plantillas
+
+**Esto no es una entrada, es una épica.** El resto del backlog se puede trabajar de una
+sentada; esto no. Está aquí para que la idea no se pierda y para dejar escritas las
+decisiones que hay que tomar antes de escribir código, no como algo que se empiece tal
+cual. Antes de tocarlo, hacer la entrada 12: una tercera pestaña fija enseña la mitad de
+los problemas por una fracción del trabajo.
+
+**Idea.** Que el usuario pueda añadir las pestañas que necesite para organizarse, a partir
+de **plantillas**: horarios, cronograma de un proyecto, dieta, calendario de recordatorios
+importantes… Elige una plantilla, la personaliza y la añade a su app.
+
+**Regla de proceso, pedida explícitamente.** Una idea de plantilla **se evalúa antes de
+construirse**. No se convierte cada ocurrencia en una plantilla; primero se decide si
+merece existir. Criterios propuestos para esa evaluación:
+
+1. **¿Encaja en las formas de dato que ya existen?** La app sabe hacer tres cosas: algo
+   que se marca por día (hábitos), algo con elementos y progreso (tareas) y algo con
+   tiempo y duración (pomodoro). Una plantilla que se apoye en una de esas tres es barata.
+   Una que necesite un modelo nuevo entero, no.
+2. **¿La abrirías todas las semanas?** Una plantilla que se usa una vez y se abandona
+   cuesta lo mismo de mantener que una que se usa a diario.
+3. **¿Se puede hacer sin dependencias nuevas?** El stack es deliberadamente simple, sin
+   build step. Una plantilla que pida una librería de gráficos o un motor de calendario
+   cambia esa premisa y hay que decidirlo aparte, no colarlo dentro de la plantilla.
+4. **¿Cuánto backend nuevo pide?** Reutilizar endpoints existentes es la diferencia entre
+   una tarde y una semana.
+
+**Estado actual — lo que hoy lo impide.** Las vistas están escritas a mano, no son datos:
+
+- `VIEW_COUNT = 2` en [projects.js:55](projects.js#L55), usado por el swipe y por la
+  navegación con teclado.
+- `goToView()` recorre un array literal `[tabCalendar, tabProjects]`
+  ([projects.js:68](projects.js#L68)).
+- Cada vista es un `<section>` escrito en `index.html`, y cada tab un `<button>`.
+
+El primer paso real, y probablemente el único commit que se puede hacer solo, es
+**convertir esa lista en datos**: que las pestañas se construyan recorriendo un array, con
+el swipe y el teclado leyendo su longitud. Sin eso, cualquier plantilla es un parche.
+
+**Modelo de datos, la decisión de fondo.** Hará falta al menos una tabla de pestañas del
+usuario (`user_id`, plantilla, título, icono, orden, activa) más el contenido de cada una.
+Para el contenido hay dos caminos y conviene elegirlo a conciencia:
+
+- **Una tabla por plantilla.** Consultas claras, agregación fácil, migración por cada
+  plantilla nueva.
+- **Una tabla genérica con una columna JSON.** Añadir plantillas no toca el esquema, pero
+  se pierde poder consultar el contenido. Y aquí hay cicatriz: la entrada 1 de este
+  backlog es exactamente un bug de mutar una columna JSON in-place sin `MutableDict`. Si
+  se va por JSON, declararlo `MutableDict.as_mutable(JSON)` desde el primer día.
+
+**Nota sobre migraciones.** Las tablas *nuevas* las crea `create_all()` sola al arrancar,
+sin migración — igual que pasó con `projects`, `tasks` y `pomodoro_sessions`. Solo las
+*columnas* añadidas a tablas existentes necesitan `scripts/migrate.py`.
+
+**Cuidado con la plantilla de recordatorios.** Es la más pedida y la más engañosa: avisar
+de algo a una hora concreta **no funciona con lo que hay hoy**. La notificación que se
+añadió en 1.5.0 solo se dispara con la página abierta. Un recordatorio de verdad necesita
+un service worker y push, o aceptar por escrito que solo avisa si la app está abierta. Eso
+se decide *antes* de prometer la plantilla, no después.
+
+**Riesgo.** Aquí es donde una app personal se convierte en una plataforma. El coste real
+no es construir la primera plantilla, es mantener cinco. Empezar con **dos plantillas
+concretas y escritas a mano** sobre el sistema de pestañas dinámico, y no construir un
+motor genérico hasta que duela repetir código.
+
+**Aceptación (del primer paso, no de la épica).** Las pestañas se generan desde un array
+de configuración: añadir una entrada al array crea su tab y su vista, y el swipe, las
+flechas del teclado y `Home`/`End` funcionan sin tocar ninguna constante.
