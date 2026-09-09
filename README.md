@@ -11,6 +11,9 @@ sin build step ni dependencias) servido por la misma app.
 
 Producción: <https://habits.yoshidev22.com>
 
+Este README cubre la instalación y la API. Para usar la web —marcar hábitos, registrar
+tiempo, corregir un registro— está la [guía de uso](GUIA-DE-USO.md).
+
 ## Stack
 
 - FastAPI 0.109 sobre uvicorn
