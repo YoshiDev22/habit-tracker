@@ -461,6 +461,21 @@
         </div>
     </div>
 
+    <!-- Confirm genérico (sí/no), reutilizado por confirmDialog() en script.js.
+         Distinto de habitActionModal/projectActionModal: esos son de 3 opciones
+         fijas; este es de propósito general, con mensaje y botones dinámicos. -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal" style="max-width: 400px;">
+            <h2 class="modal-title" id="confirmModalTitle">¿Seguro?</h2>
+            <p id="confirmModalMessage" class="setup-subtitle"></p>
+            <div class="habit-action-options">
+                <button type="button" id="confirmModalConfirmBtn" class="submit-btn"></button>
+                <button type="button" id="confirmModalCancelBtn" class="submit-btn btn-neutral">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
     <script src="projects.js"></script>
     <script src="pomodoro.js"></script>

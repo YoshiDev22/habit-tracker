@@ -66,6 +66,11 @@ const logoutBtn = document.getElementById('logoutBtn');
 const profileModal = document.getElementById('profileModal');
 const profileForm = document.getElementById('profileForm');
 const profileError = document.getElementById('profileError');
+const confirmModal = document.getElementById('confirmModal');
+const confirmModalTitle = document.getElementById('confirmModalTitle');
+const confirmModalMessage = document.getElementById('confirmModalMessage');
+const confirmModalConfirmBtn = document.getElementById('confirmModalConfirmBtn');
+const confirmModalCancelBtn = document.getElementById('confirmModalCancelBtn');
 
 // ============================================
 // Funciones de Autenticación - Token
@@ -176,6 +181,41 @@ function hideAllModals() {
     hideModal(registerModal);
     hideModal(profileModal);
 }
+
+// Confirm genérico (sí/no) para código nuevo (perfil, pomodoro, y lo que
+// venga). No pasa por hideAllModals: ese helper no conoce confirmModal
+// y no debería — ver handleModalDismiss más abajo, que sí lo conoce.
+let confirmModalResolve = null;
+
+function confirmDialog(message, { title = '¿Seguro?', confirmLabel = 'Sí', cancelLabel = 'Cancelar', danger = false } = {}) {
+    // Solo un confirm a la vez: si ya había uno pendiente (doble click en
+    // el botón que lo abrió), se resuelve como cancelado antes de abrir el nuevo.
+    if (confirmModalResolve) {
+        confirmModalResolve(false);
+    }
+
+    confirmModalTitle.textContent = title;
+    confirmModalMessage.textContent = message;
+    confirmModalConfirmBtn.textContent = confirmLabel;
+    confirmModalConfirmBtn.classList.toggle('btn-danger', danger);
+    confirmModalCancelBtn.textContent = cancelLabel;
+    showModal(confirmModal);
+
+    return new Promise(resolve => {
+        confirmModalResolve = resolve;
+    });
+}
+
+function resolveConfirmDialog(result) {
+    confirmModal.classList.add('hidden');
+    if (confirmModalResolve) {
+        confirmModalResolve(result);
+        confirmModalResolve = null;
+    }
+}
+
+confirmModalConfirmBtn.addEventListener('click', () => resolveConfirmDialog(true));
+confirmModalCancelBtn.addEventListener('click', () => resolveConfirmDialog(false));
 
 function showError(errorDiv, message) {
     errorDiv.textContent = message;
@@ -342,6 +382,10 @@ async function handleLogin(event) {
     }
 }
 
+// Valores con los que se abrió el modal de perfil, para saber si hay
+// cambios sin guardar (isProfileDirty) al intentar cerrarlo o guardarlo.
+let profileInitialValues = null;
+
 function showProfile() {
     if (!currentUser) {
         return;
@@ -350,11 +394,49 @@ function showProfile() {
     document.getElementById('profileDisplayName').value = currentUser.display_name || '';
     document.getElementById('profileFirstName').value = currentUser.first_name || '';
     document.getElementById('profileLastName').value = currentUser.last_name || '';
+    profileInitialValues = {
+        displayName: currentUser.display_name || '',
+        firstName: currentUser.first_name || '',
+        lastName: currentUser.last_name || ''
+    };
     showModal(profileModal);
+}
+
+function isProfileDirty() {
+    if (!profileInitialValues) return false;
+    return document.getElementById('profileDisplayName').value !== profileInitialValues.displayName
+        || document.getElementById('profileFirstName').value !== profileInitialValues.firstName
+        || document.getElementById('profileLastName').value !== profileInitialValues.lastName;
+}
+
+// Llamada por handleModalDismiss en vez de hideModal directo: la X y el
+// overlay del modal de perfil pasan por acá para poder preguntar antes
+// de descartar cambios sin guardar.
+async function closeProfileModal() {
+    if (isProfileDirty()) {
+        const ok = await confirmDialog('Tienes cambios sin guardar en tu perfil. ¿Seguro que quieres salir?', {
+            confirmLabel: 'Salir sin guardar',
+            cancelLabel: 'Seguir editando',
+            danger: true
+        });
+        if (!ok) return;
+    }
+    hideModal(profileModal);
+    profileInitialValues = null;
 }
 
 async function handleProfileSave(event) {
     event.preventDefault();
+
+    if (!isProfileDirty()) {
+        // Nada que guardar: cerrar directo, sin preguntar.
+        hideModal(profileModal);
+        profileInitialValues = null;
+        return;
+    }
+
+    const ok = await confirmDialog('¿Guardar estos cambios en tu perfil?', { confirmLabel: 'Guardar' });
+    if (!ok) return;
 
     try {
         currentUser = await apiFetch('/api/auth/me', {
@@ -367,7 +449,8 @@ async function handleProfileSave(event) {
         });
 
         updateUserBar();
-        hideAllModals();
+        hideModal(profileModal);
+        profileInitialValues = null;
     } catch (error) {
         showError(profileError, error.message);
     }
@@ -396,14 +479,28 @@ function handleLogout() {
 showLoginBtn.addEventListener('click', () => showModal(loginModal));
 showRegisterBtn.addEventListener('click', () => showModal(registerModal));
 
+// Despachador de cierre: la mayoría de los modales cierran sin más
+// (hideAllModals), pero confirmModal y profileModal necesitan salida propia
+// — resolver la promesa pendiente, o preguntar antes de descartar cambios.
+function handleModalDismiss(modalEl) {
+    if (!modalEl) return;
+    if (modalEl.id === 'confirmModal') {
+        resolveConfirmDialog(false);
+    } else if (modalEl.id === 'profileModal') {
+        closeProfileModal();
+    } else {
+        hideAllModals();
+    }
+}
+
 // Cerrar modales
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
-    btn.addEventListener('click', hideAllModals);
+    btn.addEventListener('click', () => handleModalDismiss(btn.closest('.modal')));
 });
 
 // Cerrar modal al hacer click en overlay
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', hideAllModals);
+    overlay.addEventListener('click', () => handleModalDismiss(overlay.closest('.modal')));
 });
 
 // Alternar entre login y registro

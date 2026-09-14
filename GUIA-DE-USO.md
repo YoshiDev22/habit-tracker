@@ -45,6 +45,9 @@ alias → nombre → parte del correo antes de la @
 El correo completo sigue visible pasando el ratón por encima de tu nombre, y arriba del
 modal de perfil.
 
+Guardar pregunta antes de aplicar el cambio, y si cierras el modal con algo editado sin
+guardar, también te pregunta si quieres salir de todos modos.
+
 ## Calendario de hábitos
 
 La pestaña **Calendario** es la vista de inicio.
