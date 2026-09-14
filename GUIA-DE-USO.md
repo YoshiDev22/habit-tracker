@@ -93,6 +93,8 @@ Está arriba de la pestaña Proyectos.
 2. Opcionalmente elige **proyecto** y **tarea**. Hazlo *antes* de darle a Iniciar: es en
    ese momento cuando el timer se queda con esa elección.
 3. **Iniciar**. Puedes **Pausar** y retomar, o **Detener** para cortar antes de tiempo.
+   Detener un **Enfoque** en curso o en pausa pregunta antes, para que no lo cortes sin
+   querer; detener un descanso no pregunta.
 
 Detalles que conviene saber:
 

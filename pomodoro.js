@@ -269,6 +269,35 @@ function resumePomodoro() {
 
 async function stopPomodoro() {
     if (pomoState.status !== 'running' && pomoState.status !== 'paused') return;
+
+    if (pomoState.mode === 'focus') {
+        // Congelar el timer mientras se pregunta: el tick de 250ms no debe
+        // poder terminar el pomodoro solo (finishPomodoro) con el diálogo
+        // abierto. confirmDialog() está en script.js (global, igual que
+        // apiFetch — ver CLAUDE.md).
+        const wasRunning = pomoState.status === 'running';
+        if (wasRunning) stopTicking();
+        cancelScheduledBeep();
+
+        const ok = await confirmDialog('¿Seguro que quieres irte? Vas a perder el enfoque en curso.', {
+            confirmLabel: 'Sí, detener',
+            cancelLabel: 'Seguir enfocado',
+            danger: true
+        });
+
+        // Pudo terminar solo mientras se esperaba la respuesta (ej. el
+        // listener de visibilitychange, si se cambió de pestaña y volvió).
+        if (pomoState.status !== 'running' && pomoState.status !== 'paused') return;
+
+        if (!ok) {
+            if (wasRunning && pomoState.status === 'running') {
+                startTicking();
+                scheduleEndBeep(pomoState.targetEpochMs - Date.now());
+            }
+            return;
+        }
+    }
+
     stopTicking();
     cancelScheduledBeep();
 
