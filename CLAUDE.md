@@ -258,8 +258,36 @@ romper esa cola.
   y no está en el repo.
 - Toda query de un recurso debe filtrar por `current_user.id`, no solo por el id del
   recurso. Es lo único que separa los datos entre usuarios.
-- Al subir la versión: actualizar `VERSION`. El backend lo lee al arrancar y el frontend
-  lo muestra vía `GET /api`.
+- Al subir la versión: actualizar `VERSION` — ver **Versionado** más abajo para el criterio.
+
+## Versionado
+
+`VERSION` en la raíz, semver. El backend lo lee **al arrancar** y el frontend lo muestra vía
+`GET /api`, así que subir el archivo sin reiniciar el servicio no cambia nada de lo que se ve.
+
+**Qué bump toca.** Lo decide el commit de mayor rango que entra en el lote desde la última
+versión publicada:
+
+| Hay en el lote | Bump | Precedente en este repo |
+|---|---|---|
+| Algo que rompe datos o la API existentes | MAJOR | nunca ha pasado |
+| Algún `feat:` | MINOR | 1.6.0 → 1.7.0 (días de descanso) |
+| Solo `fix:`, `chore:`, `docs:`, `refactor:` | PATCH | 1.0.0 → 1.0.1 (hooks + apiFetch) |
+
+Para ver qué entra en el lote: `git log --oneline <commit-del-último-bump>..HEAD`.
+
+**Cuándo NO toca bump.** Cambios que no salen del repo: `docs:` sobre CLAUDE.md, BACKLOG.md
+o README, ajustes de `.gitignore`, scripts de desarrollo. La versión identifica lo que corre
+en el VPS, no cada commit.
+
+**El bump va en su propio commit**, `chore: bump version to X.Y.Z`, justo antes de desplegar.
+El historial tiene las dos formas —a veces viaja dentro del commit de la feature— pero
+separarlo deja claro qué se desplegó y cuándo.
+
+**Antes de subir la versión, revisar migraciones.** Si el lote agregó una columna a un modelo
+que ya existía, su entrada tiene que estar en `scripts/migrate.py`. El deploy corre
+`python3 scripts/migrate.py` ANTES de reiniciar el servicio. Saltarse esto deja producción
+devolviendo `no such column` en el primer request — ya pasó con `users.rest_days` en la 1.7.0.
 
 ## Producción (VPS Ubuntu)
 

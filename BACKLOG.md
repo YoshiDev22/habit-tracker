@@ -27,6 +27,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 15 | P3 | `completed_at` de tareas con la fecha UTC del servidor | diagnosticado |
+| 16 | P3 | `innerHTML` sin escapar con el label de un hábito | verificado |
 
 ---
 
@@ -417,3 +418,40 @@ del `PATCH /api/tasks/{id}`, y mandarla desde `projects.js` con `getDateKey(new 
 
 **Aceptación.** Marcar una tarea mandando la fecha local de ayer (dentro del margen de ±1
 día respecto a UTC) guarda ese `completed_at`, y no la fecha del servidor.
+
+---
+
+## 16 · P3 · `innerHTML` sin escapar con el label de un hábito
+
+**Síntoma.** Ninguno hoy. Es una mina para el día que la app deje de ser de un solo usuario.
+
+**Verificado.** Salió de una revisión de seguridad de los cambios de confirmación de hábitos, y se confirmó
+leyendo el código; no se explotó porque hoy no es explotable (ver más abajo).
+
+**Causa.** [script.js:619](script.js#L619) y [script.js:1159](script.js#L1159) construyen la
+fila de un hábito dinámico con `innerHTML` e interpolan `key`, `label` y `color` sin
+escapar. `HabitCreate` ([backend/schemas.py:97](backend/schemas.py#L97)) declara `label` y
+`key` como `str` pelado, sin validar contenido ni longitud, y el backend los guarda tal
+cual. Un `label` como `<img src=x onerror=alert(1)>` se ejecuta al abrir ⚙️. El `color`
+tiene el mismo problema y además se interpola dentro de un atributo (`value="${...}"`),
+donde una comilla rompe el atributo.
+
+**Por qué es P3 y no P1.** Las cuatro consultas de hábitos filtran por
+`Habit.user_id == current_user.id` y no hay ninguna función de compartir: solo puedes
+inyectar en tu propia pantalla. Eso es *self-XSS*, que por convención no cuenta como
+vulnerabilidad — atacante y víctima son la misma persona.
+
+**Por qué arreglarlo igual.** Deja de ser self-XSS en cuanto exista cualquier vista que
+muestre datos de una cuenta en la pantalla de otra: hábitos compartidos, perfiles públicos,
+un panel de administración, o incluso una exportación que alguien abra en su navegador.
+Ahí pasa a XSS almacenado, con el `access_token` de localStorage al alcance del script
+inyectado. Arreglarlo ahora cuesta veinte minutos; arreglarlo después de haber enviado la
+función que lo expone es un incidente.
+
+**Arreglo.** Sustituir los dos `innerHTML` por `createElement` + `textContent` para las
+partes variables. La estructura del nodo es fija; solo `key`, `label` y `color` vienen de
+datos. De paso, validar en `HabitCreate`: `color` contra `^#[0-9a-fA-F]{6}$` y una longitud
+máxima razonable para `label` y `key`.
+
+**Aceptación.** Crear un hábito con el label `<img src=x onerror="alert(1)">`, abrir ⚙️ y
+ver ese texto literal en la fila: sin alert, y sin ningún `<img>` en el DOM al inspeccionar.
