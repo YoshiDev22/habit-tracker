@@ -564,7 +564,9 @@ async function populateTaskSelect() {
 
 async function refreshTodaySeconds() {
     try {
-        const stats = await apiFetch('/api/pomodoro/stats');
+        // Fecha LOCAL: con la del servidor (UTC), "Hoy" se reiniciaría a
+        // medianoche UTC en vez de a la del usuario.
+        const stats = await apiFetch(`/api/pomodoro/stats?today=${getDateKey(new Date())}`);
         pomoTodayEl.textContent = `Hoy: ${formatDuration(stats.today_seconds)}`;
     } catch (error) {
         console.error('Error al cargar estadísticas de pomodoro:', error);

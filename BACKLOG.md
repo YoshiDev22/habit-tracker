@@ -26,6 +26,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
+| 15 | P3 | `completed_at` de tareas con la fecha UTC del servidor | diagnosticado |
 
 ---
 
@@ -397,3 +398,22 @@ motor genérico hasta que duela repetir código.
 **Aceptación (del primer paso, no de la épica).** Las pestañas se generan desde un array
 de configuración: añadir una entrada al array crea su tab y su vista, y el swipe, las
 flechas del teclado y `Home`/`End` funcionan sin tocar ninguna constante.
+
+---
+
+## 15 · P3 · `completed_at` de tareas con la fecha UTC del servidor
+
+**Síntoma.** Una tarea marcada como hecha entre las 18:00 y la medianoche (hora de México)
+queda con el `completed_at` del día siguiente. Hoy no se muestra en ninguna pantalla, pero
+la pestaña de Reportes (entrada 12) contaría esas tareas en el día equivocado.
+
+**Causa.** [backend/routers/tasks.py:118](backend/routers/tasks.py#L118) usa
+`date_type.today()`, que es la fecha del servidor, y el VPS corre en UTC. Es el mismo
+problema que ya se corrigió en la racha y en el "Hoy" del pomodoro.
+
+**Arreglo.** El mismo criterio: aceptar la fecha local del cliente con
+`resolve_client_today()` ([backend/dates.py](backend/dates.py)), aquí como campo opcional
+del `PATCH /api/tasks/{id}`, y mandarla desde `projects.js` con `getDateKey(new Date())`.
+
+**Aceptación.** Marcar una tarea mandando la fecha local de ayer (dentro del margen de ±1
+día respecto a UTC) guarda ese `completed_at`, y no la fecha del servidor.

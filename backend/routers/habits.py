@@ -17,6 +17,7 @@ from backend.schemas import (
     HabitListResponse,
 )
 from backend.auth import get_current_user
+from backend.dates import resolve_client_today
 
 router = APIRouter(tags=["habits"])
 
@@ -27,11 +28,13 @@ HABIT_FIELDS = ["study", "capoeira", "reading", "diet", "others"]
 def get_habits(
     month: Optional[int] = None,
     year: Optional[int] = None,
+    today: Optional[date_type] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Obtiene todos los hábitos del usuario, opcionalmente filtrados por mes/año
+    Obtiene todos los hábitos del usuario, opcionalmente filtrados por mes/año.
+    `today` es la fecha LOCAL del cliente, para la racha (ver backend/dates.py).
     """
     query = select(HabitEntry).where(HabitEntry.user_id == current_user.id)
     
@@ -54,7 +57,7 @@ def get_habits(
     stats = calculate_stats(current_user.id, month, year, session)
     
     # Calcular racha
-    streak = calculate_streak(current_user.id, session, current_user)
+    streak = calculate_streak(current_user.id, session, current_user, resolve_client_today(today))
     
     # Convertir a formato de respuesta
     entries_response = [
@@ -162,13 +165,15 @@ def get_stats(
 
 @router.get("/streak")
 def get_streak(
+    today: Optional[date_type] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Obtiene la racha actual de días consecutivos
+    Obtiene la racha actual de días consecutivos.
+    `today` es la fecha LOCAL del cliente (ver backend/dates.py).
     """
-    streak = calculate_streak(current_user.id, session, current_user)
+    streak = calculate_streak(current_user.id, session, current_user, resolve_client_today(today))
     return {"streak": streak}
 
 
@@ -334,7 +339,12 @@ def calculate_stats(user_id: int, month: Optional[int], year: Optional[int], ses
     return stats
 
 
-def calculate_streak(user_id: int, session: Session, user: Optional[User] = None) -> int:
+def calculate_streak(
+    user_id: int,
+    session: Session,
+    user: Optional[User] = None,
+    today: Optional[date_type] = None,
+) -> int:
     """
     Calcula la racha actual de días consecutivos con al menos un hábito completado.
 
@@ -348,12 +358,17 @@ def calculate_streak(user_id: int, session: Session, user: Optional[User] = None
          está configurado en los días de descanso del usuario (user.rest_days):
          la racha se congela (no suma y no corta), continúa revisando el día anterior.
        - En cualquier otro caso: la racha se corta inmediatamente.
+
+    `today` debe ser la fecha LOCAL del usuario (ver backend/dates.py): el servidor
+    corre en UTC y, de noche, su "hoy" ya es mañana para el usuario. Sin ella se
+    usa la fecha del servidor.
     """
     if user is None:
         user = session.get(User, user_id)
     rest_days = set(user.rest_days) if user and user.rest_days else set()
 
-    today = date_type.today()
+    if today is None:
+        today = date_type.today()
     cutoff_date = today - timedelta(days=400)
 
     entries = session.exec(

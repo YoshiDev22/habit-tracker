@@ -44,6 +44,7 @@ habit-tracker/
 │   ├── models.py          # Tablas: User, HabitEntry, Habit, Project, Task, PomodoroSession
 │   ├── schemas.py         # Esquemas Pydantic/SQLModel de request/response
 │   ├── auth.py            # Hashing, JWT (create/verify), get_current_user, lee SECRET_KEY
+│   ├── dates.py           # resolve_client_today(): el "hoy" del usuario, no el del servidor (UTC)
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -124,6 +125,11 @@ Lo que no se deduce leyendo los modelos:
   con `getDateKey()` y enviada en el payload. No derivar la fecha de `started_at` en el
   servidor: agrupar por `date(started_at)` archivaría las sesiones nocturnas bajo el día
   equivocado según el huso horario.
+- **El servidor corre en UTC; "hoy" es la fecha LOCAL del cliente.** Todo endpoint que
+  dependa de "hoy" (la racha en `GET /api/habits`, `today_seconds` en
+  `GET /api/pomodoro/stats`) recibe `?today=AAAA-MM-DD` desde `getDateKey(new Date())` y lo
+  resuelve con `resolve_client_today()` (`backend/dates.py`), que solo acepta ±1 día
+  respecto a UTC. No usar `date.today()` para nada que el usuario vea como "hoy".
 - `started_at` / `ended_at` son UTC naive (`datetime.utcnow()`). El cliente nunca los parsea
   para la lógica del timer — usa `Date.now()` + localStorage.
 - Archivar (`is_active=False`) conserva el historial; borrar (`DELETE`) lo elimina.

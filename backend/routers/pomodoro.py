@@ -13,6 +13,7 @@ from backend.schemas import (
     PomodoroStatsResponse,
 )
 from backend.auth import get_current_user
+from backend.dates import resolve_client_today
 
 router = APIRouter(tags=["pomodoro"])
 
@@ -131,13 +132,18 @@ def get_pomodoro_sessions(
 def get_pomodoro_stats(
     date_from: Optional[date_type] = None,
     date_to: Optional[date_type] = None,
+    today: Optional[date_type] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Estadísticas agregadas de pomodoros (solo mode='focus').
     Agregación en Python, igual que calculate_stats() en habits.py.
+    `today` es la fecha LOCAL del cliente (ver backend/dates.py): con la del
+    servidor, today_seconds se reiniciaría a medianoche UTC y no a la del usuario.
     """
+    today = resolve_client_today(today)
+
     query = select(PomodoroSession).where(
         PomodoroSession.user_id == current_user.id,
         PomodoroSession.mode == "focus"
@@ -148,7 +154,6 @@ def get_pomodoro_stats(
         query = query.where(PomodoroSession.session_date <= date_to)
 
     sessions = session.exec(query).all()
-    today = date_type.today()
 
     total_seconds = 0
     today_seconds = 0

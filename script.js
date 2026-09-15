@@ -1128,7 +1128,9 @@ async function loadHabitsFromAPI() {
         const token = getToken();
         if (!token) return;
 
-        const data = await apiFetch('/api/habits');
+        // La racha depende de "hoy", y el servidor corre en UTC: mandar la
+        // fecha LOCAL (ver backend/dates.py).
+        const data = await apiFetch(`/api/habits?today=${getDateKey(new Date())}`);
 
         // Convertir formato del backend al formato local
         habitsData = {};
