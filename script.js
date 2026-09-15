@@ -44,6 +44,9 @@ let currentDate = new Date();
 let habitsData = {};
 let selectedDate = null;
 let currentUser = null;
+// Racha tal como la calcula el backend (calculate_streak). La pantalla no la
+// recalcula: una segunda regla en el navegador ignoraba los días de descanso.
+let currentStreak = null;
 
 // ============================================
 // Elementos del DOM - Auth
@@ -462,6 +465,7 @@ function handleLogout() {
     runHooks(window.appLogoutHooks);
     removeToken();
     currentUser = null;
+    currentStreak = null;
     habitsData = {};
     dynamicHabitCounter = 0;
     // Limpiar hábitos dinámicos
@@ -1138,6 +1142,7 @@ async function loadHabitsFromAPI() {
             const dateKey = entry.date;
             habitsData[dateKey] = entry.habits_data || {};
         });
+        currentStreak = data.streak;
 
         renderCalendar();
     } catch (error) {
@@ -1187,8 +1192,22 @@ async function saveHabitToAPI(dateKey, habits) {
         // Actualizar datos locales
         habitsData[dateKey] = habits;
         renderCalendar();
+
+        // Marcar o desmarcar un día puede cambiar la racha: pedirla al backend,
+        // que es quien aplica la regla (días de descanso incluidos).
+        await refreshStreakFromAPI();
     } catch (error) {
         console.error('Error guardando hábito:', error);
+    }
+}
+
+async function refreshStreakFromAPI() {
+    try {
+        const data = await apiFetch(`/api/habits/streak?today=${getDateKey(new Date())}`);
+        currentStreak = data.streak;
+        renderMetrics();
+    } catch (error) {
+        console.error('Error actualizando la racha:', error);
     }
 }
 
@@ -1273,37 +1292,6 @@ function updateProgress() {
 // Funciones de Métricas
 // ============================================
 
-function calculateStreak() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    let streak = 0;
-    let checkDate = new Date(today);
-    
-    // Empezar desde hoy e ir hacia atrás
-    while (true) {
-        const dateKey = getDateKey(checkDate);
-        const dayData = habitsData[dateKey];
-        
-        // Si hay datos para este día y tiene al menos un hábito completado
-        if (dayData && HABITS.some(habit => dayData[habit])) {
-            streak++;
-            checkDate.setDate(checkDate.getDate() - 1);
-        } else if (streak === 0 && dateKey === getDateKey(today)) {
-            // Hoy no tiene hábitos, empezar desde ayer
-            checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-            // Romper la racha
-            break;
-        }
-        
-        // Limitar a máximo 365 días para evitar loops infinitos
-        if (streak > 365) break;
-    }
-    
-    return streak;
-}
-
 function calculateHabitStats() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -1342,7 +1330,7 @@ function calculateHabitStats() {
 
 function renderMetrics() {
     // Actualizar racha
-    const streak = calculateStreak();
+    const streak = currentStreak ?? 0;
     const streakCount = document.getElementById('streakCount');
     streakCount.textContent = streak;
     

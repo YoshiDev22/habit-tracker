@@ -130,6 +130,11 @@ Lo que no se deduce leyendo los modelos:
   `GET /api/pomodoro/stats`) recibe `?today=AAAA-MM-DD` desde `getDateKey(new Date())` y lo
   resuelve con `resolve_client_today()` (`backend/dates.py`), que solo acepta ±1 día
   respecto a UTC. No usar `date.today()` para nada que el usuario vea como "hoy".
+- **La racha solo la calcula el backend** (`calculate_streak` en `routers/habits.py`). La
+  pantalla muestra el `streak` de `GET /api/habits` y lo refresca con
+  `GET /api/habits/streak` después de marcar un día. No volver a calcularla en el
+  navegador: hubo una copia de la regla en `script.js`, ignoraba los días de descanso y la
+  UI contradecía a la API.
 - `started_at` / `ended_at` son UTC naive (`datetime.utcnow()`). El cliente nunca los parsea
   para la lógica del timer — usa `Date.now()` + localStorage.
 - Archivar (`is_active=False`) conserva el historial; borrar (`DELETE`) lo elimina.
