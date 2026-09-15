@@ -14,7 +14,6 @@ Levantado el 2026-09-08 sobre v1.3.0.
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 1 | P1 | `delete-habit` responde 200 pero no borra nada | reproducido |
 | 2 | P1 | La racha reporta rachas viejas como actuales | reproducido |
 | 3 | P2 | Sesión de 30 min sin refresh, y 8 `fetch` que ignoran el 401 | diagnosticado |
 | 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage | diagnosticado |
@@ -28,40 +27,6 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
-
----
-
-## 1 · P1 · `delete-habit` responde 200 pero no borra nada
-
-**Síntoma.** En el modal de un hábito, "🗑️ Eliminar (borrar datos)" responde `200` con
-*"Hábito 'X' eliminado de todos los registros"*, la UI se actualiza, pero el histórico
-sigue en la base. Reaparece al recargar o al consultar la API.
-
-**Reproducido.** Dos entradas con `lectura` marcado, `DELETE /api/habits/delete-habit`
-con `{"habit_key":"lectura"}` → `200`, y `GET /api/habits` sigue devolviendo
-`{'lectura': True}` en ambas.
-
-**Causa.** [backend/routers/habits.py:97](backend/routers/habits.py#L97) hace
-`del entry.habits_data[habit_key]`: una mutación *in-place* de una columna JSON. Como
-`habits_data` está declarada como `JSON` plano en
-[backend/models.py:26](backend/models.py#L26), sin `MutableDict`, SQLAlchemy no detecta el
-cambio, no marca la fila como sucia y el `commit()` no escribe nada. El `session.add()` de
-la línea siguiente tampoco ayuda: la instancia ya está en la sesión y no hay cambio que
-registrar.
-
-**Arreglo.** Dos opciones:
-
-- *Acotada:* reasignar el atributo completo en vez de mutarlo —
-  `entry.habits_data = {k: v for k, v in entry.habits_data.items() if k != habit_key}`.
-- *De raíz:* declarar la columna como `MutableDict.as_mutable(JSON)` en `models.py`, lo que
-  arregla toda la clase de bug. **No requiere migración**: es un envoltorio del lado de
-  Python, no un cambio de esquema.
-
-Preferir la de raíz si se va a seguir tocando `habits_data`; la acotada si se quiere el
-mínimo cambio.
-
-**Aceptación.** Con dos entradas que tengan la clave `X`, un `DELETE` de `X` seguido de
-`GET /api/habits` no devuelve `X` en ningún `habits_data`, sin reiniciar el servidor.
 
 ---
 

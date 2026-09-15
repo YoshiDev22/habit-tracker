@@ -94,7 +94,7 @@ def delete_habit(
     # Eliminar el hábito de cada entrada
     for entry in entries:
         if entry.habits_data and habit_key in entry.habits_data:
-            del entry.habits_data[habit_key]
+            entry.habits_data = {k: v for k, v in entry.habits_data.items() if k != habit_key}
             session.add(entry)
     
     session.commit()
