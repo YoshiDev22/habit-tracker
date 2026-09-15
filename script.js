@@ -492,6 +492,8 @@ function handleModalDismiss(modalEl) {
         resolveConfirmDialog(false);
     } else if (modalEl.id === 'profileModal') {
         closeProfileModal();
+    } else if (modalEl.id === 'habitsSetupModal') {
+        closeHabitsSetup();
     } else if (modalEl.id === 'habitActionModal') {
         hideHabitActionModal();
     } else {
@@ -579,7 +581,7 @@ async function showHabitsSetup() {
             });
             
             if (!response.ok) {
-                showModal(habitsSetupModal);
+                openHabitsSetup();
                 return;
             }
             
@@ -627,13 +629,13 @@ async function showHabitsSetup() {
                 }
             });
             
-            showModal(habitsSetupModal);
+            openHabitsSetup();
         } catch (error) {
             console.error('Error cargando hábitos para setup:', error);
-            showModal(habitsSetupModal);
+            openHabitsSetup();
         }
     } else {
-        showModal(habitsSetupModal);
+        openHabitsSetup();
     }
 }
 
@@ -641,24 +643,86 @@ function hideHabitsSetup() {
     hideModal(habitsSetupModal);
 }
 
+// Estado del formulario al abrirlo, para detectar cambios sin guardar. Mismo
+// patrón que profileInitialValues en el modal de perfil.
+let habitsSetupInitialState = null;
+
+// Lee el formulario completo —hábitos marcados con su color, y días de
+// descanso— como una cadena comparable. Sin efectos secundarios.
+function getHabitsSetupState() {
+    const habits = [];
+    habitsOptions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        if (!checkbox.checked || checkbox.id === 'customHabitCheckbox') return;
+        const colorInput = habitsOptions.querySelector(`input[type="color"][data-habit="${checkbox.value}"]`);
+        habits.push(`${checkbox.value}:${colorInput ? colorInput.value : ''}`);
+    });
+
+    const restDays = [];
+    habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked').forEach(cb => {
+        restDays.push(cb.value);
+    });
+
+    return JSON.stringify({ habits: habits.sort(), restDays: restDays.sort() });
+}
+
+// Toma la foto y muestra. showHabitsSetup() tiene varias salidas (la de éxito
+// y las de error) y todas pasan por acá: si alguna mostrara el modal sin
+// refrescar la foto, el formulario se vería sucio sin que el usuario tocara nada.
+function openHabitsSetup() {
+    habitsSetupInitialState = getHabitsSetupState();
+    showModal(habitsSetupModal);
+}
+
+function isHabitsSetupDirty() {
+    if (habitsSetupInitialState === null) return false;
+    return getHabitsSetupState() !== habitsSetupInitialState;
+}
+
+// Cierre CON guarda, solo para la ruta de descarte. Archivar y eliminar un
+// hábito ya escribieron en el backend, así que siguen llamando a
+// hideHabitsSetup() directo: preguntarles si quieren descartar sería mentira.
+async function closeHabitsSetup() {
+    if (isHabitsSetupDirty()) {
+        const ok = await confirmDialog('Tienes cambios sin guardar en tus hábitos y días de descanso. ¿Seguro que quieres salir?', {
+            confirmLabel: 'Salir sin guardar',
+            cancelLabel: 'Seguir editando',
+            danger: true
+        });
+        if (!ok) return;
+    }
+    hideHabitsSetup();
+    habitsSetupInitialState = null;
+}
+
 function getSelectedHabits() {
     const selected = [];
-    const colors = {};
-    
+
     const checkboxes = habitsOptions.querySelectorAll('input[type="checkbox"]');
     checkboxes.forEach(checkbox => {
         if (checkbox.checked && checkbox.id !== 'customHabitCheckbox') {
             selected.push(checkbox.value);
-            const colorInput = habitsOptions.querySelector(`input[type="color"][data-habit="${checkbox.value}"]`);
-            if (colorInput) {
-                colors[checkbox.value] = colorInput.value;
-            }
         }
     });
-    
-    localStorage.setItem('habit_colors', JSON.stringify(colors));
-    
+
     return selected;
+}
+
+// El color de cada hábito marcado. Separado de getSelectedHabits(), que antes
+// escribía habit_colors en localStorage al leer el formulario: la comprobación
+// de cambios sin guardar lee el formulario antes de saber si el usuario quiere
+// guardar, y no debe persistir nada por el camino.
+function getSelectedHabitColors() {
+    const colors = {};
+
+    habitsOptions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        if (!checkbox.checked || checkbox.id === 'customHabitCheckbox') return;
+        const colorInput = habitsOptions.querySelector(`input[type="color"][data-habit="${checkbox.value}"]`);
+        if (colorInput) {
+            colors[checkbox.value] = colorInput.value;
+        }
+    });
+
+    return colors;
 }
 
 async function handleSaveHabits() {
@@ -677,7 +741,24 @@ async function handleSaveHabits() {
         showError(setupError, 'Selecciona al menos un hábito');
         return;
     }
-    
+
+    if (!isHabitsSetupDirty()) {
+        // Nada que guardar: cerrar sin preguntar y sin disparar la tanda de
+        // llamadas al backend que hace el resto de esta función.
+        hideHabitsSetup();
+        habitsSetupInitialState = null;
+        return;
+    }
+
+    const confirmed = await confirmDialog('¿Guardar estos cambios en tus hábitos y días de descanso?', {
+        confirmLabel: 'Guardar'
+    });
+    if (!confirmed) return;
+
+    // A partir de acá sí se persiste. Los colores se escriben recién ahora,
+    // para que cancelar el confirm no deje nada guardado a medias.
+    localStorage.setItem('habit_colors', JSON.stringify(getSelectedHabitColors()));
+
     // Guardar hábitos en localStorage
     localStorage.setItem('user_habits', JSON.stringify(selectedHabits));
     
@@ -882,6 +963,7 @@ async function handleSaveHabits() {
     }
     
     // Ocultar modal de manera forzada
+    habitsSetupInitialState = null;
     habitsSetupModal.classList.add('hidden');
     const overlay = habitsSetupModal.querySelector('.modal-overlay');
     if (overlay) {
@@ -1102,8 +1184,9 @@ function addDynamicHabit() {
     setupError.textContent = '';
 }
 
-// Cerrar modal de setup al hacer click en overlay
-habitsSetupModal.querySelector('.modal-overlay').addEventListener('click', hideHabitsSetup);
+// El overlay de este modal lo maneja handleModalDismiss -> closeHabitsSetup,
+// que pregunta antes de descartar. Antes había acá un segundo listener a
+// hideHabitsSetup que cerraba igual y se saltaba esa pregunta.
 
 // ============================================
 // Funciones de Datos (modificadas para API)
