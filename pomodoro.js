@@ -108,6 +108,11 @@ function queuePendingSession(payload) {
 }
 
 async function flushPendingSessions() {
+    // Sin sesión no hay a quién atribuir las sesiones y el POST daría 401. Se
+    // quedan en la cola de localStorage hasta el próximo login, que es
+    // justamente para lo que existe la cola.
+    if (!getToken()) return;
+
     let pending;
     try {
         pending = JSON.parse(localStorage.getItem(POMO_PENDING_KEY) || '[]');
@@ -135,6 +140,13 @@ async function flushPendingSessions() {
 }
 
 async function postSession(payload) {
+    // Sin sesión el POST daría 401 y acabaría igual en la cola, vía el catch.
+    // Encolar directamente evita pedirle al servidor que lo rechace.
+    if (!getToken()) {
+        queuePendingSession(payload);
+        return;
+    }
+
     try {
         await apiFetch('/api/pomodoro', { method: 'POST', json: payload });
     } catch (error) {
@@ -563,6 +575,11 @@ async function populateTaskSelect() {
 }
 
 async function refreshTodaySeconds() {
+    // initPomodoro corre desde appInitHooks, que initApp() ejecuta también sin
+    // sesión (pantalla de login). Sin esta guarda, cada visita al login deja un
+    // 401 en el log del servidor. Mismo patrón que loadHabitsFromAPI.
+    if (!getToken()) return;
+
     try {
         // Fecha LOCAL: con la del servidor (UTC), "Hoy" se reiniciaría a
         // medianoche UTC en vez de a la del usuario.

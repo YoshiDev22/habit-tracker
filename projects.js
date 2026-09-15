@@ -189,6 +189,10 @@ viewsViewport.addEventListener('click', (event) => {
 // ============================================
 
 async function loadProjects() {
+    // Normalmente corre desde appDataHooks, ya autenticado. La excepción es
+    // finishPomodoro(), alcanzable desde appInitHooks con el token expirado.
+    if (!getToken()) return;
+
     try {
         const [listData, summaryData] = await Promise.all([
             apiFetch('/api/projects'),
