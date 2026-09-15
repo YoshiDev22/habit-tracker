@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, Field
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import date as date_type, datetime
 from sqlalchemy import JSON, UniqueConstraint
 
@@ -18,6 +18,9 @@ class User(SQLModel, table=True):
     display_name: Optional[str] = Field(default=None)
     first_name: Optional[str] = Field(default=None)
     last_name: Optional[str] = Field(default=None)
+
+    # Días de descanso semanal (0=lunes ... 6=domingo). Congelan la racha.
+    rest_days: List[int] = Field(default=[], sa_type=JSON)
 
 
 class HabitEntry(SQLModel, table=True):

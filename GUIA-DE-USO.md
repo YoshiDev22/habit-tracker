@@ -62,6 +62,14 @@ La pestaña **Calendario** es la vista de inicio.
 Para elegir qué hábitos sigues, sus colores y sus nombres, usa el **⚙️** de la barra
 superior.
 
+- **Activar o desactivar hábitos**: marca o desmarca las casillas y pulsa "Guardar Hábitos".
+- **Ocultar o eliminar hábitos**: el botón 🗑️ junto a cada hábito te permite:
+  - **Ocultar (mantener historial)**: archiva el hábito para que no aparezca en el día a día, conservando todo tu historial pasado.
+  - **Eliminar (borrar datos)**: tras pedir confirmación, borra permanentemente el hábito y todo su registro histórico. No se puede deshacer.
+- **Días de descanso semanal**: puedes elegir los días de la semana en los que descansas (ej. fines de semana). En un día de descanso:
+  - La racha **se congela**: si no marcas hábitos, no se corta ni suma. Si marcas alguno, sí suma a la racha.
+  - En el calendario, los días de descanso sin hábitos aparecen con un estilo atenuado.
+
 ## Proyectos y tareas
 
 Pestaña **Proyectos**. También se llega deslizando el dedo hacia la izquierda desde el

@@ -558,7 +558,14 @@ const DEFAULT_HABIT_LABELS = {
 
 async function showHabitsSetup() {
     const token = getToken();
-    
+
+    // Marcar días de descanso según currentUser.rest_days
+    const restDays = (currentUser && Array.isArray(currentUser.rest_days)) ? currentUser.rest_days : [];
+    const restDayCheckboxes = habitsSetupModal.querySelectorAll('input[name="rest_day"]');
+    restDayCheckboxes.forEach(cb => {
+        cb.checked = restDays.includes(parseInt(cb.value, 10));
+    });
+
     if (token) {
         try {
             const response = await fetch(`${API_BASE_URL}/api/habits/definitions`, {
@@ -694,8 +701,26 @@ async function handleSaveHabits() {
     // Cargar colores y renderizar popover
     loadSavedColors();
     
+    // Días de descanso semanal
+    const selectedRestDays = [];
+    const restDayCheckboxes = habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked');
+    restDayCheckboxes.forEach(cb => {
+        selectedRestDays.push(parseInt(cb.value, 10));
+    });
+    selectedRestDays.sort((a, b) => a - b);
+
     const token = getToken();
     if (token) {
+        try {
+            currentUser = await apiFetch('/api/auth/me', {
+                method: 'PATCH',
+                json: { rest_days: selectedRestDays }
+            });
+            updateUserBar();
+        } catch (error) {
+            console.error('Error al guardar días de descanso:', error);
+        }
+
         try {
             const existingResponse = await fetch(`${API_BASE_URL}/api/habits/definitions?include_inactive=true`, {
                 headers: {
@@ -1400,6 +1425,15 @@ function renderCalendar() {
         
         if (dateKey === todayKey) {
             dayCell.classList.add('today');
+        }
+
+        // Estilo atenuado para días de descanso sin hábitos
+        const jsDay = date.getDay();
+        const pyWeekday = (jsDay + 6) % 7;
+        const restDays = (currentUser && Array.isArray(currentUser.rest_days)) ? currentUser.rest_days : [];
+        const hasAnyHabit = Object.values(dayData).some(v => Boolean(v));
+        if (restDays.includes(pyWeekday) && !hasAnyHabit) {
+            dayCell.classList.add('rest-day');
         }
         
         // Número del día

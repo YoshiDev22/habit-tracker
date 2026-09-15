@@ -1,4 +1,5 @@
 from sqlmodel import Field, SQLModel
+from pydantic import field_validator
 from typing import Optional, Dict, List
 from datetime import date as date_type, datetime
 from sqlalchemy import JSON
@@ -23,6 +24,7 @@ class UserResponse(SQLModel):
     display_name: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    rest_days: Optional[List[int]] = None
 
 
 class UserUpdate(SQLModel):
@@ -30,6 +32,17 @@ class UserUpdate(SQLModel):
     display_name: Optional[str] = Field(default=None, max_length=40)
     first_name: Optional[str] = Field(default=None, max_length=60)
     last_name: Optional[str] = Field(default=None, max_length=60)
+    rest_days: Optional[List[int]] = None
+
+    @field_validator("rest_days")
+    @classmethod
+    def validate_rest_days(cls, v: Optional[List[int]]) -> Optional[List[int]]:
+        if v is None:
+            return None
+        for day in v:
+            if not isinstance(day, int) or day < 0 or day > 6:
+                raise ValueError("Los días de descanso deben ser números entre 0 (lunes) y 6 (domingo)")
+        return sorted(list(set(v)))
 
 
 class Token(SQLModel):

@@ -54,7 +54,7 @@ def get_habits(
     stats = calculate_stats(current_user.id, month, year, session)
     
     # Calcular racha
-    streak = calculate_streak(current_user.id, session)
+    streak = calculate_streak(current_user.id, session, current_user)
     
     # Convertir a formato de respuesta
     entries_response = [
@@ -168,7 +168,7 @@ def get_streak(
     """
     Obtiene la racha actual de días consecutivos
     """
-    streak = calculate_streak(current_user.id, session)
+    streak = calculate_streak(current_user.id, session, current_user)
     return {"streak": streak}
 
 
@@ -334,7 +334,7 @@ def calculate_stats(user_id: int, month: Optional[int], year: Optional[int], ses
     return stats
 
 
-def calculate_streak(user_id: int, session: Session) -> int:
+def calculate_streak(user_id: int, session: Session, user: Optional[User] = None) -> int:
     """
     Calcula la racha actual de días consecutivos con al menos un hábito completado.
 
@@ -344,8 +344,15 @@ def calculate_streak(user_id: int, session: Session) -> int:
        - Si el día tiene al menos un hábito en True: racha += 1, continúa al día anterior.
        - Si es HOY y no tiene ningún hábito completado: no corta la racha (el día aún
          está en curso), continúa revisando ayer.
+       - Si el día no tiene hábitos pero su día de la semana (check_date.weekday())
+         está configurado en los días de descanso del usuario (user.rest_days):
+         la racha se congela (no suma y no corta), continúa revisando el día anterior.
        - En cualquier otro caso: la racha se corta inmediatamente.
     """
+    if user is None:
+        user = session.get(User, user_id)
+    rest_days = set(user.rest_days) if user and user.rest_days else set()
+
     today = date_type.today()
     cutoff_date = today - timedelta(days=400)
 
@@ -373,6 +380,9 @@ def calculate_streak(user_id: int, session: Session) -> int:
             check_date -= timedelta(days=1)
         elif check_date == today:
             # Hoy no tiene hábitos completados pero sigue en curso; no corta la racha
+            check_date -= timedelta(days=1)
+        elif check_date.weekday() in rest_days:
+            # Día de descanso semanal sin hábitos: congela la racha (no suma y no corta)
             check_date -= timedelta(days=1)
         else:
             # Día sin hábitos completados: se corta la racha

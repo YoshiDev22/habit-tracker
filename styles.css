@@ -808,6 +808,16 @@ body.has-pomodoro-bar {
     background-color: var(--hover-color);
 }
 
+.day-cell.rest-day {
+    opacity: 0.55;
+    background-color: var(--bg-surface-2);
+}
+
+.day-cell.rest-day:hover {
+    opacity: 0.85;
+    background-color: var(--hover-color);
+}
+
 .habit-dots {
     display: flex;
     gap: var(--dot-gap);
@@ -1599,6 +1609,42 @@ body.has-pomodoro-bar {
 .remove-habit-btn:hover {
     background: var(--danger-fg);
     color: var(--text-on-accent);
+}
+
+.rest-days-section {
+    margin-top: 16px;
+    margin-bottom: 20px;
+}
+
+.rest-days-options {
+    display: flex;
+    gap: 6px;
+    justify-content: space-between;
+}
+
+.day-checkbox-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 6px 4px;
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    transition: all 0.2s;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.day-checkbox-label:hover {
+    background: var(--bg-surface-3);
+}
+
+.day-checkbox-label input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
 }
 
 /* ============================================

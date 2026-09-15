@@ -117,9 +117,9 @@ del recurso — es lo único que separa los datos entre usuarios.
 
 Lo que no se deduce leyendo los modelos:
 
-- **`habits_data` es JSON plano, sin `MutableDict`.** Reasignar el atributo completo
-  (`entry.habits_data = {...}`) se persiste; mutarlo in-place (`del entry.habits_data[k]`)
-  **NO** lo detecta SQLAlchemy y el commit no escribe nada.
+- **`habits_data` y `rest_days` son JSON plano, sin `MutableDict`.** Reasignar el atributo
+  completo (`entry.habits_data = {...}`, `user.rest_days = [...]`) se persiste; mutarlo
+  in-place **NO** lo detecta SQLAlchemy y el commit no escribe nada.
 - **`PomodoroSession.session_date` es la fecha LOCAL del usuario**, calculada en el cliente
   con `getDateKey()` y enviada en el payload. No derivar la fecha de `started_at` en el
   servidor: agrupar por `date(started_at)` archivaría las sesiones nocturnas bajo el día
@@ -220,12 +220,13 @@ de `touchstart/move/end` con detección de eje). Agregar una vista implica tocar
 ### Estado en localStorage
 
 Claves: `access_token`, `theme`, `habitsData`, `user_habits`, `habit_labels`,
-`habit_colors`, `hidden_habits`, `pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`.
+`habit_colors`, `pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`.
 
 **Inconsistencia conocida:** el modelo `Habit` ya tiene `label`, `color`, `icon` e
-`is_active` en la base, pero el frontend sigue leyendo `habit_labels`, `habit_colors` y
-`hidden_habits` desde localStorage. La fuente de verdad está partida y el usuario pierde
-colores y etiquetas al cambiar de dispositivo. Al tocar esa zona, mover hacia el backend.
+`is_active` en la base. El archivado (`is_active: false`) y borrado ya operan contra el backend
+(se eliminó `hidden_habits`), pero el frontend sigue leyendo y escribiendo `habit_labels` y
+`habit_colors` en localStorage. La fuente de verdad para colores y etiquetas sigue partida y el
+usuario los pierde al cambiar de dispositivo. Al tocar esa zona, mover hacia el backend.
 
 El pomodoro es **offline-first**: si el POST de una sesión falla, `queuePendingSession()`
 la guarda en `pomodoro_pending` y `flushPendingSessions()` la reintenta al iniciar. No

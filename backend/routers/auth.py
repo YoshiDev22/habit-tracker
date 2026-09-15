@@ -112,7 +112,10 @@ def update_current_user(
     # Aplicar solo los campos enviados (PATCH parcial)
     update_data = user_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(current_user, field, clean_optional(value))
+        if field == "rest_days":
+            setattr(current_user, field, value)
+        else:
+            setattr(current_user, field, clean_optional(value))
 
     session.add(current_user)
     session.commit()
