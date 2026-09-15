@@ -15,7 +15,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
 | 3 | P2 | Sesión de 30 min sin refresh, y 8 `fetch` que ignoran el 401 | diagnosticado |
-| 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage | diagnosticado |
+| 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage (habit_colors, habit_labels) | parcial |
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 7 | P3 | CORS abierto con credenciales | diagnosticado |
@@ -60,29 +60,28 @@ de login, no a un error silencioso en consola.
 
 ---
 
-## 4 · P2 · Fuente de verdad partida entre `Habit` y localStorage
+## 4 · P2 · Fuente de verdad partida entre `Habit` y localStorage (habit_colors, habit_labels)
+
+**Estado:** Parcialmente resuelto. Se eliminó `hidden_habits` por completo del código y de `localStorage`; la acción de ocultar/archivar y eliminar hábitos ahora se comunica directamente con el backend (`PATCH /api/habits/definitions/{id}` con `is_active: false`, `DELETE /api/habits/delete-habit` y `DELETE /api/habits/definitions/{id}`). Queda pendiente migrar la lectura y escritura de colores (`habit_colors`) y etiquetas (`habit_labels`) hacia el backend.
 
 **Síntoma.** Los colores y las etiquetas de los hábitos no viajan entre dispositivos. Si
 se entra desde otro navegador, los hábitos salen con los valores por defecto.
 
-**Causa.** El modelo `Habit` ya tiene `label`, `color`, `icon` e `is_active` en la base
+**Causa.** El modelo `Habit` ya tiene `label` y `color` en la base
 ([backend/models.py:29](backend/models.py#L29)), y la API los expone en
-`/api/habits/definitions`. Pero el frontend sigue leyendo y escribiendo `habit_colors`,
-`habit_labels` y `hidden_habits` en `localStorage` — 17 referencias repartidas por
-`script.js`. La base tiene los datos y el navegador los ignora.
+`/api/habits/definitions`. Pero el frontend sigue leyendo y escribiendo `habit_colors` y
+`habit_labels` en `localStorage`. La base tiene los datos y el navegador los ignora.
 
 **Arreglo.** Migrar la lectura a lo que ya devuelve `/api/habits/definitions`, y las
-escrituras a `PATCH /api/habits/definitions/{id}`. `hidden_habits` corresponde a
-`is_active=false`, que el endpoint ya soporta. Conviene una migración suave: al primer
+escrituras a `PATCH /api/habits/definitions/{id}`. Conviene una migración suave: al primer
 login tras el cambio, subir lo que haya en localStorage si el backend no lo tiene, y
 después dejar de leerlo.
 
-Ojo con el orden: `loadHabitDefinitionsFromAPI()` llama a `loadSavedColors()`
-([script.js:985](script.js#L985)), así que hay que desmontar esa dependencia.
+Ojo con el orden: `loadHabitDefinitionsFromAPI()` llama a `loadSavedColors()`,
+así que hay que desmontar esa dependencia.
 
-**Aceptación.** Cambiar el color de un hábito, entrar desde otro navegador con la misma
-cuenta, y ver el color nuevo. Sin escrituras a `habit_colors` / `habit_labels` /
-`hidden_habits` en el código.
+**Aceptación.** Cambiar el color o etiqueta de un hábito, entrar desde otro navegador con la misma
+cuenta, y ver los valores nuevos. Sin escrituras a `habit_colors` / `habit_labels` en el código.
 
 ---
 

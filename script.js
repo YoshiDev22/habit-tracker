@@ -488,6 +488,8 @@ function handleModalDismiss(modalEl) {
         resolveConfirmDialog(false);
     } else if (modalEl.id === 'profileModal') {
         closeProfileModal();
+    } else if (modalEl.id === 'habitActionModal') {
+        hideHabitActionModal();
     } else {
         hideAllModals();
     }
@@ -606,21 +608,11 @@ async function showHabitsSetup() {
                         <span class="habit-check"></span>
                         <span>🎯 ${h.label}</span>
                         <input type="color" value="${h.color || '#95a5a6'}" data-habit="${h.key}" class="habit-color">
-                        <button type="button" class="remove-habit-btn" title="Eliminar hábito" data-dynamic-key="${h.key}">×</button>
+                        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="${h.key}">🗑️</button>
                     `;
                     
                     const customRow = document.getElementById('customHabitRow');
                     habitsOptions.insertBefore(newOption, customRow);
-                    
-                    const removeBtn = newOption.querySelector('.remove-habit-btn');
-                    removeBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const key = removeBtn.getAttribute('data-dynamic-key');
-                        newOption.remove();
-                        const hiddenHabits = JSON.parse(localStorage.getItem('hidden_habits') || '[]');
-                        const newHidden = hiddenHabits.filter(hh => hh !== key);
-                        localStorage.setItem('hidden_habits', JSON.stringify(newHidden));
-                    });
                 }
             });
             
@@ -910,11 +902,23 @@ addCustomHabitBtn.addEventListener('click', () => {
 // Guardar hábitos
 saveHabitsBtn.addEventListener('click', handleSaveHabits);
 
+// Delegación de eventos para el botón 🗑️ de cada hábito en el setup
+habitsOptions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.remove-habit-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const key = btn.getAttribute('data-habit-key') || btn.getAttribute('data-dynamic-key');
+    if (key) {
+        showHabitActionModal(key);
+    }
+});
+
 // Event listeners para el modal de acción de hábito
 function showHabitActionModal(habitKey) {
     pendingHabitToRemove = habitKey;
     const savedLabels = JSON.parse(localStorage.getItem('habit_labels') || '{}');
-    const habitName = savedLabels[habitKey] || habitKey;
+    const habitName = savedLabels[habitKey] || HABIT_LABELS[habitKey] || DEFAULT_HABIT_LABELS[habitKey] || habitKey;
     habitActionMessage.textContent = `¿Qué quieres hacer con "${habitName}"?`;
     showModal(habitActionModal);
 }
@@ -927,66 +931,76 @@ function hideHabitActionModal() {
 // Ocultar hábito (mantener historial)
 hideHabitBtn.addEventListener('click', async () => {
     if (!pendingHabitToRemove) return;
-    
-    // Agregar a la lista de hábitos ocultos
-    const hiddenHabits = JSON.parse(localStorage.getItem('hidden_habits') || '[]');
-    if (!hiddenHabits.includes(pendingHabitToRemove)) {
-        hiddenHabits.push(pendingHabitToRemove);
-        localStorage.setItem('hidden_habits', JSON.stringify(hiddenHabits));
+    const habitKey = pendingHabitToRemove;
+
+    try {
+        const data = await apiFetch('/api/habits/definitions?include_inactive=true');
+        const habit = data.habits ? data.habits.find(h => h.key === habitKey) : null;
+        if (habit) {
+            await apiFetch(`/api/habits/definitions/${habit.id}`, {
+                method: 'PATCH',
+                json: { is_active: false }
+            });
+        }
+        const localRow = habitsOptions.querySelector(`.dynamic-habit-row[data-habit-key="${habitKey}"]`);
+        if (localRow) localRow.remove();
+
+        hideHabitActionModal();
+        hideHabitsSetup();
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
+    } catch (error) {
+        console.error('Error al ocultar hábito:', error);
     }
-    
-    hideHabitActionModal();
-    hideHabitsSetup();
-    renderCalendar();
-    renderHabitPopoverButtons();
 });
 
 // Eliminar hábito (borrar datos)
 deleteHabitBtn.addEventListener('click', async () => {
     if (!pendingHabitToRemove) return;
-    
-    const token = getToken();
-    if (token) {
-        try {
-            // Eliminar el hábito de todos los registros en la base de datos
-            const response = await fetch(`${API_BASE_URL}/api/habits/delete-habit`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ habit_key: pendingHabitToRemove })
+    const habitKey = pendingHabitToRemove;
+
+    const savedLabels = JSON.parse(localStorage.getItem('habit_labels') || '{}');
+    const habitName = savedLabels[habitKey] || HABIT_LABELS[habitKey] || DEFAULT_HABIT_LABELS[habitKey] || habitKey;
+
+    const ok = await confirmDialog(`¿Seguro que quieres eliminar el hábito "${habitName}"? Se borrará todo su historial y no se puede deshacer.`, {
+        title: '¿Eliminar hábito?',
+        confirmLabel: '🗑️ Eliminar',
+        cancelLabel: 'Cancelar',
+        danger: true
+    });
+
+    if (!ok) return;
+
+    try {
+        // Borrar historial
+        await apiFetch('/api/habits/delete-habit', {
+            method: 'DELETE',
+            json: { habit_key: habitKey }
+        });
+
+        // Borrar definición si existe en la base
+        const data = await apiFetch('/api/habits/definitions?include_inactive=true');
+        const habit = data.habits ? data.habits.find(h => h.key === habitKey) : null;
+        if (habit) {
+            await apiFetch(`/api/habits/definitions/${habit.id}`, {
+                method: 'DELETE'
             });
-            
-            if (!response.ok) {
-                console.error('Error al eliminar hábito de la base de datos');
-            }
-        } catch (error) {
-            console.error('Error:', error);
         }
-    }
-    
-    // Eliminar de la lista de hábitos ocultos si está ahí
-    const hiddenHabits = JSON.parse(localStorage.getItem('hidden_habits') || '[]');
-    const newHiddenHabits = hiddenHabits.filter(h => h !== pendingHabitToRemove);
-    localStorage.setItem('hidden_habits', JSON.stringify(newHiddenHabits));
-    
-    hideHabitActionModal();
-    hideHabitsSetup();
-    
-    if (token) {
-        loadHabitDefinitionsFromAPI();
-        loadHabitsFromAPI();
-    } else {
-        renderCalendar();
+        const localRow = habitsOptions.querySelector(`.dynamic-habit-row[data-habit-key="${habitKey}"]`);
+        if (localRow) localRow.remove();
+
+        hideHabitActionModal();
+        hideHabitsSetup();
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
+    } catch (error) {
+        console.error('Error al eliminar hábito:', error);
     }
 });
 
-// Cancelar
+// Cancelar: cerrar modal de acción conservando el modal de configuración intacto
 cancelHabitBtn.addEventListener('click', () => {
     hideHabitActionModal();
-    // Volver a mostrar el modal de configuración
-    showHabitsSetup();
 });
 
 // Cerrar modal de acción al hacer click en overlay
@@ -1036,24 +1050,12 @@ function addDynamicHabit() {
         <span class="habit-check"></span>
         <span>🎯 ${customLabel}</span>
         <input type="color" value="${customColor}" data-habit="${customValue}" class="habit-color">
-        <button type="button" class="remove-habit-btn" title="Eliminar hábito" data-dynamic-key="${customValue}">×</button>
+        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="${customValue}">🗑️</button>
     `;
 
     // Insertar antes del row de "custom"
     const customRow = document.getElementById('customHabitRow');
     habitsOptions.insertBefore(newOption, customRow);
-
-    // Evento para eliminar hábito dinámico
-    const removeBtn = newOption.querySelector('.remove-habit-btn');
-    removeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const key = removeBtn.getAttribute('data-dynamic-key');
-        newOption.remove();
-        // Limpiar localStorage si existe
-        const hiddenHabits = JSON.parse(localStorage.getItem('hidden_habits') || '[]');
-        const newHidden = hiddenHabits.filter(h => h !== key);
-        localStorage.setItem('hidden_habits', JSON.stringify(newHidden));
-    });
 
     // Limpiar input y color
     customHabitInput.value = '';
@@ -1616,10 +1618,9 @@ async function initApp() {
     await runHooks(window.appInitHooks);
 }
 
-// Función para obtener hábitos activos (no ocultos)
+// Función para obtener hábitos activos
 function getActiveHabits() {
-    const hiddenHabits = JSON.parse(localStorage.getItem('hidden_habits') || '[]');
-    return HABITS.filter(h => !hiddenHabits.includes(h));
+    return HABITS;
 }
 
 // Función para renderizar los botones del popover dinámicamente

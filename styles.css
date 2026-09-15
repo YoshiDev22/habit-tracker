@@ -1155,6 +1155,10 @@ body.has-pomodoro-bar {
     justify-content: center;
 }
 
+#confirmModal {
+    z-index: 1100;
+}
+
 .modal.hidden {
     display: none;
 }
