@@ -14,7 +14,6 @@ Levantado el 2026-09-08 sobre v1.3.0.
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 2 | P1 | La racha reporta rachas viejas como actuales | reproducido |
 | 3 | P2 | Sesión de 30 min sin refresh, y 8 `fetch` que ignoran el 401 | diagnosticado |
 | 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage | diagnosticado |
 | 5 | P3 | Sin tests ni CI | — |
@@ -27,35 +26,6 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
-
----
-
-## 2 · P1 · La racha reporta rachas viejas como actuales
-
-**Síntoma.** Si se dejan días sin marcar, la racha no baja a 0: muestra el largo de alguna
-racha anterior, como si estuviera vigente.
-
-**Reproducido.** Cuenta con 5 días consecutivos marcados del 2026-08-20 al 2026-08-24 y
-nada desde entonces. Con fecha 2026-09-08 (15 días después),
-`GET /api/habits/streak` devuelve `{"streak":5}`. Debería devolver `0`.
-
-**Causa.** [backend/routers/habits.py:337](backend/routers/habits.py#L337). Mientras
-`streak == 0`, las dos ramas `elif streak == 0` retroceden un día y siguen iterando, sin
-condición de corte. El bucle recorre hasta 365 días hacia atrás hasta encontrar *cualquier*
-racha y la devuelve como si fuera la actual. Efecto secundario: hasta 365 queries, una por
-día.
-
-**Arreglo.** Primero **decidir la regla de negocio**, que hoy no está escrita en ningún
-lado: ¿la racha se corta si hoy no está marcado, o se permite un día de gracia porque el
-día todavía no terminó? Lo razonable es: se permite que *hoy* esté vacío (el día sigue en
-curso), pero si *ayer* también lo está, la racha es 0.
-
-Luego, reescribir: traer las entradas del rango en **una sola query**, ordenarlas y
-recorrerlas en memoria. Documentar la regla elegida en el docstring.
-
-**Aceptación.** Una racha de 5 días que terminó hace 15 días devuelve `0`. Una racha que
-incluye ayer devuelve su largo real, marcando hoy o sin marcarlo. Y el endpoint hace una
-sola query, no una por día.
 
 ---
 

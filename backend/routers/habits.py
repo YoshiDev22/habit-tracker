@@ -335,40 +335,47 @@ def calculate_stats(user_id: int, month: Optional[int], year: Optional[int], ses
 
 
 def calculate_streak(user_id: int, session: Session) -> int:
-    """Calcula la racha actual de días consecutivos"""
+    """
+    Calcula la racha actual de días consecutivos con al menos un hábito completado.
+
+    Regla de corte:
+    1. Se consultan las entradas de los últimos 400 días en una sola query.
+    2. Se recorren los días hacia atrás comenzando desde hoy:
+       - Si el día tiene al menos un hábito en True: racha += 1, continúa al día anterior.
+       - Si es HOY y no tiene ningún hábito completado: no corta la racha (el día aún
+         está en curso), continúa revisando ayer.
+       - En cualquier otro caso: la racha se corta inmediatamente.
+    """
     today = date_type.today()
+    cutoff_date = today - timedelta(days=400)
+
+    entries = session.exec(
+        select(HabitEntry).where(
+            HabitEntry.user_id == user_id,
+            HabitEntry.entry_date >= cutoff_date,
+            HabitEntry.entry_date <= today
+        )
+    ).all()
+
+    entries_by_date = {entry.entry_date: entry for entry in entries}
+
     streak = 0
     check_date = today
-    max_days_back = 365  # No buscar más de 365 días atrás
-    
-    # Empezar desde hoy
-    while max_days_back > 0:
-        entry = session.exec(
-            select(HabitEntry).where(
-                HabitEntry.user_id == user_id,
-                HabitEntry.entry_date == check_date
-            )
-        ).first()
-        
+
+    while check_date >= cutoff_date:
+        entry = entries_by_date.get(check_date)
+        has_any_habit = False
         if entry and entry.habits_data:
-            # Verificar si tiene al menos un hábito completado (cualquiera)
-            habits_data = entry.habits_data or {}
-            has_any_habit = any(v for v in habits_data.values() if v)
-            
-            if has_any_habit:
-                streak += 1
-                check_date -= timedelta(days=1)
-            elif streak == 0:
-                # Hoy no tiene hábitos, empezar desde ayer
-                check_date -= timedelta(days=1)
-            else:
-                break
-        elif streak == 0:
-            # Empezar desde ayer si hoy no tiene datos
+            has_any_habit = any(v for v in entry.habits_data.values() if v)
+
+        if has_any_habit:
+            streak += 1
+            check_date -= timedelta(days=1)
+        elif check_date == today:
+            # Hoy no tiene hábitos completados pero sigue en curso; no corta la racha
             check_date -= timedelta(days=1)
         else:
+            # Día sin hábitos completados: se corta la racha
             break
-        
-        max_days_back -= 1
-    
+
     return streak
