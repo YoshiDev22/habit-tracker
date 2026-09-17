@@ -62,9 +62,16 @@ La pestaña **Calendario** es la vista de inicio.
 Para elegir qué hábitos sigues, sus colores y sus nombres, usa el **⚙️** de la barra
 superior.
 
-- **Seguir o dejar de seguir un hábito**: marca o desmarca su casilla y pulsa "Guardar
-  Hábitos". Al desmarcarlo **no se borra nada**: el hábito se archiva, con todo su
-  historial intacto, y baja a la lista **"Anteriores u ocultos"** del final.
+La lista de arriba son **solo los hábitos que sigues**. No hay un catálogo mezclado con
+ellos: lo que no sigues no ocupa sitio ahí.
+
+- **Añadir un hábito**: en "Añadir un hábito" tienes los sugeridos (Lectura, Gym, Dieta,
+  Estudio, No fumar) como etiquetas; toca una y sube a tu lista. Para uno propio, escribe
+  su nombre en *Otro*, elige color y pulsa **+**. En los dos casos se crea al pulsar
+  "Guardar Hábitos". Un sugerido deja de ofrecerse cuando ya lo tienes.
+- **Dejar de seguir uno**: desmarca su casilla y pulsa "Guardar Hábitos". **No se borra
+  nada**: se archiva con todo su historial intacto y baja a la lista **"Anteriores u
+  ocultos"** del final.
 - **Recuperar uno archivado**: despliega "Anteriores u ocultos" y pulsa **Restaurar**.
   Vuelve a la lista de arriba y sus marcas antiguas reaparecen en el calendario.
 - **Borrar uno para siempre**: solo desde esa misma lista, con el 🗑️ de su fila. Pide

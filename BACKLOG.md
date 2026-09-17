@@ -14,7 +14,6 @@ Levantado el 2026-09-08 sobre v1.3.0.
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 3 | P2 | Sesión de 30 min sin refresh, y 8 `fetch` que ignoran el 401 | diagnosticado |
 | 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage (habit_colors, habit_labels) | parcial |
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
@@ -27,38 +26,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 15 | P3 | `completed_at` de tareas con la fecha UTC del servidor | diagnosticado |
-| 16 | P3 | `innerHTML` sin escapar con el label de un hábito | verificado |
-
----
-
-## 3 · P2 · Sesión de 30 min sin refresh, y 8 `fetch` que ignoran el 401
-
-**Síntoma.** La sesión se cae a los 30 minutos. Peor: según qué parte de la UI se toque
-cuando el token ya expiró, la app no cierra sesión — falla en silencio y queda mostrando
-datos viejos.
-
-**Causa.** Dos partes independientes:
-
-- [backend/auth.py:25](backend/auth.py#L25): `ACCESS_TOKEN_EXPIRE_MINUTES = 30`, sin
-  refresh token ni renovación.
-- `script.js` tiene 11 llamadas `fetch()` crudas que no pasan por `apiFetch`. Tres son
-  anónimas (`/api`, register, login) y no importan. Las otras **8 mandan `Bearer` y solo
-  hacen `console.error` ante un 401**, en vez de cerrar sesión como hace `apiFetch`
-  ([script.js:106](script.js#L106)). Están en las líneas 409, 555, 576, 607, 629, 656, 677
-  y 799 — todas en el flujo de definiciones de hábitos y en `delete-habit`.
-
-**Arreglo.** Se pueden hacer por separado, en este orden:
-
-1. Migrar los 8 `fetch` autenticados a `apiFetch`. Arregla la inconsistencia de UI y es
-   puramente mecánico.
-2. Decidir la expiración. Lo más simple para una app personal es subir
-   `ACCESS_TOKEN_EXPIRE_MINUTES` a algo como 10080 (7 días). Un refresh token real es más
-   correcto pero mucho más trabajo. **Cualquiera de los dos cambios invalida los tokens
-   emitidos: todos los usuarios tendrán que volver a hacer login.**
-
-**Aceptación.** (1) `grep "fetch(" script.js` solo devuelve la de `apiFetch` más las tres
-anónimas. (2) Con un token expirado a mano, cualquier acción de la UI lleva a la pantalla
-de login, no a un error silencioso en consola.
+| 16 | P3 | Falta validar `color`, `label` y `key` en `HabitCreate` | parcial |
 
 ---
 
@@ -421,37 +389,26 @@ día respecto a UTC) guarda ese `completed_at`, y no la fecha del servidor.
 
 ---
 
-## 16 · P3 · `innerHTML` sin escapar con el label de un hábito
+## 16 · P3 · Falta validar `color`, `label` y `key` en `HabitCreate`
 
-**Síntoma.** Ninguno hoy. Es una mina para el día que la app deje de ser de un solo usuario.
+**Hecho.** La mitad del frontend está resuelta: ninguna fila de hábito se construye ya con
+`innerHTML`. Todas salen de `buildHabitRow()` con `createElement` y `textContent`, así que
+un `label` con `<img src=x onerror=...>` se muestra como texto literal.
 
-**Verificado.** Salió de una revisión de seguridad de los cambios de confirmación de hábitos, y se confirmó
-leyendo el código; no se explotó porque hoy no es explotable (ver más abajo).
+**Lo que queda.** `HabitCreate` ([backend/schemas.py](backend/schemas.py)) sigue declarando
+`key`, `label` y `color` como `str` pelado: sin longitud máxima y sin validar que `color`
+sea un hex. El backend guarda lo que le manden.
 
-**Causa.** [script.js:619](script.js#L619) y [script.js:1159](script.js#L1159) construyen la
-fila de un hábito dinámico con `innerHTML` e interpolan `key`, `label` y `color` sin
-escapar. `HabitCreate` ([backend/schemas.py:97](backend/schemas.py#L97)) declara `label` y
-`key` como `str` pelado, sin validar contenido ni longitud, y el backend los guarda tal
-cual. Un `label` como `<img src=x onerror=alert(1)>` se ejecuta al abrir ⚙️. El `color`
-tiene el mismo problema y además se interpola dentro de un atributo (`value="${...}"`),
-donde una comilla rompe el atributo.
+**Por qué sigue siendo P3.** Las consultas de hábitos filtran por
+`Habit.user_id == current_user.id` y no hay nada de compartir, así que solo puedes
+ensuciar tus propios datos. Pero el backend es la última línea: el día que otra vista
+—hábitos compartidos, un panel, una exportación que alguien abra en su navegador— pinte
+datos de una cuenta en la pantalla de otra, el que valide o no valide es él, no el
+frontend de hoy.
 
-**Por qué es P3 y no P1.** Las cuatro consultas de hábitos filtran por
-`Habit.user_id == current_user.id` y no hay ninguna función de compartir: solo puedes
-inyectar en tu propia pantalla. Eso es *self-XSS*, que por convención no cuenta como
-vulnerabilidad — atacante y víctima son la misma persona.
+**Arreglo.** En `HabitCreate`: `max_length` razonable para `key` y `label`, y `color`
+contra `^#[0-9a-fA-F]{6}$` admitiendo `None`. Mismo trato en `HabitUpdate` para `label` y
+`color`.
 
-**Por qué arreglarlo igual.** Deja de ser self-XSS en cuanto exista cualquier vista que
-muestre datos de una cuenta en la pantalla de otra: hábitos compartidos, perfiles públicos,
-un panel de administración, o incluso una exportación que alguien abra en su navegador.
-Ahí pasa a XSS almacenado, con el `access_token` de localStorage al alcance del script
-inyectado. Arreglarlo ahora cuesta veinte minutos; arreglarlo después de haber enviado la
-función que lo expone es un incidente.
-
-**Arreglo.** Sustituir los dos `innerHTML` por `createElement` + `textContent` para las
-partes variables. La estructura del nodo es fija; solo `key`, `label` y `color` vienen de
-datos. De paso, validar en `HabitCreate`: `color` contra `^#[0-9a-fA-F]{6}$` y una longitud
-máxima razonable para `label` y `key`.
-
-**Aceptación.** Crear un hábito con el label `<img src=x onerror="alert(1)">`, abrir ⚙️ y
-ver ese texto literal en la fila: sin alert, y sin ningún `<img>` en el DOM al inspeccionar.
+**Aceptación.** `POST /api/habits/definitions` con `color: "rojo; drop table"` o con un
+`label` de 5.000 caracteres devuelve 422, no 201.
