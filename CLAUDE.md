@@ -130,6 +130,11 @@ Lo que no se deduce leyendo los modelos:
   `GET /api/pomodoro/stats`) recibe `?today=AAAA-MM-DD` desde `getDateKey(new Date())` y lo
   resuelve con `resolve_client_today()` (`backend/dates.py`), que solo acepta ±1 día
   respecto a UTC. No usar `date.today()` para nada que el usuario vea como "hoy".
+- **`habits.label` es el nombre SIN emoji; el emoji vive en `habits.icon`.** La pantalla
+  compone los dos con `habitDisplayName()` en `script.js`. Nunca guardar "emoji + nombre"
+  en `label`: eso es exactamente lo que hacía el guardado viejo —leía el nombre del span
+  que pintaba, y ese span era "emoji + nombre"— y el emoji terminaba dos veces en pantalla.
+  `scripts/migrate.py` normaliza lo que ya estaba guardado así; es idempotente.
 - **La racha solo la calcula el backend** (`calculate_streak` en `routers/habits.py`). La
   pantalla muestra el `streak` de `GET /api/habits` y lo refresca con
   `GET /api/habits/streak` después de marcar un día. No volver a calcularla en el
@@ -221,6 +226,13 @@ paso más allá: `.setup-modal` es una columna flex con el cuerpo en `.setup-scr
 (que necesita `min-height: 0` para poder encoger) y el pie en `.setup-footer`, para
 que "Guardar Hábitos" no se vaya con el scroll.
 
+Dos modales se abren **encima** de otro y devuelven una promesa en vez de cerrarse
+solos: `#confirmModal` (`confirmDialog()`) y `#emojiPickerModal` (`pickEmoji()`).
+Los dos necesitan su rama en `handleModalDismiss()` —cerrar por la X o el overlay
+tiene que resolver la promesa pendiente, o quien la esperaba se queda colgado— y su
+`z-index` propio en `styles.css` (1100 el confirm, 1050 el panel), porque con el
+1000 de `.modal` el orden lo decidiría el documento.
+
 ### Vistas y navegación
 
 Dos vistas (`#viewCalendar`, `#viewProjects`) dentro de `#viewsTrack`, con tabs arriba y
@@ -240,14 +252,14 @@ de `touchstart/move/end` con detección de eje). Agregar una vista implica tocar
 
 ### Estado en localStorage
 
-Claves: `access_token`, `theme`, `habitsData`, `user_habits`, `habit_labels`,
-`habit_colors`, `pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`.
+Claves: `access_token`, `theme`, `habitsData`, `user_habits`, `habit_colors`,
+`pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`.
 
 **Inconsistencia conocida:** el modelo `Habit` ya tiene `label`, `color`, `icon` e
-`is_active` en la base. El archivado (`is_active: false`) y borrado ya operan contra el backend
-(se eliminó `hidden_habits`), pero el frontend sigue leyendo y escribiendo `habit_labels` y
-`habit_colors` en localStorage. La fuente de verdad para colores y etiquetas sigue partida y el
-usuario los pierde al cambiar de dispositivo. Al tocar esa zona, mover hacia el backend.
+`is_active` en la base. Archivar, borrar, el nombre y el emoji ya operan contra el backend
+(se eliminaron `hidden_habits` y `habit_labels`), pero **el color sigue en localStorage**
+(`habit_colors`), y el usuario lo pierde al cambiar de dispositivo. Es la entrada 4 del
+`BACKLOG.md`. Al tocar esa zona, mover hacia el backend.
 
 El pomodoro es **offline-first**: si el POST de una sesión falla, `queuePendingSession()`
 la guarda en `pomodoro_pending` y `flushPendingSessions()` la reintenta al iniciar. No

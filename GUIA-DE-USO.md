@@ -59,7 +59,7 @@ La pestaña **Calendario** es la vista de inicio.
 - **🔥 Días seguidos**: tu racha actual.
 - **Métricas → Este mes**: cuántas veces cumpliste cada hábito.
 
-Para elegir qué hábitos sigues, sus colores y sus nombres, usa el **⚙️** de la barra
+Para elegir qué hábitos sigues, sus colores y sus emojis, usa el **⚙️** de la barra
 superior.
 
 La lista de arriba son **solo los hábitos que sigues**. No hay un catálogo mezclado con
@@ -67,8 +67,15 @@ ellos: lo que no sigues no ocupa sitio ahí.
 
 - **Añadir un hábito**: en "Añadir un hábito" tienes los sugeridos (Lectura, Gym, Dieta,
   Estudio, No fumar) como etiquetas; toca una y sube a tu lista. Para uno propio, escribe
-  su nombre en *Otro*, elige color y pulsa **+**. En los dos casos se crea al pulsar
-  "Guardar Hábitos". Un sugerido deja de ofrecerse cuando ya lo tienes.
+  su nombre en *Otro*, elige emoji y color, y pulsa **+**. En los dos casos se crea al
+  pulsar "Guardar Hábitos". Un sugerido deja de ofrecerse cuando ya lo tienes.
+- **Cambiar el emoji**: cada hábito tiene su emoji en un botón, a la izquierda del nombre.
+  Púlsalo y se abre un panel con emojis agrupados (salud y deporte, estudio y trabajo,
+  comida, casa y dinero, ánimo y aficiones); toca el que quieras. No hace falta buscarlo
+  fuera ni pegarlo. El que ya tenías aparece recuadrado. Con **Sin emoji** el hábito se
+  queda solo con su nombre, y cerrando el panel sin elegir no se cambia nada. Como todo
+  en este modal, se aplica al pulsar "Guardar Hábitos", y el emoji nuevo se ve en el panel
+  del día y en Métricas.
 - **Dejar de seguir uno**: desmarca su casilla y pulsa "Guardar Hábitos". **No se borra
   nada**: se archiva con todo su historial intacto y baja a la lista **"Anteriores u
   ocultos"** del final.

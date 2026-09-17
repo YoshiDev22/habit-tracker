@@ -14,7 +14,7 @@ Levantado el 2026-09-08 sobre v1.3.0.
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage (habit_colors, habit_labels) | parcial |
+| 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage (habit_colors) | parcial |
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 7 | P3 | CORS abierto con credenciales | diagnosticado |
@@ -30,28 +30,38 @@ Levantado el 2026-09-08 sobre v1.3.0.
 
 ---
 
-## 4 · P2 · Fuente de verdad partida entre `Habit` y localStorage (habit_colors, habit_labels)
+## 4 · P2 · Fuente de verdad partida entre `Habit` y localStorage (habit_colors)
 
-**Estado:** Parcialmente resuelto. Se eliminó `hidden_habits` por completo del código y de `localStorage`; la acción de ocultar/archivar y eliminar hábitos ahora se comunica directamente con el backend (`PATCH /api/habits/definitions/{id}` con `is_active: false`, `DELETE /api/habits/delete-habit` y `DELETE /api/habits/definitions/{id}`). Queda pendiente migrar la lectura y escritura de colores (`habit_colors`) y etiquetas (`habit_labels`) hacia el backend.
+**Estado:** Parcialmente resuelto, y ya solo queda el color.
 
-**Síntoma.** Los colores y las etiquetas de los hábitos no viajan entre dispositivos. Si
-se entra desde otro navegador, los hábitos salen con los valores por defecto.
+- `hidden_habits` se eliminó del código y de `localStorage`: archivar y borrar van
+  directos al backend (`PATCH /api/habits/definitions/{id}` con `is_active: false`,
+  `DELETE /api/habits/delete-habit` y `DELETE /api/habits/definitions/{id}`).
+- `habit_labels` también se fue. El nombre lo manda el backend (`HABIT_LABELS` se llena en
+  `loadHabitDefinitionsFromAPI()`), y el emoji igual, en `HABIT_ICONS`. Los dos se editan
+  contra `PATCH /api/habits/definitions/{id}`.
+- Falta `habit_colors`.
 
-**Causa.** El modelo `Habit` ya tiene `label` y `color` en la base
-([backend/models.py:29](backend/models.py#L29)), y la API los expone en
-`/api/habits/definitions`. Pero el frontend sigue leyendo y escribiendo `habit_colors` y
-`habit_labels` en `localStorage`. La base tiene los datos y el navegador los ignora.
+**Síntoma.** El color de cada hábito no viaja entre dispositivos: entrando desde otro
+navegador, los hábitos salen con el color por defecto.
 
-**Arreglo.** Migrar la lectura a lo que ya devuelve `/api/habits/definitions`, y las
-escrituras a `PATCH /api/habits/definitions/{id}`. Conviene una migración suave: al primer
-login tras el cambio, subir lo que haya en localStorage si el backend no lo tiene, y
-después dejar de leerlo.
+**Causa.** El modelo `Habit` ya tiene `color` en la base
+([backend/models.py:29](backend/models.py#L29)) y la API lo expone en
+`/api/habits/definitions`, pero `renderHabitRows()` hace ganar al valor de
+`localStorage.habit_colors` sobre el del backend, y `handleSaveHabits()` escribe ahí en vez
+de mandarlo. La base tiene el dato y el navegador lo ignora.
 
-Ojo con el orden: `loadHabitDefinitionsFromAPI()` llama a `loadSavedColors()`,
-así que hay que desmontar esa dependencia.
+**Arreglo.** Leer el color de `/api/habits/definitions` y mandarlo en el mismo `PATCH` que
+ya se usa para el emoji (`handleSaveHabits()` compara contra `existing` y manda solo lo que
+cambió: agregar `color` a esa comparación es el cambio). Conviene una migración suave: en
+el primer guardado tras el cambio, subir lo que haya en `habit_colors` y después dejar de
+leerlo.
 
-**Aceptación.** Cambiar el color o etiqueta de un hábito, entrar desde otro navegador con la misma
-cuenta, y ver los valores nuevos. Sin escrituras a `habit_colors` / `habit_labels` en el código.
+Ojo con el orden: `loadHabitDefinitionsFromAPI()` llama a `loadSavedColors()`, así que hay
+que desmontar esa dependencia.
+
+**Aceptación.** Cambiar el color de un hábito, entrar desde otro navegador con la misma
+cuenta y ver el color nuevo. Sin escrituras a `habit_colors` en el código.
 
 ---
 
