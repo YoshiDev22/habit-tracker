@@ -25,16 +25,8 @@ const HABITS = [];
 
 const HABIT_LABELS = {};
 
-// Variables para el modal de acción de hábito
-let pendingHabitToRemove = null;
 let previousHabits = [];
 let initialSelectedHabits = [];
-
-const habitActionModal = document.getElementById('habitActionModal');
-const habitActionMessage = document.getElementById('habitActionMessage');
-const hideHabitBtn = document.getElementById('hideHabitBtn');
-const deleteHabitBtn = document.getElementById('deleteHabitBtn');
-const cancelHabitBtn = document.getElementById('cancelHabitBtn');
 
 // ============================================
 // Estado de la aplicación
@@ -494,8 +486,6 @@ function handleModalDismiss(modalEl) {
         closeProfileModal();
     } else if (modalEl.id === 'habitsSetupModal') {
         closeHabitsSetup();
-    } else if (modalEl.id === 'habitActionModal') {
-        hideHabitActionModal();
     } else {
         hideAllModals();
     }
@@ -626,7 +616,6 @@ async function showHabitsSetup() {
                         <span class="habit-check"></span>
                         <span>🎯 ${h.label}</span>
                         <input type="color" value="${h.color || '#95a5a6'}" data-habit="${h.key}" class="habit-color">
-                        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="${h.key}">🗑️</button>
                     `;
                     
                     const customRow = document.getElementById('customHabitRow');
@@ -1134,77 +1123,6 @@ addCustomHabitBtn.addEventListener('click', () => {
 // Guardar hábitos
 saveHabitsBtn.addEventListener('click', handleSaveHabits);
 
-// Delegación de eventos para el botón 🗑️ de cada hábito en el setup
-habitsOptions.addEventListener('click', (e) => {
-    const btn = e.target.closest('.remove-habit-btn');
-    if (!btn) return;
-    e.stopPropagation();
-    e.preventDefault();
-    const key = btn.getAttribute('data-habit-key') || btn.getAttribute('data-dynamic-key');
-    if (key) {
-        showHabitActionModal(key);
-    }
-});
-
-// Event listeners para el modal de acción de hábito
-function showHabitActionModal(habitKey) {
-    pendingHabitToRemove = habitKey;
-    const savedLabels = JSON.parse(localStorage.getItem('habit_labels') || '{}');
-    const habitName = savedLabels[habitKey] || HABIT_LABELS[habitKey] || DEFAULT_HABIT_LABELS[habitKey] || habitKey;
-    habitActionMessage.textContent = `¿Qué quieres hacer con "${habitName}"?`;
-    showModal(habitActionModal);
-}
-
-function hideHabitActionModal() {
-    hideModal(habitActionModal);
-    pendingHabitToRemove = null;
-}
-
-// Ocultar hábito (mantener historial)
-hideHabitBtn.addEventListener('click', async () => {
-    if (!pendingHabitToRemove) return;
-    const habitKey = pendingHabitToRemove;
-
-    try {
-        const data = await apiFetch('/api/habits/definitions?include_inactive=true');
-        const habit = data.habits ? data.habits.find(h => h.key === habitKey) : null;
-        if (habit) {
-            await apiFetch(`/api/habits/definitions/${habit.id}`, {
-                method: 'PATCH',
-                json: { is_active: false }
-            });
-        }
-        const localRow = habitsOptions.querySelector(`.dynamic-habit-row[data-habit-key="${habitKey}"]`);
-        if (localRow) localRow.remove();
-
-        hideHabitActionModal();
-        hideHabitsSetup();
-        await loadHabitDefinitionsFromAPI();
-        await loadHabitsFromAPI();
-    } catch (error) {
-        console.error('Error al ocultar hábito:', error);
-    }
-});
-
-// Eliminar hábito (borrar datos)
-deleteHabitBtn.addEventListener('click', async () => {
-    if (!pendingHabitToRemove) return;
-
-    const deleted = await deleteHabitForever(pendingHabitToRemove);
-    if (!deleted) return;
-
-    hideHabitActionModal();
-    hideHabitsSetup();
-});
-
-// Cancelar: cerrar modal de acción conservando el modal de configuración intacto
-cancelHabitBtn.addEventListener('click', () => {
-    hideHabitActionModal();
-});
-
-// Cerrar modal de acción al hacer click en overlay
-habitActionModal.querySelector('.modal-overlay').addEventListener('click', hideHabitActionModal);
-
 // Configuración desde la barra de usuario
 settingsBtn.addEventListener('click', showHabitsSetup);
 userEmail.addEventListener('click', showProfile);
@@ -1249,7 +1167,6 @@ function addDynamicHabit() {
         <span class="habit-check"></span>
         <span>🎯 ${customLabel}</span>
         <input type="color" value="${customColor}" data-habit="${customValue}" class="habit-color">
-        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="${customValue}">🗑️</button>
     `;
 
     // Insertar antes del row de "custom"

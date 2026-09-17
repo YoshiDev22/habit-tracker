@@ -1717,27 +1717,6 @@ body.has-pomodoro-bar {
     }
 }
 
-.remove-habit-btn {
-    width: 24px;
-    height: 24px;
-    border: none;
-    border-radius: 50%;
-    background: var(--danger-bg);
-    color: var(--danger-fg);
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.remove-habit-btn:hover {
-    background: var(--danger-fg);
-    color: var(--text-on-accent);
-}
 
 .rest-days-section {
     margin-top: 16px;

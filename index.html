@@ -288,35 +288,30 @@
                         <span class="habit-check"></span>
                         <span>📚 Lectura</span>
                         <input type="color" value="#3498db" data-habit="lectura" class="habit-color">
-                        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="lectura">🗑️</button>
                     </label>
                     <label class="habit-option">
                         <input type="checkbox" value="gym">
                         <span class="habit-check"></span>
                         <span>💪 Gym</span>
                         <input type="color" value="#e74c3c" data-habit="gym" class="habit-color">
-                        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="gym">🗑️</button>
                     </label>
                     <label class="habit-option">
                         <input type="checkbox" value="dieta">
                         <span class="habit-check"></span>
                         <span>🥗 Dieta</span>
                         <input type="color" value="#27ae60" data-habit="dieta" class="habit-color">
-                        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="dieta">🗑️</button>
                     </label>
                     <label class="habit-option">
                         <input type="checkbox" value="estudio">
                         <span class="habit-check"></span>
                         <span>📖 Estudio</span>
                         <input type="color" value="#9b59b6" data-habit="estudio" class="habit-color">
-                        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="estudio">🗑️</button>
                     </label>
                     <label class="habit-option">
                         <input type="checkbox" value="nofumar">
                         <span class="habit-check"></span>
                         <span>🚭 No fumar</span>
                         <input type="color" value="#f39c12" data-habit="nofumar" class="habit-color">
-                        <button type="button" class="remove-habit-btn" title="Opciones del hábito" data-habit-key="nofumar">🗑️</button>
                     </label>
                     <label class="habit-option custom-habit" id="customHabitRow">
                         <input type="checkbox" id="customHabitCheckbox">
@@ -373,26 +368,6 @@
             <div class="setup-footer">
                 <div id="setupError" class="form-error hidden"></div>
                 <button id="saveHabitsBtn" class="submit-btn">Guardar Hábitos</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Confirmación para Ocultar/Eliminar Hábito -->
-    <div id="habitActionModal" class="modal hidden">
-        <div class="modal-overlay"></div>
-        <div class="modal-content setup-modal" style="max-width: 400px;">
-            <h2 class="modal-title">¿Qué quieres hacer?</h2>
-            <p id="habitActionMessage" class="setup-subtitle">Selecciona una opción para el hábito:</p>
-            <div class="habit-action-options">
-                <button id="hideHabitBtn" class="submit-btn btn-warning">
-                    👁️ Ocultar (mantener historial)
-                </button>
-                <button id="deleteHabitBtn" class="submit-btn btn-danger">
-                    🗑️ Eliminar (borrar datos)
-                </button>
-                <button id="cancelHabitBtn" class="submit-btn btn-neutral">
-                    Cancelar
-                </button>
             </div>
         </div>
     </div>
@@ -515,8 +490,8 @@
     </div>
 
     <!-- Confirm genérico (sí/no), reutilizado por confirmDialog() en script.js.
-         Distinto de habitActionModal/projectActionModal: esos son de 3 opciones
-         fijas; este es de propósito general, con mensaje y botones dinámicos. -->
+         Distinto de projectActionModal, que es de 3 opciones fijas: este es de
+         propósito general, con mensaje y botones dinámicos. -->
     <div id="confirmModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal" style="max-width: 400px;">
