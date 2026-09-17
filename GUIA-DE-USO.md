@@ -100,13 +100,14 @@ campo *Nueva tarea* para añadir más, y el historial de tiempo.
 
 Está arriba de la pestaña Proyectos.
 
-1. Elige el modo: **Enfoque** (25 min), **Descanso** (5 min), **Descanso largo** (15 min)
-   o **Cronómetro**.
+1. Elige el modo: **Cronómetro**, **Enfoque** (25 min), **Descanso** (5 min) o
+   **Descanso largo** (15 min).
 2. Opcionalmente elige **proyecto** y **tarea**. Hazlo *antes* de darle a Iniciar: es en
    ese momento cuando el timer se queda con esa elección.
 3. **Iniciar**. Puedes **Pausar** y retomar, o **Detener** para cortar antes de tiempo.
-   Detener un **Enfoque** en curso o en pausa pregunta antes, para que no lo cortes sin
-   querer; detener un descanso o el cronómetro no pregunta.
+   Detener un **Enfoque** pregunta antes, para que no lo cortes sin querer — salvo que
+   lleve menos de un minuto, porque ese tiempo no se guarda de todos modos. Los descansos
+   y el cronómetro no preguntan nunca.
 
 ### Cronómetro
 

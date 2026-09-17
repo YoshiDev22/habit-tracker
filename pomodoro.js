@@ -359,7 +359,14 @@ async function stopTimer({ skipConfirm = false } = {}) {
         return;
     }
 
-    if (pomoState.mode === 'focus' && !skipConfirm) {
+    // Por debajo del mínimo la sesión se descarta igual, así que no hay nada
+    // que perder y preguntar solo estorba.
+    const elapsedBeforeConfirm = Math.max(0, Math.round(
+        (pomoState.plannedSeconds * 1000 - getRemainingMs(pomoState)) / 1000
+    ));
+    const worthConfirming = elapsedBeforeConfirm >= POMO_MIN_LOG_SECONDS;
+
+    if (pomoState.mode === 'focus' && !skipConfirm && worthConfirming) {
         // Congelar el timer mientras se pregunta: el tick de 250ms no debe
         // poder terminar el pomodoro solo (finishPomodoro) con el diálogo
         // abierto. confirmDialog() está en script.js (global, igual que
