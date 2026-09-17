@@ -2,20 +2,28 @@
 // Constantes y estado
 // ============================================
 
-const POMO_DURATIONS = { focus: 1500, short_break: 300, long_break: 900 }; // segundos
+// El cronómetro (stopwatch) cuenta hacia arriba y no tiene duración planeada.
+// Entra en el mapa con 0 para que nada lea undefined.
+const POMO_DURATIONS = { focus: 1500, short_break: 300, long_break: 900, stopwatch: 0 }; // segundos
 const POMO_MIN_LOG_SECONDS = 60; // debajo de esto, "Detener" descarta en vez de guardar
 const POMO_STORAGE_KEY = 'pomodoro_state';
 const POMO_PENDING_KEY = 'pomodoro_pending';
 const POMO_SOUND_KEY = 'pomodoro_sound';
 const POMO_STALE_MS = 24 * 60 * 60 * 1000; // rehidratar más viejo que esto: descartar
+// El cronómetro no tiene final propio. Si se queda corriendo por olvido, se
+// cierra solo al llegar a este tope y la sesión se guarda recortada, con nota.
+const POMO_STOPWATCH_MAX_SECONDS = 8 * 60 * 60;
+const POMO_AUTOCLOSE_NOTE = 'Cerrado automáticamente a las 8 h';
 
 function createIdlePomoState(mode = 'focus') {
     return {
         status: 'idle',           // idle | running | paused
-        mode,                      // focus | short_break | long_break
+        mode,                      // focus | short_break | long_break | stopwatch
         plannedSeconds: POMO_DURATIONS[mode],
-        targetEpochMs: null,       // deadline absoluto mientras corre
-        pausedRemainingMs: null,   // ms restantes mientras está en pausa
+        targetEpochMs: null,       // deadline absoluto mientras corre (el cronómetro no lo usa)
+        pausedRemainingMs: null,   // ms restantes mientras está en pausa (cuenta atrás)
+        pausedAccumMs: 0,          // solo cronómetro: ms en pausa, que no cuentan como trabajo
+        pausedAtEpochMs: null,     // solo cronómetro: cuándo se pausó, para congelar el transcurrido
         startedEpochMs: null,      // cuándo arrancó esta sesión (para "started_at" y el chequeo de vejez)
         projectId: null,
         taskId: null,
@@ -165,6 +173,27 @@ function getRemainingMs(state) {
     return state.plannedSeconds * 1000;
 }
 
+function isStopwatch(state) {
+    return state.mode === 'stopwatch';
+}
+
+// El cronómetro cuenta hacia arriba: su tiempo sale de cuándo arrancó, menos lo
+// que estuvo en pausa. En pausa se congela en el instante de pausar.
+function getElapsedMs(state) {
+    if (!state.startedEpochMs) return 0;
+    const until = state.status === 'paused' ? state.pausedAtEpochMs : Date.now();
+    return Math.max(0, until - state.startedEpochMs - (state.pausedAccumMs || 0));
+}
+
+// formatClock() solo hace mm:ss, y pasada la hora mostraría "90:00".
+function formatStopwatch(totalSeconds) {
+    const s = Math.max(0, Math.round(totalSeconds));
+    const h = Math.floor(s / 3600);
+    const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 function formatClock(totalSeconds) {
     const s = Math.max(0, Math.round(totalSeconds));
     const m = Math.floor(s / 60);
@@ -179,7 +208,7 @@ function toNaiveUtcIso(epochMs) {
     return new Date(epochMs).toISOString().replace('Z', '');
 }
 
-function buildPayload(state, startedEpochMs, endedEpochMs, durationSeconds, wasCompleted) {
+function buildPayload(state, startedEpochMs, endedEpochMs, durationSeconds, wasCompleted, note = null) {
     return {
         project_id: state.projectId,
         task_id: state.taskId,
@@ -188,8 +217,13 @@ function buildPayload(state, startedEpochMs, endedEpochMs, durationSeconds, wasC
         ended_at: toNaiveUtcIso(endedEpochMs),
         duration_seconds: durationSeconds,
         planned_seconds: state.plannedSeconds,
-        mode: state.mode,
+        // El cronómetro se guarda como "focus" y se distingue por source: toda
+        // la agregación del backend filtra mode == "focus", así que un modo
+        // propio dejaría su tiempo fuera de los totales.
+        mode: isStopwatch(state) ? 'focus' : state.mode,
+        source: isStopwatch(state) ? 'stopwatch' : 'timer',
         was_completed: wasCompleted,
+        note,
     };
 }
 
@@ -212,6 +246,17 @@ function stopTicking() {
 
 function tickPomodoro() {
     if (pomoState.status !== 'running') return;
+
+    if (isStopwatch(pomoState)) {
+        // Sin meta: el único final automático es el tope de 8 h.
+        if (getElapsedMs(pomoState) >= POMO_STOPWATCH_MAX_SECONDS * 1000) {
+            finishStopwatch({ announce: true });
+            return;
+        }
+        renderPomoUI();
+        return;
+    }
+
     if (Date.now() >= pomoState.targetEpochMs) {
         finishPomodoro(pomoState.targetEpochMs, true);
         return;
@@ -232,6 +277,7 @@ function startPomodoro() {
     if (pomoState.status !== 'idle') return;
 
     const mode = pomoState.mode;
+    const stopwatch = mode === 'stopwatch';
     const plannedSeconds = POMO_DURATIONS[mode];
     const now = Date.now();
 
@@ -239,8 +285,10 @@ function startPomodoro() {
         status: 'running',
         mode,
         plannedSeconds,
-        targetEpochMs: now + plannedSeconds * 1000,
+        targetEpochMs: stopwatch ? null : now + plannedSeconds * 1000,
         pausedRemainingMs: null,
+        pausedAccumMs: 0,
+        pausedAtEpochMs: null,
         startedEpochMs: now,
         projectId: pomoProjectSelect.value ? Number(pomoProjectSelect.value) : null,
         taskId: pomoTaskSelect.value ? Number(pomoTaskSelect.value) : null,
@@ -250,7 +298,8 @@ function startPomodoro() {
     // que el navegador permita reproducir audio más adelante.
     ensureAudioContext();
     requestNotificationPermission();
-    scheduleEndBeep(plannedSeconds * 1000);
+    // El cronómetro no tiene final que anunciar; su aviso es el del tope.
+    if (!stopwatch) scheduleEndBeep(plannedSeconds * 1000);
 
     pomoStatusEl.textContent = '';
     savePomoState();
@@ -260,7 +309,11 @@ function startPomodoro() {
 
 function pausePomodoro() {
     if (pomoState.status !== 'running') return;
-    pomoState.pausedRemainingMs = pomoState.targetEpochMs - Date.now();
+    if (isStopwatch(pomoState)) {
+        pomoState.pausedAtEpochMs = Date.now();
+    } else {
+        pomoState.pausedRemainingMs = pomoState.targetEpochMs - Date.now();
+    }
     pomoState.status = 'paused';
     stopTicking();
     cancelScheduledBeep();
@@ -270,6 +323,18 @@ function pausePomodoro() {
 
 function resumePomodoro() {
     if (pomoState.status !== 'paused') return;
+
+    if (isStopwatch(pomoState)) {
+        // Lo que estuvo en pausa no cuenta como trabajado.
+        pomoState.pausedAccumMs = (pomoState.pausedAccumMs || 0) + (Date.now() - pomoState.pausedAtEpochMs);
+        pomoState.pausedAtEpochMs = null;
+        pomoState.status = 'running';
+        savePomoState();
+        startTicking();
+        renderPomoUI();
+        return;
+    }
+
     pomoState.targetEpochMs = Date.now() + pomoState.pausedRemainingMs;
     pomoState.pausedRemainingMs = null;
     pomoState.status = 'running';
@@ -279,10 +344,22 @@ function resumePomodoro() {
     renderPomoUI();
 }
 
+// Handler de los botones: así el evento del click no llega como opciones.
 async function stopPomodoro() {
+    await stopTimer();
+}
+
+async function stopTimer({ skipConfirm = false } = {}) {
     if (pomoState.status !== 'running' && pomoState.status !== 'paused') return;
 
-    if (pomoState.mode === 'focus') {
+    // Detener el cronómetro es justamente guardar el tiempo, así que no hay
+    // nada que confirmar; el enfoque sí se pierde y por eso pregunta.
+    if (isStopwatch(pomoState)) {
+        await finishStopwatch({ announce: false });
+        return;
+    }
+
+    if (pomoState.mode === 'focus' && !skipConfirm) {
         // Congelar el timer mientras se pregunta: el tick de 250ms no debe
         // poder terminar el pomodoro solo (finishPomodoro) con el diálogo
         // abierto. confirmDialog() está en script.js (global, igual que
@@ -339,6 +416,77 @@ async function stopPomodoro() {
     }
 }
 
+// Cierra el cronómetro y guarda lo medido. Si se alcanzó el tope de 8 h, la
+// duración se recorta ahí y la sesión queda con nota, para poder corregirla
+// después con el ✎ del historial.
+async function finishStopwatch({ announce }) {
+    stopTicking();
+    cancelScheduledBeep();
+
+    const finishedState = pomoState;
+    const maxMs = POMO_STOPWATCH_MAX_SECONDS * 1000;
+    const elapsedMs = getElapsedMs(finishedState);
+    const auto = elapsedMs >= maxMs;
+    const durationSeconds = Math.round(Math.min(elapsedMs, maxMs) / 1000);
+    // Reconstruye la hora de fin real: inicio + pausas + lo trabajado.
+    const endedEpochMs = finishedState.startedEpochMs
+        + (finishedState.pausedAccumMs || 0)
+        + durationSeconds * 1000;
+
+    clearPomoState();
+    pomoState = createIdlePomoState(finishedState.mode);
+    renderPomoUI();
+
+    if (durationSeconds >= POMO_MIN_LOG_SECONDS) {
+        const payload = buildPayload(
+            finishedState,
+            finishedState.startedEpochMs,
+            endedEpochMs,
+            durationSeconds,
+            true,
+            auto ? POMO_AUTOCLOSE_NOTE : null
+        );
+        await postSession(payload);
+        await refreshTodaySeconds();
+        await loadProjects();
+        pomoStatusEl.textContent = auto
+            ? `Cronómetro cerrado solo a las 8 h. Tiempo guardado (${formatStopwatch(durationSeconds)}).`
+            : `Tiempo guardado (${formatStopwatch(durationSeconds)}).`;
+    } else {
+        pomoStatusEl.textContent = 'Tiempo descartado (menos de 1 minuto).';
+    }
+
+    if (announce) {
+        if (scheduledBeep.length === 0) playBeep();
+        scheduledBeep = [];
+        notifyPomodoroEnd('stopwatch');
+    }
+}
+
+// Global a propósito: la llama projects.js desde el ▶ de cada tarea, igual que
+// ya usa apiFetch o hideHabitPopover del núcleo (ver CLAUDE.md).
+async function startStopwatchForTask(projectId, taskId) {
+    if (pomoState.status !== 'idle') {
+        const enCurso = isStopwatch(pomoState) ? 'un cronómetro' : 'un pomodoro';
+        const ok = await confirmDialog(
+            `Ya tienes ${enCurso} en curso. ¿Lo detienes y arrancas el cronómetro en esta tarea?`,
+            { confirmLabel: 'Detener y empezar', cancelLabel: 'Dejarlo como está' }
+        );
+        if (!ok) return;
+
+        // Ya se confirmó aquí, así que el enfoque no vuelve a preguntar.
+        await stopTimer({ skipConfirm: true });
+        if (pomoState.status !== 'idle') return; // algo falló: no encadenar
+    }
+
+    pomoState = createIdlePomoState('stopwatch');
+    pomoProjectSelect.value = String(projectId);
+    await populateTaskSelect();
+    pomoTaskSelect.value = String(taskId);
+    startPomodoro();
+    goToView(1);
+}
+
 // announce=false se usa al rehidratar una sesión que terminó hace rato,
 // para no sonar/mostrar el aviso de "completado" con horas de retraso.
 async function finishPomodoro(endedEpochMs, announce) {
@@ -385,16 +533,33 @@ async function finishPomodoro(endedEpochMs, announce) {
 // ============================================
 
 function pomoBarLabelText() {
-    const modeLabel = { focus: 'Enfoque', short_break: 'Descanso', long_break: 'Descanso largo' }[pomoState.mode];
+    const modeLabel = {
+        focus: 'Enfoque',
+        short_break: 'Descanso',
+        long_break: 'Descanso largo',
+        stopwatch: 'Cronómetro',
+    }[pomoState.mode];
     const project = projectsState.projects.find(p => p.id === pomoState.projectId);
     return project ? `${modeLabel} · ${project.name}` : modeLabel;
 }
 
 function renderPomoUI() {
-    const remainingMs = getRemainingMs(pomoState);
-    const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-    const clock = formatClock(remainingSeconds);
     const isActive = pomoState.status === 'running' || pomoState.status === 'paused';
+
+    // El cronómetro cuenta hacia arriba y su "progreso" es sobre el tope de 8 h,
+    // que es lo único que acota su duración.
+    let clock;
+    let progressPct;
+    if (isStopwatch(pomoState)) {
+        const elapsedSeconds = Math.floor(getElapsedMs(pomoState) / 1000);
+        clock = formatStopwatch(elapsedSeconds);
+        progressPct = Math.min(100, (elapsedSeconds / POMO_STOPWATCH_MAX_SECONDS) * 100);
+    } else {
+        const remainingMs = getRemainingMs(pomoState);
+        clock = formatClock(Math.max(0, Math.ceil(remainingMs / 1000)));
+        const totalMs = pomoState.plannedSeconds * 1000;
+        progressPct = Math.min(100, Math.max(0, 100 - (remainingMs / totalMs) * 100));
+    }
 
     pomoDisplay.textContent = clock;
 
@@ -414,8 +579,6 @@ function renderPomoUI() {
         pomodoroBar.classList.remove('hidden');
         document.body.classList.add('has-pomodoro-bar');
 
-        const totalMs = pomoState.plannedSeconds * 1000;
-        const progressPct = Math.min(100, Math.max(0, 100 - (remainingMs / totalMs) * 100));
         pomodoroBarProgress.style.width = `${progressPct}%`;
         pomodoroBarTime.textContent = clock;
         pomodoroBarLabel.textContent = pomoBarLabelText();
@@ -427,6 +590,14 @@ function renderPomoUI() {
         pomodoroBar.classList.add('hidden');
         document.body.classList.remove('has-pomodoro-bar');
         document.title = 'Habit Tracker';
+    }
+
+    // Marca la fila de la tarea que se está cronometrando. projects.js la
+    // repinta en cada render de proyectos, así que aquí solo se ajusta la clase.
+    document.querySelectorAll('.task-row.timing').forEach(row => row.classList.remove('timing'));
+    if (isActive && pomoState.taskId) {
+        const row = document.querySelector(`.task-row[data-task-id="${pomoState.taskId}"]`);
+        if (row) row.classList.add('timing');
     }
 }
 
@@ -509,10 +680,15 @@ function notifyPomodoroEnd(mode) {
         focus: '¡Pomodoro completado!',
         short_break: 'Descanso terminado',
         long_break: 'Descanso largo terminado',
+        stopwatch: 'Cronómetro cerrado',
+    };
+    const bodies = {
+        focus: 'Hora de descansar.',
+        stopwatch: 'Llevaba 8 horas corriendo. El tiempo quedó guardado.',
     };
     try {
         new Notification(titles[mode] || 'Pomodoro', {
-            body: mode === 'focus' ? 'Hora de descansar.' : 'Hora de volver al trabajo.',
+            body: bodies[mode] || 'Hora de volver al trabajo.',
             // Reemplaza el aviso anterior en vez de apilarlos.
             tag: 'pomodoro-end',
         });
@@ -618,7 +794,8 @@ pomoSoundBtn.addEventListener('click', () => {
     setSoundEnabled(!isSoundEnabled());
     // El pitido se encola al arrancar: si el sonido se enciende o se apaga con
     // el timer corriendo, hay que rehacer esa reserva.
-    if (pomoState.status === 'running') {
+    // El cronómetro no encola pitido de fin: no tiene final que programar.
+    if (pomoState.status === 'running' && !isStopwatch(pomoState)) {
         ensureAudioContext();
         scheduleEndBeep(pomoState.targetEpochMs - Date.now());
     } else {
@@ -652,11 +829,16 @@ async function handlePomodoroLogout() {
     stopTicking();
 
     if (pomoState.status === 'running' || pomoState.status === 'paused') {
-        const elapsedMs = pomoState.plannedSeconds * 1000 - getRemainingMs(pomoState);
+        // El cronómetro deriva su tiempo de getElapsedMs; restar getRemainingMs
+        // daría NaN, porque no tiene targetEpochMs.
+        const stopwatch = isStopwatch(pomoState);
+        const elapsedMs = stopwatch
+            ? getElapsedMs(pomoState)
+            : pomoState.plannedSeconds * 1000 - getRemainingMs(pomoState);
         const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
 
-        if (pomoState.mode === 'focus' && elapsedSeconds >= POMO_MIN_LOG_SECONDS) {
-            const payload = buildPayload(pomoState, pomoState.startedEpochMs, Date.now(), elapsedSeconds, false);
+        if ((stopwatch || pomoState.mode === 'focus') && elapsedSeconds >= POMO_MIN_LOG_SECONDS) {
+            const payload = buildPayload(pomoState, pomoState.startedEpochMs, Date.now(), elapsedSeconds, stopwatch);
             try {
                 await apiFetch('/api/pomodoro', { method: 'POST', json: payload });
             } catch (error) {
@@ -683,6 +865,21 @@ async function initPomodoro() {
     updateSoundBtn();
 
     const stored = loadPomoStateFromStorage();
+
+    // El cronómetro NO se descarta por viejo: eso sería tirar trabajo real. Si
+    // pasó del tope se guarda recortado a 8 h; si no, sigue contando.
+    if (stored && stored.mode === 'stopwatch' && (stored.status === 'running' || stored.status === 'paused')) {
+        pomoState = stored;
+        if (getElapsedMs(pomoState) >= POMO_STOPWATCH_MAX_SECONDS * 1000) {
+            await finishStopwatch({ announce: false });
+        } else {
+            if (pomoState.status === 'running') startTicking();
+            renderPomoUI();
+        }
+        await refreshTodaySeconds();
+        await flushPendingSessions();
+        return;
+    }
 
     if (!stored || Date.now() - (stored.startedEpochMs || 0) > POMO_STALE_MS) {
         if (stored) clearPomoState(); // estado viejo (ej. laptop dormida días): descartar

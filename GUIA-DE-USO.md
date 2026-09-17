@@ -13,7 +13,7 @@ Producción: https://habits.yoshidev22.com
 - [Tu perfil y el alias](#tu-perfil-y-el-alias)
 - [Calendario de hábitos](#calendario-de-hábitos)
 - [Proyectos y tareas](#proyectos-y-tareas)
-- [Pomodoro](#pomodoro)
+- [Pomodoro y cronómetro](#pomodoro-y-cronómetro)
 - [Registrar tiempo a mano](#registrar-tiempo-a-mano)
 - [Corregir o borrar un registro](#corregir-o-borrar-un-registro)
 - [Preguntas frecuentes](#preguntas-frecuentes)
@@ -93,20 +93,36 @@ campo *Nueva tarea* para añadir más, y el historial de tiempo.
 - La línea **"Sin tarea"** recoge el tiempo registrado en el proyecto sin elegir tarea, de
   forma que la suma de todo cuadra con el total de la tarjeta.
 
-## Pomodoro
+## Pomodoro y cronómetro
 
 Está arriba de la pestaña Proyectos.
 
-1. Elige el modo: **Enfoque** (25 min), **Descanso** (5 min) o **Descanso largo** (15 min).
+1. Elige el modo: **Enfoque** (25 min), **Descanso** (5 min), **Descanso largo** (15 min)
+   o **Cronómetro**.
 2. Opcionalmente elige **proyecto** y **tarea**. Hazlo *antes* de darle a Iniciar: es en
    ese momento cuando el timer se queda con esa elección.
 3. **Iniciar**. Puedes **Pausar** y retomar, o **Detener** para cortar antes de tiempo.
    Detener un **Enfoque** en curso o en pausa pregunta antes, para que no lo cortes sin
-   querer; detener un descanso no pregunta.
+   querer; detener un descanso o el cronómetro no pregunta.
+
+### Cronómetro
+
+El pomodoro cuenta hacia atrás y se acaba; el **Cronómetro** cuenta hacia arriba y no
+termina hasta que tú lo detengas. Es para cuando te concentras y no quieres que el tiempo
+extra se quede sin registrar por no haber oído el aviso.
+
+- Detenerlo es lo que guarda el tiempo, así que no pregunta nada.
+- **Se cierra solo a las 8 horas** si se te olvida, y guarda el tiempo con la nota
+  "Cerrado automáticamente a las 8 h". Ese registro se corrige como cualquier otro, con
+  el **✎** del historial.
+- El tiempo que pasa en pausa no cuenta.
+- Si cierras la pestaña y vuelves, el cronómetro sigue contando: su tiempo se mide desde
+  la hora en que arrancó, no desde que la pestaña está abierta.
 
 Detalles que conviene saber:
 
-- **Solo se guardan las sesiones de Enfoque.** Los descansos no cuentan como trabajo.
+- **Solo se guardan las sesiones de Enfoque y de Cronómetro.** Los descansos no cuentan
+  como trabajo.
 - Si detienes antes del **primer minuto**, la sesión se descarta en vez de guardarse.
 - El contador sigue corriendo aunque cambies de pestaña, y aparece en el título de la
   ventana y en una barra inferior.
