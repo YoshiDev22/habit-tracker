@@ -532,6 +532,7 @@ const habitsSetupModal = document.getElementById('habitsSetupModal');
 const habitsOptions = document.getElementById('habitsOptions');
 const habitsEmpty = document.getElementById('habitsEmpty');
 const habitSuggestions = document.getElementById('habitSuggestions');
+const customHabitIcon = document.getElementById('customHabitIcon');
 const customHabitInput = document.getElementById('customHabitInput');
 const customHabitColor = document.getElementById('customHabitColor');
 const addCustomHabitBtn = document.getElementById('addCustomHabitBtn');
@@ -560,12 +561,18 @@ function habitDisplayName(icon, label) {
 // Una sola forma de fila para cualquier hábito, los cinco de siempre y los que
 // escribe el usuario. Con createElement y textContent, nunca innerHTML: el
 // label lo escribe una persona y no se interpola en HTML.
+//
+// El emoji va en su propio campo, no pegado al nombre: es lo que lo hace
+// editable, y es lo que evita que vuelva a terminar guardado dentro del label.
 function buildHabitRow({ key, label, icon, color, checked }) {
     const row = document.createElement('label');
     row.className = 'habit-option';
     row.dataset.habitKey = key;
     row.dataset.habitLabel = label;
-    row.dataset.habitIcon = icon || '✅';
+    // Vacío cuando el hábito no tiene emoji (la columna admite NULL). Poner acá
+    // un ✅ de relleno lo escribiría en el backend en el siguiente Guardar sin
+    // que nadie lo haya elegido; va de placeholder, que no se guarda.
+    row.dataset.habitIcon = icon || '';
     row.dataset.habitColor = color || '#3498db';
 
     const checkbox = document.createElement('input');
@@ -576,8 +583,22 @@ function buildHabitRow({ key, label, icon, color, checked }) {
     const check = document.createElement('span');
     check.className = 'habit-check';
 
+    // Un <input> dentro del <label> no reenvía el clic a la casilla, así que
+    // escribir acá no marca ni desmarca el hábito.
+    const iconInput = document.createElement('input');
+    iconInput.type = 'text';
+    iconInput.className = 'habit-emoji';
+    // Un emoji ocupa más de un carácter: una bandera o una familia con ZWJ
+    // llegan a 8 unidades UTF-16.
+    iconInput.maxLength = 8;
+    iconInput.value = row.dataset.habitIcon;
+    iconInput.placeholder = '✅';
+    iconInput.title = 'Cambiar emoji';
+    iconInput.setAttribute('aria-label', `Emoji de ${label}`);
+
     const name = document.createElement('span');
-    name.textContent = habitDisplayName(row.dataset.habitIcon, label);
+    name.className = 'habit-name';
+    name.textContent = label;
 
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
@@ -585,8 +606,15 @@ function buildHabitRow({ key, label, icon, color, checked }) {
     colorInput.value = row.dataset.habitColor;
     colorInput.dataset.habit = key;
 
-    row.append(checkbox, check, name, colorInput);
+    row.append(checkbox, check, iconInput, name, colorInput);
     return row;
+}
+
+// El emoji que muestra la fila ahora mismo, ya recortado. Cadena vacía = el
+// usuario no quiere emoji, y es una respuesta válida.
+function getRowIcon(row) {
+    const input = row.querySelector('.habit-emoji');
+    return input ? input.value.trim() : (row.dataset.habitIcon || '');
 }
 
 // La lista de arriba es lo que sigues, y nada más.
@@ -791,7 +819,9 @@ function getHabitsSetupState() {
     habitsOptions.querySelectorAll('.habit-option').forEach(row => {
         if (!row.querySelector('input[type="checkbox"]').checked) return;
         const colorInput = row.querySelector('input[type="color"]');
-        habits.push(`${row.dataset.habitKey}:${colorInput ? colorInput.value : ''}`);
+        // El emoji entra en la foto: si no, cambiarlo y pulsar Guardar cerraría
+        // el modal sin escribir nada, porque el dirty-check no vería el cambio.
+        habits.push(`${row.dataset.habitKey}:${colorInput ? colorInput.value : ''}:${getRowIcon(row)}`);
     });
 
     const restDays = [];
@@ -891,7 +921,7 @@ async function handleSaveHabits() {
         selectedKeys.forEach(key => HABITS.push(key));
         checkedRows.forEach(row => {
             HABIT_LABELS[row.dataset.habitKey] = row.dataset.habitLabel;
-            HABIT_ICONS[row.dataset.habitKey] = row.dataset.habitIcon;
+            HABIT_ICONS[row.dataset.habitKey] = getRowIcon(row);
         });
         renderHabitPopoverButtons();
         renderCalendar();
@@ -926,28 +956,35 @@ async function handleSaveHabits() {
             }
         }
 
-        // Reactivar o crear, según exista ya la definición.
+        // Crear, reactivar o actualizar, según qué haya cambiado.
         for (const row of checkedRows) {
             const existing = byKey[row.dataset.habitKey];
-            if (existing && existing.is_active) continue;
+            const icon = getRowIcon(row);
 
-            if (existing) {
-                await apiFetch(`/api/habits/definitions/${existing.id}`, {
-                    method: 'PATCH',
-                    json: { is_active: true }
+            if (!existing) {
+                await apiFetch('/api/habits/definitions', {
+                    method: 'POST',
+                    json: {
+                        key: row.dataset.habitKey,
+                        label: row.dataset.habitLabel,
+                        icon: icon,
+                        color: row.querySelector('input[type="color"]').value,
+                        order: 0
+                    }
                 });
                 continue;
             }
 
-            await apiFetch('/api/habits/definitions', {
-                method: 'POST',
-                json: {
-                    key: row.dataset.habitKey,
-                    label: row.dataset.habitLabel,
-                    icon: row.dataset.habitIcon,
-                    color: row.querySelector('input[type="color"]').value,
-                    order: 0
-                }
+            // Un solo PATCH con lo que de verdad cambió: reactivar y cambiar el
+            // emoji pueden pasar en el mismo Guardar.
+            const changes = {};
+            if (!existing.is_active) changes.is_active = true;
+            if ((existing.icon || '') !== icon) changes.icon = icon;
+            if (Object.keys(changes).length === 0) continue;
+
+            await apiFetch(`/api/habits/definitions/${existing.id}`, {
+                method: 'PATCH',
+                json: changes
             });
         }
 
@@ -1032,12 +1069,15 @@ function addDynamicHabit() {
     habitsOptions.appendChild(buildHabitRow({
         key,
         label,
-        icon: '🎯',
+        // Sin emoji escrito vale el del placeholder, y en la fila se puede
+        // cambiar o borrar antes de guardar.
+        icon: customHabitIcon.value.trim() || '🎯',
         color: customHabitColor.value,
         checked: true
     }));
     habitsEmpty.classList.add('hidden');
 
+    customHabitIcon.value = '';
     customHabitInput.value = '';
     customHabitColor.value = '#95a5a6';
     addCustomHabitBtn.disabled = true;

@@ -1553,7 +1553,8 @@ body.has-pomodoro-bar {
     flex-shrink: 0;
 }
 
-.custom-habit-row input[type="text"] {
+/* El :not() deja fuera al campo del emoji, que es angosto y de ancho fijo. */
+.custom-habit-row input[type="text"]:not(.habit-emoji) {
     flex: 1;
     min-width: 0;
     background: var(--bg-surface);
@@ -1692,29 +1693,33 @@ body.has-pomodoro-bar {
     font-size: 12px;
 }
 
-.habit-option.custom-habit {
-    flex-wrap: wrap;
-}
-
-.habit-option input[type="text"] {
-    flex: 1;
-    min-width: 120px;
-    padding: 8px 12px;
+/* El emoji de cada hábito, editable en su fila. Angosto a propósito: ahí cabe
+   un emoji, no un nombre. Va fuera del .habit-name porque el nombre que se
+   guarda no lleva el emoji dentro. */
+.habit-emoji {
+    flex: 0 0 auto;
+    width: 2.75rem;
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 1rem;
+    line-height: 1.2;
     border: 1px solid var(--border-strong);
-    border-radius: 4px;
-    font-size: 0.9rem;
+    border-radius: 6px;
     background: var(--bg-surface);
     color: var(--text-primary);
+    cursor: text;
 }
 
-.habit-option input[type="text"]:focus {
+.habit-emoji:focus {
     outline: none;
     border-color: var(--accent);
 }
 
-.habit-option input[type="text"]:disabled {
-    background: var(--bg-disabled);
-    cursor: not-allowed;
+/* Sin min-width: 0 un nombre largo no encoge y empuja el color fuera de la
+   fila; con él, parte de línea. */
+.habit-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .habit-color {
