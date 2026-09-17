@@ -90,6 +90,9 @@ campo *Nueva tarea* para añadir más, y el historial de tiempo.
 
 - La casilla marca la tarea como terminada.
 - Junto a cada nombre verás **el tiempo dedicado a esa tarea**.
+- El **▶** arranca el cronómetro en esa tarea, sin pasar por los selectores de arriba.
+  Mientras corre, la fila queda resaltada. Si ya tenías otro timer en curso, te pregunta
+  antes de cambiarlo. En las tareas ya hechas no aparece.
 - La línea **"Sin tarea"** recoge el tiempo registrado en el proyecto sin elegir tarea, de
   forma que la suma de todo cuadra con el total de la tarjeta.
 
@@ -160,7 +163,8 @@ la tarea y al tiempo de hoy.
 Despliega el proyecto y busca **Registros de tiempo**, debajo de las tareas. Cada línea
 muestra día, horario, duración, tarea y nota:
 
-- **⏱** lo midió el cronómetro.
+- **⏱** lo midió un pomodoro.
+- **▶** lo midió el cronómetro.
 - **✍️** lo escribiste tú a mano.
 
 **Corregir**: el botón **✎**. Se abre el mismo formulario, ya relleno, y puedes cambiar la

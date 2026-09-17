@@ -482,6 +482,35 @@ body {
     color: var(--danger-fg);
 }
 
+/* Arranca el cronómetro en esa tarea. Mismo tamaño y caja que la ×, para que
+   los dos botones de la fila queden alineados. */
+.task-play {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.task-play:hover {
+    background: var(--hover-color);
+    color: var(--accent);
+}
+
+/* La tarea que se está cronometrando ahora mismo. */
+.task-row.timing {
+    background: var(--hover-color);
+    border-radius: 6px;
+}
+
+.task-row.timing .task-title {
+    color: var(--accent);
+    font-weight: 600;
+}
+
 .task-add {
     display: flex;
     gap: 6px;

@@ -417,6 +417,15 @@ function fillTaskListElement(container, projectId) {
 
             const taskSeconds = secondsByTask[String(task.id)] || 0;
 
+            // ▶ arranca el cronómetro apuntando a esta tarea. En una tarea ya
+            // hecha no tiene sentido, así que no se pinta.
+            const playBtn = document.createElement('button');
+            playBtn.type = 'button';
+            playBtn.className = 'task-play';
+            playBtn.setAttribute('aria-label', `Cronometrar la tarea ${task.title}`);
+            playBtn.title = 'Cronometrar esta tarea';
+            playBtn.textContent = '▶';
+
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'task-delete';
@@ -433,6 +442,7 @@ function fillTaskListElement(container, projectId) {
             row.appendChild(checkbox);
             row.appendChild(title);
             row.appendChild(time);
+            if (!task.is_done) row.appendChild(playBtn);
             row.appendChild(deleteBtn);
             container.appendChild(row);
         });
@@ -508,9 +518,15 @@ function buildSessionLog(projectId, tasks) {
 
         const origin = document.createElement('span');
         origin.className = 'session-origin';
-        const isManual = session.source === 'manual';
-        origin.textContent = isManual ? '✍️' : '⏱';
-        origin.title = isManual ? 'Registrado a mano' : 'Medido con el timer';
+        // El pomodoro conserva su ⏱ de siempre para no cambiarle el icono a
+        // los registros que ya existen.
+        const originBySource = {
+            manual: { icon: '✍️', title: 'Registrado a mano' },
+            stopwatch: { icon: '▶', title: 'Medido con el cronómetro' },
+        };
+        const originInfo = originBySource[session.source] || { icon: '⏱', title: 'Medido con un pomodoro' };
+        origin.textContent = originInfo.icon;
+        origin.title = originInfo.title;
 
         const body = document.createElement('div');
         body.className = 'session-body';
@@ -630,6 +646,16 @@ projectsList.addEventListener('click', (event) => {
         const sessionId = Number(deleteSessionBtn.closest('.session-row').dataset.sessionId);
         const projectId = Number(deleteSessionBtn.closest('.task-list').dataset.projectId);
         askSessionDelete(projectId, sessionId);
+        return;
+    }
+
+    // startStopwatchForTask() vive en pomodoro.js, que carga después de este
+    // archivo; el click ocurre mucho más tarde, así que la global ya existe.
+    const playTaskBtn = event.target.closest('.task-play');
+    if (playTaskBtn) {
+        const taskId = Number(playTaskBtn.closest('.task-row').dataset.taskId);
+        const projectId = Number(playTaskBtn.closest('.task-list').dataset.projectId);
+        startStopwatchForTask(projectId, taskId);
         return;
     }
 
