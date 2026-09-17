@@ -1,5 +1,5 @@
 """
-Applies pending schema changes to the SQLite database.
+Applies pending schema changes and data fixups to the SQLite database.
 
 This project has no Alembic, and create_db_and_tables() calls
 SQLModel.metadata.create_all(), which creates missing TABLES but never alters
@@ -20,6 +20,7 @@ Run it from the repo root, BEFORE restarting the service with the new code:
 import os
 import sqlite3
 import sys
+import unicodedata
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(BASE_DIR, "backend", ".env")
@@ -35,6 +36,17 @@ MIGRATIONS = [
     {"table": "pomodoro_sessions", "column": "source", "type": "VARCHAR", "default": "timer"},
     {"table": "users", "column": "rest_days", "type": "JSON"},
 ]
+
+# El icono que pone el modelo cuando nadie manda uno. Un `habits.icon` con este
+# valor no es una elección del usuario, así que el emoji que traiga el label
+# puede quedarse con el sitio.
+GENERIC_HABIT_ICON = "✅"
+
+# Categorías Unicode de los emoji y de los símbolos que los modifican. Filtrar
+# por "no es ASCII" rompería un nombre con tilde o con ñ; las letras acentuadas
+# son Ll/Lu y no entran acá.
+SYMBOL_CATEGORIES = {"So", "Sk"}
+EMOJI_JOINERS = {"‍", "️", "⃣"}
 
 
 def read_env_value(path, key):
@@ -80,7 +92,63 @@ def existing_columns(connection, table):
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
 
 
+def split_leading_emoji(label):
+    """Separa el emoji del principio de un nombre: ("📚", "Lectura").
+
+    Devuelve ("", label) cuando el nombre no empieza por uno."""
+    cut = 0
+    for char in label:
+        if unicodedata.category(char) in SYMBOL_CATEGORIES or char in EMOJI_JOINERS:
+            cut += 1
+        else:
+            break
+
+    return label[:cut], label[cut:].lstrip()
+
+
+def normalize_habit_labels(connection):
+    """Saca el emoji de dentro de `habits.label` y lo deja en `habits.icon`.
+
+    Durante meses el guardado del frontend leyó el nombre del hábito del span
+    que se veía en pantalla, y ese span era "emoji + nombre". El emoji terminó
+    guardado dos veces: dentro del label y en su columna. Al pintar la fila como
+    icono + nombre, salía duplicado ("📚 📚 Lectura").
+
+    Idempotente: un label ya limpio no empieza por emoji y se salta."""
+    if not existing_columns(connection, "habits"):
+        return []
+
+    fixed = []
+    rows = connection.execute("SELECT id, label, icon FROM habits").fetchall()
+    for habit_id, label, icon in rows:
+        if not label:
+            continue
+
+        emoji, name = split_leading_emoji(label)
+        # Sin emoji no hay nada que mover, y si al quitarlo no queda nombre
+        # (un label que era solo el emoji) se deja como está: vale más un
+        # nombre raro que una fila sin nombre.
+        if not emoji or not name:
+            continue
+
+        new_icon = emoji if not icon or icon == GENERIC_HABIT_ICON else icon
+        connection.execute(
+            "UPDATE habits SET label = ?, icon = ? WHERE id = ?",
+            (name, new_icon, habit_id),
+        )
+        fixed.append(f"{label!r} -> icon={new_icon!r} label={name!r}")
+
+    return fixed
+
+
 def main():
+    # El informe incluye nombres de hábitos, que traen emoji, y no toda consola
+    # sabe codificarlos (la de Windows es cp1252 por defecto). Sin esto un print
+    # tira el script DESPUÉS de haber migrado, con el commit ya hecho: el deploy
+    # parecería haber fallado cuando en realidad fue bien.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+
     db_path = resolve_db_path()
     print(f"Database: {db_path}")
 
@@ -107,11 +175,22 @@ def main():
             connection.execute(statement)
             applied.append(f"{table}.{column}")
 
+        # Después de las columnas: el esquema tiene que estar completo antes de
+        # tocar filas.
+        relabeled = normalize_habit_labels(connection)
+
         connection.commit()
     finally:
         connection.close()
 
     print("Added: " + (", ".join(applied) if applied else "nothing, already up to date"))
+
+    if relabeled:
+        print(f"Habit labels normalized ({len(relabeled)}):")
+        for line in relabeled:
+            print(f"  {line}")
+    else:
+        print("Habit labels: nothing to normalize")
 
 
 if __name__ == "__main__":

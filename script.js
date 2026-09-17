@@ -23,7 +23,12 @@ async function runHooks(hooks) {
 
 const HABITS = [];
 
+// Nombre y emoji de cada hábito, por clave. Los dos salen del backend en
+// loadHabitDefinitionsFromAPI(): el nombre va SIN emoji, y el emoji se pone
+// delante al pintar. Guardar el emoji dentro del nombre es lo que hacía que
+// saliera dos veces.
 const HABIT_LABELS = {};
+const HABIT_ICONS = {};
 
 let previousHabits = [];
 let initialSelectedHabits = [];
@@ -545,14 +550,12 @@ const DEFAULT_HABITS = [
     { key: 'nofumar', label: 'No fumar', icon: '🚭', color: '#f39c12' }
 ];
 
-// Etiquetas por defecto
-const DEFAULT_HABIT_LABELS = {
-    lectura: 'Lectura',
-    gym: 'Gym',
-    dieta: 'Dieta',
-    estudio: 'Estudio',
-    nofumar: 'No fumar'
-};
+// El nombre tal como se lee en pantalla. Un único sitio que compone emoji +
+// nombre: cuando esto estaba repetido por el archivo, un `label` que ya traía
+// el emoji dentro salía con el emoji dos veces.
+function habitDisplayName(icon, label) {
+    return icon ? `${icon} ${label}` : label;
+}
 
 // Una sola forma de fila para cualquier hábito, los cinco de siempre y los que
 // escribe el usuario. Con createElement y textContent, nunca innerHTML: el
@@ -574,7 +577,7 @@ function buildHabitRow({ key, label, icon, color, checked }) {
     check.className = 'habit-check';
 
     const name = document.createElement('span');
-    name.textContent = `${row.dataset.habitIcon} ${label}`;
+    name.textContent = habitDisplayName(row.dataset.habitIcon, label);
 
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
@@ -628,7 +631,7 @@ function renderSuggestions(knownKeys) {
         dot.style.backgroundColor = def.color;
 
         const label = document.createElement('span');
-        label.textContent = `${def.icon} ${def.label}`;
+        label.textContent = habitDisplayName(def.icon, def.label);
 
         chip.append(dot, label);
         habitSuggestions.appendChild(chip);
@@ -685,7 +688,10 @@ function renderArchivedHabits(archived) {
 
         const name = document.createElement('span');
         name.className = 'archived-name';
-        name.textContent = habit.label || habit.key;
+        name.textContent = habitDisplayName(habit.icon, habit.label || habit.key);
+        // Para el texto del confirm de borrado: un archivado no está en
+        // HABIT_LABELS, que solo trae los activos.
+        row.dataset.habitName = name.textContent;
 
         const restoreBtn = document.createElement('button');
         restoreBtn.type = 'button';
@@ -725,11 +731,8 @@ async function restoreHabit(habitId) {
 
 // Borra el historial y la definición. Es lo único irreversible de este modal,
 // de ahí la confirmación. Devuelve si se llegó a borrar.
-async function deleteHabitForever(habitKey) {
-    const savedLabels = JSON.parse(localStorage.getItem('habit_labels') || '{}');
-    const habitName = savedLabels[habitKey] || HABIT_LABELS[habitKey] || DEFAULT_HABIT_LABELS[habitKey] || habitKey;
-
-    const ok = await confirmDialog(`¿Seguro que quieres eliminar el hábito "${habitName}"? Se borrará todo su historial y no se puede deshacer.`, {
+async function deleteHabitForever(habitKey, habitName) {
+    const ok = await confirmDialog(`¿Seguro que quieres eliminar el hábito "${habitName || habitKey}"? Se borrará todo su historial y no se puede deshacer.`, {
         title: '¿Eliminar hábito?',
         confirmLabel: '🗑️ Eliminar',
         cancelLabel: 'Cancelar',
@@ -768,7 +771,7 @@ archivedHabitsList.addEventListener('click', async (event) => {
     }
 
     if (event.target.closest('.archived-delete')) {
-        const deleted = await deleteHabitForever(row.dataset.habitKey);
+        const deleted = await deleteHabitForever(row.dataset.habitKey, row.dataset.habitName);
         if (deleted) await showHabitsSetup();
     }
 });
@@ -866,17 +869,12 @@ async function handleSaveHabits() {
     if (!confirmed) return;
 
     // Recién ahora se persiste, para que cancelar el confirm no deje nada a
-    // medias. Colores y etiquetas siguen en localStorage: la deuda de la
-    // entrada 4 del backlog sigue viva.
-    const labels = {};
-    const selectedKeys = [];
-    checkedRows.forEach(row => {
-        labels[row.dataset.habitKey] = row.dataset.habitLabel;
-        selectedKeys.push(row.dataset.habitKey);
-    });
+    // medias. El color sigue en localStorage (deuda de la entrada 4 del
+    // backlog); el nombre y el emoji ya no: viven en el backend, que es lo que
+    // los hace viajar entre dispositivos.
+    const selectedKeys = checkedRows.map(row => row.dataset.habitKey);
 
     localStorage.setItem('habit_colors', JSON.stringify(getSelectedHabitColors()));
-    localStorage.setItem('habit_labels', JSON.stringify(labels));
     localStorage.setItem('user_habits', JSON.stringify(selectedKeys));
     loadSavedColors();
 
@@ -891,7 +889,10 @@ async function handleSaveHabits() {
         // queda coherente con lo elegido.
         HABITS.length = 0;
         selectedKeys.forEach(key => HABITS.push(key));
-        Object.assign(HABIT_LABELS, labels);
+        checkedRows.forEach(row => {
+            HABIT_LABELS[row.dataset.habitKey] = row.dataset.habitLabel;
+            HABIT_ICONS[row.dataset.habitKey] = row.dataset.habitIcon;
+        });
         renderHabitPopoverButtons();
         renderCalendar();
         hideHabitsSetup();
@@ -1104,12 +1105,14 @@ async function loadHabitDefinitionsFromAPI() {
 
         HABITS.length = 0;
         Object.keys(HABIT_LABELS).forEach(key => delete HABIT_LABELS[key]);
+        Object.keys(HABIT_ICONS).forEach(key => delete HABIT_ICONS[key]);
 
         if (data.habits && data.habits.length > 0) {
             data.habits.sort((a, b) => (a.order || 0) - (b.order || 0));
             data.habits.forEach(h => {
                 HABITS.push(h.key);
                 HABIT_LABELS[h.key] = h.label;
+                HABIT_ICONS[h.key] = h.icon || '';
             });
         }
 
@@ -1297,7 +1300,7 @@ function renderMetrics() {
         
         const label = document.createElement('span');
         label.className = 'stat-label';
-        label.textContent = HABIT_LABELS[habit];
+        label.textContent = habitDisplayName(HABIT_ICONS[habit], HABIT_LABELS[habit] || habit);
         
         statCard.appendChild(dot);
         statCard.appendChild(value);
@@ -1546,6 +1549,11 @@ document.addEventListener('click', (e) => {
 async function initApp() {
     loadAppVersion();
 
+    // `habit_labels` quedó obsoleto: el nombre lo manda el backend. Se limpia
+    // para no dejar en el navegador una copia vieja —con el emoji metido dentro
+    // del nombre— que ya nadie lee.
+    localStorage.removeItem('habit_labels');
+
     if (isAuthenticated()) {
         // Usuario ya autenticado. El token es lo único que sobrevive a un F5,
         // así que hay que preguntarle al backend de quién es.
@@ -1588,7 +1596,6 @@ function getActiveHabits() {
 function renderHabitPopoverButtons() {
     const habitsList = document.getElementById('habitsList');
     const savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
-    const savedLabels = JSON.parse(localStorage.getItem('habit_labels') || '{}');
     const activeHabits = getActiveHabits();
     
     habitsList.innerHTML = '';
@@ -1612,7 +1619,7 @@ function renderHabitPopoverButtons() {
         
         const label = document.createElement('span');
         label.className = 'habit-label';
-        label.textContent = savedLabels[habit] || HABIT_LABELS[habit] || habit;
+        label.textContent = habitDisplayName(HABIT_ICONS[habit], HABIT_LABELS[habit] || habit);
         
         btn.appendChild(dot);
         btn.appendChild(label);
