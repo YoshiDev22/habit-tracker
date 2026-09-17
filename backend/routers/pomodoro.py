@@ -34,11 +34,23 @@ def create_pomodoro_session(
             detail="duration_seconds fuera de rango"
         )
 
+    # "stopwatch": la midió el cronómetro, que cuenta hacia arriba y no tiene
+    # duración planeada (planned_seconds llega en 0). Se guarda con mode
+    # "focus" a propósito: toda la agregación filtra por ese modo, así que un
+    # modo propio dejaría su tiempo fuera de los totales.
     source = session_in.source or "timer"
-    if source not in ("timer", "manual"):
+    if source not in ("timer", "manual", "stopwatch"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="source debe ser 'timer' o 'manual'"
+            detail="source debe ser 'timer', 'manual' o 'stopwatch'"
+        )
+
+    # Vale para cualquier origen: una sesión que termina antes de empezar no es
+    # algo que el usuario pueda corregir, es un error de quien la manda.
+    if session_in.ended_at <= session_in.started_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La hora de fin debe ser posterior a la de inicio"
         )
 
     if source == "manual":
@@ -48,11 +60,6 @@ def create_pomodoro_session(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se puede registrar trabajo en una fecha futura"
-            )
-        if session_in.ended_at <= session_in.started_at:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="La hora de fin debe ser posterior a la de inicio"
             )
 
     if session_in.project_id is not None:
