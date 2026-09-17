@@ -542,6 +542,9 @@ const customHabitCheckbox = document.getElementById('customHabitCheckbox');
 const customHabitColor = document.getElementById('customHabitColor');
 const addCustomHabitBtn = document.getElementById('addCustomHabitBtn');
 const saveHabitsBtn = document.getElementById('saveHabitsBtn');
+const archivedHabits = document.getElementById('archivedHabits');
+const archivedHabitsList = document.getElementById('archivedHabitsList');
+const archivedCountEl = document.getElementById('archivedCount');
 const settingsBtn = document.getElementById('settingsBtn');
 
 // Configuración de hábitos por defecto
@@ -574,7 +577,7 @@ async function showHabitsSetup() {
 
     if (token) {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/habits/definitions`, {
+            const response = await fetch(`${API_BASE_URL}/api/habits/definitions?include_inactive=true`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 }
@@ -587,12 +590,14 @@ async function showHabitsSetup() {
             
             const data = await response.json();
             
-            const backendKeys = new Set();
-            if (data.habits && data.habits.length > 0) {
-                data.habits.forEach(h => {
-                    backendKeys.add(h.key);
-                });
-            }
+            // Con include_inactive también vienen los archivados, así que el
+            // filtro por is_active no es opcional: sin él, un hábito archivado
+            // aparecería marcado en la lista de arriba.
+            const allHabits = data.habits || [];
+            const activeHabits = allHabits.filter(h => h.is_active);
+            renderArchivedHabits(allHabits.filter(h => !h.is_active));
+
+            const backendKeys = new Set(activeHabits.map(h => h.key));
             
             const defaultCheckboxes = habitsOptions.querySelectorAll('.habit-option:not(.dynamic-habit-row):not(#customHabitRow)');
             defaultCheckboxes.forEach(checkbox => {
@@ -608,7 +613,7 @@ async function showHabitsSetup() {
             const existingDynamicRows = habitsOptions.querySelectorAll('.dynamic-habit-row');
             existingDynamicRows.forEach(row => row.remove());
             
-            data.habits.forEach(h => {
+            activeHabits.forEach(h => {
                 if (!['lectura', 'gym', 'dieta', 'estudio', 'nofumar'].includes(h.key)) {
                     const newOption = document.createElement('label');
                     newOption.className = 'habit-option dynamic-habit-row';
@@ -638,6 +643,122 @@ async function showHabitsSetup() {
         openHabitsSetup();
     }
 }
+
+// ============================================
+// Hábitos archivados
+// ============================================
+
+// Construido con createElement y textContent, no con innerHTML: la entrada 16
+// del backlog es justamente un innerHTML que interpola el label de un hábito
+// sin escapar, y no tiene sentido añadir una segunda copia del problema.
+function renderArchivedHabits(archived) {
+    archivedHabitsList.innerHTML = '';
+    archivedCountEl.textContent = String(archived.length);
+    // Sin archivados la sección no aporta nada, así que no se muestra.
+    archivedHabits.hidden = archived.length === 0;
+
+    archived.forEach(habit => {
+        const row = document.createElement('div');
+        row.className = 'archived-row';
+        row.dataset.habitKey = habit.key;
+        row.dataset.habitId = String(habit.id);
+
+        const dot = document.createElement('span');
+        dot.className = 'archived-dot';
+        dot.style.backgroundColor = habit.color || '#95a5a6';
+
+        const name = document.createElement('span');
+        name.className = 'archived-name';
+        name.textContent = habit.label || habit.key;
+
+        const restoreBtn = document.createElement('button');
+        restoreBtn.type = 'button';
+        restoreBtn.className = 'archived-restore';
+        restoreBtn.textContent = 'Restaurar';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'archived-delete';
+        deleteBtn.title = 'Eliminar definitivamente';
+        deleteBtn.setAttribute('aria-label', `Eliminar definitivamente ${name.textContent}`);
+        deleteBtn.textContent = '🗑️';
+
+        row.append(dot, name, restoreBtn, deleteBtn);
+        archivedHabitsList.appendChild(row);
+    });
+}
+
+// Volver a seguir un hábito archivado. Su historial nunca se tocó, así que sus
+// marcas antiguas reaparecen en el calendario tal como estaban.
+async function restoreHabit(habitId) {
+    try {
+        await apiFetch(`/api/habits/definitions/${habitId}`, {
+            method: 'PATCH',
+            json: { is_active: true }
+        });
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
+        // Repinta las dos listas y, sobre todo, vuelve a pasar por
+        // openHabitsSetup(), que retoma la foto del dirty-check: el cambio ya
+        // está guardado, así que al cerrar no debe preguntar si descartarlo.
+        await showHabitsSetup();
+    } catch (error) {
+        console.error('Error al restaurar hábito:', error);
+    }
+}
+
+// Borra el historial y la definición. Es lo único irreversible de este modal,
+// de ahí la confirmación. Devuelve si se llegó a borrar.
+async function deleteHabitForever(habitKey) {
+    const savedLabels = JSON.parse(localStorage.getItem('habit_labels') || '{}');
+    const habitName = savedLabels[habitKey] || HABIT_LABELS[habitKey] || DEFAULT_HABIT_LABELS[habitKey] || habitKey;
+
+    const ok = await confirmDialog(`¿Seguro que quieres eliminar el hábito "${habitName}"? Se borrará todo su historial y no se puede deshacer.`, {
+        title: '¿Eliminar hábito?',
+        confirmLabel: '🗑️ Eliminar',
+        cancelLabel: 'Cancelar',
+        danger: true
+    });
+    if (!ok) return false;
+
+    try {
+        await apiFetch('/api/habits/delete-habit', {
+            method: 'DELETE',
+            json: { habit_key: habitKey }
+        });
+
+        const data = await apiFetch('/api/habits/definitions?include_inactive=true');
+        const habit = data.habits ? data.habits.find(h => h.key === habitKey) : null;
+        if (habit) {
+            await apiFetch(`/api/habits/definitions/${habit.id}`, { method: 'DELETE' });
+        }
+
+        const localRow = habitsOptions.querySelector(`.dynamic-habit-row[data-habit-key="${habitKey}"]`);
+        if (localRow) localRow.remove();
+
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
+        return true;
+    } catch (error) {
+        console.error('Error al eliminar hábito:', error);
+        return false;
+    }
+}
+
+archivedHabitsList.addEventListener('click', async (event) => {
+    const row = event.target.closest('.archived-row');
+    if (!row) return;
+
+    if (event.target.closest('.archived-restore')) {
+        await restoreHabit(Number(row.dataset.habitId));
+        return;
+    }
+
+    if (event.target.closest('.archived-delete')) {
+        const deleted = await deleteHabitForever(row.dataset.habitKey);
+        if (deleted) await showHabitsSetup();
+    }
+});
 
 function hideHabitsSetup() {
     hideModal(habitsSetupModal);
@@ -1068,45 +1189,12 @@ hideHabitBtn.addEventListener('click', async () => {
 // Eliminar hábito (borrar datos)
 deleteHabitBtn.addEventListener('click', async () => {
     if (!pendingHabitToRemove) return;
-    const habitKey = pendingHabitToRemove;
 
-    const savedLabels = JSON.parse(localStorage.getItem('habit_labels') || '{}');
-    const habitName = savedLabels[habitKey] || HABIT_LABELS[habitKey] || DEFAULT_HABIT_LABELS[habitKey] || habitKey;
+    const deleted = await deleteHabitForever(pendingHabitToRemove);
+    if (!deleted) return;
 
-    const ok = await confirmDialog(`¿Seguro que quieres eliminar el hábito "${habitName}"? Se borrará todo su historial y no se puede deshacer.`, {
-        title: '¿Eliminar hábito?',
-        confirmLabel: '🗑️ Eliminar',
-        cancelLabel: 'Cancelar',
-        danger: true
-    });
-
-    if (!ok) return;
-
-    try {
-        // Borrar historial
-        await apiFetch('/api/habits/delete-habit', {
-            method: 'DELETE',
-            json: { habit_key: habitKey }
-        });
-
-        // Borrar definición si existe en la base
-        const data = await apiFetch('/api/habits/definitions?include_inactive=true');
-        const habit = data.habits ? data.habits.find(h => h.key === habitKey) : null;
-        if (habit) {
-            await apiFetch(`/api/habits/definitions/${habit.id}`, {
-                method: 'DELETE'
-            });
-        }
-        const localRow = habitsOptions.querySelector(`.dynamic-habit-row[data-habit-key="${habitKey}"]`);
-        if (localRow) localRow.remove();
-
-        hideHabitActionModal();
-        hideHabitsSetup();
-        await loadHabitDefinitionsFromAPI();
-        await loadHabitsFromAPI();
-    } catch (error) {
-        console.error('Error al eliminar hábito:', error);
-    }
+    hideHabitActionModal();
+    hideHabitsSetup();
 });
 
 // Cancelar: cerrar modal de acción conservando el modal de configuración intacto
