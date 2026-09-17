@@ -1499,6 +1499,71 @@ body.has-pomodoro-bar {
     background: var(--bg-surface);
 }
 
+/* Zona de añadir: el catálogo vive acá, separado de la lista de arriba. */
+.habit-add-area {
+    margin-top: 20px;
+}
+
+.habit-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.habit-suggestion {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface-2);
+    border: 1px dashed var(--text-muted);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.habit-suggestion:hover {
+    border-style: solid;
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.habit-suggestion-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.custom-habit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-surface-2);
+    border-radius: 8px;
+}
+
+.custom-habit-label {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.custom-habit-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color, transparent);
+    border-radius: 6px;
+    padding: 6px 8px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
 /* Archivados: <details> nativo, así que se pliega sin una línea de JS. */
 .archived-habits {
     margin-top: 16px;

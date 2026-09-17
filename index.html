@@ -277,50 +277,29 @@
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal">
             <h2 class="modal-title">¡Bienvenido! 👋</h2>
-            <p class="setup-subtitle">Selecciona los hábitos que quieres seguir:</p>
-            
+            <p class="setup-subtitle">Los hábitos que sigues:</p>
+
             <!-- Solo este bloque hace scroll: así el pie con Guardar Hábitos
                  sigue visible por muchos hábitos que haya. -->
             <div class="setup-scroll">
-                <div class="habits-options" id="habitsOptions">
-                    <label class="habit-option">
-                        <input type="checkbox" value="lectura">
-                        <span class="habit-check"></span>
-                        <span>📚 Lectura</span>
-                        <input type="color" value="#3498db" data-habit="lectura" class="habit-color">
-                    </label>
-                    <label class="habit-option">
-                        <input type="checkbox" value="gym">
-                        <span class="habit-check"></span>
-                        <span>💪 Gym</span>
-                        <input type="color" value="#e74c3c" data-habit="gym" class="habit-color">
-                    </label>
-                    <label class="habit-option">
-                        <input type="checkbox" value="dieta">
-                        <span class="habit-check"></span>
-                        <span>🥗 Dieta</span>
-                        <input type="color" value="#27ae60" data-habit="dieta" class="habit-color">
-                    </label>
-                    <label class="habit-option">
-                        <input type="checkbox" value="estudio">
-                        <span class="habit-check"></span>
-                        <span>📖 Estudio</span>
-                        <input type="color" value="#9b59b6" data-habit="estudio" class="habit-color">
-                    </label>
-                    <label class="habit-option">
-                        <input type="checkbox" value="nofumar">
-                        <span class="habit-check"></span>
-                        <span>🚭 No fumar</span>
-                        <input type="color" value="#f39c12" data-habit="nofumar" class="habit-color">
-                    </label>
-                    <label class="habit-option custom-habit" id="customHabitRow">
-                        <input type="checkbox" id="customHabitCheckbox">
-                        <span class="habit-check"></span>
-                        <span>➕ Otro:</span>
-                        <input type="text" id="customHabitInput" placeholder="Escribe tu hábito">
+                <!-- Se llena desde el backend en showHabitsSetup(): aquí solo
+                     están los hábitos que sigues, no un catálogo. -->
+                <div class="habits-options" id="habitsOptions"></div>
+                <p class="empty-state hidden" id="habitsEmpty">
+                    Todavía no sigues ningún hábito. Añade uno de los sugeridos o escribe el tuyo.
+                </p>
+
+                <!-- El catálogo, separado de tu lista: solo aparece aquí lo que
+                     todavía no sigues. -->
+                <div class="habit-add-area">
+                    <p class="setup-subtitle">Añadir un hábito:</p>
+                    <div class="habit-suggestions" id="habitSuggestions"></div>
+                    <div class="custom-habit-row">
+                        <span class="custom-habit-label">➕ Otro:</span>
+                        <input type="text" id="customHabitInput" placeholder="Escribe tu hábito" maxlength="40">
                         <input type="color" value="#95a5a6" id="customHabitColor" class="habit-color">
-                        <button type="button" id="addCustomHabitBtn" class="add-custom-btn" title="Agregar hábito">+</button>
-                    </label>
+                        <button type="button" id="addCustomHabitBtn" class="add-custom-btn" title="Añadir hábito">+</button>
+                    </div>
                 </div>
 
                 <!-- Los archivados: a dónde va un hábito cuando lo desmarcas y

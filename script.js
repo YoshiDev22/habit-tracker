@@ -459,10 +459,8 @@ function handleLogout() {
     currentUser = null;
     currentStreak = null;
     habitsData = {};
-    dynamicHabitCounter = 0;
-    // Limpiar hábitos dinámicos
-    const dynamicHabits = habitsOptions.querySelectorAll('.dynamic-habit-row');
-    dynamicHabits.forEach(h => h.remove());
+    // La lista del modal se repinta desde el backend cada vez que se abre, así
+    // que no hay nada que limpiar acá.
     // No borramos los hábitos del localStorage para que el usuario no tenga que configurarlos de nuevo
     showAuthScreen();
 }
@@ -527,8 +525,9 @@ logoutBtn.addEventListener('click', handleLogout);
 
 const habitsSetupModal = document.getElementById('habitsSetupModal');
 const habitsOptions = document.getElementById('habitsOptions');
+const habitsEmpty = document.getElementById('habitsEmpty');
+const habitSuggestions = document.getElementById('habitSuggestions');
 const customHabitInput = document.getElementById('customHabitInput');
-const customHabitCheckbox = document.getElementById('customHabitCheckbox');
 const customHabitColor = document.getElementById('customHabitColor');
 const addCustomHabitBtn = document.getElementById('addCustomHabitBtn');
 const saveHabitsBtn = document.getElementById('saveHabitsBtn');
@@ -555,82 +554,110 @@ const DEFAULT_HABIT_LABELS = {
     nofumar: 'No fumar'
 };
 
-async function showHabitsSetup() {
-    const token = getToken();
+// Una sola forma de fila para cualquier hábito, los cinco de siempre y los que
+// escribe el usuario. Con createElement y textContent, nunca innerHTML: el
+// label lo escribe una persona y no se interpola en HTML.
+function buildHabitRow({ key, label, icon, color, checked }) {
+    const row = document.createElement('label');
+    row.className = 'habit-option';
+    row.dataset.habitKey = key;
+    row.dataset.habitLabel = label;
+    row.dataset.habitIcon = icon || '✅';
+    row.dataset.habitColor = color || '#3498db';
 
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = key;
+    checkbox.checked = checked !== false;
+
+    const check = document.createElement('span');
+    check.className = 'habit-check';
+
+    const name = document.createElement('span');
+    name.textContent = `${row.dataset.habitIcon} ${label}`;
+
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.className = 'habit-color';
+    colorInput.value = row.dataset.habitColor;
+    colorInput.dataset.habit = key;
+
+    row.append(checkbox, check, name, colorInput);
+    return row;
+}
+
+// La lista de arriba es lo que sigues, y nada más.
+function renderHabitRows(habits) {
+    // El color de localStorage manda sobre el del backend mientras siga viva la
+    // deuda de la entrada 4 del backlog.
+    let savedColors = {};
+    try {
+        savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
+    } catch (e) {}
+
+    habitsOptions.innerHTML = '';
+    habits.forEach(habit => {
+        habitsOptions.appendChild(buildHabitRow({
+            key: habit.key,
+            label: habit.label || habit.key,
+            icon: habit.icon,
+            color: savedColors[habit.key] || habit.color,
+            checked: true
+        }));
+    });
+
+    habitsEmpty.classList.toggle('hidden', habits.length > 0);
+}
+
+// Los cinco predefinidos, como catálogo. Solo se ofrece lo que no está ya en el
+// backend: un archivado no vuelve por acá, se restaura desde su lista, para que
+// haya un solo camino de vuelta.
+function renderSuggestions(knownKeys) {
+    habitSuggestions.innerHTML = '';
+    const pending = DEFAULT_HABITS.filter(def => !knownKeys.has(def.key));
+    habitSuggestions.hidden = pending.length === 0;
+
+    pending.forEach(def => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'habit-suggestion';
+        chip.dataset.habitKey = def.key;
+
+        const dot = document.createElement('span');
+        dot.className = 'habit-suggestion-dot';
+        dot.style.backgroundColor = def.color;
+
+        const label = document.createElement('span');
+        label.textContent = `${def.icon} ${def.label}`;
+
+        chip.append(dot, label);
+        habitSuggestions.appendChild(chip);
+    });
+}
+
+async function showHabitsSetup() {
     // Marcar días de descanso según currentUser.rest_days
     const restDays = (currentUser && Array.isArray(currentUser.rest_days)) ? currentUser.rest_days : [];
-    const restDayCheckboxes = habitsSetupModal.querySelectorAll('input[name="rest_day"]');
-    restDayCheckboxes.forEach(cb => {
+    habitsSetupModal.querySelectorAll('input[name="rest_day"]').forEach(cb => {
         cb.checked = restDays.includes(parseInt(cb.value, 10));
     });
 
-    if (token) {
+    if (getToken()) {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/habits/definitions?include_inactive=true`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                }
-            });
-            
-            if (!response.ok) {
-                openHabitsSetup();
-                return;
-            }
-            
-            const data = await response.json();
-            
-            // Con include_inactive también vienen los archivados, así que el
-            // filtro por is_active no es opcional: sin él, un hábito archivado
-            // aparecería marcado en la lista de arriba.
-            const allHabits = data.habits || [];
-            const activeHabits = allHabits.filter(h => h.is_active);
-            renderArchivedHabits(allHabits.filter(h => !h.is_active));
+            const data = await apiFetch('/api/habits/definitions?include_inactive=true');
+            const all = data.habits || [];
 
-            const backendKeys = new Set(activeHabits.map(h => h.key));
-            
-            const defaultCheckboxes = habitsOptions.querySelectorAll('.habit-option:not(.dynamic-habit-row):not(#customHabitRow)');
-            defaultCheckboxes.forEach(checkbox => {
-                const key = checkbox.querySelector('input[type="checkbox"]').value;
-                const cb = checkbox.querySelector('input[type="checkbox"]');
-                if (backendKeys.has(key)) {
-                    cb.checked = true;
-                } else {
-                    cb.checked = false;
-                }
-            });
-            
-            const existingDynamicRows = habitsOptions.querySelectorAll('.dynamic-habit-row');
-            existingDynamicRows.forEach(row => row.remove());
-            
-            activeHabits.forEach(h => {
-                if (!['lectura', 'gym', 'dieta', 'estudio', 'nofumar'].includes(h.key)) {
-                    const newOption = document.createElement('label');
-                    newOption.className = 'habit-option dynamic-habit-row';
-                    newOption.setAttribute('data-habit-key', h.key);
-                    newOption.setAttribute('data-habit-label', h.label);
-                    newOption.setAttribute('data-habit-color', h.color || '#95a5a6');
-                    
-                    newOption.innerHTML = `
-                        <input type="checkbox" value="${h.key}" checked data-dynamic-key="${h.key}">
-                        <span class="habit-check"></span>
-                        <span>🎯 ${h.label}</span>
-                        <input type="color" value="${h.color || '#95a5a6'}" data-habit="${h.key}" class="habit-color">
-                    `;
-                    
-                    const customRow = document.getElementById('customHabitRow');
-                    habitsOptions.insertBefore(newOption, customRow);
-                }
-            });
-            
-            openHabitsSetup();
+            renderHabitRows(all.filter(h => h.is_active));
+            renderArchivedHabits(all.filter(h => !h.is_active));
+            renderSuggestions(new Set(all.map(h => h.key)));
         } catch (error) {
             console.error('Error cargando hábitos para setup:', error);
-            openHabitsSetup();
         }
-    } else {
-        openHabitsSetup();
     }
+
+    // Siempre al final: openHabitsSetup() toma la foto del dirty-check, así que
+    // tiene que ver la lista ya pintada.
+    openHabitsSetup();
 }
 
 // ============================================
@@ -722,9 +749,6 @@ async function deleteHabitForever(habitKey) {
             await apiFetch(`/api/habits/definitions/${habit.id}`, { method: 'DELETE' });
         }
 
-        const localRow = habitsOptions.querySelector(`.dynamic-habit-row[data-habit-key="${habitKey}"]`);
-        if (localRow) localRow.remove();
-
         await loadHabitDefinitionsFromAPI();
         await loadHabitsFromAPI();
         return true;
@@ -761,10 +785,10 @@ let habitsSetupInitialState = null;
 // descanso— como una cadena comparable. Sin efectos secundarios.
 function getHabitsSetupState() {
     const habits = [];
-    habitsOptions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-        if (!checkbox.checked || checkbox.id === 'customHabitCheckbox') return;
-        const colorInput = habitsOptions.querySelector(`input[type="color"][data-habit="${checkbox.value}"]`);
-        habits.push(`${checkbox.value}:${colorInput ? colorInput.value : ''}`);
+    habitsOptions.querySelectorAll('.habit-option').forEach(row => {
+        if (!row.querySelector('input[type="checkbox"]').checked) return;
+        const colorInput = row.querySelector('input[type="color"]');
+        habits.push(`${row.dataset.habitKey}:${colorInput ? colorInput.value : ''}`);
     });
 
     const restDays = [];
@@ -804,57 +828,33 @@ async function closeHabitsSetup() {
     habitsSetupInitialState = null;
 }
 
-function getSelectedHabits() {
-    const selected = [];
-
-    const checkboxes = habitsOptions.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-        if (checkbox.checked && checkbox.id !== 'customHabitCheckbox') {
-            selected.push(checkbox.value);
-        }
-    });
-
-    return selected;
-}
-
-// El color de cada hábito marcado. Separado de getSelectedHabits(), que antes
-// escribía habit_colors en localStorage al leer el formulario: la comprobación
-// de cambios sin guardar lee el formulario antes de saber si el usuario quiere
-// guardar, y no debe persistir nada por el camino.
+// El color de cada hábito marcado. No escribe nada: la comprobación de cambios
+// sin guardar lee el formulario antes de saber si el usuario quiere guardar, así
+// que leer no debe persistir por el camino.
 function getSelectedHabitColors() {
     const colors = {};
 
-    habitsOptions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-        if (!checkbox.checked || checkbox.id === 'customHabitCheckbox') return;
-        const colorInput = habitsOptions.querySelector(`input[type="color"][data-habit="${checkbox.value}"]`);
-        if (colorInput) {
-            colors[checkbox.value] = colorInput.value;
-        }
+    habitsOptions.querySelectorAll('.habit-option').forEach(row => {
+        if (!row.querySelector('input[type="checkbox"]').checked) return;
+        const colorInput = row.querySelector('input[type="color"]');
+        if (colorInput) colors[row.dataset.habitKey] = colorInput.value;
     });
 
     return colors;
 }
 
 async function handleSaveHabits() {
-    const selectedHabits = getSelectedHabits();
-    
-    const dynamicHabits = habitsOptions.querySelectorAll('.dynamic-habit-row');
-    dynamicHabits.forEach(row => {
-        const key = row.getAttribute('data-habit-key');
-        if (key && !selectedHabits.includes(key)) {
-            selectedHabits.push(key);
-        }
-    });
-    
-    if (selectedHabits.length === 0) {
-        const setupError = document.getElementById('setupError');
+    const rows = Array.from(habitsOptions.querySelectorAll('.habit-option'));
+    const checkedRows = rows.filter(row => row.querySelector('input[type="checkbox"]').checked);
+    const setupError = document.getElementById('setupError');
+
+    if (checkedRows.length === 0) {
         showError(setupError, 'Selecciona al menos un hábito');
         return;
     }
 
     if (!isHabitsSetupDirty()) {
-        // Nada que guardar: cerrar sin preguntar y sin disparar la tanda de
-        // llamadas al backend que hace el resto de esta función.
+        // Nada que guardar: cerrar sin preguntar y sin tocar el backend.
         hideHabitsSetup();
         habitsSetupInitialState = null;
         return;
@@ -865,259 +865,138 @@ async function handleSaveHabits() {
     });
     if (!confirmed) return;
 
-    // A partir de acá sí se persiste. Los colores se escriben recién ahora,
-    // para que cancelar el confirm no deje nada guardado a medias.
-    localStorage.setItem('habit_colors', JSON.stringify(getSelectedHabitColors()));
-
-    // Guardar hábitos en localStorage
-    localStorage.setItem('user_habits', JSON.stringify(selectedHabits));
-    
-    // Guardar etiquetas de hábitos predefinidos
+    // Recién ahora se persiste, para que cancelar el confirm no deje nada a
+    // medias. Colores y etiquetas siguen en localStorage: la deuda de la
+    // entrada 4 del backlog sigue viva.
     const labels = {};
-    const checkboxes = habitsOptions.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-        if (checkbox.checked && checkbox.id !== 'customHabitCheckbox') {
-            const labelSpan = checkbox.nextElementSibling.nextElementSibling;
-            labels[checkbox.value] = labelSpan.textContent;
-        }
+    const selectedKeys = [];
+    checkedRows.forEach(row => {
+        labels[row.dataset.habitKey] = row.dataset.habitLabel;
+        selectedKeys.push(row.dataset.habitKey);
     });
-    
-    // Guardar etiquetas de hábitos dinámicos
-    dynamicHabits.forEach(row => {
-        const key = row.getAttribute('data-habit-key');
-        const label = row.getAttribute('data-habit-label');
-        if (key && label) {
-            labels[key] = label;
-        }
-    });
-    
+
+    localStorage.setItem('habit_colors', JSON.stringify(getSelectedHabitColors()));
     localStorage.setItem('habit_labels', JSON.stringify(labels));
-    
-    // Cargar colores y renderizar popover
+    localStorage.setItem('user_habits', JSON.stringify(selectedKeys));
     loadSavedColors();
-    
-    // Días de descanso semanal
+
     const selectedRestDays = [];
-    const restDayCheckboxes = habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked');
-    restDayCheckboxes.forEach(cb => {
+    habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked').forEach(cb => {
         selectedRestDays.push(parseInt(cb.value, 10));
     });
     selectedRestDays.sort((a, b) => a - b);
 
-    const token = getToken();
-    if (token) {
-        try {
-            currentUser = await apiFetch('/api/auth/me', {
-                method: 'PATCH',
-                json: { rest_days: selectedRestDays }
-            });
-            updateUserBar();
-        } catch (error) {
-            console.error('Error al guardar días de descanso:', error);
-        }
-
-        try {
-            const existingResponse = await fetch(`${API_BASE_URL}/api/habits/definitions?include_inactive=true`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                }
-            });
-            
-            let existingKeys = new Set();
-            let existingHabitsMap = {};
-            if (existingResponse.ok) {
-                const existingData = await existingResponse.json();
-                if (existingData.habits && existingData.habits.length > 0) {
-                    existingData.habits.forEach(h => {
-                        existingKeys.add(h.key);
-                        existingHabitsMap[h.key] = h;
-                    });
-                }
-                
-                const selectedSet = new Set(selectedHabits);
-                for (const key of existingKeys) {
-                    if (!selectedSet.has(key) && existingHabitsMap[key]) {
-                        try {
-                            await fetch(`${API_BASE_URL}/api/habits/definitions/${existingHabitsMap[key].id}`, {
-                                method: 'PATCH',
-                                headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ is_active: false })
-                            });
-                            console.log(`Hábito '${key}' archivado en backend`);
-                        } catch (error) {
-                            console.error(`Error al archivar hábito '${key}':`, error);
-                        }
-                    }
-                }
-            }
-            
-            const defaultIcons = {
-                lectura: '📚',
-                gym: '💪',
-                dieta: '🥗',
-                estudio: '📖',
-                nofumar: '🚭'
-            };
-            
-            for (const checkbox of checkboxes) {
-                if (checkbox.checked && checkbox.id !== 'customHabitCheckbox') {
-                    const key = checkbox.value;
-                    if (existingKeys.has(key) && existingHabitsMap[key]?.is_active) continue;
-                    
-                    if (existingKeys.has(key) && existingHabitsMap[key]) {
-                        try {
-                            await fetch(`${API_BASE_URL}/api/habits/definitions/${existingHabitsMap[key].id}`, {
-                                method: 'PATCH',
-                                headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ is_active: true })
-                            });
-                            existingHabitsMap[key].is_active = true;
-                            console.log(`Hábito '${key}' reactivado en backend`);
-                        } catch (error) {
-                            console.error(`Error al reactivar hábito '${key}':`, error);
-                        }
-                        continue;
-                    }
-                    
-                    const labelSpan = checkbox.nextElementSibling.nextElementSibling;
-                    const label = labelSpan.textContent;
-                    const colorInput = habitsOptions.querySelector(`input[type="color"][data-habit="${key}"]`);
-                    const color = colorInput ? colorInput.value : '#3498db';
-                    
-                    try {
-                        await fetch(`${API_BASE_URL}/api/habits/definitions`, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                key: key,
-                                label: label,
-                                icon: defaultIcons[key] || '✅',
-                                color: color,
-                                order: 0
-                            })
-                        });
-                        existingKeys.add(key);
-                    } catch (error) {
-                        console.error(`Error al crear hábito '${key}':`, error);
-                    }
-                }
-            }
-            
-            for (const row of dynamicHabits) {
-                const key = row.getAttribute('data-habit-key');
-                if (existingKeys.has(key) && existingHabitsMap[key]?.is_active) continue;
-                
-                if (existingKeys.has(key) && existingHabitsMap[key]) {
-                    try {
-                        await fetch(`${API_BASE_URL}/api/habits/definitions/${existingHabitsMap[key].id}`, {
-                            method: 'PATCH',
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ is_active: true })
-                        });
-                        existingHabitsMap[key].is_active = true;
-                        console.log(`Hábito dinámico '${key}' reactivado en backend`);
-                    } catch (error) {
-                        console.error(`Error al reactivar hábito dinámico '${key}':`, error);
-                    }
-                    continue;
-                }
-                
-                const label = row.getAttribute('data-habit-label');
-                const color = row.getAttribute('data-habit-color');
-                const icon = '🎯';
-                
-                try {
-                    await fetch(`${API_BASE_URL}/api/habits/definitions`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            key: key,
-                            label: label,
-                            icon: icon,
-                            color: color,
-                            order: 0
-                        })
-                    });
-                    existingKeys.add(key);
-                } catch (error) {
-                    console.error(`Error al crear hábito dinámico '${key}':`, error);
-                }
-            }
-            
-            await loadHabitDefinitionsFromAPI();
-            await loadHabitsFromAPI();
-        } catch (error) {
-            console.error('Error en handleSaveHabits:', error);
-        }
-    } else {
+    if (!getToken()) {
+        // Sin sesión no hay a quién atribuir nada; al menos la vista local
+        // queda coherente con lo elegido.
         HABITS.length = 0;
-        selectedHabits.forEach(h => HABITS.push(h));
+        selectedKeys.forEach(key => HABITS.push(key));
         Object.assign(HABIT_LABELS, labels);
         renderHabitPopoverButtons();
         renderCalendar();
+        hideHabitsSetup();
+        habitsSetupInitialState = null;
+        return;
     }
-    
-    // Ocultar modal de manera forzada
+
+    try {
+        currentUser = await apiFetch('/api/auth/me', {
+            method: 'PATCH',
+            json: { rest_days: selectedRestDays }
+        });
+        updateUserBar();
+    } catch (error) {
+        console.error('Error al guardar días de descanso:', error);
+    }
+
+    try {
+        const data = await apiFetch('/api/habits/definitions?include_inactive=true');
+        const byKey = {};
+        (data.habits || []).forEach(h => { byKey[h.key] = h; });
+        const checkedKeys = new Set(selectedKeys);
+
+        // Archivar lo que el backend tiene activo y ya no está marcado.
+        for (const habit of Object.values(byKey)) {
+            if (habit.is_active && !checkedKeys.has(habit.key)) {
+                await apiFetch(`/api/habits/definitions/${habit.id}`, {
+                    method: 'PATCH',
+                    json: { is_active: false }
+                });
+            }
+        }
+
+        // Reactivar o crear, según exista ya la definición.
+        for (const row of checkedRows) {
+            const existing = byKey[row.dataset.habitKey];
+            if (existing && existing.is_active) continue;
+
+            if (existing) {
+                await apiFetch(`/api/habits/definitions/${existing.id}`, {
+                    method: 'PATCH',
+                    json: { is_active: true }
+                });
+                continue;
+            }
+
+            await apiFetch('/api/habits/definitions', {
+                method: 'POST',
+                json: {
+                    key: row.dataset.habitKey,
+                    label: row.dataset.habitLabel,
+                    icon: row.dataset.habitIcon,
+                    color: row.querySelector('input[type="color"]').value,
+                    order: 0
+                }
+            });
+        }
+
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
+    } catch (error) {
+        console.error('Error al guardar los hábitos:', error);
+        showError(setupError, 'No se pudieron guardar todos los cambios. Revisa tu conexión.');
+        return;
+    }
+
+    hideHabitsSetup();
     habitsSetupInitialState = null;
-    habitsSetupModal.classList.add('hidden');
-    const overlay = habitsSetupModal.querySelector('.modal-overlay');
-    if (overlay) {
-        overlay.style.display = 'none';
-    }
-    
     renderCalendar();
-    
-    setTimeout(() => {
-        renderCalendar();
-    }, 100);
 }
 
-// Event listener para checkbox "Otro"
-customHabitCheckbox.addEventListener('change', () => {
-    const isChecked = customHabitCheckbox.checked;
-    customHabitInput.disabled = !isChecked;
-    customHabitColor.disabled = !isChecked;
-    addCustomHabitBtn.disabled = !isChecked;
-    if (isChecked) {
-        customHabitInput.focus();
-    }
-});
-
-// Habilitar/deshabilitar botón + cuando el input tiene texto
+// El + se habilita en cuanto hay algo escrito. Antes había que marcar una
+// casilla para que el campo se dejara escribir; con el catálogo fuera de la
+// lista esa puerta ya no tenía sentido.
 customHabitInput.addEventListener('input', () => {
-    addCustomHabitBtn.disabled = customHabitInput.value.trim() === '' || !customHabitCheckbox.checked;
-    const setupError = document.getElementById('setupError');
-    setupError.classList.add('hidden');
+    addCustomHabitBtn.disabled = customHabitInput.value.trim() === '';
+    document.getElementById('setupError').classList.add('hidden');
 });
 
-// Enter key en input de hábito personalizado
 customHabitInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && customHabitInput.value.trim() !== '' && customHabitCheckbox.checked) {
+    if (e.key === 'Enter' && customHabitInput.value.trim() !== '') {
         e.preventDefault();
         addDynamicHabit();
     }
 });
 
-// Botón + para agregar hábito dinámico
 addCustomHabitBtn.addEventListener('click', () => {
-    if (customHabitInput.value.trim() !== '' && customHabitCheckbox.checked) {
+    if (customHabitInput.value.trim() !== '') {
         addDynamicHabit();
     }
+});
+
+// Tocar una sugerencia añade su fila, ya marcada. Se crea de verdad al pulsar
+// Guardar, como todo lo demás de este modal.
+habitSuggestions.addEventListener('click', (event) => {
+    const chip = event.target.closest('.habit-suggestion');
+    if (!chip) return;
+
+    const def = DEFAULT_HABITS.find(d => d.key === chip.dataset.habitKey);
+    if (!def) return;
+
+    habitsOptions.appendChild(buildHabitRow({ ...def, checked: true }));
+    habitsEmpty.classList.add('hidden');
+    chip.remove();
+    habitSuggestions.hidden = habitSuggestions.children.length === 0;
 });
 
 // Guardar hábitos
@@ -1132,61 +1011,36 @@ profileForm.addEventListener('submit', handleProfileSave);
 // Hábitos Dinámicos (Custom)
 // ============================================
 
-let dynamicHabitCounter = 0;
-
 function addDynamicHabit() {
-    console.log('addDynamicHabit called');
-    const customValue = customHabitInput.value.trim().toLowerCase().replace(/\s+/g, '');
-    const customLabel = customHabitInput.value.trim();
-    const customColor = customHabitColor.value;
-    console.log('customValue:', customValue);
-    console.log('customLabel:', customLabel);
+    const label = customHabitInput.value.trim();
+    // La clave sale del texto, así que dos nombres iguales son el mismo hábito.
+    const key = label.toLowerCase().replace(/\s+/g, '');
+    const setupError = document.getElementById('setupError');
 
-    if (!customValue) return;
+    if (!key) return;
 
-    // Verificar que no exista ya con esa key
-    const existing = habitsOptions.querySelector(`input[data-dynamic-key="${customValue}"]`);
-    if (existing) {
-        const setupError = document.getElementById('setupError');
-        showError(setupError, `El hábito "${customLabel}" ya existe en la lista`);
+    // Comparación en JS, no un selector con la clave interpolada: un nombre con
+    // comillas rompería el querySelector.
+    const already = Array.from(habitsOptions.querySelectorAll('.habit-option'))
+        .some(row => row.dataset.habitKey === key);
+    if (already) {
+        showError(setupError, `El hábito "${label}" ya está en tu lista`);
         return;
     }
 
-    dynamicHabitCounter++;
-    const habitId = `dynamic_${dynamicHabitCounter}`;
+    habitsOptions.appendChild(buildHabitRow({
+        key,
+        label,
+        icon: '🎯',
+        color: customHabitColor.value,
+        checked: true
+    }));
+    habitsEmpty.classList.add('hidden');
 
-    // Crear nueva fila de hábito dinámico
-    const newOption = document.createElement('label');
-    newOption.className = 'habit-option dynamic-habit-row';
-    newOption.setAttribute('data-habit-key', customValue);
-    newOption.setAttribute('data-habit-label', customLabel);
-    newOption.setAttribute('data-habit-color', customColor);
-
-    newOption.innerHTML = `
-        <input type="checkbox" value="${customValue}" checked data-dynamic-key="${customValue}">
-        <span class="habit-check"></span>
-        <span>🎯 ${customLabel}</span>
-        <input type="color" value="${customColor}" data-habit="${customValue}" class="habit-color">
-    `;
-
-    // Insertar antes del row de "custom"
-    const customRow = document.getElementById('customHabitRow');
-    habitsOptions.insertBefore(newOption, customRow);
-
-    // Limpiar input y color
     customHabitInput.value = '';
     customHabitColor.value = '#95a5a6';
-
-    // Deshabilitar checkbox y botón +
-    customHabitCheckbox.checked = false;
-    customHabitInput.disabled = true;
-    customHabitColor.disabled = true;
     addCustomHabitBtn.disabled = true;
-
-    // Ocultar errores
-    const setupError = document.getElementById('setupError');
     setupError.classList.add('hidden');
-    setupError.textContent = '';
 }
 
 // El overlay de este modal lo maneja handleModalDismiss -> closeHabitsSetup,
@@ -1692,11 +1546,6 @@ document.addEventListener('click', (e) => {
 async function initApp() {
     loadAppVersion();
 
-    // Limpiar hábitos dinámicos al iniciar
-    const dynamicHabits = habitsOptions.querySelectorAll('.dynamic-habit-row');
-    dynamicHabits.forEach(h => h.remove());
-    dynamicHabitCounter = 0;
-    
     if (isAuthenticated()) {
         // Usuario ya autenticado. El token es lo único que sobrevive a un F5,
         // así que hay que preguntarle al backend de quién es.
@@ -1863,9 +1712,8 @@ function initTheme() {
 
 window.appInitHooks.push(initTheme);
 
-// Inicializar estado disabled de campos custom
-customHabitInput.disabled = true;
-customHabitColor.disabled = true;
+// El campo de texto y el color están siempre activos; el + se habilita en
+// cuanto hay algo escrito.
 addCustomHabitBtn.disabled = true;
 
 // DOMContentLoaded (no una llamada directa) para que, cuando existan más
