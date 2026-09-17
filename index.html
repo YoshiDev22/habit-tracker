@@ -296,9 +296,7 @@
                     <div class="habit-suggestions" id="habitSuggestions"></div>
                     <div class="custom-habit-row">
                         <span class="custom-habit-label">➕ Otro:</span>
-                        <!-- maxlength 8: un emoji ocupa más de un carácter, y
-                             una bandera o una familia con ZWJ llegan a 8. -->
-                        <input type="text" id="customHabitIcon" class="habit-emoji" maxlength="8" placeholder="🎯" aria-label="Emoji del hábito nuevo" title="Emoji del hábito">
+                        <button type="button" id="customHabitIconBtn" class="habit-emoji" title="Elegir emoji" aria-label="Elegir el emoji del hábito nuevo">🎯</button>
                         <input type="text" id="customHabitInput" placeholder="Escribe tu hábito" maxlength="40">
                         <input type="color" value="#95a5a6" id="customHabitColor" class="habit-color">
                         <button type="button" id="addCustomHabitBtn" class="add-custom-btn" title="Añadir hábito">+</button>
@@ -482,6 +480,23 @@
             <div class="habit-action-options">
                 <button type="button" id="confirmModalConfirmBtn" class="submit-btn"></button>
                 <button type="button" id="confirmModalCancelBtn" class="submit-btn btn-neutral">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de emojis. Es un modal y no un desplegable dentro de la fila
+         porque .setup-scroll recorta todo lo que se sale de él, y el mismo
+         panel lo usan las filas de hábitos y la de "Otro". La rejilla la llena
+         buildEmojiPicker() desde HABIT_EMOJIS. -->
+    <div id="emojiPickerModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal" style="max-width: 420px;">
+            <h2 class="modal-title">Elige un emoji</h2>
+            <p class="setup-subtitle" id="emojiPickerFor"></p>
+            <div class="setup-scroll" id="emojiPickerGrid"></div>
+            <div class="setup-footer habit-action-options">
+                <button type="button" id="emojiPickerClearBtn" class="submit-btn btn-neutral">Sin emoji</button>
+                <button type="button" id="emojiPickerCancelBtn" class="submit-btn btn-neutral">Cancelar</button>
             </div>
         </div>
     </div>

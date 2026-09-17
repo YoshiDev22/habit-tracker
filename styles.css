@@ -1198,6 +1198,13 @@ body.has-pomodoro-bar {
     z-index: 1100;
 }
 
+/* El panel de emojis se abre sobre el modal de hábitos (1000), que es quien lo
+   abre, y por debajo del confirm (1100), que siempre va arriba. Sin esto
+   dependería del orden en el documento. */
+#emojiPickerModal {
+    z-index: 1050;
+}
+
 .modal.hidden {
     display: none;
 }
@@ -1553,8 +1560,7 @@ body.has-pomodoro-bar {
     flex-shrink: 0;
 }
 
-/* El :not() deja fuera al campo del emoji, que es angosto y de ancho fijo. */
-.custom-habit-row input[type="text"]:not(.habit-emoji) {
+.custom-habit-row input[type="text"] {
     flex: 1;
     min-width: 0;
     background: var(--bg-surface);
@@ -1693,26 +1699,82 @@ body.has-pomodoro-bar {
     font-size: 12px;
 }
 
-/* El emoji de cada hábito, editable en su fila. Angosto a propósito: ahí cabe
-   un emoji, no un nombre. Va fuera del .habit-name porque el nombre que se
-   guarda no lleva el emoji dentro. */
+/* El emoji de cada hábito: un botón que abre el panel. Va fuera del
+   .habit-name porque el nombre que se guarda no lleva el emoji dentro. */
 .habit-emoji {
     flex: 0 0 auto;
-    width: 2.75rem;
-    padding: 6px 4px;
-    text-align: center;
-    font-size: 1rem;
-    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 1.125rem;
+    line-height: 1;
     border: 1px solid var(--border-strong);
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--bg-surface);
     color: var(--text-primary);
-    cursor: text;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
 }
 
-.habit-emoji:focus {
-    outline: none;
+.habit-emoji:hover,
+.habit-emoji:focus-visible {
     border-color: var(--accent);
+    background: var(--bg-surface-2);
+}
+
+/* Sin emoji el botón muestra un ＋, que no debe pesar como si fuera uno. */
+.habit-emoji.is-empty {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* Panel de emojis */
+.emoji-group-title {
+    margin: 14px 0 6px;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.emoji-group-title:first-child {
+    margin-top: 0;
+}
+
+.emoji-grid {
+    display: grid;
+    /* Se adapta al ancho: en el móvil caben menos por fila, sin scroll lateral. */
+    grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+    gap: 6px;
+}
+
+.emoji-option {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.emoji-option:hover,
+.emoji-option:focus-visible {
+    background: var(--bg-surface-3);
+}
+
+/* El que ya tiene el hábito, para reconocerlo sin tener que recordarlo. */
+.emoji-option.selected {
+    border-color: var(--accent);
+    background: var(--bg-surface-3);
 }
 
 /* Sin min-width: 0 un nombre largo no encoge y empuja el color fuera de la

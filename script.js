@@ -479,12 +479,16 @@ showLoginBtn.addEventListener('click', () => showModal(loginModal));
 showRegisterBtn.addEventListener('click', () => showModal(registerModal));
 
 // Despachador de cierre: la mayoría de los modales cierran sin más
-// (hideAllModals), pero confirmModal y profileModal necesitan salida propia
-// — resolver la promesa pendiente, o preguntar antes de descartar cambios.
+// (hideAllModals), pero confirmModal, emojiPickerModal y profileModal necesitan
+// salida propia — resolver la promesa pendiente, o preguntar antes de descartar
+// cambios.
 function handleModalDismiss(modalEl) {
     if (!modalEl) return;
     if (modalEl.id === 'confirmModal') {
         resolveConfirmDialog(false);
+    } else if (modalEl.id === 'emojiPickerModal') {
+        // Cerrar sin elegir no es "sin emoji": deja el que hubiera.
+        resolveEmojiPicker(null);
     } else if (modalEl.id === 'profileModal') {
         closeProfileModal();
     } else if (modalEl.id === 'habitsSetupModal') {
@@ -532,7 +536,7 @@ const habitsSetupModal = document.getElementById('habitsSetupModal');
 const habitsOptions = document.getElementById('habitsOptions');
 const habitsEmpty = document.getElementById('habitsEmpty');
 const habitSuggestions = document.getElementById('habitSuggestions');
-const customHabitIcon = document.getElementById('customHabitIcon');
+const customHabitIconBtn = document.getElementById('customHabitIconBtn');
 const customHabitInput = document.getElementById('customHabitInput');
 const customHabitColor = document.getElementById('customHabitColor');
 const addCustomHabitBtn = document.getElementById('addCustomHabitBtn');
@@ -556,6 +560,123 @@ const DEFAULT_HABITS = [
 // el emoji dentro salía con el emoji dos veces.
 function habitDisplayName(icon, label) {
     return icon ? `${icon} ${label}` : label;
+}
+
+// ============================================
+// Panel de emojis
+// ============================================
+
+// Catálogo del panel. Es una lista cerrada a propósito: el emoji se elige de
+// acá, no hay que buscarlo por internet y pegarlo.
+const HABIT_EMOJIS = [
+    {
+        group: 'Salud y deporte',
+        emojis: ['💪', '🏃', '🚴', '🏋️', '🧘', '🤸', '🥊', '🚶', '⚽', '🏀',
+                 '🎾', '🏊', '⛹️', '🩺', '💊', '🦷', '😴', '💧', '🧴', '🚭']
+    },
+    {
+        group: 'Estudio y trabajo',
+        emojis: ['📚', '📖', '✏️', '📝', '🎓', '🧠', '💻', '⌨️', '📊', '🗂️',
+                 '📅', '⏰', '🔬', '🧮', '🗣️', '🌐', '💼', '📌']
+    },
+    {
+        group: 'Comida',
+        emojis: ['🥗', '🍎', '🥦', '🥑', '🍳', '🍚', '🐟', '🍗', '🥛', '☕',
+                 '🍫', '🧂', '🥤']
+    },
+    {
+        group: 'Casa y dinero',
+        emojis: ['🧹', '🧺', '🛏️', '🚿', '🪥', '🗑️', '🪴', '🛠️', '🐕', '🐈',
+                 '💰', '🧾']
+    },
+    {
+        group: 'Ánimo y aficiones',
+        emojis: ['🎯', '🔥', '⭐', '✅', '🏆', '🙏', '🧡', '🌅', '🌙', '🎵',
+                 '🎸', '🎨', '📷', '✍️', '🎮', '🧩', '🎬', '🕺']
+    }
+];
+
+const emojiPickerModal = document.getElementById('emojiPickerModal');
+const emojiPickerGrid = document.getElementById('emojiPickerGrid');
+const emojiPickerFor = document.getElementById('emojiPickerFor');
+let emojiPickerResolve = null;
+
+// La rejilla se arma una sola vez y se reutiliza: son ~80 botones y no cambian.
+function buildEmojiPicker() {
+    HABIT_EMOJIS.forEach(section => {
+        const title = document.createElement('p');
+        title.className = 'emoji-group-title';
+        title.textContent = section.group;
+
+        const grid = document.createElement('div');
+        grid.className = 'emoji-grid';
+
+        section.emojis.forEach(emoji => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'emoji-option';
+            option.dataset.emoji = emoji;
+            option.textContent = emoji;
+            option.setAttribute('aria-label', `Emoji ${emoji}`);
+            grid.appendChild(option);
+        });
+
+        emojiPickerGrid.append(title, grid);
+    });
+}
+
+buildEmojiPicker();
+
+// Devuelve el emoji elegido, '' si se pide "sin emoji", o null si se cerró sin
+// elegir. Mismo patrón que confirmDialog(): una promesa y un solo panel vivo.
+function pickEmoji(currentEmoji, habitName) {
+    if (emojiPickerResolve) {
+        resolveEmojiPicker(null);
+    }
+
+    emojiPickerFor.textContent = habitName ? `Para "${habitName}"` : '';
+    emojiPickerGrid.querySelectorAll('.emoji-option').forEach(option => {
+        option.classList.toggle('selected', option.dataset.emoji === currentEmoji);
+    });
+    emojiPickerGrid.scrollTop = 0;
+    showModal(emojiPickerModal);
+
+    return new Promise(resolve => {
+        emojiPickerResolve = resolve;
+    });
+}
+
+function resolveEmojiPicker(result) {
+    emojiPickerModal.classList.add('hidden');
+    if (emojiPickerResolve) {
+        const resolve = emojiPickerResolve;
+        emojiPickerResolve = null;
+        resolve(result);
+    }
+}
+
+emojiPickerGrid.addEventListener('click', (event) => {
+    const option = event.target.closest('.emoji-option');
+    if (option) resolveEmojiPicker(option.dataset.emoji);
+});
+
+document.getElementById('emojiPickerClearBtn').addEventListener('click', () => resolveEmojiPicker(''));
+document.getElementById('emojiPickerCancelBtn').addEventListener('click', () => resolveEmojiPicker(null));
+
+// El botón de emoji de una fila o de la zona de añadir. Un único sitio que
+// escribe su estado, para que lo que se ve y lo que se guarda no se separen.
+function setEmojiButton(button, emoji) {
+    button.dataset.emoji = emoji || '';
+    // Sin emoji el botón no puede quedar vacío, o no habría nada que pulsar.
+    button.textContent = emoji || '＋';
+    button.classList.toggle('is-empty', !emoji);
+}
+
+// Abre el panel desde un botón de emoji y deja elegido lo que se elija.
+async function editEmojiFromButton(button, habitName) {
+    const chosen = await pickEmoji(button.dataset.emoji || '', habitName);
+    if (chosen === null) return;
+    setEmojiButton(button, chosen);
 }
 
 // Una sola forma de fila para cualquier hábito, los cinco de siempre y los que
@@ -583,18 +704,15 @@ function buildHabitRow({ key, label, icon, color, checked }) {
     const check = document.createElement('span');
     check.className = 'habit-check';
 
-    // Un <input> dentro del <label> no reenvía el clic a la casilla, así que
-    // escribir acá no marca ni desmarca el hábito.
-    const iconInput = document.createElement('input');
-    iconInput.type = 'text';
-    iconInput.className = 'habit-emoji';
-    // Un emoji ocupa más de un carácter: una bandera o una familia con ZWJ
-    // llegan a 8 unidades UTF-16.
-    iconInput.maxLength = 8;
-    iconInput.value = row.dataset.habitIcon;
-    iconInput.placeholder = '✅';
-    iconInput.title = 'Cambiar emoji';
-    iconInput.setAttribute('aria-label', `Emoji de ${label}`);
+    // Abre el panel de emojis. Es un <button>, que es contenido interactivo:
+    // el <label> no le reenvía el clic, así que pulsarlo no marca ni desmarca
+    // el hábito.
+    const iconBtn = document.createElement('button');
+    iconBtn.type = 'button';
+    iconBtn.className = 'habit-emoji';
+    iconBtn.title = 'Cambiar emoji';
+    iconBtn.setAttribute('aria-label', `Cambiar el emoji de ${label}`);
+    setEmojiButton(iconBtn, row.dataset.habitIcon);
 
     const name = document.createElement('span');
     name.className = 'habit-name';
@@ -606,15 +724,15 @@ function buildHabitRow({ key, label, icon, color, checked }) {
     colorInput.value = row.dataset.habitColor;
     colorInput.dataset.habit = key;
 
-    row.append(checkbox, check, iconInput, name, colorInput);
+    row.append(checkbox, check, iconBtn, name, colorInput);
     return row;
 }
 
-// El emoji que muestra la fila ahora mismo, ya recortado. Cadena vacía = el
-// usuario no quiere emoji, y es una respuesta válida.
+// El emoji que muestra la fila ahora mismo. Cadena vacía = el usuario no quiere
+// emoji, y es una respuesta válida.
 function getRowIcon(row) {
-    const input = row.querySelector('.habit-emoji');
-    return input ? input.value.trim() : (row.dataset.habitIcon || '');
+    const button = row.querySelector('.habit-emoji');
+    return button ? (button.dataset.emoji || '') : (row.dataset.habitIcon || '');
 }
 
 // La lista de arriba es lo que sigues, y nada más.
@@ -1022,6 +1140,27 @@ addCustomHabitBtn.addEventListener('click', () => {
     }
 });
 
+// Delegado: las filas se crean y se destruyen al abrir el modal, así que el
+// listener vive en el contenedor y no en cada botón.
+habitsOptions.addEventListener('click', (event) => {
+    const button = event.target.closest('.habit-emoji');
+    if (!button) return;
+    // Un <button> es contenido interactivo y el <label> no le reenvía el clic,
+    // pero cancelarlo acá cuesta una línea y el precio de equivocarse es que
+    // elegir un emoji desmarque el hábito.
+    event.preventDefault();
+    const row = button.closest('.habit-option');
+    editEmojiFromButton(button, row ? row.dataset.habitLabel : '');
+});
+
+customHabitIconBtn.addEventListener('click', () => {
+    editEmojiFromButton(customHabitIconBtn, customHabitInput.value.trim());
+});
+
+// El botón nace con el 🎯 pintado en el HTML, pero addDynamicHabit() lee
+// dataset.emoji: sin esto, el primer hábito propio se crearía sin emoji.
+setEmojiButton(customHabitIconBtn, '🎯');
+
 // Tocar una sugerencia añade su fila, ya marcada. Se crea de verdad al pulsar
 // Guardar, como todo lo demás de este modal.
 habitSuggestions.addEventListener('click', (event) => {
@@ -1069,15 +1208,15 @@ function addDynamicHabit() {
     habitsOptions.appendChild(buildHabitRow({
         key,
         label,
-        // Sin emoji escrito vale el del placeholder, y en la fila se puede
-        // cambiar o borrar antes de guardar.
-        icon: customHabitIcon.value.trim() || '🎯',
+        // El que quedó elegido en el botón de al lado; en la fila se puede
+        // cambiar otra vez antes de guardar.
+        icon: customHabitIconBtn.dataset.emoji || '',
         color: customHabitColor.value,
         checked: true
     }));
     habitsEmpty.classList.add('hidden');
 
-    customHabitIcon.value = '';
+    setEmojiButton(customHabitIconBtn, '🎯');
     customHabitInput.value = '';
     customHabitColor.value = '#95a5a6';
     addCustomHabitBtn.disabled = true;
