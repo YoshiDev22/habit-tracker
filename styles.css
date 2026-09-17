@@ -1221,6 +1221,11 @@ body.has-pomodoro-bar {
     max-width: 400px;
     width: 90%;
     animation: modalSlideIn 0.3s ease;
+    /* Sin tope ni scroll, un modal más alto que la pantalla se recorta arriba y
+       abajo sin barra a la que agarrarse, y su botón de guardar queda
+       inalcanzable. Le pasaba a cualquier modal largo. */
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 @keyframes modalSlideIn {
@@ -1472,6 +1477,26 @@ body.has-pomodoro-bar {
 /* Setup Modal */
 .setup-modal {
     max-width: 450px;
+    /* Cuerpo con scroll y pie fijo, en vez de que scrollee el modal entero:
+       con muchos hábitos, Guardar Hábitos sigue a la vista. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.setup-scroll {
+    flex: 1 1 auto;
+    /* Sin min-height:0 un hijo flex no encoge por debajo de su contenido, así
+       que el scroll no aparecería nunca. */
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.setup-footer {
+    flex-shrink: 0;
+    padding-top: 12px;
+    /* Tapa el contenido que pasa por detrás al hacer scroll. */
+    background: var(--bg-surface);
 }
 
 .setup-subtitle {

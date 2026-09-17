@@ -211,6 +211,16 @@ salen como `ApiError` con `.status`, para distinguir un 409 de un fallo genéric
 `delete-habit`) que no manejan el 401. Migrarlos al tocar esa zona; no escribir `fetch()`
 crudo nuevo.
 
+### Modales
+
+`.modal-content` tiene `max-height: 90vh` y `overflow-y: auto`. **No quitarlos:**
+sin tope, un modal más alto que la pantalla se recorta arriba y abajo sin barra de
+scroll, y sus botones quedan inalcanzables — el `.modal` que lo envuelve es
+`position: fixed` y centrado, así que la página no llega a él. El de hábitos va un
+paso más allá: `.setup-modal` es una columna flex con el cuerpo en `.setup-scroll`
+(que necesita `min-height: 0` para poder encoger) y el pie en `.setup-footer`, para
+que "Guardar Hábitos" no se vaya con el scroll.
+
 ### Vistas y navegación
 
 Dos vistas (`#viewCalendar`, `#viewProjects`) dentro de `#viewsTrack`, con tabs arriba y
