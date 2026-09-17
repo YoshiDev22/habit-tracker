@@ -96,7 +96,9 @@ def create_pomodoro_session(
         started_at=session_in.started_at,
         ended_at=session_in.ended_at,
         duration_seconds=session_in.duration_seconds,
-        planned_seconds=session_in.planned_seconds or 1500,
+        # `or 1500` convertía un 0 legítimo en 25 minutos: el cronómetro manda
+        # 0 porque no tiene duración planeada.
+        planned_seconds=1500 if session_in.planned_seconds is None else session_in.planned_seconds,
         mode=session_in.mode or "focus",
         was_completed=session_in.was_completed if session_in.was_completed is not None else True,
         note=session_in.note,
