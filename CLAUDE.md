@@ -8,8 +8,9 @@ Código, comentarios, nombres de variables y mensajes de commit: en inglés.
 App personal de productividad. Tres módulos sobre la misma cuenta:
 
 1. **Hábitos** — calendario mensual, marcado por día, rachas y estadísticas.
-2. **Proyectos y tareas** — proyectos con tasklist y progreso por proyecto.
-3. **Pomodoro** — timer con registro de tiempo por proyecto/tarea.
+2. **Proyectos y tareas** — tableros kanban (cada uno con sus columnas) cuyas tarjetas son
+   tareas; el proyecto es una etiqueta de la tarea. También hay vista Lista por proyecto.
+3. **Pomodoro** — timer (cronómetro, pomodoro o registro manual) con tiempo por proyecto/tarea.
 
 Backend FastAPI + SQLite con autenticación JWT, frontend estático (HTML/CSS/JS
 vanilla, sin build step) servido por la misma app.
@@ -23,7 +24,9 @@ vanilla, sin build step) servido por la misma app.
 Versiones confirmadas en `requirements.txt` (no hay `pyproject.toml` en el repo):
 
 - `fastapi==0.109.0`, servido con `uvicorn[standard]==0.27.0`
-- `sqlmodel==0.0.14` (SQLAlchemy + Pydantic) como ORM sobre SQLite
+- `sqlmodel==0.0.14` (SQLAlchemy + Pydantic) como ORM sobre SQLite. Ojo: con Pydantic v2,
+  `Field(regex=...)` **no valida nada** en esta versión; usar un `@field_validator` (ver
+  `_validate_hex_color` en `schemas.py`). `min_length`/`max_length` sí funcionan.
 - `python-jose[cryptography]==3.3.0` para JWT
 - `bcrypt==4.0.1` para hashear/verificar contraseñas — usado directamente en `backend/auth.py`.
   `passlib[bcrypt]==1.7.4` está en `requirements.txt` pero no se importa en ningún módulo del código.
@@ -41,10 +44,11 @@ habit-tracker/
 │   ├── __init__.py
 │   ├── main.py            # Entry point FastAPI. Crea la app, monta routers, sirve el frontend
 │   ├── database.py        # Engine SQLModel/SQLite, create_db_and_tables(), get_session()
-│   ├── models.py          # Tablas: User, HabitEntry, Habit, Project, Task, PomodoroSession
+│   ├── models.py          # Tablas (ver Modelo de datos)
 │   ├── schemas.py         # Esquemas Pydantic/SQLModel de request/response
 │   ├── auth.py            # Hashing, JWT (create/verify), get_current_user, lee SECRET_KEY
 │   ├── dates.py           # resolve_client_today(): el "hoy" del usuario, no el del servidor (UTC)
+│   ├── boards.py          # ensure_user_setup(): defaults y relleno perezoso de tableros/estados
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -52,16 +56,23 @@ habit-tracker/
 │       ├── auth.py        # /api/auth/*
 │       ├── habits.py      # /api/habits/*      (entradas diarias + definiciones de hábitos)
 │       ├── projects.py    # /api/projects/*
-│       ├── tasks.py       # /api/tasks/*
+│       ├── tasks.py       # /api/tasks/*       (+ /{id}/checklist y /{id}/comments)
+│       ├── boards.py      # /api/boards/*      (+ /{id}/columns)
+│       ├── project_statuses.py  # /api/project-statuses/*
+│       ├── tags.py        # /api/tags/*
 │       └── pomodoro.py    # /api/pomodoro/*
+├── scripts/
+│   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
 ├── index.html             # Única página. Contiene todos los modales y ambas vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
-├── projects.js            # Tabs con swipe, proyectos y tareas
+├── projects.js            # Tabs con swipe, vista Lista (proyectos y tareas), menú y borrado de proyecto
+├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas, estados)
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 ├── requirements.txt
 ├── README.md
+├── BACKLOG.md             # Cola de trabajo pendiente
 └── CLAUDE.md
 ```
 
@@ -112,9 +123,22 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 ## Modelo de datos
 
 Tablas en `backend/models.py`: `User`, `HabitEntry`, `Habit`, `Project`, `Task`,
-`PomodoroSession`. Todas cuelgan de `users.id`; `Task` y `PomodoroSession` además guardan
-`user_id` denormalizado. **Toda query filtra por `current_user.id`**, nunca solo por el id
-del recurso — es lo único que separa los datos entre usuarios.
+`PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `ProjectStatus`, `Tag`,
+`TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
+(el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
+es lo único que separa los datos entre usuarios.
+
+Cómo encaja el tablero:
+
+```
+Board ("Escuela")  ── BoardColumn (Por hacer · Haciendo · Hecho, configurables)
+                          └── Task (la tarjeta: column_id)
+                                ├── project_id → Project (UNO: ahí se suma su tiempo)
+                                ├── TaskTag → Tag (VARIAS: tipo de actividad)
+                                ├── TaskChecklistItem (subtareas, sin tiempos)
+                                └── TaskComment (seguimiento, con author_id)
+Project ── status_id → ProjectStatus (Ideas · En curso · En pausa · Terminado, por usuario)
+```
 
 Lo que no se deduce leyendo los modelos:
 
@@ -142,9 +166,37 @@ Lo que no se deduce leyendo los modelos:
   UI contradecía a la API.
 - `started_at` / `ended_at` son UTC naive (`datetime.utcnow()`). El cliente nunca los parsea
   para la lógica del timer — usa `Date.now()` + localStorage.
-- Archivar (`is_active=False`) conserva el historial; borrar (`DELETE`) lo elimina.
-  `DELETE /api/projects/{id}` borra en cascada manual sus tareas y sesiones;
-  `DELETE /api/tasks/{id}` conserva las sesiones y solo les pone `task_id = None`.
+- Archivar (`is_active=False`) conserva el historial. `DELETE /api/tasks/{id}` borra su
+  checklist, comentarios y etiquetas, y conserva las sesiones poniéndoles `task_id = None`.
+  **`DELETE /api/projects/{id}` NO borra sus tareas**: el proyecto es una etiqueta, así que
+  sus tareas y su tiempo pasan a "Sin asignar"; con `?delete_sessions=true` el tiempo se
+  borra (la UI lo pide con una casilla explícita).
+- **De columnas y estados, el código solo lee `category`.** `BoardColumn.category` es
+  `todo | doing | done` y `ProjectStatus.category` es `idea | active | paused | done`; el
+  nombre, color, orden y cuántas hay son del usuario, y la categoría no se cambia después
+  de crear. Nunca comparar por nombre ("Hecho"): el usuario lo renombra.
+- **`Task.is_done` y `Task.column_id` van siempre juntos** (`update_task` en
+  `routers/tasks.py`): mover a una columna `done` marca hecha, y el checkbox mueve a la
+  primera columna `done`/`todo` **del mismo tablero**. `is_done` sigue existiendo porque
+  `/api/projects/summary` cuenta el progreso con él. `completed_at` se pone al PASAR a
+  hecha (con `?today=`), y moverla entre dos columnas `done` conserva la fecha.
+- **El tiempo es de la tarea**: cambiarle el proyecto a una tarea mueve el `project_id` de
+  sus sesiones. El tiempo registrado sin tarea no se toca.
+- **"Sin asignar"** es un `Project` con `is_system=True` que cada usuario recibe para las
+  tareas sin proyecto (existe porque `tasks.project_id` es NOT NULL y quitarlo en SQLite
+  obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;
+  sus tareas sí.
+- **Los defaults y el relleno son perezosos**: `ensure_user_setup()` (`backend/boards.py`)
+  crea los estados de proyecto, "Mi tablero" con sus columnas y "Sin asignar", y asigna
+  columna/estado a lo que no lo tenga. Corre en los endpoints que lo necesitan, no en
+  `migrate.py`, porque esas tablas las crea `create_all()` DESPUÉS de que migrate.py corre.
+  Es idempotente, y una restricción única por nombre frena la doble siembra concurrente.
+- **Etiquetas y tiempo**: una sesión cuenta en cada etiqueta de su tarea, así que los
+  totales por etiqueta NO se suman entre sí. `GET /api/tags/summary` devuelve además
+  `combined_*` (las etiquetas pedidas, cada sesión una vez) y `untagged_*`.
+- **Comentarios**: `user_id` es el dueño de la tarea (lo que filtran las queries) y
+  `author_id` quien escribió; hoy coinciden, pero están separados para compartir tableros
+  sin migrar. Solo el autor edita o borra. `created_at` es UTC naive.
 
 ## Endpoints
 
@@ -158,19 +210,22 @@ Lo que no se ve en Swagger:
 - `POST /api/auth/login` recibe **form-data** (`username`, `password`), no JSON — es
   `OAuth2PasswordRequestForm`. El resto de la API es JSON.
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
-  (`/summary` antes de `/{project_id}` en `projects.py`). Al revés, FastAPI intenta parsear
-  `"summary"` como `int` y devuelve 422.
+  (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
+  Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.
+- Los 409 del tablero traen el motivo en español ("tiene 6 tareas", "es la única columna de
+  su tipo") y la UI de Organizar lo enseña tal cual: mantener esos mensajes legibles.
 - El frontend se sirve desde `main.py` con un `@app.get` por archivo. No hay `StaticFiles`
   montado, así que **un archivo JS nuevo necesita su propia ruta** o devuelve 404.
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los tres scripts en orden y **el orden
-importa**:
+Sin build step, sin módulos ES. `index.html` carga los cuatro scripts en orden y **el
+orden importa**:
 
 ```html
 <script src="script.js"></script>   <!-- primero: define los hooks y apiFetch -->
-<script src="projects.js"></script>
+<script src="projects.js"></script> <!-- define projectsState y projectsChangedHooks -->
+<script src="board.js"></script>    <!-- usa los dos; su loadBoard corre antes que los selects del pomodoro -->
 <script src="pomodoro.js"></script>
 ```
 
@@ -199,6 +254,18 @@ window.appLogoutHooks.push(limpiarMiModulo); // último POST + limpiar localStor
 los demás, solo hace `console.error`. `appLogoutHooks` corre antes de `removeToken()`
 justamente para que un módulo pueda hacer un último POST autenticado (lo usa `pomodoro.js`
 para guardar la sesión en curso antes de perder el token).
+
+`projects.js` declara dos más, suyos:
+
+| Hook | Cuándo corre |
+|---|---|
+| `window.projectsChangedHooks` | Al final de cada `loadProjects()`. Tablero, lista y selects del pomodoro se refrescan por aquí |
+| `window.viewChangedHooks` | Síncrono, en cada `goToView()`, con el índice de la vista |
+
+**Toda mutación de tareas o proyectos termina en `loadProjects()`** (en `board.js`, vía
+`refreshAfterBoardChange()`, que además vacía la caché de tareas de la lista). No refrescar
+el tablero por otro camino: el tiempo de cada tarjeta sale del resumen que carga
+`loadProjects()`.
 
 ### `apiFetch` y `ApiError`
 
@@ -233,12 +300,27 @@ tiene que resolver la promesa pendiente, o quien la esperaba se queda colgado—
 `z-index` propio en `styles.css` (1100 el confirm, 1050 el panel), porque con el
 1000 de `.modal` el orden lo decidiría el documento.
 
+Los modales de `board.js` (`#cardModal`, `#boardConfigModal`) y `#projectDeleteModal` se
+cierran con sus propios listeners, no con `handleModalDismiss()`. El detalle de tarjeta
+**se cierra antes** de abrir el registro manual o el cronómetro: comparte el `z-index`
+1000 con `#logTimeModal`. Sus campos se guardan al cambiar (sin botón de guardar) y el
+tablero se refresca una vez, al cerrar.
+
 ### Vistas y navegación
 
 Dos vistas (`#viewCalendar`, `#viewProjects`) dentro de `#viewsTrack`, con tabs arriba y
 swipe horizontal. Toda la lógica está en `projects.js` (`goToView()`, `VIEW_COUNT`, manejo
 de `touchstart/move/end` con detección de eje). Agregar una vista implica tocar
 `VIEW_COUNT`, el HTML de tabs y el indicador.
+
+Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
+
+- **Computadora (≥ 900 px):** mientras se ve, `body.board-wide` ensancha `.app-container`
+  a 1200 px y deja marca, tabs y pomodoro en 600 px. Se arrastran tarjetas con drag &
+  drop nativo, solo si `(hover: hover) and (pointer: fine)`.
+- **Pantalla angosta (< 700 px):** una columna a la vez con pestañas que saltan de línea.
+  **Nada del tablero puede desplazarse en horizontal**: pelearía con el swipe entre vistas.
+  En táctil se mueve con el `<select>` nativo "Mover a…" de cada tarjeta.
 
 ### Tema (claro/oscuro)
 
@@ -253,7 +335,8 @@ de `touchstart/move/end` con detección de eje). Agregar una vista implica tocar
 ### Estado en localStorage
 
 Claves: `access_token`, `theme`, `habitsData`, `user_habits`, `habit_colors`,
-`pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`.
+`pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`, `projects_view` (tablero o lista,
+del dispositivo) y `board_selected` (último tablero abierto; se borra al cerrar sesión).
 
 **Inconsistencia conocida:** el modelo `Habit` ya tiene `label`, `color`, `icon` e
 `is_active` en la base. Archivar, borrar, el nombre y el emoji ya operan contra el backend

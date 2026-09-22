@@ -3,8 +3,9 @@
 App personal de productividad, con tres módulos sobre una misma cuenta:
 
 - **Hábitos** — calendario mensual, marcado por día, rachas y estadísticas.
-- **Proyectos y tareas** — proyectos con tasklist y progreso.
-- **Pomodoro** — timer con registro de tiempo por proyecto y tarea.
+- **Proyectos y tareas** — tableros kanban con columnas configurables. Cada tarjeta es una
+  tarea con proyecto, etiquetas, descripción, checklist y comentarios. También hay vista Lista.
+- **Pomodoro** — cronómetro, pomodoro o registro manual, con tiempo por proyecto, tarea y etiqueta.
 
 Backend FastAPI + SQLite con autenticación JWT. Frontend estático (HTML/CSS/JS vanilla,
 sin build step ni dependencias) servido por la misma app.
@@ -117,8 +118,11 @@ Los endpoints se agrupan por módulo, todos con prefijo `/api`:
 |---|---|
 | `/api/auth` | Registro y login |
 | `/api/habits` | Entradas diarias, estadísticas, racha y definiciones de hábitos |
-| `/api/projects` | CRUD de proyectos y resumen de progreso |
-| `/api/tasks` | CRUD de tareas |
+| `/api/projects` | CRUD de proyectos (etiquetas de las tareas) y resumen de progreso |
+| `/api/project-statuses` | Estados de proyecto configurables (Ideas, En curso...) |
+| `/api/boards` | Tableros y sus columnas |
+| `/api/tasks` | Tareas (tarjetas), con su checklist y sus comentarios |
+| `/api/tags` | Etiquetas y tiempo por etiqueta |
 | `/api/pomodoro` | Registro y estadísticas de sesiones |
 
 Todos requieren `Authorization: Bearer <token>` salvo `/api/auth/*`, `/api` y `/health`.
@@ -162,15 +166,18 @@ habit-tracker/
 ├── backend/
 │   ├── main.py            # Entry point: crea la app, monta routers, sirve el frontend
 │   ├── database.py        # Engine SQLite, create_db_and_tables(), get_session()
-│   ├── models.py          # User, HabitEntry, Habit, Project, Task, PomodoroSession
+│   ├── models.py          # Tablas de hábitos, proyectos, tablero, tareas y pomodoro
 │   ├── schemas.py         # Esquemas de request/response
 │   ├── auth.py            # Hashing, JWT, get_current_user
+│   ├── boards.py          # Tableros y estados por defecto de cada usuario
 │   ├── .env.example       # Plantilla del .env (el .env real no se versiona)
-│   └── routers/           # auth, habits, projects, tasks, pomodoro
+│   └── routers/           # auth, habits, projects, project_statuses, boards, tasks, tags, pomodoro
+├── scripts/migrate.py     # Columnas nuevas en tablas existentes (correr antes de reiniciar)
 ├── index.html             # Única página: ambas vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
-├── projects.js            # Tabs con swipe, proyectos y tareas
+├── projects.js            # Tabs con swipe, vista Lista de proyectos
+├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar"
 ├── pomodoro.js            # Timer y envío de sesiones
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 └── requirements.txt
