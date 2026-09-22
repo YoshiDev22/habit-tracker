@@ -218,6 +218,37 @@ class Task(SQLModel, table=True):
     created_at: date_type = Field(default_factory=date_type.today)
 
 
+class Tag(SQLModel, table=True):
+    """
+    Etiqueta libre de una tarea ("documentación", "administrativa"...), para
+    filtrar y para saber en qué tipo de actividad se va el tiempo. Distinta
+    del proyecto: una tarea tiene UN proyecto y VARIAS etiquetas. Tabla NUEVA.
+    """
+    __tablename__ = "tags"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_tags_user_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+
+    name: str
+
+    # Color hexadecimal (ej: "#3498db")
+    color: Optional[str] = Field(default=None)
+
+    created_at: date_type = Field(default_factory=date_type.today)
+
+
+class TaskTag(SQLModel, table=True):
+    """Qué etiquetas tiene cada tarea (muchos a muchos). Tabla NUEVA."""
+    __tablename__ = "task_tags"
+    __table_args__ = (UniqueConstraint("task_id", "tag_id", name="uq_task_tags_task_tag"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)  # denormalizado, igual que Task
+    task_id: int = Field(foreign_key="tasks.id", index=True)
+    tag_id: int = Field(foreign_key="tags.id", index=True)
+
+
 def utc_now_naive() -> datetime:
     """UTC naive, el mismo formato que started_at/ended_at del pomodoro, sin
     el datetime.utcnow() deprecado (backlog 8)."""

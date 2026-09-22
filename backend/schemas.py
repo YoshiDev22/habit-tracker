@@ -357,6 +357,7 @@ class TaskCreate(SQLModel):
     order: Optional[int] = 0
     column_id: Optional[int] = None   # columna exacta; manda sobre board_id
     board_id: Optional[int] = None    # sin column_id: la primera "todo" de este tablero
+    tag_ids: Optional[List[int]] = None
 
 
 class TaskUpdate(SQLModel):
@@ -370,6 +371,7 @@ class TaskUpdate(SQLModel):
     order: Optional[int] = None
     project_id: Optional[int] = None  # cambiar el proyecto; null = "Sin asignar"
     column_id: Optional[int] = None   # mover la tarea de columna (o de tablero); manda sobre is_done
+    tag_ids: Optional[List[int]] = None  # reemplaza TODAS las etiquetas; [] las quita
 
 
 class TaskResponse(SQLModel):
@@ -389,6 +391,7 @@ class TaskResponse(SQLModel):
     checklist_total: int = 0
     checklist_done: int = 0
     comment_count: int = 0
+    tag_ids: List[int] = []
 
     class Config:
         from_attributes = True
@@ -397,6 +400,66 @@ class TaskResponse(SQLModel):
 class TaskListResponse(SQLModel):
     """Lista de tareas"""
     tasks: List[TaskResponse]
+    total: int
+
+
+# ==================== Tag Schemas ====================
+
+class TagCreate(SQLModel):
+    """Esquema para crear una etiqueta"""
+    name: str = Field(min_length=1, max_length=30)
+    color: Optional[str] = None
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class TagUpdate(SQLModel):
+    """Esquema para renombrar o recolorear una etiqueta (PATCH parcial)"""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=30)
+    color: Optional[str] = None
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class TagResponse(SQLModel):
+    """Esquema de respuesta para una etiqueta"""
+    id: int
+    name: str
+    color: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TagListResponse(SQLModel):
+    """Etiquetas del usuario, por nombre"""
+    tags: List[TagResponse]
+    total: int
+
+
+class TagSummary(SQLModel):
+    """
+    Tiempo de enfoque en tareas con esta etiqueta. Una tarea con dos
+    etiquetas suma su tiempo en las dos: los totales por etiqueta pueden
+    superar el tiempo real. El total exacto es el de los proyectos.
+    """
+    tag_id: int
+    name: str
+    color: Optional[str] = None
+    task_count: int
+    total_seconds: int
+    session_count: int
+
+
+class TagSummaryListResponse(SQLModel):
+    """Resumen de tiempo por etiqueta"""
+    summaries: List[TagSummary]
     total: int
 
 

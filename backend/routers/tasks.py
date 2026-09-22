@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from backend.database import get_session
 from backend.models import (
     User, Project, Task, BoardColumn, PomodoroSession,
-    TaskChecklistItem, TaskComment, utc_now_naive,
+    TaskChecklistItem, TaskComment, Tag, TaskTag, utc_now_naive,
 )
 from backend.schemas import (
     TaskCreate, TaskUpdate, TaskResponse, TaskListResponse,
@@ -36,6 +36,30 @@ def _get_owned_task(session: Session, user_id: int, task_id: int) -> Task:
     return task
 
 
+def _set_task_tags(session: Session, user_id: int, task_id: int, tag_ids: List[int]) -> None:
+    """Deja la tarea con exactamente estas etiquetas. Sin commit. 404 si alguna
+    no es del usuario, antes de tocar nada."""
+    wanted = set(tag_ids)
+    if wanted:
+        owned = set(session.exec(
+            select(Tag.id).where(Tag.user_id == user_id, Tag.id.in_(wanted))
+        ).all())
+        if owned != wanted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Etiqueta no encontrada"
+            )
+
+    current = session.exec(
+        select(TaskTag).where(TaskTag.user_id == user_id, TaskTag.task_id == task_id)
+    ).all()
+    for link in current:
+        if link.tag_id not in wanted:
+            session.delete(link)
+    for tag_id in wanted - {link.tag_id for link in current}:
+        session.add(TaskTag(user_id=user_id, task_id=task_id, tag_id=tag_id))
+
+
 def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[TaskResponse]:
     """TaskResponse con los conteos de checklist y comentarios, en dos
     consultas agrupadas para todas las tareas en vez de dos por tarea."""
@@ -60,6 +84,14 @@ def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[T
         select(BoardColumn.id, BoardColumn.board_id).where(BoardColumn.id.in_(column_ids))
     ).all()) if column_ids else {}
 
+    tags_by_task: Dict[int, List[int]] = {}
+    for task_id, tag_id in session.exec(
+        select(TaskTag.task_id, TaskTag.tag_id)
+        .where(TaskTag.user_id == user_id, TaskTag.task_id.in_(ids))
+        .order_by(TaskTag.tag_id)
+    ).all():
+        tags_by_task.setdefault(task_id, []).append(tag_id)
+
     comments = dict(session.exec(
         select(TaskComment.task_id, func.count())
         .where(TaskComment.user_id == user_id, TaskComment.task_id.in_(ids))
@@ -73,6 +105,7 @@ def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[T
         r.checklist_done = checklist.get(t.id, {}).get("done", 0)
         r.comment_count = comments.get(t.id, 0)
         r.board_id = board_by_column.get(t.column_id)
+        r.tag_ids = tags_by_task.get(t.id, [])
         responses.append(r)
     return responses
 
@@ -82,13 +115,14 @@ def get_tasks(
     project_id: Optional[int] = None,
     board_id: Optional[int] = None,
     column_id: Optional[int] = None,
+    tag_id: Optional[int] = None,
     include_done: bool = True,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Lista las tareas del usuario, opcionalmente filtradas por proyecto,
-    tablero o columna.
+    tablero, columna o etiqueta.
     """
     ensure_user_setup(session, current_user.id)
 
@@ -106,6 +140,13 @@ def get_tasks(
 
     if column_id is not None:
         query = query.where(Task.column_id == column_id)
+
+    if tag_id is not None:
+        tagged = select(TaskTag.task_id).where(
+            TaskTag.user_id == current_user.id,
+            TaskTag.tag_id == tag_id
+        )
+        query = query.where(Task.id.in_(tagged))
 
     if not include_done:
         query = query.where(Task.is_done == False)
@@ -172,6 +213,9 @@ def create_task(
         completed_at=resolve_client_today(today) if is_done else None,
     )
     session.add(new_task)
+    session.flush()  # para tener new_task.id
+    if task_in.tag_ids:
+        _set_task_tags(session, current_user.id, new_task.id, task_in.tag_ids)
     session.commit()
     session.refresh(new_task)
 
@@ -258,6 +302,10 @@ def update_task(
         elif not update_data["is_done"]:
             update_data["completed_at"] = None
 
+    tag_ids = update_data.pop("tag_ids", None)
+    if tag_ids is not None:
+        _set_task_tags(session, current_user.id, task.id, tag_ids)
+
     for field, value in update_data.items():
         setattr(task, field, value)
 
@@ -296,12 +344,13 @@ def delete_task(
 
 
 def delete_task_details(session: Session, user_id: int, task_ids: List[int]) -> None:
-    """Borra el checklist y los comentarios de unas tareas. Sin commit: lo
+    """Borra el checklist, los comentarios y las etiquetas (el vínculo, no la
+    etiqueta) de unas tareas. Sin commit: lo
     hace quien borra las tareas, para que todo caiga en la misma transacción.
     Lo usa también DELETE /api/projects/{id}."""
     if not task_ids:
         return
-    for model in (TaskChecklistItem, TaskComment):
+    for model in (TaskChecklistItem, TaskComment, TaskTag):
         rows = session.exec(
             select(model).where(model.user_id == user_id, model.task_id.in_(task_ids))
         ).all()
