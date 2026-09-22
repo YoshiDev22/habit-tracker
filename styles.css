@@ -2382,13 +2382,6 @@ body.board-wide .board-column {
     font-size: 0.8rem;
 }
 
-.card-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
-}
-
 .card-inline-form {
     display: flex;
     gap: 6px;
@@ -2996,4 +2989,170 @@ body.board-wide .board-column {
     opacity: 1;
     background: var(--danger-solid);
     color: var(--text-on-accent);
+}
+
+/* ============================================
+   Etiquetas en el detalle de la tarjeta (board.js)
+   ============================================ */
+
+.card-tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: -8px 0 14px;
+}
+
+.card-tag-chip,
+.card-tag-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.card-tag-chip {
+    border: 1px solid var(--chip-color, var(--border-strong));
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.card-tag-chip::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--chip-color, var(--neutral-solid));
+}
+
+.card-tag-add {
+    border: 1px dashed var(--border-strong);
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.card-tag-chip:hover,
+.card-tag-add:hover,
+.card-tag-add[aria-expanded="true"] {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.tag-picker {
+    margin: -6px 0 14px;
+    padding: 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-lg);
+}
+
+.tag-picker-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.tag-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tag-picker-row:hover,
+.tag-picker-row:focus-visible {
+    background: var(--bg-hover);
+    outline: none;
+}
+
+.tag-picker-row.on {
+    font-weight: 600;
+}
+
+.tag-picker-dot {
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--chip-color, var(--neutral-solid));
+}
+
+.tag-picker-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tag-picker-check {
+    flex-shrink: 0;
+    color: var(--accent);
+}
+
+.tag-picker-empty {
+    padding: 8px 10px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.tag-picker-new {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px 2px;
+    margin-top: 4px;
+    border-top: 1px solid var(--border-color);
+}
+
+.tag-picker-new input[type="color"] {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+
+.tag-picker-new input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.tag-picker-new input[type="text"]:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.tag-picker-new button {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 1rem;
+    cursor: pointer;
 }

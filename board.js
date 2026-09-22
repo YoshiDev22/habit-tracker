@@ -612,8 +612,15 @@ const cardTimeEl = document.getElementById('cardTime');
 const cardColumnSelect = document.getElementById('cardColumn');
 const cardProjectSelect = document.getElementById('cardProject');
 const cardTimerEl = document.getElementById('cardTimer');
-const cardTagsEl = document.getElementById('cardTags');
-const cardTagForm = document.getElementById('cardTagForm');
+const cardTagRow = document.getElementById('cardTagRow');
+const tagPicker = document.getElementById('tagPicker');
+const tagPickerList = document.getElementById('tagPickerList');
+const tagPickerForm = document.getElementById('tagPickerForm');
+const tagPickerName = document.getElementById('tagPickerName');
+const tagPickerColor = document.getElementById('tagPickerColor');
+
+// Color sugerido para cada etiqueta nueva: rota para que no salgan todas iguales
+const TAG_COLORS = ['#3498db', '#2ecc71', '#e67e22', '#9b59b6', '#e74c3c', '#1abc9c', '#f1c40f', '#95a5a6'];
 const cardNotesInput = document.getElementById('cardNotes');
 const cardChecklistEl = document.getElementById('cardChecklist');
 const cardChecklistProgress = document.getElementById('cardChecklistProgress');
@@ -670,20 +677,97 @@ function renderCardProjectSelect(task) {
     cardProjectSelect.value = String(task.project_id);
 }
 
-function renderCardTags(task) {
-    cardTagsEl.innerHTML = '';
-    if (boardState.tags.length === 0) {
+// Chips discretos bajo el título, con + al final para abrir el panel
+function renderCardTagRow(task) {
+    cardTagRow.innerHTML = '';
+    boardState.tags
+        .filter(tag => task.tag_ids.includes(tag.id))
+        .forEach(tag => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'card-tag-chip';
+            chip.title = 'Cambiar etiquetas';
+            if (tag.color) chip.style.setProperty('--chip-color', tag.color);
+            chip.textContent = tag.name;
+            cardTagRow.appendChild(chip);
+        });
+
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'card-tag-add';
+    add.textContent = task.tag_ids.length ? '+' : '+ Etiqueta';
+    add.setAttribute('aria-label', 'Agregar o quitar etiquetas');
+    add.setAttribute('aria-expanded', String(!tagPicker.classList.contains('hidden')));
+    cardTagRow.appendChild(add);
+}
+
+// Una fila por etiqueta: el clic en cualquier parte de la fila la pone o la
+// quita. Lo escrito en la caja de abajo filtra la lista.
+function renderTagPicker(task) {
+    tagPickerList.innerHTML = '';
+    const filter = tagPickerName.value.trim().toLowerCase();
+    const tags = boardState.tags.filter(tag => tag.name.toLowerCase().includes(filter));
+
+    if (tags.length === 0) {
         const hint = document.createElement('p');
-        hint.className = 'card-empty';
-        hint.textContent = 'Todavía no tienes etiquetas. Crea una aquí abajo.';
-        cardTagsEl.appendChild(hint);
+        hint.className = 'tag-picker-empty';
+        hint.textContent = filter
+            ? `Enter para crear "${tagPickerName.value.trim()}"`
+            : 'Todavía no tienes etiquetas: crea la primera aquí abajo.';
+        tagPickerList.appendChild(hint);
         return;
     }
-    boardState.tags.forEach(tag => {
-        cardTagsEl.appendChild(buildFilterChip(
-            tag.name, tag.color, task.tag_ids.includes(tag.id), { cardTag: tag.id }
-        ));
+
+    tags.forEach(tag => {
+        const on = task.tag_ids.includes(tag.id);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'tag-picker-row' + (on ? ' on' : '');
+        row.dataset.tagId = String(tag.id);
+        row.setAttribute('role', 'menuitemcheckbox');
+        row.setAttribute('aria-checked', String(on));
+        if (tag.color) row.style.setProperty('--chip-color', tag.color);
+
+        const dot = document.createElement('span');
+        dot.className = 'tag-picker-dot';
+        const name = document.createElement('span');
+        name.className = 'tag-picker-name';
+        name.textContent = tag.name;
+        const check = document.createElement('span');
+        check.className = 'tag-picker-check';
+        check.textContent = on ? '✓' : '';
+
+        row.appendChild(dot);
+        row.appendChild(name);
+        row.appendChild(check);
+        tagPickerList.appendChild(row);
     });
+}
+
+function nextTagColor() {
+    return TAG_COLORS[boardState.tags.length % TAG_COLORS.length];
+}
+
+function openTagPicker() {
+    const task = cardTask();
+    if (!task) return;
+    tagPicker.classList.remove('hidden');
+    tagPickerName.value = '';
+    tagPickerColor.value = nextTagColor();
+    renderCardTagRow(task);
+    renderTagPicker(task);
+    tagPickerName.focus();
+}
+
+function closeTagPicker() {
+    if (tagPicker.classList.contains('hidden')) return;
+    tagPicker.classList.add('hidden');
+    const task = cardTask();
+    if (task) renderCardTagRow(task);
+}
+
+function isTagPickerOpen() {
+    return !tagPicker.classList.contains('hidden');
 }
 
 function renderCardHeader(task) {
@@ -790,7 +874,8 @@ function renderCardModal() {
     renderCardHeader(task);
     renderCardColumnSelect(task);
     renderCardProjectSelect(task);
-    renderCardTags(task);
+    renderCardTagRow(task);
+    if (isTagPickerOpen()) renderTagPicker(task);
     renderCardChecklist();
     renderCardComments();
 }
@@ -805,6 +890,7 @@ async function openCardModal(taskId) {
     cardState.dirty = false;
     cardNotesInput.value = task.notes || '';
     cardTimerEl.dataset.timerTask = String(taskId);
+    tagPicker.classList.add('hidden');
 
     showModal(cardModal);
     renderCardModal();
@@ -893,29 +979,39 @@ cardProjectSelect.addEventListener('change', () => {
     patchCardTask({ project_id: Number(cardProjectSelect.value) });
 });
 
-cardTagsEl.addEventListener('click', (event) => {
-    const chip = event.target.closest('.filter-chip');
+cardTagRow.addEventListener('click', (event) => {
+    if (!event.target.closest('button')) return;
+    if (isTagPickerOpen()) closeTagPicker();
+    else openTagPicker();
+});
+
+tagPickerList.addEventListener('click', (event) => {
+    const row = event.target.closest('.tag-picker-row');
     const task = cardTask();
-    if (!chip || !task) return;
-    const tagId = Number(chip.dataset.cardTag);
+    if (!row || !task) return;
+    const tagId = Number(row.dataset.tagId);
     const tagIds = task.tag_ids.includes(tagId)
         ? task.tag_ids.filter(id => id !== tagId)
         : [...task.tag_ids, tagId];
     patchCardTask({ tag_ids: tagIds });
 });
 
-cardTagForm.addEventListener('submit', async (event) => {
+tagPickerName.addEventListener('input', () => {
+    const task = cardTask();
+    if (task) renderTagPicker(task);
+});
+
+tagPickerForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const input = cardTagForm.querySelector('input');
-    const name = input.value.trim();
+    const name = tagPickerName.value.trim();
     const task = cardTask();
     if (!name || !task) return;
 
-    // Si ya existe (409), se usa la que hay en vez de dar error
+    // Si ya existe (sin distinguir mayúsculas), se pone esa en vez de duplicarla
     let tag = boardState.tags.find(t => t.name.toLowerCase() === name.toLowerCase());
     if (!tag) {
         try {
-            tag = await apiFetch('/api/tags', { method: 'POST', json: { name } });
+            tag = await apiFetch('/api/tags', { method: 'POST', json: { name, color: tagPickerColor.value } });
             boardState.tags.push(tag);
             boardState.tags.sort((a, b) => a.name.localeCompare(b.name));
         } catch (error) {
@@ -923,10 +1019,25 @@ cardTagForm.addEventListener('submit', async (event) => {
             return;
         }
     }
-    input.value = '';
+    tagPickerName.value = '';
+    tagPickerColor.value = nextTagColor();
     if (!task.tag_ids.includes(tag.id)) {
         await patchCardTask({ tag_ids: [...task.tag_ids, tag.id] });
+    } else {
+        renderTagPicker(task);
     }
+    tagPickerName.focus();
+});
+
+// Clic fuera del panel (y de su +) lo cierra. Con composedPath() y no con
+// contains(): abrir el panel repinta la fila de chips, así que el + pulsado
+// ya no está en el documento cuando el clic llega aquí, y contains() lo
+// tomaría por un clic fuera.
+cardModal.addEventListener('click', (event) => {
+    if (!isTagPickerOpen()) return;
+    const path = event.composedPath();
+    if (path.includes(tagPicker) || path.includes(cardTagRow)) return;
+    closeTagPicker();
 });
 
 cardChecklistForm.addEventListener('submit', async (event) => {
@@ -1057,7 +1168,8 @@ document.addEventListener('keydown', (event) => {
     // Con el confirm abierto encima, Escape es de él
     if (event.key !== 'Escape') return;
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
-    if (!cardModal.classList.contains('hidden')) closeCardModal();
+    if (!cardModal.classList.contains('hidden') && isTagPickerOpen()) closeTagPicker();
+    else if (!cardModal.classList.contains('hidden')) closeCardModal();
     else if (!boardConfigModal.classList.contains('hidden')) closeBoardConfig();
     else if (!boardOnboardingModal.classList.contains('hidden')) skipFirstBoard();
 });

@@ -485,6 +485,18 @@
                 <span id="cardTime" class="card-time" title="Tiempo registrado"></span>
             </div>
 
+            <!-- Etiquetas: discretas bajo el título, con + para desplegar la lista
+                 (clic en la fila la pone o la quita) y crear una nueva al final. -->
+            <div class="card-tag-row" id="cardTagRow"></div>
+            <div class="tag-picker hidden" id="tagPicker">
+                <div class="tag-picker-list" id="tagPickerList" role="group" aria-label="Etiquetas de la tarea"></div>
+                <form class="tag-picker-new" id="tagPickerForm">
+                    <input type="color" id="tagPickerColor" aria-label="Color de la etiqueta nueva">
+                    <input type="text" id="tagPickerName" maxlength="30" placeholder="Nueva etiqueta o buscar…" aria-label="Nueva etiqueta o buscar">
+                    <button type="submit" aria-label="Crear etiqueta">+</button>
+                </form>
+            </div>
+
             <div class="card-fields">
                 <label class="card-field">
                     <span>Columna</span>
@@ -504,15 +516,6 @@
                 <button type="button" class="card-timer-btn danger timer-on" data-timer="stop">■ Detener <span class="timer-live"></span></button>
                 <button type="button" class="card-timer-btn" data-timer="manual">✍️ Registrar a mano</button>
             </div>
-
-            <section class="card-section">
-                <h3 class="card-section-title">Etiquetas</h3>
-                <div id="cardTags" class="card-tags"></div>
-                <form id="cardTagForm" class="card-inline-form">
-                    <input type="text" maxlength="30" placeholder="Nueva etiqueta" aria-label="Nueva etiqueta">
-                    <button type="submit" aria-label="Crear etiqueta">+</button>
-                </form>
-            </section>
 
             <section class="card-section">
                 <h3 class="card-section-title">Descripción</h3>
