@@ -227,6 +227,7 @@ function buildCard(task, columns) {
     const card = document.createElement('article');
     card.className = 'board-card';
     card.dataset.taskId = String(task.id);
+    card.dataset.timerTask = String(task.id); // ver syncTimerMarks() en pomodoro.js
     card.tabIndex = 0;
     card.draggable = canDragCards;
     card.setAttribute('aria-label', task.title);
@@ -238,18 +239,22 @@ function buildCard(task, columns) {
     title.className = 'board-card-title';
     title.textContent = task.title;
 
+    // Mientras corre, el total cede su sitio al reloj en vivo
     const time = document.createElement('span');
     time.className = 'board-card-time';
-    time.textContent = formatDuration(boardTaskSeconds(task));
+    time.innerHTML = '<span class="timer-idle"></span><span class="timer-live"></span>';
+    time.firstChild.textContent = formatDuration(boardTaskSeconds(task));
 
     // El cronómetro se puede arrancar en cualquier columna, y no mueve la
     // tarjeta: solo el usuario la cambia de columna.
     const play = document.createElement('button');
     play.type = 'button';
     play.className = 'board-card-play';
-    play.title = 'Cronometrar esta tarea';
-    play.setAttribute('aria-label', `Cronometrar ${task.title}`);
-    play.textContent = '▶';
+    play.dataset.labelIdle = `Cronometrar ${task.title}`;
+    play.dataset.labelTiming = 'Detener y guardar el tiempo';
+    play.title = play.dataset.labelIdle;
+    play.setAttribute('aria-label', play.dataset.labelIdle);
+    play.innerHTML = '<span class="timer-idle">▶</span><span class="timer-on">■</span>';
 
     head.appendChild(title);
     head.appendChild(time);
@@ -411,6 +416,7 @@ function renderBoard() {
 
         boardColumns.appendChild(buildColumn(column, tasks, board.columns));
     });
+    syncTimerMarks();
 }
 
 // ============================================
@@ -531,7 +537,7 @@ boardColumns.addEventListener('click', (event) => {
     if (!task) return;
 
     if (event.target.closest('.board-card-play')) {
-        startTimerForTask(task.project_id, task.id, 'stopwatch', task.title);
+        toggleTimerForTask(task.project_id, task.id, task.title);
         return;
     }
     // El select de "Mover a…" vive dentro de la tarjeta: tocarlo no la abre
@@ -605,8 +611,7 @@ const cardTitleInput = document.getElementById('cardTitle');
 const cardTimeEl = document.getElementById('cardTime');
 const cardColumnSelect = document.getElementById('cardColumn');
 const cardProjectSelect = document.getElementById('cardProject');
-const cardTimerMode = document.getElementById('cardTimerMode');
-const cardTimerBtn = document.getElementById('cardTimerBtn');
+const cardTimerEl = document.getElementById('cardTimer');
 const cardTagsEl = document.getElementById('cardTags');
 const cardTagForm = document.getElementById('cardTagForm');
 const cardNotesInput = document.getElementById('cardNotes');
@@ -799,10 +804,11 @@ async function openCardModal(taskId) {
     cardState.comments = null;
     cardState.dirty = false;
     cardNotesInput.value = task.notes || '';
-    cardTimerMode.value = 'stopwatch';
+    cardTimerEl.dataset.timerTask = String(taskId);
 
     showModal(cardModal);
     renderCardModal();
+    syncTimerMarks();
 
     try {
         const [checklist, comments] = await Promise.all([
@@ -1007,17 +1013,23 @@ cardCommentsEl.addEventListener('click', async (event) => {
     renderCardComments();
 });
 
-cardTimerBtn.addEventListener('click', async () => {
+// Cada botón hace lo suyo al instante. Arrancar o detener deja el detalle
+// abierto, para seguir escribiendo mientras corre (syncTimerMarks cambia los
+// botones por "■ Detener" con el reloj). Solo el registro a mano lo cierra:
+// comparte z-index con el detalle y ocuparía su lugar.
+cardTimerEl.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-timer]');
     const task = cardTask();
-    if (!task) return;
-    const mode = cardTimerMode.value;
-    // El detalle se cierra antes: comparte z-index con el registro manual, y
-    // el cronómetro lleva a la vista del pomodoro.
-    await closeCardModal();
-    if (mode === 'manual') {
+    if (!button || !task) return;
+    const action = button.dataset.timer;
+
+    if (action === 'stop') {
+        await stopTimer();
+    } else if (action === 'manual') {
+        await closeCardModal();
         openLogTimeModal(task.project_id, null, { id: task.id, title: task.title });
     } else {
-        startTimerForTask(task.project_id, task.id, mode, task.title);
+        await startTimerForTask(task.project_id, task.id, action, task.title);
     }
 });
 

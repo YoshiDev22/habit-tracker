@@ -496,13 +496,13 @@
                 </label>
             </div>
 
-            <div class="card-timer">
-                <select id="cardTimerMode" aria-label="Cómo registrar el tiempo">
-                    <option value="stopwatch">Cronómetro</option>
-                    <option value="focus">Pomodoro</option>
-                    <option value="manual">Registrar a mano</option>
-                </select>
-                <button type="button" id="cardTimerBtn" class="submit-btn">▶ Iniciar</button>
+            <!-- data-timer-task lo pone board.js al abrir: con la tarea corriendo,
+                 syncTimerMarks() (pomodoro.js) cambia los botones por ■ Detener -->
+            <div class="card-timer" id="cardTimer" role="group" aria-label="Tiempo de la tarea">
+                <button type="button" class="card-timer-btn primary timer-idle" data-timer="stopwatch">▶ Cronómetro</button>
+                <button type="button" class="card-timer-btn timer-idle" data-timer="focus">🍅 Pomodoro</button>
+                <button type="button" class="card-timer-btn danger timer-on" data-timer="stop">■ Detener <span class="timer-live"></span></button>
+                <button type="button" class="card-timer-btn" data-timer="manual">✍️ Registrar a mano</button>
             </div>
 
             <section class="card-section">

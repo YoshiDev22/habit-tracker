@@ -317,6 +317,7 @@ async function loadTasks(projectId) {
     const container = document.getElementById(`tasks-${projectId}`);
     if (container && projectsState.expanded.has(projectId)) {
         fillTaskListElement(container, projectId);
+        syncTimerMarks();
     }
 }
 
@@ -427,6 +428,7 @@ function fillTaskListElement(container, projectId) {
             const row = document.createElement('label');
             row.className = 'task-row' + (task.is_done ? ' done' : '');
             row.dataset.taskId = String(task.id);
+            row.dataset.timerTask = String(task.id); // ver syncTimerMarks()
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -444,9 +446,11 @@ function fillTaskListElement(container, projectId) {
             const playBtn = document.createElement('button');
             playBtn.type = 'button';
             playBtn.className = 'task-play';
-            playBtn.setAttribute('aria-label', `Cronometrar la tarea ${task.title}`);
-            playBtn.title = 'Cronometrar esta tarea';
-            playBtn.textContent = '▶';
+            playBtn.dataset.labelIdle = `Cronometrar la tarea ${task.title}`;
+            playBtn.dataset.labelTiming = 'Detener y guardar el tiempo';
+            playBtn.setAttribute('aria-label', playBtn.dataset.labelIdle);
+            playBtn.title = playBtn.dataset.labelIdle;
+            playBtn.innerHTML = '<span class="timer-idle">▶</span><span class="timer-on">■</span>';
 
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
@@ -457,9 +461,11 @@ function fillTaskListElement(container, projectId) {
             // Siempre visible, incluso en 0m: si solo apareciera cuando hay
             // tiempo, una tarea sin registros no se distinguiría de una a la
             // que la columna no llega.
+            // Mientras corre, el total cede su sitio al reloj en vivo
             const time = document.createElement('span');
             time.className = 'task-time';
-            time.textContent = formatDuration(taskSeconds);
+            time.innerHTML = '<span class="timer-idle"></span><span class="timer-live"></span>';
+            time.firstChild.textContent = formatDuration(taskSeconds);
 
             row.appendChild(checkbox);
             row.appendChild(title);
@@ -629,6 +635,7 @@ function renderProjects() {
             }
         }
     });
+    syncTimerMarks();
 }
 
 // ============================================
@@ -677,7 +684,7 @@ projectsList.addEventListener('click', (event) => {
     if (playTaskBtn) {
         const row = playTaskBtn.closest('.task-row');
         const projectId = Number(playTaskBtn.closest('.task-list').dataset.projectId);
-        startStopwatchForTask(projectId, Number(row.dataset.taskId), row.querySelector('.task-title').textContent);
+        toggleTimerForTask(projectId, Number(row.dataset.taskId), row.querySelector('.task-title').textContent);
         return;
     }
 

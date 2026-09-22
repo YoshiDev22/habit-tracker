@@ -494,6 +494,15 @@ function startStopwatchForTask(projectId, taskId, taskTitle = '') {
     return startTimerForTask(projectId, taskId, 'stopwatch', taskTitle);
 }
 
+// El ▶ de una tarea: si ESA tarea está corriendo, se convierte en ■ y detiene
+// (guarda el tiempo); si no, arranca el cronómetro en ella. Antes siempre
+// arrancaba, y pulsarlo con el cronómetro en marcha solo ofrecía reiniciarlo.
+function toggleTimerForTask(projectId, taskId, taskTitle = '') {
+    const isActive = pomoState.status === 'running' || pomoState.status === 'paused';
+    if (isActive && pomoState.taskId === taskId) return stopTimer();
+    return startTimerForTask(projectId, taskId, 'stopwatch', taskTitle);
+}
+
 function startBreak(mode) {
     clearBarMessage();
     if (pomoState.status !== 'idle') return;
@@ -652,15 +661,35 @@ function renderPomoUI() {
         document.title = 'Habit Tracker';
     }
 
-    // Marca la fila (lista) y la tarjeta (tablero) de la tarea que se está
-    // cronometrando. Las dos se repintan al refrescar, y esto corre en cada
-    // tick, así que aquí solo se ajusta la clase.
-    document.querySelectorAll('.task-row.timing, .board-card.timing').forEach(el => el.classList.remove('timing'));
-    if (isActive && pomoState.taskId) {
-        document.querySelectorAll(
-            `.task-row[data-task-id="${pomoState.taskId}"], .board-card[data-task-id="${pomoState.taskId}"]`
-        ).forEach(el => el.classList.add('timing'));
-    }
+    syncTimerMarks(clock);
+}
+
+// Todo elemento con data-timer-task="<id>" (tarjeta del tablero, fila de la
+// lista, botonera del detalle) se entera de si SU tarea está corriendo: recibe
+// la clase .timing, sus .timer-live muestran el reloj, y sus botones con
+// data-label-idle/data-label-timing cambian de nombre. Lo que se ve u oculta
+// (▶ o ■, total o reloj) lo decide el CSS con esa clase. Corre en cada tick y
+// después de cada repintado del tablero o la lista, que la pierden al rehacerse.
+function syncTimerMarks(clock = null) {
+    const isActive = pomoState.status === 'running' || pomoState.status === 'paused';
+    const liveTaskId = isActive && pomoState.taskId ? String(pomoState.taskId) : null;
+    const text = liveTaskId ? (clock || pomoClockText()) : '';
+
+    document.querySelectorAll('[data-timer-task]').forEach(el => {
+        const timing = el.dataset.timerTask === liveTaskId;
+        el.classList.toggle('timing', timing);
+        el.querySelectorAll('.timer-live').forEach(live => { live.textContent = timing ? text : ''; });
+        el.querySelectorAll('[data-label-idle]').forEach(button => {
+            const label = timing ? button.dataset.labelTiming : button.dataset.labelIdle;
+            button.title = label;
+            button.setAttribute('aria-label', label);
+        });
+    });
+}
+
+function pomoClockText() {
+    if (isStopwatch(pomoState)) return formatStopwatch(Math.floor(getElapsedMs(pomoState) / 1000));
+    return formatClock(Math.max(0, Math.ceil(getRemainingMs(pomoState) / 1000)));
 }
 
 // ============================================

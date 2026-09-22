@@ -2311,8 +2311,7 @@ body.board-wide .board-column {
     color: var(--text-muted);
 }
 
-.card-field select,
-.card-timer select {
+.card-field select {
     min-width: 0;
     padding: 8px 10px;
     border: 1px solid var(--border-color);
@@ -2324,19 +2323,36 @@ body.board-wide .board-column {
 
 .card-timer {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 8px;
 }
 
-.card-timer select {
-    flex: 1;
+.card-timer-btn {
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
 }
 
-.card-timer .submit-btn {
-    width: auto;
-    margin-top: 0;
-    padding: 8px 16px;
-    font-size: 0.85rem;
+.card-timer-btn:hover {
+    background: var(--bg-hover);
+}
+
+.card-timer-btn.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+
+.card-timer-btn.danger {
+    border-color: var(--danger-solid);
+    background: var(--danger-solid);
+    color: var(--text-on-accent);
 }
 
 .card-section {
@@ -2905,11 +2921,6 @@ body.board-wide .board-column {
     box-shadow: 0 0 0 1px var(--accent);
 }
 
-.board-card.timing .board-card-play {
-    opacity: 1;
-    background: var(--accent);
-    color: var(--text-on-accent);
-}
 
 /* ============================================
    Primer tablero (board.js)
@@ -2955,4 +2966,34 @@ body.board-wide .board-column {
     margin-top: 0;
     padding: 10px 18px;
     font-size: 0.9rem;
+}
+
+/* ============================================
+   Tarea corriendo (syncTimerMarks en pomodoro.js)
+   ============================================
+   Un elemento con data-timer-task recibe .timing cuando su tarea corre:
+   .timer-idle se oculta (▶, el total, Cronómetro/Pomodoro) y aparecen
+   .timer-on y .timer-live (■, el reloj en vivo, Detener). */
+
+[data-timer-task]:not(.timing) .timer-on,
+[data-timer-task]:not(.timing) .timer-live,
+[data-timer-task].timing .timer-idle {
+    display: none;
+}
+
+.timer-live {
+    color: var(--accent);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.card-timer-btn .timer-live {
+    color: inherit;
+}
+
+.task-row.timing .task-play,
+.board-card.timing .board-card-play {
+    opacity: 1;
+    background: var(--danger-solid);
+    color: var(--text-on-accent);
 }
