@@ -233,7 +233,8 @@ def update_task(
     """
     Actualiza parcialmente una tarea (título, notas, orden, cambiarle el
     proyecto o moverla de columna, incluso a la de otro tablero).
-    project_id: null la deja en "Sin asignar".
+    project_id: null la deja en "Sin asignar". Al cambiar de proyecto, el
+    tiempo registrado en la tarea se va con ella.
 
     is_done y column_id van siempre juntos:
     - column_id (mover de columna) manda: is_done pasa a ser "la columna es
@@ -305,6 +306,19 @@ def update_task(
     tag_ids = update_data.pop("tag_ids", None)
     if tag_ids is not None:
         _set_task_tags(session, current_user.id, task.id, tag_ids)
+
+    # El tiempo es de la tarea: si cambia de proyecto, sus sesiones también.
+    # Sin esto, asignarle proyecto a una tarea de "Sin asignar" dejaba sus
+    # horas en "Sin asignar" para siempre.
+    if "project_id" in update_data and update_data["project_id"] != task.project_id:
+        for s in session.exec(
+            select(PomodoroSession).where(
+                PomodoroSession.user_id == current_user.id,
+                PomodoroSession.task_id == task.id
+            )
+        ).all():
+            s.project_id = update_data["project_id"]
+            session.add(s)
 
     for field, value in update_data.items():
         setattr(task, field, value)
