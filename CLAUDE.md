@@ -187,8 +187,10 @@ Lo que no se deduce leyendo los modelos:
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;
   sus tareas sí.
 - **Los defaults y el relleno son perezosos**: `ensure_user_setup()` (`backend/boards.py`)
-  crea los estados de proyecto, "Mi tablero" con sus columnas y "Sin asignar", y asigna
-  columna/estado a lo que no lo tenga. Corre en los endpoints que lo necesitan, no en
+  crea los estados de proyecto y "Sin asignar", y asigna columna/estado a lo que no lo
+  tenga. "Mi tablero" solo se crea si hay tareas sin columna que acomodar (datos de antes
+  de los tableros) o al crear una tarea sin tener ningún tablero; un usuario nuevo empieza
+  sin tableros y `board.js` le ofrece crear el primero al entrar a la pestaña. Corre en los endpoints que lo necesitan, no en
   `migrate.py`, porque esas tablas las crea `create_all()` DESPUÉS de que migrate.py corre.
   Es idempotente, y una restricción única por nombre frena la doble siembra concurrente.
 - **Etiquetas y tiempo**: una sesión cuenta en cada etiqueta de su tarea, así que los

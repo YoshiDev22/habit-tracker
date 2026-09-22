@@ -2895,3 +2895,49 @@ body.board-wide .board-column {
     background: var(--accent);
     color: var(--text-on-accent);
 }
+
+/* ============================================
+   Primer tablero (board.js)
+   ============================================ */
+
+.onboarding-modal {
+    max-width: 420px;
+    padding: 28px 24px 24px;
+}
+
+.onboarding-modal .modal-title {
+    margin-bottom: 8px;
+}
+
+.onboarding-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.onboarding-form input {
+    padding: 12px 14px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.onboarding-form input:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.onboarding-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.onboarding-actions .submit-btn {
+    margin-top: 0;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+}

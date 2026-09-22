@@ -123,9 +123,13 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
     """
     Deja al usuario listo para el tablero, y es idempotente:
     - estados de proyecto por defecto, si no tiene;
-    - un tablero "Mi tablero" con sus columnas, si no tiene ninguno;
     - el proyecto "Sin asignar", si no lo tiene;
     - estado para los proyectos y columna para las tareas que no lo tengan.
+
+    "Mi tablero" solo se crea si hay tareas que acomodar (las que existían
+    antes de los tableros): un usuario nuevo empieza sin tableros y la
+    pantalla le ofrece crear el primero. Crear una tarea sin tablero lo crea
+    en ese momento (ver create_task).
 
     Vive aquí y no en scripts/migrate.py por el orden del deploy: migrate.py
     corre ANTES de reiniciar el servicio, y estas tablas las crea
@@ -141,11 +145,6 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
             session.add(ProjectStatus(
                 user_id=user_id, category=category, name=name, color=color, order=order,
             ))
-        _commit_seed(session)
-
-    has_board = session.exec(select(Board.id).where(Board.user_id == user_id)).first()
-    if has_board is None:
-        add_board_with_columns(session, user_id, DEFAULT_BOARD_NAME)
         _commit_seed(session)
 
     if unassigned_project_id(session, user_id) is None:
@@ -174,6 +173,10 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
     if not orphan_tasks and not orphan_projects:
         return
 
+    if orphan_tasks and session.exec(select(Board.id).where(Board.user_id == user_id)).first() is None:
+        add_board_with_columns(session, user_id, DEFAULT_BOARD_NAME)
+        _commit_seed(session)
+
     # Lo que ya existía se traduce sin perder nada: una tarea marcada va a
     # "Hecho" y una pendiente a "Por hacer" del primer tablero; los proyectos
     # quedan "En curso". is_active no se toca: lo archivado sigue archivado.
@@ -183,8 +186,8 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
         board_id = session.exec(
             select(Board.id).where(Board.user_id == user_id).order_by(Board.order, Board.id)
         ).first()
-    done_id = first_column_id(session, board_id, "done")
-    todo_id = first_column_id(session, board_id, "todo")
+    done_id = first_column_id(session, board_id, "done") if board_id else None
+    todo_id = first_column_id(session, board_id, "todo") if board_id else None
     active_id = first_project_status_id(session, user_id, "active")
 
     for t in orphan_tasks:

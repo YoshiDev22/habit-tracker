@@ -23,6 +23,7 @@ const boardState = {
     filterTags: new Set(),
     mobileColumnId: null,   // la columna visible en pantallas angostas
     view: 'board',
+    loaded: false,          // ya se sabe si el usuario tiene tableros
 };
 
 const boardSelect = document.getElementById('boardSelect');
@@ -84,8 +85,10 @@ async function loadBoard() {
             boardState.tasks = [];
         }
 
+        boardState.loaded = true;
         renderBoardSelect();
         renderBoard();
+        maybeOfferFirstBoard();
     } catch (error) {
         console.error('Error al cargar el tablero:', error);
     }
@@ -1044,6 +1047,7 @@ document.addEventListener('keydown', (event) => {
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
     if (!cardModal.classList.contains('hidden')) closeCardModal();
     else if (!boardConfigModal.classList.contains('hidden')) closeBoardConfig();
+    else if (!boardOnboardingModal.classList.contains('hidden')) skipFirstBoard();
 });
 
 // ============================================
@@ -1491,6 +1495,49 @@ configStatusForm.addEventListener('submit', (event) => {
 });
 
 // ============================================
+// Primer tablero
+// ============================================
+//
+// Un usuario sin tableros (el backend solo crea "Mi tablero" si ya tenía
+// tareas) recibe esta oferta cada vez que entra a Tableros. Omitir lo
+// devuelve al Calendario: la pestaña no tiene nada que enseñar sin tablero.
+
+const boardOnboardingModal = document.getElementById('boardOnboardingModal');
+const boardOnboardingForm = document.getElementById('boardOnboardingForm');
+const boardOnboardingName = document.getElementById('boardOnboardingName');
+const boardOnboardingError = document.getElementById('boardOnboardingError');
+
+function maybeOfferFirstBoard() {
+    if (!boardState.loaded || boardState.boards.length > 0) return;
+    if (currentViewIndex !== 1 || !boardOnboardingModal.classList.contains('hidden')) return;
+    boardOnboardingError.classList.add('hidden');
+    showModal(boardOnboardingModal);
+    boardOnboardingName.focus();
+}
+
+function skipFirstBoard() {
+    hideModal(boardOnboardingModal);
+    goToView(0);
+}
+
+boardOnboardingForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = boardOnboardingName.value.trim() || boardOnboardingName.placeholder;
+    try {
+        const board = await apiFetch('/api/boards', { method: 'POST', json: { name } });
+        boardState.boardId = board.id;
+        writeStored(SELECTED_BOARD_KEY, String(board.id));
+        hideModal(boardOnboardingModal);
+        await refreshAfterBoardChange();
+    } catch (error) {
+        showError(boardOnboardingError, error.message || 'No se pudo crear el tablero');
+    }
+});
+
+document.getElementById('boardOnboardingSkip').addEventListener('click', skipFirstBoard);
+boardOnboardingModal.querySelector('.modal-overlay').addEventListener('click', skipFirstBoard);
+
+// ============================================
 // Hooks
 // ============================================
 
@@ -1517,6 +1564,7 @@ function resetBoard() {
     boardState.filterProjects.clear();
     boardState.filterTags.clear();
     boardState.mobileColumnId = null;
+    boardState.loaded = false;
     boardColumns.innerHTML = '';
     boardColumnTabs.innerHTML = '';
     boardFilters.innerHTML = '';
@@ -1529,3 +1577,4 @@ window.appLogoutHooks.push(resetBoard);
 // porque usa su resumen para el tiempo de cada tarjeta.
 window.projectsChangedHooks.push(loadBoard);
 window.viewChangedHooks.push(applyWideLayout);
+window.viewChangedHooks.push(maybeOfferFirstBoard);

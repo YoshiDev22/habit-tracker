@@ -543,6 +543,24 @@
         </div>
     </div>
 
+    <!-- Primer tablero (board.js): se ofrece al entrar a Tableros sin tener
+         ninguno. Omitir (o cerrar) vuelve al Calendario. -->
+    <div id="boardOnboardingModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="boardOnboardingTitle">
+            <h2 class="modal-title" id="boardOnboardingTitle">Crea tu primer tablero</h2>
+            <p class="setup-subtitle">Un tablero reúne tus tareas en columnas: Por hacer, Haciendo y Hecho. Puedes tener varios, por ejemplo "Escuela" o "Trabajo".</p>
+            <form id="boardOnboardingForm" class="onboarding-form">
+                <input type="text" id="boardOnboardingName" maxlength="60" placeholder="Mi tablero" aria-label="Nombre del tablero">
+                <div id="boardOnboardingError" class="form-error hidden" role="alert"></div>
+                <div class="onboarding-actions">
+                    <button type="button" id="boardOnboardingSkip" class="submit-btn btn-neutral">Omitir</button>
+                    <button type="submit" class="submit-btn">Crear tablero</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Organizar: tableros y sus columnas (board.js). Cada cambio se guarda
          al hacerlo; el tablero se refresca al cerrar. -->
     <div id="boardConfigModal" class="modal hidden">

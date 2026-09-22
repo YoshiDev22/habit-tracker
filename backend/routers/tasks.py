@@ -17,8 +17,8 @@ from backend.schemas import (
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
 from backend.boards import (
-    ensure_user_setup, default_board_id, first_column_id, get_owned_board, get_owned_column,
-    unassigned_project_id,
+    DEFAULT_BOARD_NAME, add_board_with_columns, ensure_user_setup, default_board_id,
+    first_column_id, get_owned_board, get_owned_column, unassigned_project_id,
 )
 
 router = APIRouter(tags=["tasks"])
@@ -172,7 +172,8 @@ def create_task(
     - column_id: en esa columna. Si es "done", nace hecha, con
       completed_at = ?today.
     - board_id sin column_id: en la primera columna "todo" de ese tablero.
-    - ninguno: en la primera "todo" del primer tablero activo.
+    - ninguno: en la primera "todo" del primer tablero activo, que se crea
+      ("Mi tablero") si el usuario todavía no tiene ninguno.
     """
     ensure_user_setup(session, current_user.id)
 
@@ -200,6 +201,8 @@ def create_task(
             board_id = get_owned_board(session, current_user.id, task_in.board_id).id
         else:
             board_id = default_board_id(session, current_user.id)
+            if board_id is None:
+                board_id = add_board_with_columns(session, current_user.id, DEFAULT_BOARD_NAME).id
         column_id, is_done = first_column_id(session, board_id, "todo"), False
 
     new_task = Task(
