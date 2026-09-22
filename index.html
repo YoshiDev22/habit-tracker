@@ -585,16 +585,17 @@
                     <label for="configColumnsBoard">Columnas de</label>
                     <select id="configColumnsBoard" class="config-board-select"></select>
                 </h3>
-                <p class="config-hint">El tipo decide qué pasa con la tarea: en una columna "Terminado" se marca como hecha.</p>
+                <p class="config-hint">📥 <strong>Entrada</strong>: ahí llegan las tareas nuevas. ✓ <strong>Terminada</strong>: una tarea que muevas ahí cuenta como hecha.</p>
                 <div id="configColumns" class="config-list"></div>
-                <form id="configColumnForm" class="config-add-row">
-                    <input type="text" maxlength="40" placeholder="Nueva columna" aria-label="Nombre de la columna nueva">
-                    <select aria-label="Tipo de la columna nueva">
-                        <option value="todo">Pendiente</option>
-                        <option value="doing" selected>En progreso</option>
-                        <option value="done">Terminado</option>
-                    </select>
-                    <button type="submit" aria-label="Añadir columna">+</button>
+                <form id="configColumnForm" class="config-add-column">
+                    <div class="config-add-row">
+                        <input type="text" maxlength="40" placeholder="Nueva columna (ej: En revisión)" aria-label="Nombre de la columna nueva">
+                        <button type="submit" aria-label="Añadir columna">+</button>
+                    </div>
+                    <label class="config-check">
+                        <input type="checkbox" id="configColumnDone">
+                        ✓ Las tareas aquí cuentan como terminadas
+                    </label>
                 </form>
             </section>
 

@@ -1054,7 +1054,19 @@ document.addEventListener('keydown', (event) => {
 // Organizar: tableros y columnas
 // ============================================
 
-const COLUMN_CATEGORY_LABELS = { todo: 'Pendiente', doing: 'En progreso', done: 'Terminado' };
+// De una columna solo se enseña lo que cambia algo: la primera "todo" es por
+// donde entran las tareas nuevas, y las "done" marcan la tarea como hecha.
+// "doing" no hace nada especial, así que no lleva marca.
+function columnBadge(column, columns) {
+    const entry = columns.find(c => c.category === 'todo');
+    if (entry && entry.id === column.id) {
+        return { text: '📥 Entrada', title: 'Aquí llegan las tareas nuevas, y aquí vuelve una tarea al quitarle la palomita' };
+    }
+    if (column.category === 'done') {
+        return { text: '✓ Terminada', title: 'Una tarea que muevas aquí cuenta como hecha' };
+    }
+    return { text: '', title: '' };
+}
 const PROJECT_STATUS_LABELS = { idea: 'Idea', active: 'Activo', paused: 'En pausa', done: 'Terminado' };
 
 const boardConfigModal = document.getElementById('boardConfigModal');
@@ -1111,7 +1123,7 @@ function configButton(className, label, text) {
     return button;
 }
 
-function buildConfigRow({ id, color, name, maxLength, typeLabel, first, last, reorder, deleteClass }) {
+function buildConfigRow({ id, color, name, maxLength, typeLabel, typeTitle, first, last, reorder, deleteClass }) {
     const row = document.createElement('div');
     row.className = 'config-row';
     row.dataset.itemId = String(id);
@@ -1132,10 +1144,12 @@ function buildConfigRow({ id, color, name, maxLength, typeLabel, first, last, re
     row.appendChild(colorInput);
     row.appendChild(nameInput);
 
-    if (typeLabel) {
+    // Vacío también ocupa su sitio, para que las filas queden alineadas
+    if (typeLabel !== undefined) {
         const type = document.createElement('span');
         type.className = 'config-type';
         type.textContent = typeLabel;
+        if (typeTitle) type.title = typeTitle;
         row.appendChild(type);
     }
     if (reorder) {
@@ -1228,7 +1242,8 @@ function renderConfig() {
     board.columns.forEach((column, index) => {
         configColumnsEl.appendChild(buildConfigRow({
             id: column.id, color: column.color, name: column.name, maxLength: 40,
-            typeLabel: COLUMN_CATEGORY_LABELS[column.category] || column.category,
+            typeLabel: columnBadge(column, board.columns).text,
+            typeTitle: columnBadge(column, board.columns).title,
             first: index === 0, last: index === board.columns.length - 1,
             reorder: true, deleteClass: 'config-delete-column',
         }));
@@ -1409,14 +1424,17 @@ configColumnsEl.addEventListener('click', (event) => {
 
 configColumnForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    const input = configColumnForm.querySelector('input');
-    const category = configColumnForm.querySelector('select').value;
+    const input = configColumnForm.querySelector('input[type="text"]');
+    const doneBox = document.getElementById('configColumnDone');
+    // "doing" es el tipo neutro; "todo" solo lo tiene la columna de entrada
+    const category = doneBox.checked ? 'done' : 'doing';
     const name = input.value.trim();
     const boardId = configState.columnsBoardId;
     if (!name || boardId === null) return;
     configAction(async () => {
         await apiFetch(`/api/boards/${boardId}/columns`, { method: 'POST', json: { name, category } });
         input.value = '';
+        doneBox.checked = false;
     });
 });
 

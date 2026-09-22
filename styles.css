@@ -2710,6 +2710,21 @@ body.board-wide .board-column {
     gap: 6px;
 }
 
+.config-add-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.config-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
 .config-add-row input,
 .config-add-row select {
     min-width: 0;

@@ -292,8 +292,9 @@ def delete_column(
 ):
     """
     Borra una columna vacía. Con tareas devuelve 409: hay que moverlas antes.
-    Tampoco se puede borrar la última de su categoría en el tablero, porque
-    el checkbox de "hecho" necesita siempre a dónde mandar la tarea.
+    Tampoco se puede borrar la última "todo" (la entrada, donde llegan las
+    tareas nuevas y vuelven las que se desmarcan) ni la última "done" (a
+    donde las manda el checkbox). La última "doing" sí: no hace nada especial.
     """
     column = _get_board_column(session, current_user.id, board_id, column_id)
 
@@ -308,16 +309,22 @@ def delete_column(
             detail=f"'{column.name}' tiene {in_use} tareas. Muévelas a otra columna antes de borrarla"
         )
 
-    siblings = session.exec(
-        select(func.count()).select_from(BoardColumn).where(
-            BoardColumn.board_id == board_id, BoardColumn.category == column.category
-        )
-    ).one()
-    if siblings <= 1:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"'{column.name}' es la única columna de su tipo en este tablero y no se puede borrar"
-        )
+    if column.category in ("todo", "done"):
+        siblings = session.exec(
+            select(func.count()).select_from(BoardColumn).where(
+                BoardColumn.board_id == board_id, BoardColumn.category == column.category
+            )
+        ).one()
+        if siblings <= 1:
+            reason = (
+                "es la columna de entrada, donde llegan las tareas nuevas"
+                if column.category == "todo"
+                else "es la única columna que marca las tareas como terminadas"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"'{column.name}' {reason}, y el tablero la necesita"
+            )
 
     session.delete(column)
     session.commit()
