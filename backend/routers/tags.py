@@ -1,6 +1,6 @@
 from datetime import date as date_type
-from typing import Dict, Optional, Set
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Dict, List, Optional, Set
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
 
 from backend.database import get_session
@@ -81,16 +81,22 @@ def create_tag(
 # Literal antes que /{tag_id}: al revés, FastAPI intentaría leer "summary" como int
 @router.get("/summary", response_model=TagSummaryListResponse)
 def get_tags_summary(
+    tag_ids: Optional[List[int]] = Query(default=None),
     date_from: Optional[date_type] = None,
     date_to: Optional[date_type] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Tiempo de enfoque por etiqueta: la suma de las sesiones "focus" de las
-    tareas que la llevan, opcionalmente entre dos fechas (session_date,
-    la fecha local del usuario). Una sesión cuenta en cada etiqueta de su
-    tarea, así que los totales pueden sumar más que el tiempo real.
+    Tiempo de enfoque por etiqueta, opcionalmente entre dos fechas
+    (session_date, la fecha local del usuario).
+
+    - summaries: desglose por etiqueta. Una sesión cuenta en cada etiqueta de
+      su tarea, así que estos totales no se suman entre sí.
+    - combined_*: las sesiones con CUALQUIERA de las etiquetas de ?tag_ids=
+      (repetible: ?tag_ids=1&tag_ids=2), o con alguna etiqueta si no se pasa;
+      cada sesión UNA vez.
+    - untagged_*: sesiones sin ninguna etiqueta, con o sin tarea.
     """
     tags = session.exec(
         select(Tag).where(Tag.user_id == current_user.id).order_by(Tag.name)
@@ -102,27 +108,36 @@ def get_tags_summary(
     ).all():
         tags_by_task.setdefault(task_id, set()).add(tag_id)
 
+    selected = set(tag_ids) if tag_ids else {t.id for t in tags}
+
+    query = select(PomodoroSession).where(
+        PomodoroSession.user_id == current_user.id,
+        PomodoroSession.mode == "focus",
+    )
+    if date_from is not None:
+        query = query.where(PomodoroSession.session_date >= date_from)
+    if date_to is not None:
+        query = query.where(PomodoroSession.session_date <= date_to)
+
     seconds: Dict[int, int] = {}
     sessions: Dict[int, int] = {}
-    if tags_by_task:
-        query = select(PomodoroSession).where(
-            PomodoroSession.user_id == current_user.id,
-            PomodoroSession.mode == "focus",
-            PomodoroSession.task_id.in_(list(tags_by_task)),
-        )
-        if date_from is not None:
-            query = query.where(PomodoroSession.session_date >= date_from)
-        if date_to is not None:
-            query = query.where(PomodoroSession.session_date <= date_to)
-
-        for s in session.exec(query).all():
-            for tag_id in tags_by_task[s.task_id]:
-                seconds[tag_id] = seconds.get(tag_id, 0) + s.duration_seconds
-                sessions[tag_id] = sessions.get(tag_id, 0) + 1
+    combined_seconds = combined_count = untagged_seconds = untagged_count = 0
+    for s in session.exec(query).all():
+        session_tags = tags_by_task.get(s.task_id, set())
+        if not session_tags:
+            untagged_seconds += s.duration_seconds
+            untagged_count += 1
+            continue
+        for tag_id in session_tags:
+            seconds[tag_id] = seconds.get(tag_id, 0) + s.duration_seconds
+            sessions[tag_id] = sessions.get(tag_id, 0) + 1
+        if session_tags & selected:
+            combined_seconds += s.duration_seconds
+            combined_count += 1
 
     task_count: Dict[int, int] = {}
-    for tag_ids in tags_by_task.values():
-        for tag_id in tag_ids:
+    for task_tags in tags_by_task.values():
+        for tag_id in task_tags:
             task_count[tag_id] = task_count.get(tag_id, 0) + 1
 
     summaries = [
@@ -136,7 +151,14 @@ def get_tags_summary(
         )
         for t in tags
     ]
-    return TagSummaryListResponse(summaries=summaries, total=len(summaries))
+    return TagSummaryListResponse(
+        summaries=summaries,
+        total=len(summaries),
+        combined_seconds=combined_seconds,
+        combined_session_count=combined_count,
+        untagged_seconds=untagged_seconds,
+        untagged_session_count=untagged_count,
+    )
 
 
 @router.patch("/{tag_id}", response_model=TagResponse)

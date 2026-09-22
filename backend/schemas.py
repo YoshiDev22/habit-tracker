@@ -458,9 +458,23 @@ class TagSummary(SQLModel):
 
 
 class TagSummaryListResponse(SQLModel):
-    """Resumen de tiempo por etiqueta"""
+    """
+    Resumen de tiempo por etiqueta.
+
+    summaries es el desglose: cada etiqueta con su total, y una sesión
+    aparece en todas las etiquetas de su tarea. Por eso NO se suman entre sí.
+
+    combined_* es el total real de las etiquetas pedidas (?tag_ids=, o todas
+    si no se pide ninguna): cada sesión cuenta UNA vez aunque tenga varias.
+    untagged_* es el tiempo de enfoque sin ninguna etiqueta, incluido el que
+    se registró sin tarea: lo que falta clasificar.
+    """
     summaries: List[TagSummary]
     total: int
+    combined_seconds: int = 0
+    combined_session_count: int = 0
+    untagged_seconds: int = 0
+    untagged_session_count: int = 0
 
 
 # ==================== Checklist Schemas ====================
