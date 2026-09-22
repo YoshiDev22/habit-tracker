@@ -2642,3 +2642,201 @@ body.board-wide .board-column {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================
+   Organizar: tableros, columnas (board.js)
+   ============================================ */
+
+.board-config-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.board-config-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.config-modal {
+    max-width: 560px;
+    padding: 24px;
+    text-align: left;
+}
+
+.config-modal .modal-title {
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+.config-section + .config-section {
+    padding-top: 16px;
+    margin-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.config-section-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.config-board-select {
+    min-width: 0;
+    max-width: 100%;
+    padding: 4px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.config-hint {
+    margin-bottom: 8px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.config-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.config-archived {
+    margin-top: 10px;
+}
+
+.config-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.config-archived .config-row + .config-row {
+    margin-top: 6px;
+}
+
+.config-name {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.config-row.archived .config-name {
+    border-style: dashed;
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.config-name:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.config-color {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+}
+
+.config-type {
+    flex-shrink: 0;
+    min-width: 84px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.config-action {
+    flex-shrink: 0;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.config-action:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.config-action:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.config-action.danger:hover {
+    border-color: var(--danger-fg);
+    color: var(--danger-fg);
+}
+
+.config-add-row {
+    display: flex;
+    gap: 6px;
+}
+
+.config-add-row input,
+.config-add-row select {
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.config-add-row input {
+    flex: 1;
+}
+
+.config-add-row button {
+    padding: 0 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+@media (max-width: 480px) {
+    .config-modal {
+        width: 94%;
+        padding: 18px;
+    }
+
+    .config-type {
+        min-width: 0;
+    }
+}

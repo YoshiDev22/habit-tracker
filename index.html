@@ -208,6 +208,7 @@
                          la elección en localStorage.projects_view. -->
                     <div class="board-toolbar">
                         <select id="boardSelect" class="board-select" aria-label="Tablero"></select>
+                        <button type="button" id="boardConfigBtn" class="board-config-btn" aria-label="Organizar tableros, columnas y etiquetas" title="Organizar">⚙</button>
                         <div class="view-toggle" role="group" aria-label="Cómo ver los proyectos">
                             <button type="button" class="view-toggle-btn" data-projects-view="board" aria-pressed="true">Tablero</button>
                             <button type="button" class="view-toggle-btn" data-projects-view="list" aria-pressed="false">Lista</button>
@@ -558,6 +559,45 @@
             <div class="card-footer">
                 <button type="button" id="cardDeleteBtn" class="card-delete">Eliminar tarjeta</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Organizar: tableros y sus columnas (board.js). Cada cambio se guarda
+         al hacerlo; el tablero se refresca al cerrar. -->
+    <div id="boardConfigModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content config-modal" role="dialog" aria-modal="true" aria-labelledby="boardConfigTitle">
+            <button class="modal-close" type="button" id="closeBoardConfigBtn" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="boardConfigTitle">Organizar</h2>
+            <div id="boardConfigError" class="form-error hidden" role="alert"></div>
+
+            <section class="config-section">
+                <h3 class="config-section-title">Tableros</h3>
+                <div id="configBoards" class="config-list"></div>
+                <form id="configBoardForm" class="card-inline-form">
+                    <input type="text" id="configNewBoard" maxlength="60" placeholder="Nuevo tablero (ej: Escuela)" aria-label="Nombre del tablero nuevo">
+                    <button type="submit" aria-label="Crear tablero">+</button>
+                </form>
+                <div id="configArchivedBoards" class="config-archived"></div>
+            </section>
+
+            <section class="config-section">
+                <h3 class="config-section-title">
+                    <label for="configColumnsBoard">Columnas de</label>
+                    <select id="configColumnsBoard" class="config-board-select"></select>
+                </h3>
+                <p class="config-hint">El tipo decide qué pasa con la tarea: en una columna "Terminado" se marca como hecha.</p>
+                <div id="configColumns" class="config-list"></div>
+                <form id="configColumnForm" class="config-add-row">
+                    <input type="text" maxlength="40" placeholder="Nueva columna" aria-label="Nombre de la columna nueva">
+                    <select aria-label="Tipo de la columna nueva">
+                        <option value="todo">Pendiente</option>
+                        <option value="doing" selected>En progreso</option>
+                        <option value="done">Terminado</option>
+                    </select>
+                    <button type="submit" aria-label="Añadir columna">+</button>
+                </form>
+            </section>
         </div>
     </div>
 

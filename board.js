@@ -203,6 +203,8 @@ boardFilters.addEventListener('click', (event) => {
 // Render
 // ============================================
 
+const NEW_BOARD_OPTION = 'new';
+
 function renderBoardSelect() {
     boardSelect.innerHTML = '';
     boardState.boards.forEach(board => {
@@ -211,6 +213,10 @@ function renderBoardSelect() {
         option.textContent = board.name;
         boardSelect.appendChild(option);
     });
+    const create = document.createElement('option');
+    create.value = NEW_BOARD_OPTION;
+    create.textContent = '＋ Nuevo tablero…';
+    boardSelect.appendChild(create);
     if (boardState.boardId !== null) boardSelect.value = String(boardState.boardId);
 }
 
@@ -435,6 +441,12 @@ viewToggleBtns.forEach(btn => {
 });
 
 boardSelect.addEventListener('change', () => {
+    if (boardSelect.value === NEW_BOARD_OPTION) {
+        // No es un tablero: se vuelve al que estaba y se abre Organizar
+        boardSelect.value = String(boardState.boardId);
+        openBoardConfig({ focusNewBoard: true });
+        return;
+    }
     boardState.boardId = Number(boardSelect.value);
     writeStored(SELECTED_BOARD_KEY, String(boardState.boardId));
     boardState.filterProjects.clear();
@@ -1027,10 +1039,324 @@ document.getElementById('cardDeleteBtn').addEventListener('click', async () => {
 document.getElementById('closeCardModalBtn').addEventListener('click', closeCardModal);
 cardModal.querySelector('.modal-overlay').addEventListener('click', closeCardModal);
 document.addEventListener('keydown', (event) => {
-    // Con el confirm abierto encima, Escape es de él, no del detalle
-    if (event.key !== 'Escape' || cardModal.classList.contains('hidden')) return;
+    // Con el confirm abierto encima, Escape es de él
+    if (event.key !== 'Escape') return;
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
-    closeCardModal();
+    if (!cardModal.classList.contains('hidden')) closeCardModal();
+    else if (!boardConfigModal.classList.contains('hidden')) closeBoardConfig();
+});
+
+// ============================================
+// Organizar: tableros y columnas
+// ============================================
+
+const COLUMN_CATEGORY_LABELS = { todo: 'Pendiente', doing: 'En progreso', done: 'Terminado' };
+
+const boardConfigModal = document.getElementById('boardConfigModal');
+const boardConfigError = document.getElementById('boardConfigError');
+const configBoardsEl = document.getElementById('configBoards');
+const configArchivedBoardsEl = document.getElementById('configArchivedBoards');
+const configBoardForm = document.getElementById('configBoardForm');
+const configNewBoardInput = document.getElementById('configNewBoard');
+const configColumnsBoard = document.getElementById('configColumnsBoard');
+const configColumnsEl = document.getElementById('configColumns');
+const configColumnForm = document.getElementById('configColumnForm');
+
+const configState = {
+    boards: [],          // todos, archivados incluidos
+    columnsBoardId: null,
+    dirty: false,
+};
+
+function configBoard() {
+    return configState.boards.find(b => b.id === configState.columnsBoardId) || null;
+}
+
+async function reloadConfig() {
+    const data = await apiFetch('/api/boards?include_inactive=true');
+    configState.boards = data.boards;
+    const active = data.boards.filter(b => b.is_active);
+    if (!active.some(b => b.id === configState.columnsBoardId)) {
+        configState.columnsBoardId = active.some(b => b.id === boardState.boardId)
+            ? boardState.boardId
+            : (active[0] ? active[0].id : null);
+    }
+    renderConfig();
+}
+
+function configButton(className, label, text) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.textContent = text;
+    return button;
+}
+
+function renderConfig() {
+    const active = configState.boards.filter(b => b.is_active);
+    const archived = configState.boards.filter(b => !b.is_active);
+
+    configBoardsEl.innerHTML = '';
+    active.forEach(board => {
+        const row = document.createElement('div');
+        row.className = 'config-row';
+        row.dataset.boardId = String(board.id);
+
+        const name = document.createElement('input');
+        name.type = 'text';
+        name.className = 'config-name';
+        name.maxLength = 60;
+        name.value = board.name;
+        name.setAttribute('aria-label', `Nombre del tablero ${board.name}`);
+        row.appendChild(name);
+
+        // El último activo no se archiva ni se borra (el backend lo impide)
+        if (active.length > 1) {
+            row.appendChild(configButton('config-action config-archive-board', `Archivar ${board.name}`, 'Archivar'));
+            row.appendChild(configButton('config-action danger config-delete-board', `Eliminar ${board.name}`, '×'));
+        }
+        configBoardsEl.appendChild(row);
+    });
+
+    configArchivedBoardsEl.innerHTML = '';
+    if (archived.length) {
+        const title = document.createElement('p');
+        title.className = 'config-hint';
+        title.textContent = 'Archivados:';
+        configArchivedBoardsEl.appendChild(title);
+        archived.forEach(board => {
+            const row = document.createElement('div');
+            row.className = 'config-row archived';
+            row.dataset.boardId = String(board.id);
+            const name = document.createElement('span');
+            name.className = 'config-name';
+            name.textContent = board.name;
+            row.appendChild(name);
+            row.appendChild(configButton('config-action config-restore-board', `Restaurar ${board.name}`, 'Restaurar'));
+            row.appendChild(configButton('config-action danger config-delete-board', `Eliminar ${board.name}`, '×'));
+            configArchivedBoardsEl.appendChild(row);
+        });
+    }
+
+    configColumnsBoard.innerHTML = '';
+    active.forEach(board => {
+        const option = document.createElement('option');
+        option.value = String(board.id);
+        option.textContent = board.name;
+        configColumnsBoard.appendChild(option);
+    });
+    if (configState.columnsBoardId !== null) configColumnsBoard.value = String(configState.columnsBoardId);
+
+    configColumnsEl.innerHTML = '';
+    const board = configBoard();
+    if (!board) return;
+    board.columns.forEach((column, index) => {
+        const row = document.createElement('div');
+        row.className = 'config-row';
+        row.dataset.columnId = String(column.id);
+
+        const color = document.createElement('input');
+        color.type = 'color';
+        color.className = 'config-color';
+        color.value = column.color || '#95a5a6';
+        color.setAttribute('aria-label', `Color de ${column.name}`);
+
+        const name = document.createElement('input');
+        name.type = 'text';
+        name.className = 'config-name';
+        name.maxLength = 40;
+        name.value = column.name;
+        name.setAttribute('aria-label', `Nombre de la columna ${column.name}`);
+
+        const type = document.createElement('span');
+        type.className = 'config-type';
+        type.textContent = COLUMN_CATEGORY_LABELS[column.category] || column.category;
+
+        const up = configButton('config-action config-move', `Subir ${column.name}`, '↑');
+        up.dataset.delta = '-1';
+        up.disabled = index === 0;
+        const down = configButton('config-action config-move', `Bajar ${column.name}`, '↓');
+        down.dataset.delta = '1';
+        down.disabled = index === board.columns.length - 1;
+
+        row.appendChild(color);
+        row.appendChild(name);
+        row.appendChild(type);
+        row.appendChild(up);
+        row.appendChild(down);
+        row.appendChild(configButton('config-action danger config-delete-column', `Eliminar ${column.name}`, '×'));
+        configColumnsEl.appendChild(row);
+    });
+}
+
+// Toda acción pasa por aquí: el error del backend (409 de "tiene tareas",
+// nombre repetido...) ya viene en español y se enseña tal cual.
+async function configAction(action) {
+    boardConfigError.classList.add('hidden');
+    try {
+        await action();
+        configState.dirty = true;
+    } catch (error) {
+        showError(boardConfigError, error.message || 'No se pudo guardar el cambio');
+    }
+    try {
+        await reloadConfig();
+    } catch (error) {
+        console.error('Error al recargar Organizar:', error);
+    }
+}
+
+async function openBoardConfig({ focusNewBoard = false } = {}) {
+    configState.dirty = false;
+    configState.columnsBoardId = boardState.boardId;
+    boardConfigError.classList.add('hidden');
+    showModal(boardConfigModal);
+    try {
+        await reloadConfig();
+    } catch (error) {
+        showError(boardConfigError, error.message || 'No se pudo cargar');
+    }
+    if (focusNewBoard) configNewBoardInput.focus();
+}
+
+async function closeBoardConfig() {
+    hideModal(boardConfigModal);
+    if (!configState.dirty) return;
+    // El tablero que se veía pudo archivarse o borrarse
+    const stillActive = configState.boards.some(b => b.is_active && b.id === boardState.boardId);
+    if (!stillActive) {
+        boardState.boardId = null;
+        boardState.mobileColumnId = null;
+    }
+    await refreshAfterBoardChange();
+}
+
+document.getElementById('boardConfigBtn').addEventListener('click', () => openBoardConfig());
+document.getElementById('closeBoardConfigBtn').addEventListener('click', closeBoardConfig);
+boardConfigModal.querySelector('.modal-overlay').addEventListener('click', closeBoardConfig);
+
+configBoardForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const name = configNewBoardInput.value.trim();
+    if (!name) return;
+    configAction(async () => {
+        const board = await apiFetch('/api/boards', { method: 'POST', json: { name } });
+        configNewBoardInput.value = '';
+        // El tablero nuevo pasa a ser el que se ve y el que se configura
+        boardState.boardId = board.id;
+        boardState.mobileColumnId = null;
+        boardState.filterProjects.clear();
+        boardState.filterTags.clear();
+        writeStored(SELECTED_BOARD_KEY, String(board.id));
+        configState.columnsBoardId = board.id;
+    });
+});
+
+// "change" de un input de texto salta al salir del campo tras editarlo
+configBoardsEl.addEventListener('change', (event) => {
+    const input = event.target.closest('.config-name');
+    if (!input) return;
+    const boardId = Number(input.closest('.config-row').dataset.boardId);
+    const name = input.value.trim();
+    if (!name) {
+        renderConfig();
+        return;
+    }
+    configAction(() => apiFetch(`/api/boards/${boardId}`, { method: 'PATCH', json: { name } }));
+});
+
+async function handleBoardRowClick(event) {
+    const row = event.target.closest('.config-row');
+    if (!row) return;
+    const boardId = Number(row.dataset.boardId);
+    const board = configState.boards.find(b => b.id === boardId);
+
+    if (event.target.closest('.config-archive-board')) {
+        configAction(() => apiFetch(`/api/boards/${boardId}`, { method: 'PATCH', json: { is_active: false } }));
+    } else if (event.target.closest('.config-restore-board')) {
+        configAction(() => apiFetch(`/api/boards/${boardId}`, { method: 'PATCH', json: { is_active: true } }));
+    } else if (event.target.closest('.config-delete-board')) {
+        const ok = await confirmDialog(
+            `Solo se puede borrar un tablero vacío. Si "${board.name}" tiene tareas, muévelas antes o archívalo.`,
+            { title: '¿Eliminar tablero?', confirmLabel: 'Eliminar', danger: true }
+        );
+        if (ok) configAction(() => apiFetch(`/api/boards/${boardId}`, { method: 'DELETE' }));
+    }
+}
+
+configBoardsEl.addEventListener('click', handleBoardRowClick);
+configArchivedBoardsEl.addEventListener('click', handleBoardRowClick);
+
+configColumnsBoard.addEventListener('change', () => {
+    configState.columnsBoardId = Number(configColumnsBoard.value);
+    renderConfig();
+});
+
+configColumnsEl.addEventListener('change', (event) => {
+    const row = event.target.closest('.config-row');
+    if (!row) return;
+    const boardId = configState.columnsBoardId;
+    const columnId = Number(row.dataset.columnId);
+
+    if (event.target.classList.contains('config-color')) {
+        configAction(() => apiFetch(`/api/boards/${boardId}/columns/${columnId}`, {
+            method: 'PATCH', json: { color: event.target.value },
+        }));
+    } else if (event.target.classList.contains('config-name')) {
+        const name = event.target.value.trim();
+        if (!name) {
+            renderConfig();
+            return;
+        }
+        configAction(() => apiFetch(`/api/boards/${boardId}/columns/${columnId}`, {
+            method: 'PATCH', json: { name },
+        }));
+    }
+});
+
+configColumnsEl.addEventListener('click', (event) => {
+    const row = event.target.closest('.config-row');
+    const board = configBoard();
+    if (!row || !board) return;
+    const columnId = Number(row.dataset.columnId);
+
+    const move = event.target.closest('.config-move');
+    if (move) {
+        const columns = [...board.columns];
+        const from = columns.findIndex(c => c.id === columnId);
+        const to = from + Number(move.dataset.delta);
+        if (to < 0 || to >= columns.length) return;
+        [columns[from], columns[to]] = [columns[to], columns[from]];
+        // Se reescribe el orden de las que cambiaron de sitio
+        configAction(() => Promise.all(columns
+            .map((column, index) => ({ column, index }))
+            .filter(({ column, index }) => column.order !== index)
+            .map(({ column, index }) => apiFetch(`/api/boards/${board.id}/columns/${column.id}`, {
+                method: 'PATCH', json: { order: index },
+            }))));
+        return;
+    }
+
+    if (event.target.closest('.config-delete-column')) {
+        // Sin confirmación: el backend no borra una columna con tareas ni la
+        // última de su tipo, así que lo peor es quitar una columna vacía.
+        configAction(() => apiFetch(`/api/boards/${board.id}/columns/${columnId}`, { method: 'DELETE' }));
+    }
+});
+
+configColumnForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = configColumnForm.querySelector('input');
+    const category = configColumnForm.querySelector('select').value;
+    const name = input.value.trim();
+    const boardId = configState.columnsBoardId;
+    if (!name || boardId === null) return;
+    configAction(async () => {
+        await apiFetch(`/api/boards/${boardId}/columns`, { method: 'POST', json: { name, category } });
+        input.value = '';
+    });
 });
 
 // ============================================
