@@ -7,6 +7,7 @@ from backend.database import get_session
 from backend.models import User, Project, Task, PomodoroSession
 from backend.schemas import TaskCreate, TaskUpdate, TaskResponse, TaskListResponse
 from backend.auth import get_current_user
+from backend.dates import resolve_client_today
 
 router = APIRouter(tags=["tasks"])
 
@@ -78,13 +79,15 @@ def create_task(
 def update_task(
     task_id: int,
     task_in: TaskUpdate,
+    today: Optional[date_type] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Actualiza parcialmente una tarea (título, notas, estado, orden,
     o moverla a otro proyecto). Marcar/desmarcar is_done actualiza
-    completed_at automáticamente.
+    completed_at automáticamente, con la fecha LOCAL del cliente
+    (?today=AAAA-MM-DD, ver resolve_client_today), no la del servidor en UTC.
     """
     task = session.exec(
         select(Task).where(
@@ -115,7 +118,7 @@ def update_task(
             )
 
     if "is_done" in update_data:
-        update_data["completed_at"] = date_type.today() if update_data["is_done"] else None
+        update_data["completed_at"] = resolve_client_today(today) if update_data["is_done"] else None
 
     for field, value in update_data.items():
         setattr(task, field, value)

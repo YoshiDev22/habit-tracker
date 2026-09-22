@@ -700,7 +700,7 @@ async function refreshAfterTaskChange(projectId) {
 
 async function toggleTaskDone(projectId, taskId, isDone) {
     try {
-        await apiFetch(`/api/tasks/${taskId}`, { method: 'PATCH', json: { is_done: isDone } });
+        await apiFetch(`/api/tasks/${taskId}?today=${getDateKey(new Date())}`, { method: 'PATCH', json: { is_done: isDone } });
     } catch (error) {
         console.error('Error al actualizar tarea:', error);
     }
