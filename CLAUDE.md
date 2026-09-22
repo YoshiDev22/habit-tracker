@@ -393,6 +393,11 @@ separarlo deja claro qué se desplegó y cuándo.
 que ya existía, su entrada tiene que estar en `scripts/migrate.py`. El deploy corre
 `python3 scripts/migrate.py` ANTES de reiniciar el servicio. Saltarse esto deja producción
 devolviendo `no such column` en el primer request — ya pasó con `users.rest_days` en la 1.7.0.
+Desde la 1.10.0 la app **se niega a arrancar** si falta alguna columna de esa lista
+(`check_pending_migrations()` en `backend/database.py`, que lee `MIGRATIONS` del propio
+script): si el servicio no levanta tras un deploy, mirar el log, dice qué correr. Por eso
+una columna nueva en una tabla existente **tiene** que ir en `migrate.py`: si no, ni se
+detecta ni se aplica.
 
 ## Producción (VPS Ubuntu)
 

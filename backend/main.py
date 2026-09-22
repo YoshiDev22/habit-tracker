@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
-from backend.database import create_db_and_tables
+from backend.database import create_db_and_tables, check_pending_migrations
 from backend.routers import auth, habits, projects, tasks, pomodoro, boards, project_statuses, tags
 
 # Rutas de los archivos frontend (directorio raíz del proyecto)
@@ -19,8 +19,10 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 with open(os.path.join(BASE_DIR, "VERSION"), encoding="utf-8") as f:
     APP_VERSION = f.read().strip()
 
-# Crear las tablas en la base de datos
+# Crear las tablas en la base de datos, y parar si a alguna existente le
+# faltan columnas por migrar (ver check_pending_migrations)
 create_db_and_tables()
+check_pending_migrations()
 
 # Inicializar FastAPI
 app = FastAPI(
