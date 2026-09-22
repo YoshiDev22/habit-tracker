@@ -88,6 +88,12 @@ def projects_js():
     return FileResponse(get_frontend_path("projects.js"))
 
 
+@app.get("/board.js")
+def board_js():
+    """Serve board.js"""
+    return FileResponse(get_frontend_path("board.js"))
+
+
 @app.get("/pomodoro.js")
 def pomodoro_js():
     """Serve pomodoro.js"""

@@ -204,14 +204,35 @@
                         <p class="pomodoro-note">Suena aunque estés en otra pestaña. Acepta las notificaciones para que además te avise el sistema.</p>
                     </div>
 
-                    <div class="section-header">
-                        <h2 class="section-title">Proyectos</h2>
-                        <button id="addProjectBtn" class="icon-btn" type="button" aria-label="Nuevo proyecto">+</button>
+                    <!-- Tablero o lista: board.js alterna entre las dos y recuerda
+                         la elección en localStorage.projects_view. -->
+                    <div class="board-toolbar">
+                        <select id="boardSelect" class="board-select" aria-label="Tablero"></select>
+                        <div class="view-toggle" role="group" aria-label="Cómo ver los proyectos">
+                            <button type="button" class="view-toggle-btn" data-projects-view="board" aria-pressed="true">Tablero</button>
+                            <button type="button" class="view-toggle-btn" data-projects-view="list" aria-pressed="false">Lista</button>
+                        </div>
                     </div>
-                    <div id="projectsList" class="projects-list"></div>
-                    <p id="projectsEmpty" class="empty-state hidden">
-                        Todavía no tienes proyectos. Usa el botón "+" para crear el primero.
-                    </p>
+
+                    <section id="boardView" class="board-view" aria-label="Tablero">
+                        <div id="boardFilters" class="board-filters"></div>
+                        <p id="boardSummary" class="board-summary" aria-live="polite"></p>
+                        <!-- Solo en pantallas angostas: una columna a la vez, para
+                             que el tablero no pelee con el swipe entre vistas. -->
+                        <div id="boardColumnTabs" class="board-column-tabs" role="tablist" aria-label="Columnas"></div>
+                        <div id="boardColumns" class="board-columns"></div>
+                    </section>
+
+                    <div id="listView" class="hidden">
+                        <div class="section-header">
+                            <h2 class="section-title">Proyectos</h2>
+                            <button id="addProjectBtn" class="icon-btn" type="button" aria-label="Nuevo proyecto">+</button>
+                        </div>
+                        <div id="projectsList" class="projects-list"></div>
+                        <p id="projectsEmpty" class="empty-state hidden">
+                            Todavía no tienes proyectos. Usa el botón "+" para crear el primero.
+                        </p>
+                    </div>
                 </section>
             </div>
         </div>
@@ -503,6 +524,7 @@
 
     <script src="script.js"></script>
     <script src="projects.js"></script>
+    <script src="board.js"></script>
     <script src="pomodoro.js"></script>
 </body>
 </html>

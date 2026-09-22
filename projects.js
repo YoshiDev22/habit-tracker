@@ -18,6 +18,10 @@ let pendingProjectId = null;
 // para mantener sus selects al día sin que este archivo lo conozca.
 window.projectsChangedHooks = [];
 
+// Corren (síncronos) cada vez que goToView() cambia de vista, con el índice
+// nuevo. board.js los usa para ensanchar la app solo mientras se ve el tablero.
+window.viewChangedHooks = [];
+
 // ============================================
 // Elementos del DOM
 // ============================================
@@ -73,6 +77,8 @@ function goToView(index, opts = {}) {
         tab.tabIndex = active ? 0 : -1;
     });
     tabIndicator.style.transform = `translateX(${100 * currentViewIndex}%)`;
+
+    window.viewChangedHooks.forEach(hook => hook(currentViewIndex));
 }
 
 tabCalendar.addEventListener('click', () => goToView(0));

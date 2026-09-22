@@ -1908,3 +1908,428 @@ body.has-pomodoro-bar {
         gap: 8px;
     }
 }
+
+/* ============================================
+   Tablero kanban (board.js)
+   ============================================ */
+
+.board-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 0 8px;
+}
+
+.board-select {
+    flex: 1;
+    min-width: 0;
+    max-width: 360px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.view-toggle {
+    display: inline-flex;
+    margin-left: auto;
+    padding: 2px;
+    border-radius: 8px;
+    background: var(--bg-surface-3);
+    flex-shrink: 0;
+}
+
+.view-toggle-btn {
+    border: none;
+    background: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.view-toggle-btn[aria-pressed="true"] {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.board-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 8px;
+    margin-bottom: 8px;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-row-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-right: 2px;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.filter-chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--chip-color, var(--neutral-solid));
+    flex-shrink: 0;
+}
+
+.filter-chip[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+
+.filter-chip[aria-pressed="true"] .filter-chip-dot {
+    box-shadow: 0 0 0 1px var(--text-on-accent);
+}
+
+.filter-clear {
+    align-self: flex-start;
+    border: none;
+    background: none;
+    padding: 2px 0;
+    color: var(--accent);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.board-summary {
+    padding: 0 8px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.board-column-tabs {
+    display: none;
+}
+
+.board-column-tab {
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 5px 12px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.board-column-tab[aria-selected="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+
+.board-columns {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 0 8px 12px;
+}
+
+.board-column {
+    flex: 0 0 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+    border-top: 3px solid var(--column-color, var(--border-strong));
+    background: var(--bg-surface-2);
+}
+
+.board-column.drop-target {
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+    background: var(--bg-hover);
+}
+
+.board-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px;
+}
+
+.board-column-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.board-column-count {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--bg-surface-3);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.board-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 40px;
+}
+
+.board-column-empty {
+    padding: 12px 4px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.board-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+}
+
+.board-card:hover {
+    border-color: var(--border-color);
+}
+
+.board-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.board-card[draggable="true"] {
+    cursor: grab;
+}
+
+.board-card.dragging {
+    opacity: 0.5;
+}
+
+.board-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.board-card-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.board-card-time {
+    flex-shrink: 0;
+    padding-top: 2px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.board-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.board-card-meta:empty {
+    display: none;
+}
+
+.board-card-project,
+.board-card-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--bg-surface-3);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.board-card-project::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--chip-color, var(--neutral-solid));
+    flex-shrink: 0;
+}
+
+/* "Sin asignar" se ve distinto a propósito: es información que falta */
+.board-card-project.unassigned {
+    border: 1px dashed var(--border-strong);
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.board-card-tag {
+    border: 1px solid var(--chip-color, var(--border-strong));
+    background: transparent;
+}
+
+.board-card-count {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.board-card-count.complete {
+    color: var(--accent);
+}
+
+.board-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.board-card-play {
+    flex-shrink: 0;
+    width: 24px;
+    height: 22px;
+    margin: -2px -4px 0 0;
+    border: none;
+    border-radius: 6px;
+    background: var(--bg-surface-2);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.board-card-play:hover {
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+
+.board-card-move {
+    max-width: 100%;
+    margin-left: auto;
+    padding: 3px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+/* Con mouse: se arrastra, así que "Mover a…" sobra (con teclado está en el
+   detalle de la tarjeta), y el ▶ aparece al pasar por encima para que la
+   tarjeta quede limpia. En táctil no hay hover: se ven siempre. */
+@media (hover: hover) and (pointer: fine) {
+    .board-card-actions {
+        display: none;
+    }
+
+    .board-card-play {
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    .board-card:hover .board-card-play,
+    .board-card:focus-within .board-card-play {
+        opacity: 1;
+    }
+}
+
+.board-add input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.board-add input:focus {
+    border-style: solid;
+    border-color: var(--accent);
+    background: var(--bg-surface);
+    outline: none;
+}
+
+/* Tablero en pantalla ancha: la app se ensancha mientras se ve, y lo que ya
+   existía (marca, pestañas, pomodoro) se queda en su columna de siempre. */
+body.board-wide .app-container {
+    max-width: 1200px;
+}
+
+body.board-wide .app-brand,
+body.board-wide .tabs,
+body.board-wide .pomodoro-card {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+body.board-wide .board-column {
+    flex: 1 0 240px;
+}
+
+/* Pantalla angosta: una columna a la vez, elegida con pestañas que saltan de
+   línea en vez de desplazarse, para no pelear con el swipe entre vistas. */
+@media (max-width: 699px) {
+    .board-column-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 0 8px 10px;
+    }
+
+    .board-columns {
+        display: block;
+        overflow: visible;
+    }
+
+    .board-column {
+        display: none;
+    }
+
+    .board-column.is-current {
+        display: flex;
+    }
+
+    .board-column-header {
+        display: none;
+    }
+}

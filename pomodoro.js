@@ -470,13 +470,15 @@ async function finishStopwatch({ announce }) {
     }
 }
 
-// Global a propósito: la llama projects.js desde el ▶ de cada tarea, igual que
-// ya usa apiFetch o hideHabitPopover del núcleo (ver CLAUDE.md).
-async function startStopwatchForTask(projectId, taskId) {
+// Globales a propósito: las llaman projects.js (▶ de cada tarea) y board.js
+// (▶ de cada tarjeta), igual que ya usan apiFetch o hideHabitPopover del
+// núcleo (ver CLAUDE.md). mode: 'stopwatch' o 'focus'.
+async function startTimerForTask(projectId, taskId, mode = 'stopwatch', taskTitle = '') {
     if (pomoState.status !== 'idle') {
         const enCurso = isStopwatch(pomoState) ? 'un cronómetro' : 'un pomodoro';
+        const nuevo = mode === 'stopwatch' ? 'el cronómetro' : 'un pomodoro';
         const ok = await confirmDialog(
-            `Ya tienes ${enCurso} en curso. ¿Lo detienes y arrancas el cronómetro en esta tarea?`,
+            `Ya tienes ${enCurso} en curso. ¿Lo detienes y arrancas ${nuevo} en esta tarea?`,
             { confirmLabel: 'Detener y empezar', cancelLabel: 'Dejarlo como está' }
         );
         if (!ok) return;
@@ -486,12 +488,24 @@ async function startStopwatchForTask(projectId, taskId) {
         if (pomoState.status !== 'idle') return; // algo falló: no encadenar
     }
 
-    pomoState = createIdlePomoState('stopwatch');
+    pomoState = createIdlePomoState(mode);
     pomoProjectSelect.value = String(projectId);
     await populateTaskSelect();
+    // El select solo lista tareas pendientes, y desde el tablero se puede
+    // cronometrar una tarjeta de cualquier columna, "Hecho" incluida.
+    if (!Array.from(pomoTaskSelect.options).some(o => o.value === String(taskId))) {
+        const option = document.createElement('option');
+        option.value = String(taskId);
+        option.textContent = taskTitle || 'Tarea';
+        pomoTaskSelect.appendChild(option);
+    }
     pomoTaskSelect.value = String(taskId);
     startPomodoro();
     goToView(1);
+}
+
+function startStopwatchForTask(projectId, taskId) {
+    return startTimerForTask(projectId, taskId, 'stopwatch');
 }
 
 // announce=false se usa al rehidratar una sesión que terminó hace rato,
