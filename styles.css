@@ -2333,3 +2333,312 @@ body.board-wide .board-column {
         display: none;
     }
 }
+
+/* ============================================
+   Detalle de la tarjeta (board.js)
+   ============================================ */
+
+.card-modal {
+    max-width: 560px;
+    padding: 24px;
+    text-align: left;
+}
+
+.card-modal-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-right: 36px; /* la X de cerrar */
+    margin-bottom: 16px;
+}
+
+.card-title-input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    margin: -4px -6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.35;
+    resize: none;
+    overflow: hidden;
+}
+
+.card-title-input:hover {
+    border-color: var(--border-color);
+}
+
+.card-title-input:focus {
+    border-color: var(--accent);
+    background: var(--bg-surface-2);
+    outline: none;
+}
+
+.card-time {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--bg-surface-2);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.card-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.card-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.card-field select,
+.card-timer select {
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.card-timer {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.card-timer select {
+    flex: 1;
+}
+
+.card-timer .submit-btn {
+    width: auto;
+    margin-top: 0;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+}
+
+.card-section {
+    padding-top: 14px;
+    margin-top: 14px;
+    border-top: 1px solid var(--border-color);
+}
+
+.card-section-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.card-section-meta {
+    font-weight: 400;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.card-empty {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.card-inline-form {
+    display: flex;
+    gap: 6px;
+}
+
+.card-inline-form input,
+.card-notes,
+.card-comment-form textarea {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.card-notes,
+.card-comment-form textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+.card-inline-form input:focus,
+.card-notes:focus,
+.card-comment-form textarea:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.card-inline-form button {
+    padding: 0 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.card-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+}
+
+.card-check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px;
+}
+
+.card-check-row label {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 0.875rem;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.card-check-row.done span {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.card-check-delete {
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0 6px;
+}
+
+.card-check-delete:hover {
+    color: var(--danger-fg);
+}
+
+.card-comments {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.card-comment {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+}
+
+.card-comment-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.card-comment-meta strong {
+    color: var(--text-primary);
+}
+
+.card-comment-delete {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.card-comment-delete:hover {
+    color: var(--danger-fg);
+}
+
+.card-comment-body {
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.card-comment-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.card-comment-form .submit-btn {
+    width: auto;
+    margin-top: 0;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+}
+
+.card-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 14px;
+    margin-top: 14px;
+    border-top: 1px solid var(--border-color);
+}
+
+.card-delete {
+    border: none;
+    background: none;
+    color: var(--danger-fg);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.card-delete:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+    .card-modal {
+        width: 94%;
+        padding: 18px;
+    }
+
+    .card-fields {
+        grid-template-columns: 1fr;
+    }
+}

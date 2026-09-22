@@ -490,6 +490,77 @@
         </div>
     </div>
 
+    <!-- Detalle de una tarjeta del tablero (board.js). Cada campo se guarda al
+         cambiarlo, sin botón de guardar. Se cierra antes de abrir el registro
+         manual o el cronómetro: los dos modales comparten z-index 1000. -->
+    <div id="cardModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content card-modal" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
+            <button class="modal-close" type="button" id="closeCardModalBtn" aria-label="Cerrar">&times;</button>
+
+            <div class="card-modal-head">
+                <textarea id="cardTitle" class="card-title-input" rows="1" maxlength="200" aria-label="Título de la tarjeta"></textarea>
+                <span id="cardTime" class="card-time" title="Tiempo registrado"></span>
+            </div>
+
+            <div class="card-fields">
+                <label class="card-field">
+                    <span>Columna</span>
+                    <select id="cardColumn"></select>
+                </label>
+                <label class="card-field">
+                    <span>Proyecto</span>
+                    <select id="cardProject"></select>
+                </label>
+            </div>
+
+            <div class="card-timer">
+                <select id="cardTimerMode" aria-label="Cómo registrar el tiempo">
+                    <option value="stopwatch">Cronómetro</option>
+                    <option value="focus">Pomodoro</option>
+                    <option value="manual">Registrar a mano</option>
+                </select>
+                <button type="button" id="cardTimerBtn" class="submit-btn">▶ Iniciar</button>
+            </div>
+
+            <section class="card-section">
+                <h3 class="card-section-title">Etiquetas</h3>
+                <div id="cardTags" class="card-tags"></div>
+                <form id="cardTagForm" class="card-inline-form">
+                    <input type="text" maxlength="30" placeholder="Nueva etiqueta" aria-label="Nueva etiqueta">
+                    <button type="submit" aria-label="Crear etiqueta">+</button>
+                </form>
+            </section>
+
+            <section class="card-section">
+                <h3 class="card-section-title">Descripción</h3>
+                <textarea id="cardNotes" class="card-notes" rows="3" placeholder="Añade detalles…" aria-label="Descripción"></textarea>
+            </section>
+
+            <section class="card-section">
+                <h3 class="card-section-title">Checklist <span id="cardChecklistProgress" class="card-section-meta"></span></h3>
+                <div id="cardChecklist" class="card-checklist"></div>
+                <form id="cardChecklistForm" class="card-inline-form">
+                    <input type="text" maxlength="200" placeholder="Añadir elemento" aria-label="Nuevo elemento del checklist">
+                    <button type="submit" aria-label="Añadir al checklist">+</button>
+                </form>
+            </section>
+
+            <section class="card-section">
+                <h3 class="card-section-title">Comentarios</h3>
+                <div id="cardComments" class="card-comments"></div>
+                <form id="cardCommentForm" class="card-comment-form">
+                    <textarea maxlength="2000" rows="2" placeholder="Escribe un comentario…" aria-label="Nuevo comentario"></textarea>
+                    <button type="submit" class="submit-btn">Comentar</button>
+                </form>
+            </section>
+
+            <div class="card-footer">
+                <button type="button" id="cardDeleteBtn" class="card-delete">Eliminar tarjeta</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirm genérico (sí/no), reutilizado por confirmDialog() en script.js.
          Distinto de projectActionModal, que es de 3 opciones fijas: este es de
          propósito general, con mensaje y botones dinámicos. -->

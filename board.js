@@ -510,11 +510,24 @@ boardColumns.addEventListener('change', (event) => {
 });
 
 boardColumns.addEventListener('click', (event) => {
-    const play = event.target.closest('.board-card-play');
-    if (play) {
-        const task = boardState.tasks.find(t => t.id === Number(play.closest('.board-card').dataset.taskId));
-        if (task) startTimerForTask(task.project_id, task.id, 'stopwatch', task.title);
+    const card = event.target.closest('.board-card');
+    if (!card) return;
+    const task = boardState.tasks.find(t => t.id === Number(card.dataset.taskId));
+    if (!task) return;
+
+    if (event.target.closest('.board-card-play')) {
+        startTimerForTask(task.project_id, task.id, 'stopwatch', task.title);
+        return;
     }
+    // El select de "Mover a…" vive dentro de la tarjeta: tocarlo no la abre
+    if (event.target.closest('.board-card-move')) return;
+    openCardModal(task.id);
+});
+
+boardColumns.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || !event.target.classList.contains('board-card')) return;
+    event.preventDefault();
+    openCardModal(Number(event.target.dataset.taskId));
 });
 
 // ============================================
@@ -563,6 +576,461 @@ boardColumns.addEventListener('dragend', () => {
     boardColumns.querySelectorAll('.dragging, .drop-target').forEach(el => {
         el.classList.remove('dragging', 'drop-target');
     });
+});
+
+// ============================================
+// Detalle de la tarjeta
+// ============================================
+//
+// Cada campo se guarda en cuanto cambia. El tablero se refresca al cerrar (si
+// algo cambió), no en cada tecla: así el modal no parpadea mientras se edita.
+
+const cardModal = document.getElementById('cardModal');
+const cardTitleInput = document.getElementById('cardTitle');
+const cardTimeEl = document.getElementById('cardTime');
+const cardColumnSelect = document.getElementById('cardColumn');
+const cardProjectSelect = document.getElementById('cardProject');
+const cardTimerMode = document.getElementById('cardTimerMode');
+const cardTimerBtn = document.getElementById('cardTimerBtn');
+const cardTagsEl = document.getElementById('cardTags');
+const cardTagForm = document.getElementById('cardTagForm');
+const cardNotesInput = document.getElementById('cardNotes');
+const cardChecklistEl = document.getElementById('cardChecklist');
+const cardChecklistProgress = document.getElementById('cardChecklistProgress');
+const cardChecklistForm = document.getElementById('cardChecklistForm');
+const cardCommentsEl = document.getElementById('cardComments');
+const cardCommentForm = document.getElementById('cardCommentForm');
+
+const cardState = {
+    taskId: null,
+    checklist: null,  // null mientras carga
+    comments: null,
+    dirty: false,     // algo cambió: refrescar el tablero al cerrar
+};
+
+function cardTask() {
+    return boardState.tasks.find(t => t.id === cardState.taskId) || null;
+}
+
+function fitTitleHeight() {
+    cardTitleInput.style.height = 'auto';
+    cardTitleInput.style.height = `${cardTitleInput.scrollHeight}px`;
+}
+
+function renderCardColumnSelect(task) {
+    // Todos los tableros activos: cambiar la tarjeta de tablero es elegir una
+    // columna de otro.
+    cardColumnSelect.innerHTML = '';
+    boardState.boards.forEach(board => {
+        const group = document.createElement('optgroup');
+        group.label = board.name;
+        board.columns.forEach(column => {
+            const option = document.createElement('option');
+            option.value = String(column.id);
+            option.textContent = column.name;
+            group.appendChild(option);
+        });
+        cardColumnSelect.appendChild(group);
+    });
+    cardColumnSelect.value = String(task.column_id);
+}
+
+function renderCardProjectSelect(task) {
+    cardProjectSelect.innerHTML = '';
+    // Los activos, y el de la tarea aunque esté archivado, para no mentir
+    const projects = boardState.projects.filter(p => p.is_active || p.id === task.project_id);
+    projects
+        .sort((a, b) => Number(b.is_system) - Number(a.is_system) || a.name.localeCompare(b.name))
+        .forEach(project => {
+            const option = document.createElement('option');
+            option.value = String(project.id);
+            option.textContent = project.is_active ? project.name : `${project.name} (archivado)`;
+            cardProjectSelect.appendChild(option);
+        });
+    cardProjectSelect.value = String(task.project_id);
+}
+
+function renderCardTags(task) {
+    cardTagsEl.innerHTML = '';
+    if (boardState.tags.length === 0) {
+        const hint = document.createElement('p');
+        hint.className = 'card-empty';
+        hint.textContent = 'Todavía no tienes etiquetas. Crea una aquí abajo.';
+        cardTagsEl.appendChild(hint);
+        return;
+    }
+    boardState.tags.forEach(tag => {
+        cardTagsEl.appendChild(buildFilterChip(
+            tag.name, tag.color, task.tag_ids.includes(tag.id), { cardTag: tag.id }
+        ));
+    });
+}
+
+function renderCardHeader(task) {
+    if (document.activeElement !== cardTitleInput) {
+        cardTitleInput.value = task.title;
+        fitTitleHeight();
+    }
+    cardTimeEl.textContent = formatDuration(boardTaskSeconds(task));
+}
+
+function renderCardChecklist() {
+    cardChecklistEl.innerHTML = '';
+    const items = cardState.checklist;
+    if (items === null) {
+        cardChecklistProgress.textContent = '';
+        cardChecklistEl.innerHTML = '<p class="card-empty">Cargando…</p>';
+        return;
+    }
+    const done = items.filter(i => i.is_done).length;
+    cardChecklistProgress.textContent = items.length ? `${done}/${items.length}` : '';
+
+    items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'card-check-row' + (item.is_done ? ' done' : '');
+        row.dataset.itemId = String(item.id);
+
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.is_done;
+        const text = document.createElement('span');
+        text.textContent = item.text;
+        label.appendChild(checkbox);
+        label.appendChild(text);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'card-check-delete';
+        remove.setAttribute('aria-label', `Quitar ${item.text}`);
+        remove.textContent = '×';
+
+        row.appendChild(label);
+        row.appendChild(remove);
+        cardChecklistEl.appendChild(row);
+    });
+}
+
+function formatCommentDate(value) {
+    // UTC naive del backend -> hora local del usuario
+    return parseUtcIso(value).toLocaleString('es-MX', {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+}
+
+function renderCardComments() {
+    cardCommentsEl.innerHTML = '';
+    const comments = cardState.comments;
+    if (comments === null) {
+        cardCommentsEl.innerHTML = '<p class="card-empty">Cargando…</p>';
+        return;
+    }
+    if (comments.length === 0) {
+        cardCommentsEl.innerHTML = '<p class="card-empty">Sin comentarios todavía.</p>';
+        return;
+    }
+
+    // El más reciente arriba: es el que se busca al volver a una tarea
+    [...comments].reverse().forEach(comment => {
+        const item = document.createElement('article');
+        item.className = 'card-comment';
+        item.dataset.commentId = String(comment.id);
+
+        const meta = document.createElement('div');
+        meta.className = 'card-comment-meta';
+        const author = document.createElement('strong');
+        author.textContent = comment.author_name;
+        const when = document.createElement('span');
+        when.textContent = formatCommentDate(comment.created_at) + (comment.edited_at ? ' · editado' : '');
+        meta.appendChild(author);
+        meta.appendChild(when);
+
+        // Solo el autor puede borrarlo (el backend lo exige igual)
+        if (currentUser && comment.author_id === currentUser.id) {
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'card-comment-delete';
+            remove.textContent = 'Eliminar';
+            meta.appendChild(remove);
+        }
+
+        const body = document.createElement('p');
+        body.className = 'card-comment-body';
+        body.textContent = comment.body;
+
+        item.appendChild(meta);
+        item.appendChild(body);
+        cardCommentsEl.appendChild(item);
+    });
+}
+
+function renderCardModal() {
+    const task = cardTask();
+    if (!task) return;
+    renderCardHeader(task);
+    renderCardColumnSelect(task);
+    renderCardProjectSelect(task);
+    renderCardTags(task);
+    renderCardChecklist();
+    renderCardComments();
+}
+
+async function openCardModal(taskId) {
+    const task = boardState.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    cardState.taskId = taskId;
+    cardState.checklist = null;
+    cardState.comments = null;
+    cardState.dirty = false;
+    cardNotesInput.value = task.notes || '';
+    cardTimerMode.value = 'stopwatch';
+
+    showModal(cardModal);
+    renderCardModal();
+
+    try {
+        const [checklist, comments] = await Promise.all([
+            apiFetch(`/api/tasks/${taskId}/checklist`),
+            apiFetch(`/api/tasks/${taskId}/comments`),
+        ]);
+        if (cardState.taskId !== taskId) return; // se cerró o se abrió otra
+        cardState.checklist = checklist.items;
+        cardState.comments = comments.comments;
+        renderCardChecklist();
+        renderCardComments();
+    } catch (error) {
+        console.error('Error al cargar el detalle de la tarjeta:', error);
+    }
+}
+
+async function closeCardModal() {
+    // Lo que se esté escribiendo en el título o la descripción se guarda
+    await saveCardText();
+    hideModal(cardModal);
+    const changed = cardState.dirty;
+    cardState.taskId = null;
+    if (changed) await refreshAfterBoardChange();
+}
+
+async function patchCardTask(payload) {
+    const task = cardTask();
+    if (!task) return;
+    try {
+        const updated = await apiFetch(`/api/tasks/${task.id}?today=${getDateKey(new Date())}`, {
+            method: 'PATCH',
+            json: payload,
+        });
+        Object.assign(task, updated);
+        cardState.dirty = true;
+    } catch (error) {
+        console.error('Error al guardar la tarjeta:', error);
+    }
+    renderCardModal();
+}
+
+// Encadenados: al cerrar con la X, el blur del título y el cierre piden
+// guardar casi a la vez, y el segundo tiene que ver lo que guardó el primero.
+let cardTextSave = Promise.resolve();
+
+function saveCardText() {
+    cardTextSave = cardTextSave.then(saveCardTextNow);
+    return cardTextSave;
+}
+
+async function saveCardTextNow() {
+    const task = cardTask();
+    if (!task) return;
+    const payload = {};
+
+    const title = cardTitleInput.value.trim();
+    if (title && title !== task.title) payload.title = title;
+    if (!title) cardTitleInput.value = task.title; // vacío: se deshace
+
+    const notes = cardNotesInput.value.trim();
+    if (notes !== (task.notes || '')) payload.notes = notes || null;
+
+    if (Object.keys(payload).length) await patchCardTask(payload);
+}
+
+cardTitleInput.addEventListener('input', fitTitleHeight);
+cardTitleInput.addEventListener('keydown', (event) => {
+    // El título es de una línea: Enter guarda en vez de saltar de renglón
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        cardTitleInput.blur();
+    }
+});
+cardTitleInput.addEventListener('blur', saveCardText);
+cardNotesInput.addEventListener('blur', saveCardText);
+
+cardColumnSelect.addEventListener('change', () => {
+    patchCardTask({ column_id: Number(cardColumnSelect.value) });
+});
+
+cardProjectSelect.addEventListener('change', () => {
+    patchCardTask({ project_id: Number(cardProjectSelect.value) });
+});
+
+cardTagsEl.addEventListener('click', (event) => {
+    const chip = event.target.closest('.filter-chip');
+    const task = cardTask();
+    if (!chip || !task) return;
+    const tagId = Number(chip.dataset.cardTag);
+    const tagIds = task.tag_ids.includes(tagId)
+        ? task.tag_ids.filter(id => id !== tagId)
+        : [...task.tag_ids, tagId];
+    patchCardTask({ tag_ids: tagIds });
+});
+
+cardTagForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = cardTagForm.querySelector('input');
+    const name = input.value.trim();
+    const task = cardTask();
+    if (!name || !task) return;
+
+    // Si ya existe (409), se usa la que hay en vez de dar error
+    let tag = boardState.tags.find(t => t.name.toLowerCase() === name.toLowerCase());
+    if (!tag) {
+        try {
+            tag = await apiFetch('/api/tags', { method: 'POST', json: { name } });
+            boardState.tags.push(tag);
+            boardState.tags.sort((a, b) => a.name.localeCompare(b.name));
+        } catch (error) {
+            console.error('Error al crear la etiqueta:', error);
+            return;
+        }
+    }
+    input.value = '';
+    if (!task.tag_ids.includes(tag.id)) {
+        await patchCardTask({ tag_ids: [...task.tag_ids, tag.id] });
+    }
+});
+
+cardChecklistForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = cardChecklistForm.querySelector('input');
+    const text = input.value.trim();
+    const taskId = cardState.taskId;
+    if (!text || !taskId || cardState.checklist === null) return;
+    input.value = '';
+    try {
+        const item = await apiFetch(`/api/tasks/${taskId}/checklist`, { method: 'POST', json: { text } });
+        cardState.checklist.push(item);
+        cardState.dirty = true;
+    } catch (error) {
+        console.error('Error al añadir al checklist:', error);
+    }
+    renderCardChecklist();
+});
+
+cardChecklistEl.addEventListener('change', async (event) => {
+    const row = event.target.closest('.card-check-row');
+    if (!row || event.target.type !== 'checkbox') return;
+    const item = cardState.checklist.find(i => i.id === Number(row.dataset.itemId));
+    if (!item) return;
+    try {
+        const updated = await apiFetch(`/api/tasks/${cardState.taskId}/checklist/${item.id}`, {
+            method: 'PATCH',
+            json: { is_done: event.target.checked },
+        });
+        Object.assign(item, updated);
+        cardState.dirty = true;
+    } catch (error) {
+        console.error('Error al marcar el checklist:', error);
+    }
+    renderCardChecklist();
+});
+
+cardChecklistEl.addEventListener('click', async (event) => {
+    const remove = event.target.closest('.card-check-delete');
+    if (!remove) return;
+    const itemId = Number(remove.closest('.card-check-row').dataset.itemId);
+    try {
+        await apiFetch(`/api/tasks/${cardState.taskId}/checklist/${itemId}`, { method: 'DELETE' });
+        cardState.checklist = cardState.checklist.filter(i => i.id !== itemId);
+        cardState.dirty = true;
+    } catch (error) {
+        console.error('Error al quitar del checklist:', error);
+    }
+    renderCardChecklist();
+});
+
+cardCommentForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const textarea = cardCommentForm.querySelector('textarea');
+    const body = textarea.value.trim();
+    const taskId = cardState.taskId;
+    if (!body || !taskId || cardState.comments === null) return;
+    try {
+        const comment = await apiFetch(`/api/tasks/${taskId}/comments`, { method: 'POST', json: { body } });
+        cardState.comments.push(comment);
+        cardState.dirty = true;
+        textarea.value = '';
+    } catch (error) {
+        console.error('Error al comentar:', error);
+    }
+    renderCardComments();
+});
+
+cardCommentsEl.addEventListener('click', async (event) => {
+    const remove = event.target.closest('.card-comment-delete');
+    if (!remove) return;
+    const commentId = Number(remove.closest('.card-comment').dataset.commentId);
+    const ok = await confirmDialog('El comentario se borrará y no se puede recuperar.', {
+        title: '¿Eliminar comentario?', confirmLabel: 'Eliminar', danger: true,
+    });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/tasks/${cardState.taskId}/comments/${commentId}`, { method: 'DELETE' });
+        cardState.comments = cardState.comments.filter(c => c.id !== commentId);
+        cardState.dirty = true;
+    } catch (error) {
+        console.error('Error al borrar el comentario:', error);
+    }
+    renderCardComments();
+});
+
+cardTimerBtn.addEventListener('click', async () => {
+    const task = cardTask();
+    if (!task) return;
+    const mode = cardTimerMode.value;
+    // El detalle se cierra antes: comparte z-index con el registro manual, y
+    // el cronómetro lleva a la vista del pomodoro.
+    await closeCardModal();
+    if (mode === 'manual') {
+        openLogTimeModal(task.project_id, null, { id: task.id, title: task.title });
+    } else {
+        startTimerForTask(task.project_id, task.id, mode, task.title);
+    }
+});
+
+document.getElementById('cardDeleteBtn').addEventListener('click', async () => {
+    const task = cardTask();
+    if (!task) return;
+    const ok = await confirmDialog(
+        `"${task.title}" se borrará con su checklist y sus comentarios. Su tiempo registrado se conserva en el proyecto.`,
+        { title: '¿Eliminar tarjeta?', confirmLabel: 'Eliminar', danger: true }
+    );
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
+    } catch (error) {
+        console.error('Error al eliminar la tarjeta:', error);
+    }
+    hideModal(cardModal);
+    cardState.taskId = null;
+    await refreshAfterBoardChange();
+});
+
+document.getElementById('closeCardModalBtn').addEventListener('click', closeCardModal);
+cardModal.querySelector('.modal-overlay').addEventListener('click', closeCardModal);
+document.addEventListener('keydown', (event) => {
+    // Con el confirm abierto encima, Escape es de él, no del detalle
+    if (event.key !== 'Escape' || cardModal.classList.contains('hidden')) return;
+    if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
+    closeCardModal();
 });
 
 // ============================================

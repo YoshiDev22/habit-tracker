@@ -1047,7 +1047,22 @@ async function fillLogTimeTasks(projectId) {
     }
 }
 
-async function openLogTimeModal(projectId, session = null) {
+// fillLogTimeTasks() solo lista tareas pendientes, pero un registro puede ser
+// de una tarea ya hecha (al editarlo, o al registrar desde una tarjeta de
+// "Hecho"). Sin su opción, el select la perdería al guardar.
+function ensureLogTimeTaskOption(taskId, title) {
+    const value = String(taskId);
+    if (!Array.from(logTimeTaskEl.options).some(o => o.value === value)) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = title;
+        logTimeTaskEl.appendChild(option);
+    }
+    logTimeTaskEl.value = value;
+}
+
+// task: {id, title} para abrirlo ya apuntando a esa tarea (desde el tablero).
+async function openLogTimeModal(projectId, session = null, task = null) {
     const project = projectsState.projects.find(p => p.id === projectId);
     if (!project) return;
 
@@ -1087,7 +1102,9 @@ async function openLogTimeModal(projectId, session = null) {
     // esperarla para poder preseleccionar la tarea del registro.
     await fillLogTimeTasks(projectId);
     if (session && session.task_id) {
-        logTimeTaskEl.value = String(session.task_id);
+        ensureLogTimeTaskOption(session.task_id, 'Tarea terminada');
+    } else if (task) {
+        ensureLogTimeTaskOption(task.id, task.title);
     }
 }
 
