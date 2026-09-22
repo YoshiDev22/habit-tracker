@@ -143,7 +143,7 @@ class HabitListResponse(SQLModel):
     total: int
 
 
-# ==================== Status Schemas ====================
+# ==================== Board Schemas ====================
 
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -156,13 +156,12 @@ def _validate_hex_color(v: Optional[str]) -> Optional[str]:
     return v
 
 
-class StatusCreate(SQLModel):
-    """Esquema para crear un estado (columna del tablero o estado de proyecto)"""
-    scope: str                        # task | project
-    category: str                     # ver CATEGORIES_BY_SCOPE en backend/statuses.py
+class ColumnCreate(SQLModel):
+    """Esquema para agregar una columna a un tablero"""
+    category: str                     # todo | doing | done
     name: str = Field(min_length=1, max_length=40)
     color: Optional[str] = None
-    order: Optional[int] = 0
+    order: Optional[int] = None       # sin él, va al final
 
     @field_validator("color")
     @classmethod
@@ -170,11 +169,11 @@ class StatusCreate(SQLModel):
         return _validate_hex_color(v)
 
 
-class StatusUpdate(SQLModel):
+class ColumnUpdate(SQLModel):
     """
-    Esquema para actualizar un estado (PATCH parcial). La categoría no se
-    cambia: sus tareas tendrían que recalcular is_done. Para eso, crear un
-    estado nuevo, mover lo que haga falta y borrar el viejo.
+    Esquema para actualizar una columna (PATCH parcial). La categoría no se
+    cambia: sus tareas tendrían que recalcular is_done. Para eso, crear una
+    columna nueva, mover las tareas y borrar la vieja.
     """
     name: Optional[str] = Field(default=None, min_length=1, max_length=40)
     color: Optional[str] = None
@@ -186,10 +185,10 @@ class StatusUpdate(SQLModel):
         return _validate_hex_color(v)
 
 
-class StatusResponse(SQLModel):
-    """Esquema de respuesta para un estado"""
+class ColumnResponse(SQLModel):
+    """Esquema de respuesta para una columna"""
     id: int
-    scope: str
+    board_id: int
     category: str
     name: str
     color: Optional[str] = None
@@ -199,9 +198,77 @@ class StatusResponse(SQLModel):
         from_attributes = True
 
 
-class StatusListResponse(SQLModel):
-    """Lista de estados del usuario"""
-    statuses: List[StatusResponse]
+class BoardCreate(SQLModel):
+    """Esquema para crear un tablero. Nace con las columnas por defecto."""
+    name: str = Field(min_length=1, max_length=60)
+    order: Optional[int] = 0
+
+
+class BoardUpdate(SQLModel):
+    """Esquema para actualizar un tablero (PATCH parcial)"""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=60)
+    order: Optional[int] = None
+    is_active: Optional[bool] = None  # False = archivar (conserva todo)
+
+
+class BoardResponse(SQLModel):
+    """Un tablero con sus columnas, en orden"""
+    id: int
+    name: str
+    order: int
+    is_active: bool
+    created_at: date_type
+    columns: List[ColumnResponse] = []
+
+
+class BoardListResponse(SQLModel):
+    """Lista de tableros del usuario"""
+    boards: List[BoardResponse]
+    total: int
+
+
+# ==================== Project Status Schemas ====================
+
+class ProjectStatusCreate(SQLModel):
+    """Esquema para crear un estado de proyecto"""
+    category: str                     # idea | active | paused | done
+    name: str = Field(min_length=1, max_length=40)
+    color: Optional[str] = None
+    order: Optional[int] = None       # sin él, va al final
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class ProjectStatusUpdate(SQLModel):
+    """Esquema para actualizar un estado de proyecto. La categoría es fija."""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    color: Optional[str] = None
+    order: Optional[int] = None
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class ProjectStatusResponse(SQLModel):
+    """Esquema de respuesta para un estado de proyecto"""
+    id: int
+    category: str
+    name: str
+    color: Optional[str] = None
+    order: int
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectStatusListResponse(SQLModel):
+    """Estados de proyecto del usuario"""
+    statuses: List[ProjectStatusResponse]
     total: int
 
 
@@ -287,7 +354,8 @@ class TaskCreate(SQLModel):
     title: str
     notes: Optional[str] = None
     order: Optional[int] = 0
-    status_id: Optional[int] = None   # sin él, la primera columna "todo"
+    column_id: Optional[int] = None   # columna exacta; manda sobre board_id
+    board_id: Optional[int] = None    # sin column_id: la primera "todo" de este tablero
 
 
 class TaskUpdate(SQLModel):
@@ -300,7 +368,7 @@ class TaskUpdate(SQLModel):
     is_done: Optional[bool] = None
     order: Optional[int] = None
     project_id: Optional[int] = None  # mover la tarea a otro proyecto
-    status_id: Optional[int] = None   # mover la tarea de columna; manda sobre is_done
+    column_id: Optional[int] = None   # mover la tarea de columna (o de tablero); manda sobre is_done
 
 
 class TaskResponse(SQLModel):
@@ -310,7 +378,8 @@ class TaskResponse(SQLModel):
     title: str
     notes: Optional[str] = None
     is_done: bool
-    status_id: Optional[int] = None
+    column_id: Optional[int] = None
+    board_id: Optional[int] = None    # el de su columna
     order: int
     completed_at: Optional[date_type] = None
     created_at: date_type

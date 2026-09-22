@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from backend.database import get_session
 from backend.models import (
-    User, Project, Task, Status, PomodoroSession,
+    User, Project, Task, BoardColumn, PomodoroSession,
     TaskChecklistItem, TaskComment, utc_now_naive,
 )
 from backend.schemas import (
@@ -16,7 +16,9 @@ from backend.schemas import (
 )
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
-from backend.statuses import ensure_user_statuses, first_status_id, get_owned_status
+from backend.boards import (
+    ensure_user_setup, default_board_id, first_column_id, get_owned_board, get_owned_column,
+)
 
 router = APIRouter(tags=["tasks"])
 
@@ -52,6 +54,11 @@ def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[T
         if is_done:
             entry["done"] += count
 
+    column_ids = {t.column_id for t in tasks if t.column_id is not None}
+    board_by_column = dict(session.exec(
+        select(BoardColumn.id, BoardColumn.board_id).where(BoardColumn.id.in_(column_ids))
+    ).all()) if column_ids else {}
+
     comments = dict(session.exec(
         select(TaskComment.task_id, func.count())
         .where(TaskComment.user_id == user_id, TaskComment.task_id.in_(ids))
@@ -64,6 +71,7 @@ def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[T
         r.checklist_total = checklist.get(t.id, {}).get("total", 0)
         r.checklist_done = checklist.get(t.id, {}).get("done", 0)
         r.comment_count = comments.get(t.id, 0)
+        r.board_id = board_by_column.get(t.column_id)
         responses.append(r)
     return responses
 
@@ -71,24 +79,32 @@ def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[T
 @router.get("", response_model=TaskListResponse)
 def get_tasks(
     project_id: Optional[int] = None,
-    status_id: Optional[int] = None,
+    board_id: Optional[int] = None,
+    column_id: Optional[int] = None,
     include_done: bool = True,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Lista las tareas del usuario, opcionalmente filtradas por proyecto o
-    por columna del tablero.
+    Lista las tareas del usuario, opcionalmente filtradas por proyecto,
+    tablero o columna.
     """
-    ensure_user_statuses(session, current_user.id)
+    ensure_user_setup(session, current_user.id)
 
     query = select(Task).where(Task.user_id == current_user.id)
 
     if project_id is not None:
         query = query.where(Task.project_id == project_id)
 
-    if status_id is not None:
-        query = query.where(Task.status_id == status_id)
+    if board_id is not None:
+        board_columns = select(BoardColumn.id).where(
+            BoardColumn.board_id == board_id,
+            BoardColumn.user_id == current_user.id
+        )
+        query = query.where(Task.column_id.in_(board_columns))
+
+    if column_id is not None:
+        query = query.where(Task.column_id == column_id)
 
     if not include_done:
         query = query.where(Task.is_done == False)
@@ -109,9 +125,11 @@ def create_task(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Crea una tarea dentro de un proyecto del usuario. Sin status_id va a la
-    primera columna "todo"; creada directamente en una columna "done" nace
-    hecha, con completed_at = ?today.
+    Crea una tarea con su proyecto (etiqueta). Dónde queda:
+    - column_id: en esa columna. Si es "done", nace hecha, con
+      completed_at = ?today.
+    - board_id sin column_id: en la primera columna "todo" de ese tablero.
+    - ninguno: en la primera "todo" del primer tablero activo.
     """
     project = session.exec(
         select(Project).where(
@@ -126,13 +144,17 @@ def create_task(
             detail="Proyecto no encontrado"
         )
 
-    ensure_user_statuses(session, current_user.id)
+    ensure_user_setup(session, current_user.id)
 
-    if task_in.status_id is not None:
-        column = get_owned_status(session, current_user.id, task_in.status_id, "task")
-        status_id, is_done = column.id, column.category == "done"
+    if task_in.column_id is not None:
+        column = get_owned_column(session, current_user.id, task_in.column_id)
+        column_id, is_done = column.id, column.category == "done"
     else:
-        status_id, is_done = first_status_id(session, current_user.id, "task", "todo"), False
+        if task_in.board_id is not None:
+            board_id = get_owned_board(session, current_user.id, task_in.board_id).id
+        else:
+            board_id = default_board_id(session, current_user.id)
+        column_id, is_done = first_column_id(session, board_id, "todo"), False
 
     new_task = Task(
         user_id=current_user.id,
@@ -140,7 +162,7 @@ def create_task(
         title=task_in.title,
         notes=task_in.notes,
         order=task_in.order or 0,
-        status_id=status_id,
+        column_id=column_id,
         is_done=is_done,
         completed_at=resolve_client_today(today) if is_done else None,
     )
@@ -160,14 +182,15 @@ def update_task(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Actualiza parcialmente una tarea (título, notas, estado, orden,
-    o moverla a otro proyecto).
+    Actualiza parcialmente una tarea (título, notas, orden, cambiarle el
+    proyecto o moverla de columna, incluso a la de otro tablero).
 
-    is_done y status_id van siempre juntos:
-    - status_id (mover de columna) manda: is_done pasa a ser "la columna es
+    is_done y column_id van siempre juntos:
+    - column_id (mover de columna) manda: is_done pasa a ser "la columna es
       de categoría done".
     - is_done solo (el checkbox) mueve la tarea a la primera columna "done"
-      o "todo", salvo que ya esté en una columna de la categoría correcta.
+      o "todo" DE SU MISMO TABLERO, salvo que ya esté en una columna de la
+      categoría correcta.
 
     completed_at se pone al PASAR a hecha, con la fecha LOCAL del cliente
     (?today=AAAA-MM-DD, ver resolve_client_today), no la del servidor en UTC;
@@ -188,14 +211,14 @@ def update_task(
         )
 
     # El relleno puede haberle asignado columna a esta misma tarea
-    ensure_user_statuses(session, current_user.id)
+    ensure_user_setup(session, current_user.id)
     session.refresh(task)
 
     update_data = task_in.model_dump(exclude_unset=True)
 
     # Un null explícito no significa nada para estos dos: se ignora en vez de
     # dejar la tarea sin columna o con is_done nulo.
-    for field in ("status_id", "is_done"):
+    for field in ("column_id", "is_done"):
         if field in update_data and update_data[field] is None:
             del update_data[field]
 
@@ -212,15 +235,14 @@ def update_task(
                 detail="Proyecto no encontrado"
             )
 
-    if "status_id" in update_data:
-        column = get_owned_status(session, current_user.id, update_data["status_id"], "task")
+    if "column_id" in update_data:
+        column = get_owned_column(session, current_user.id, update_data["column_id"])
         update_data["is_done"] = column.category == "done"
     elif "is_done" in update_data:
-        current = session.get(Status, task.status_id) if task.status_id else None
-        current_done = current is not None and current.category == "done"
-        if current is None or current_done != update_data["is_done"]:
+        current = session.get(BoardColumn, task.column_id)
+        if (current.category == "done") != update_data["is_done"]:
             category = "done" if update_data["is_done"] else "todo"
-            update_data["status_id"] = first_status_id(session, current_user.id, "task", category)
+            update_data["column_id"] = first_column_id(session, current.board_id, category)
 
     if "is_done" in update_data:
         if update_data["is_done"] and not task.is_done:

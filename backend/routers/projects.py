@@ -13,7 +13,7 @@ from backend.schemas import (
     ProjectSummaryListResponse,
 )
 from backend.auth import get_current_user
-from backend.statuses import ensure_user_statuses, first_status_id, get_owned_status
+from backend.boards import ensure_user_setup, first_project_status_id, get_owned_project_status
 from backend.routers.tasks import delete_task_details
 
 router = APIRouter(tags=["projects"])
@@ -31,7 +31,7 @@ def get_projects(
     Por defecto solo devuelve los no archivados (is_active=True), sea cual
     sea su estado; status_id filtra además por estado.
     """
-    ensure_user_statuses(session, current_user.id)
+    ensure_user_setup(session, current_user.id)
 
     query = select(Project).where(Project.user_id == current_user.id)
 
@@ -73,11 +73,11 @@ def create_project(
             detail=f"Ya existe un proyecto con el nombre '{project_in.name}' para este usuario"
         )
 
-    ensure_user_statuses(session, current_user.id)
+    ensure_user_setup(session, current_user.id)
     if project_in.status_id is not None:
-        status_id = get_owned_status(session, current_user.id, project_in.status_id, "project").id
+        status_id = get_owned_project_status(session, current_user.id, project_in.status_id).id
     else:
-        status_id = first_status_id(session, current_user.id, "project", "active")
+        status_id = first_project_status_id(session, current_user.id, "active")
 
     new_project = Project(
         user_id=current_user.id,
@@ -234,7 +234,7 @@ def update_project(
         if update_data["status_id"] is None:
             del update_data["status_id"]
         else:
-            get_owned_status(session, current_user.id, update_data["status_id"], "project")
+            get_owned_project_status(session, current_user.id, update_data["status_id"])
 
     for field, value in update_data.items():
         setattr(project, field, value)

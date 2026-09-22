@@ -35,12 +35,13 @@ MIGRATIONS = [
     {"table": "users", "column": "last_name", "type": "VARCHAR"},
     {"table": "pomodoro_sessions", "column": "source", "type": "VARCHAR", "default": "timer"},
     {"table": "users", "column": "rest_days", "type": "JSON"},
-    # Nacen NULL a propósito. La tabla `statuses` todavía no existe cuando
-    # esto corre (la crea create_all() al reiniciar), así que asignar el estado
-    # a cada proyecto y tarea lo hace la app: ensure_user_statuses() en
-    # backend/statuses.py, en el primer request de cada usuario.
+    # Nacen NULL a propósito. Las tablas a las que apuntan (project_statuses,
+    # board_columns) todavía no existen cuando esto corre: las crea
+    # create_all() al reiniciar. Así que asignar estado a cada proyecto y
+    # tablero/columna a cada tarea lo hace la app, ensure_user_setup() en
+    # backend/boards.py, en el primer request de cada usuario.
     {"table": "projects", "column": "status_id", "type": "INTEGER"},
-    {"table": "tasks", "column": "status_id", "type": "INTEGER"},
+    {"table": "tasks", "column": "column_id", "type": "INTEGER"},
 ]
 
 # El icono que pone el modelo cuando nadie manda uno. Un `habits.icon` con este

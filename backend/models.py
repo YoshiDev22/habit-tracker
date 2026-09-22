@@ -68,31 +68,78 @@ class Habit(SQLModel, table=True):
     created_at: date_type = Field(default_factory=date_type.today)
 
 
-class Status(SQLModel, table=True):
+class Board(SQLModel, table=True):
     """
-    Estado configurable por usuario. Sirve a dos cosas según `scope`:
-    las columnas del tablero de tareas ("task") y los estados de un
-    proyecto ("project"). Tabla NUEVA: create_all() la crea sola.
+    Tablero kanban: "Escuela", "Área de ventas"... Cada uno tiene sus propias
+    columnas (BoardColumn) y sus tareas viven en ellas. Los proyectos no son
+    contenedores sino etiquetas de la tarea, usables en cualquier tablero.
+    Tabla NUEVA: create_all() la crea sola.
 
-    El usuario elige nombre, color y orden, y puede agregar más. `category`
-    es fija y es lo único que lee el código: una columna llamada
-    "Esperando cliente" sigue siendo "doing". Las categorías válidas y los
-    estados por defecto están en backend/statuses.py.
+    user_id es el dueño. Compartir un tablero con otros usuarios no existe
+    todavía; cuando exista será una tabla de miembros aparte.
     """
-    __tablename__ = "statuses"
-    __table_args__ = (UniqueConstraint("user_id", "scope", "name", name="uq_statuses_user_scope_name"),)
+    __tablename__ = "boards"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_boards_user_name"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
 
-    scope: str = Field(index=True)  # task | project
-    category: str                   # task: todo|doing|done · project: idea|active|paused|done
+    name: str
+
+    # Orden de aparición en el selector de tableros (menor = primero)
+    order: int = Field(default=0)
+
+    # Si es False, el tablero está "archivado": se oculta y conserva todo
+    is_active: bool = Field(default=True)
+
+    created_at: date_type = Field(default_factory=date_type.today)
+
+
+class BoardColumn(SQLModel, table=True):
+    """
+    Columna de un tablero. El usuario elige nombre, color, orden y cuántas
+    hay; `category` (todo | doing | done) es fija y es lo único que lee el
+    código: una columna "Esperando cliente" sigue siendo "doing", y una tarea
+    está hecha si su columna es "done". Ver backend/boards.py. Tabla NUEVA.
+    """
+    __tablename__ = "board_columns"
+    __table_args__ = (UniqueConstraint("board_id", "name", name="uq_board_columns_board_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    board_id: int = Field(foreign_key="boards.id", index=True)
+    user_id: int = Field(foreign_key="users.id", index=True)  # denormalizado, igual que Task
+
+    category: str
     name: str
 
     # Color hexadecimal (ej: "#3498db")
     color: Optional[str] = Field(default=None)
 
-    # Orden de la columna en la UI (menor = primero)
+    # Orden de la columna en el tablero (menor = primero)
+    order: int = Field(default=0)
+
+    created_at: date_type = Field(default_factory=date_type.today)
+
+
+class ProjectStatus(SQLModel, table=True):
+    """
+    Estado de un proyecto (Ideas, En curso, En pausa, Terminado...), por
+    usuario. Igual que BoardColumn: nombre libre, `category` fija
+    (idea | active | paused | done). Tabla NUEVA.
+    """
+    __tablename__ = "project_statuses"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_project_statuses_user_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+
+    category: str
+    name: str
+
+    # Color hexadecimal (ej: "#3498db")
+    color: Optional[str] = Field(default=None)
+
+    # Orden de aparición en la UI (menor = primero)
     order: int = Field(default=0)
 
     created_at: date_type = Field(default_factory=date_type.today)
@@ -127,17 +174,21 @@ class Project(SQLModel, table=True):
     # Si es False, el proyecto está "archivado" pero sus tareas se conservan
     is_active: bool = Field(default=True)
 
-    # Estado (scope="project"). Columna AÑADIDA a una tabla existente: la
-    # agrega scripts/migrate.py como NULL, y ensure_user_statuses() rellena
-    # los NULL al primer request del usuario. Sin index=True a propósito:
-    # migrate.py no crea índices y una base nueva quedaría distinta a la de prod.
-    status_id: Optional[int] = Field(default=None, foreign_key="statuses.id")
+    # Estado del proyecto. Columna AÑADIDA a una tabla existente: la agrega
+    # scripts/migrate.py como NULL, y ensure_user_setup() rellena los NULL al
+    # primer request del usuario. Sin index=True a propósito: migrate.py no
+    # crea índices y una base nueva quedaría distinta a la de prod.
+    status_id: Optional[int] = Field(default=None, foreign_key="project_statuses.id")
 
     created_at: date_type = Field(default_factory=date_type.today)
 
 
 class Task(SQLModel, table=True):
-    """Tarea dentro de un proyecto (tasklist)."""
+    """
+    Tarea: la tarjeta del tablero. Vive en una columna de un tablero
+    (column_id, y por ella en el tablero) y lleva un proyecto como etiqueta
+    (project_id), que es donde se suma su tiempo.
+    """
     __tablename__ = "tasks"
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -147,12 +198,12 @@ class Task(SQLModel, table=True):
     title: str
     notes: Optional[str] = Field(default=None)
 
-    # Se mantiene sincronizado con la categoría de status_id ("done" <=> True),
+    # Se mantiene sincronizado con la categoría de column_id ("done" <=> True),
     # para que el progreso de /api/projects/summary siga saliendo de aquí.
     is_done: bool = Field(default=False)
 
-    # Columna del tablero (scope="task"). AÑADIDA, igual que Project.status_id.
-    status_id: Optional[int] = Field(default=None, foreign_key="statuses.id")
+    # Columna del tablero. AÑADIDA, igual que Project.status_id.
+    column_id: Optional[int] = Field(default=None, foreign_key="board_columns.id")
 
     # Orden de aparición en la UI (menor = primero)
     order: int = Field(default=0)
