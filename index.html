@@ -385,6 +385,10 @@
                     <label for="projectName">Nombre</label>
                     <input type="text" id="projectName" name="name" required maxlength="80" placeholder="Ej: Tesis">
                 </div>
+                <div class="form-group" id="projectStatusGroup">
+                    <label for="projectStatus">Estado</label>
+                    <select id="projectStatus" name="status"></select>
+                </div>
                 <div class="form-group">
                     <label for="projectDescription">Descripción (opcional)</label>
                     <input type="text" id="projectDescription" name="description" maxlength="200" placeholder="Ej: Proyecto final de la universidad">
@@ -596,6 +600,32 @@
                         <option value="done">Terminado</option>
                     </select>
                     <button type="submit" aria-label="Añadir columna">+</button>
+                </form>
+            </section>
+
+            <section class="config-section">
+                <h3 class="config-section-title">Etiquetas</h3>
+                <p class="config-hint">Borrar una etiqueta solo la quita de sus tareas: las tareas y su tiempo no cambian.</p>
+                <div id="configTags" class="config-list"></div>
+                <form id="configTagForm" class="card-inline-form">
+                    <input type="text" maxlength="30" placeholder="Nueva etiqueta (ej: documentación)" aria-label="Nombre de la etiqueta nueva">
+                    <button type="submit" aria-label="Crear etiqueta">+</button>
+                </form>
+            </section>
+
+            <section class="config-section">
+                <h3 class="config-section-title">Estados de proyecto</h3>
+                <p class="config-hint">Los proyectos "Activos" son los que estás trabajando; los demás siguen visibles pero se entiende que esperan.</p>
+                <div id="configProjectStatuses" class="config-list"></div>
+                <form id="configProjectStatusForm" class="config-add-row">
+                    <input type="text" maxlength="40" placeholder="Nuevo estado" aria-label="Nombre del estado nuevo">
+                    <select aria-label="Tipo del estado nuevo">
+                        <option value="idea">Idea</option>
+                        <option value="active" selected>Activo</option>
+                        <option value="paused">En pausa</option>
+                        <option value="done">Terminado</option>
+                    </select>
+                    <button type="submit" aria-label="Añadir estado">+</button>
                 </form>
             </section>
         </div>

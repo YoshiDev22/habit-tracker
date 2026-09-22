@@ -1051,6 +1051,7 @@ document.addEventListener('keydown', (event) => {
 // ============================================
 
 const COLUMN_CATEGORY_LABELS = { todo: 'Pendiente', doing: 'En progreso', done: 'Terminado' };
+const PROJECT_STATUS_LABELS = { idea: 'Idea', active: 'Activo', paused: 'En pausa', done: 'Terminado' };
 
 const boardConfigModal = document.getElementById('boardConfigModal');
 const boardConfigError = document.getElementById('boardConfigError');
@@ -1061,10 +1062,16 @@ const configNewBoardInput = document.getElementById('configNewBoard');
 const configColumnsBoard = document.getElementById('configColumnsBoard');
 const configColumnsEl = document.getElementById('configColumns');
 const configColumnForm = document.getElementById('configColumnForm');
+const configTagsEl = document.getElementById('configTags');
+const configTagForm = document.getElementById('configTagForm');
+const configStatusesEl = document.getElementById('configProjectStatuses');
+const configStatusForm = document.getElementById('configProjectStatusForm');
 
 const configState = {
     boards: [],          // todos, archivados incluidos
     columnsBoardId: null,
+    tags: [],
+    statuses: [],        // estados de proyecto
     dirty: false,
 };
 
@@ -1073,8 +1080,14 @@ function configBoard() {
 }
 
 async function reloadConfig() {
-    const data = await apiFetch('/api/boards?include_inactive=true');
+    const [data, tagsData, statusData] = await Promise.all([
+        apiFetch('/api/boards?include_inactive=true'),
+        apiFetch('/api/tags'),
+        apiFetch('/api/project-statuses'),
+    ]);
     configState.boards = data.boards;
+    configState.tags = tagsData.tags;
+    configState.statuses = statusData.statuses;
     const active = data.boards.filter(b => b.is_active);
     if (!active.some(b => b.id === configState.columnsBoardId)) {
         configState.columnsBoardId = active.some(b => b.id === boardState.boardId)
@@ -1092,6 +1105,60 @@ function configButton(className, label, text) {
     button.title = label;
     button.textContent = text;
     return button;
+}
+
+function buildConfigRow({ id, color, name, maxLength, typeLabel, first, last, reorder, deleteClass }) {
+    const row = document.createElement('div');
+    row.className = 'config-row';
+    row.dataset.itemId = String(id);
+
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.className = 'config-color';
+    colorInput.value = color || '#95a5a6';
+    colorInput.setAttribute('aria-label', `Color de ${name}`);
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'config-name';
+    nameInput.maxLength = maxLength;
+    nameInput.value = name;
+    nameInput.setAttribute('aria-label', `Nombre de ${name}`);
+
+    row.appendChild(colorInput);
+    row.appendChild(nameInput);
+
+    if (typeLabel) {
+        const type = document.createElement('span');
+        type.className = 'config-type';
+        type.textContent = typeLabel;
+        row.appendChild(type);
+    }
+    if (reorder) {
+        const up = configButton('config-action config-move', `Subir ${name}`, '↑');
+        up.dataset.delta = '-1';
+        up.disabled = first;
+        const down = configButton('config-action config-move', `Bajar ${name}`, '↓');
+        down.dataset.delta = '1';
+        down.disabled = last;
+        row.appendChild(up);
+        row.appendChild(down);
+    }
+    row.appendChild(configButton(`config-action danger ${deleteClass}`, `Eliminar ${name}`, '×'));
+    return row;
+}
+
+// Reescribe "order" de los elementos que cambiaron de sitio al mover uno
+function reorderRequests(items, itemId, delta, urlFor) {
+    const list = [...items];
+    const from = list.findIndex(item => item.id === itemId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= list.length) return null;
+    [list[from], list[to]] = [list[to], list[from]];
+    return () => Promise.all(list
+        .map((item, index) => ({ item, index }))
+        .filter(({ item, index }) => item.order !== index)
+        .map(({ item, index }) => apiFetch(urlFor(item), { method: 'PATCH', json: { order: index } })));
 }
 
 function renderConfig() {
@@ -1149,45 +1216,44 @@ function renderConfig() {
     });
     if (configState.columnsBoardId !== null) configColumnsBoard.value = String(configState.columnsBoardId);
 
+    renderConfigTagsAndStatuses();
+
     configColumnsEl.innerHTML = '';
     const board = configBoard();
     if (!board) return;
     board.columns.forEach((column, index) => {
-        const row = document.createElement('div');
-        row.className = 'config-row';
-        row.dataset.columnId = String(column.id);
+        configColumnsEl.appendChild(buildConfigRow({
+            id: column.id, color: column.color, name: column.name, maxLength: 40,
+            typeLabel: COLUMN_CATEGORY_LABELS[column.category] || column.category,
+            first: index === 0, last: index === board.columns.length - 1,
+            reorder: true, deleteClass: 'config-delete-column',
+        }));
+    });
+}
 
-        const color = document.createElement('input');
-        color.type = 'color';
-        color.className = 'config-color';
-        color.value = column.color || '#95a5a6';
-        color.setAttribute('aria-label', `Color de ${column.name}`);
+function renderConfigTagsAndStatuses() {
+    configTagsEl.innerHTML = '';
+    if (configState.tags.length === 0) {
+        const hint = document.createElement('p');
+        hint.className = 'config-hint';
+        hint.textContent = 'Todavía no hay etiquetas.';
+        configTagsEl.appendChild(hint);
+    }
+    configState.tags.forEach(tag => {
+        configTagsEl.appendChild(buildConfigRow({
+            id: tag.id, color: tag.color, name: tag.name, maxLength: 30,
+            reorder: false, deleteClass: 'config-delete-tag',
+        }));
+    });
 
-        const name = document.createElement('input');
-        name.type = 'text';
-        name.className = 'config-name';
-        name.maxLength = 40;
-        name.value = column.name;
-        name.setAttribute('aria-label', `Nombre de la columna ${column.name}`);
-
-        const type = document.createElement('span');
-        type.className = 'config-type';
-        type.textContent = COLUMN_CATEGORY_LABELS[column.category] || column.category;
-
-        const up = configButton('config-action config-move', `Subir ${column.name}`, '↑');
-        up.dataset.delta = '-1';
-        up.disabled = index === 0;
-        const down = configButton('config-action config-move', `Bajar ${column.name}`, '↓');
-        down.dataset.delta = '1';
-        down.disabled = index === board.columns.length - 1;
-
-        row.appendChild(color);
-        row.appendChild(name);
-        row.appendChild(type);
-        row.appendChild(up);
-        row.appendChild(down);
-        row.appendChild(configButton('config-action danger config-delete-column', `Eliminar ${column.name}`, '×'));
-        configColumnsEl.appendChild(row);
+    configStatusesEl.innerHTML = '';
+    configState.statuses.forEach((status, index) => {
+        configStatusesEl.appendChild(buildConfigRow({
+            id: status.id, color: status.color, name: status.name, maxLength: 40,
+            typeLabel: PROJECT_STATUS_LABELS[status.category] || status.category,
+            first: index === 0, last: index === configState.statuses.length - 1,
+            reorder: true, deleteClass: 'config-delete-status',
+        }));
     });
 }
 
@@ -1298,7 +1364,7 @@ configColumnsEl.addEventListener('change', (event) => {
     const row = event.target.closest('.config-row');
     if (!row) return;
     const boardId = configState.columnsBoardId;
-    const columnId = Number(row.dataset.columnId);
+    const columnId = Number(row.dataset.itemId);
 
     if (event.target.classList.contains('config-color')) {
         configAction(() => apiFetch(`/api/boards/${boardId}/columns/${columnId}`, {
@@ -1320,22 +1386,13 @@ configColumnsEl.addEventListener('click', (event) => {
     const row = event.target.closest('.config-row');
     const board = configBoard();
     if (!row || !board) return;
-    const columnId = Number(row.dataset.columnId);
+    const columnId = Number(row.dataset.itemId);
 
     const move = event.target.closest('.config-move');
     if (move) {
-        const columns = [...board.columns];
-        const from = columns.findIndex(c => c.id === columnId);
-        const to = from + Number(move.dataset.delta);
-        if (to < 0 || to >= columns.length) return;
-        [columns[from], columns[to]] = [columns[to], columns[from]];
-        // Se reescribe el orden de las que cambiaron de sitio
-        configAction(() => Promise.all(columns
-            .map((column, index) => ({ column, index }))
-            .filter(({ column, index }) => column.order !== index)
-            .map(({ column, index }) => apiFetch(`/api/boards/${board.id}/columns/${column.id}`, {
-                method: 'PATCH', json: { order: index },
-            }))));
+        const requests = reorderRequests(board.columns, columnId, Number(move.dataset.delta),
+            column => `/api/boards/${board.id}/columns/${column.id}`);
+        if (requests) configAction(requests);
         return;
     }
 
@@ -1355,6 +1412,80 @@ configColumnForm.addEventListener('submit', (event) => {
     if (!name || boardId === null) return;
     configAction(async () => {
         await apiFetch(`/api/boards/${boardId}/columns`, { method: 'POST', json: { name, category } });
+        input.value = '';
+    });
+});
+
+// Etiquetas y estados de proyecto: nombre y color al salir del campo
+function handleConfigItemChange(event, urlFor) {
+    const row = event.target.closest('.config-row');
+    if (!row) return;
+    const url = urlFor(Number(row.dataset.itemId));
+    if (event.target.classList.contains('config-color')) {
+        configAction(() => apiFetch(url, { method: 'PATCH', json: { color: event.target.value } }));
+    } else if (event.target.classList.contains('config-name')) {
+        const name = event.target.value.trim();
+        if (!name) {
+            renderConfig();
+            return;
+        }
+        configAction(() => apiFetch(url, { method: 'PATCH', json: { name } }));
+    }
+}
+
+configTagsEl.addEventListener('change', (event) => handleConfigItemChange(event, id => `/api/tags/${id}`));
+configStatusesEl.addEventListener('change', (event) => handleConfigItemChange(event, id => `/api/project-statuses/${id}`));
+
+configTagsEl.addEventListener('click', async (event) => {
+    if (!event.target.closest('.config-delete-tag')) return;
+    const tagId = Number(event.target.closest('.config-row').dataset.itemId);
+    const tag = configState.tags.find(t => t.id === tagId);
+    const ok = await confirmDialog(
+        `"${tag.name}" se quitará de todas sus tareas. Las tareas y su tiempo no cambian.`,
+        { title: '¿Eliminar etiqueta?', confirmLabel: 'Eliminar', danger: true }
+    );
+    if (!ok) return;
+    boardState.filterTags.delete(tagId);
+    configAction(() => apiFetch(`/api/tags/${tagId}`, { method: 'DELETE' }));
+});
+
+configStatusesEl.addEventListener('click', (event) => {
+    const row = event.target.closest('.config-row');
+    if (!row) return;
+    const statusId = Number(row.dataset.itemId);
+
+    const move = event.target.closest('.config-move');
+    if (move) {
+        const requests = reorderRequests(configState.statuses, statusId, Number(move.dataset.delta),
+            status => `/api/project-statuses/${status.id}`);
+        if (requests) configAction(requests);
+        return;
+    }
+    // El backend no borra un estado con proyectos ni el último de su tipo
+    if (event.target.closest('.config-delete-status')) {
+        configAction(() => apiFetch(`/api/project-statuses/${statusId}`, { method: 'DELETE' }));
+    }
+});
+
+configTagForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = configTagForm.querySelector('input');
+    const name = input.value.trim();
+    if (!name) return;
+    configAction(async () => {
+        await apiFetch('/api/tags', { method: 'POST', json: { name } });
+        input.value = '';
+    });
+});
+
+configStatusForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = configStatusForm.querySelector('input');
+    const category = configStatusForm.querySelector('select').value;
+    const name = input.value.trim();
+    if (!name) return;
+    configAction(async () => {
+        await apiFetch('/api/project-statuses', { method: 'POST', json: { name, category } });
         input.value = '';
     });
 });
