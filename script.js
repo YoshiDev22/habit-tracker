@@ -459,7 +459,17 @@ async function handleProfileSave(event) {
 function handleLogout() {
     // Hooks primero: el token todavía existe en este punto, algún hook
     // (ej. pomodoro) puede necesitarlo para un último POST antes de perderlo.
-    runHooks(window.appLogoutHooks);
+    // Arrancan TODOS ya, sin esperarse entre sí: con runHooks(), que va uno
+    // tras otro, cada await le devolvía el control a esta función, el token
+    // se borraba antes de que empezara el siguiente hook, y su POST salía sin
+    // token. Pasó cuando board.js registró su hook antes que el de pomodoro.
+    window.appLogoutHooks.forEach(hook => {
+        try {
+            Promise.resolve(hook()).catch(error => console.error('Error en hook de logout:', error));
+        } catch (error) {
+            console.error('Error en hook de logout:', error);
+        }
+    });
     removeToken();
     currentUser = null;
     currentStreak = null;

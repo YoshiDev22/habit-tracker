@@ -243,7 +243,7 @@ Todo corre en el scope global compartido. Cuidado con colisiones de nombres entr
 |---|---|
 | `window.appInitHooks` | Al final de `initApp()`, siempre (haya sesión o no) |
 | `window.appDataHooks` | Cuando el usuario queda autenticado: login, registro y reload con token |
-| `window.appLogoutHooks` | **Primera** acción de `handleLogout()`, con el token todavía vivo |
+| `window.appLogoutHooks` | **Primera** acción de `handleLogout()`, con el token todavía vivo. Arrancan todos a la vez (no en serie): solo el código **hasta su primer `await`** corre con token, así que el POST de despedida va antes de cualquier `await` |
 
 ```js
 // Al final del archivo nuevo:
