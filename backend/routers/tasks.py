@@ -339,7 +339,7 @@ def delete_task(
     """Elimina permanentemente una tarea, con su checklist y sus comentarios."""
     task = _get_owned_task(session, current_user.id, task_id)
 
-    delete_task_details(session, current_user.id, [task_id])
+    _delete_task_details(session, current_user.id, [task_id])
 
     # El tiempo sigue siendo real aunque la tarea se borre: conservamos las
     # sesiones (y el total del proyecto), solo se les quita la referencia.
@@ -357,11 +357,10 @@ def delete_task(
     session.commit()
 
 
-def delete_task_details(session: Session, user_id: int, task_ids: List[int]) -> None:
+def _delete_task_details(session: Session, user_id: int, task_ids: List[int]) -> None:
     """Borra el checklist, los comentarios y las etiquetas (el vínculo, no la
-    etiqueta) de unas tareas. Sin commit: lo
-    hace quien borra las tareas, para que todo caiga en la misma transacción.
-    Lo usa también DELETE /api/projects/{id}."""
+    etiqueta) de unas tareas. Sin commit: lo hace quien borra las tareas,
+    para que todo caiga en la misma transacción."""
     if not task_ids:
         return
     for model in (TaskChecklistItem, TaskComment, TaskTag):

@@ -13,8 +13,9 @@ from backend.schemas import (
     ProjectSummaryListResponse,
 )
 from backend.auth import get_current_user
-from backend.boards import ensure_user_setup, first_project_status_id, get_owned_project_status
-from backend.routers.tasks import delete_task_details
+from backend.boards import (
+    ensure_user_setup, first_project_status_id, get_owned_project_status, unassigned_project_id,
+)
 
 router = APIRouter(tags=["projects"])
 
@@ -258,14 +259,18 @@ def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
     project_id: int,
+    delete_sessions: bool = False,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Elimina permanentemente un proyecto y sus tareas (con su checklist y
-    sus comentarios).
-    Para conservar el historial, usa PATCH con is_active=false en su lugar.
-    "Sin asignar" no se borra.
+    Borra un proyecto. Es una etiqueta de las tareas, no su contenedor, así
+    que sus tareas NO se borran: pasan a "Sin asignar", en la misma columna.
+
+    Su tiempo registrado también pasa a "Sin asignar", salvo con
+    ?delete_sessions=true, que lo borra (el de sus tareas y el registrado
+    directo al proyecto). Para ocultarlo sin perder nada, archivarlo
+    (PATCH is_active=false). "Sin asignar" no se borra.
     """
     project = session.exec(
         select(Project).where(
@@ -286,24 +291,29 @@ def delete_project(
             detail=f"'{project.name}' es el proyecto de las tareas sin proyecto y no se borra"
         )
 
-    tasks = session.exec(
+    ensure_user_setup(session, current_user.id)
+    unassigned_id = unassigned_project_id(session, current_user.id)
+
+    for t in session.exec(
         select(Task).where(
             Task.project_id == project_id,
             Task.user_id == current_user.id
         )
-    ).all()
-    delete_task_details(session, current_user.id, [t.id for t in tasks])
-    for t in tasks:
-        session.delete(t)
+    ).all():
+        t.project_id = unassigned_id
+        session.add(t)
 
-    pomodoro_sessions = session.exec(
+    for s in session.exec(
         select(PomodoroSession).where(
             PomodoroSession.project_id == project_id,
             PomodoroSession.user_id == current_user.id
         )
-    ).all()
-    for s in pomodoro_sessions:
-        session.delete(s)
+    ).all():
+        if delete_sessions:
+            session.delete(s)
+        else:
+            s.project_id = unassigned_id
+            session.add(s)
 
     session.delete(project)
     session.commit()
