@@ -27,6 +27,7 @@ function createIdlePomoState(mode = 'focus') {
         startedEpochMs: null,      // cuándo arrancó esta sesión (para "started_at" y el chequeo de vejez)
         projectId: null,
         taskId: null,
+        taskTitle: null,           // para la barra: "Cronómetro · Rediseño kanban"
     };
 }
 
@@ -40,14 +41,9 @@ let scheduledBeep = [];
 // Elementos del DOM
 // ============================================
 
-const pomoModeBtns = document.querySelectorAll('.pomodoro-mode-btn');
-const pomoDisplay = document.getElementById('pomoDisplay');
-const pomoStatusEl = document.getElementById('pomoStatus');
-const pomoProjectSelect = document.getElementById('pomoProjectSelect');
-const pomoTaskSelect = document.getElementById('pomoTaskSelect');
-const pomoStartBtn = document.getElementById('pomoStartBtn');
-const pomoPauseBtn = document.getElementById('pomoPauseBtn');
-const pomoStopBtn = document.getElementById('pomoStopBtn');
+// La tarjeta del reloj ya no existe: el tiempo se inicia desde las tarjetas
+// del tablero (startTimerForTask) y se controla desde la barra flotante. De
+// ella solo quedan "Hoy" y el botón de sonido, en la barra del tablero.
 const pomoSoundBtn = document.getElementById('pomoSoundBtn');
 const pomoTodayEl = document.getElementById('pomoToday');
 
@@ -57,6 +53,7 @@ const pomodoroBarLabel = document.getElementById('pomodoroBarLabel');
 const pomodoroBarTime = document.getElementById('pomodoroBarTime');
 const pomodoroBarPauseBtn = document.getElementById('pomodoroBarPauseBtn');
 const pomodoroBarStopBtn = document.getElementById('pomodoroBarStopBtn');
+const pomodoroBarActions = document.getElementById('pomodoroBarActions');
 
 // ============================================
 // Persistencia (localStorage)
@@ -273,7 +270,9 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-function startPomodoro() {
+// Arranca el modo que tenga pomoState (el idle lo trae de createIdlePomoState)
+// apuntando a este proyecto y tarea; los descansos van sin ninguno.
+function startPomodoro(projectId = null, taskId = null, taskTitle = null) {
     if (pomoState.status !== 'idle') return;
 
     const mode = pomoState.mode;
@@ -290,8 +289,9 @@ function startPomodoro() {
         pausedAccumMs: 0,
         pausedAtEpochMs: null,
         startedEpochMs: now,
-        projectId: pomoProjectSelect.value ? Number(pomoProjectSelect.value) : null,
-        taskId: pomoTaskSelect.value ? Number(pomoTaskSelect.value) : null,
+        projectId,
+        taskId,
+        taskTitle,
     };
 
     // Debe crearse/reanudarse dentro de un gesto de usuario (este click) para
@@ -301,7 +301,7 @@ function startPomodoro() {
     // El cronómetro no tiene final que anunciar; su aviso es el del tope.
     if (!stopwatch) scheduleEndBeep(plannedSeconds * 1000);
 
-    pomoStatusEl.textContent = '';
+    clearBarMessage();
     savePomoState();
     startTicking();
     renderPomoUI();
@@ -415,11 +415,9 @@ async function stopTimer({ skipConfirm = false } = {}) {
         await postSession(payload);
         await refreshTodaySeconds();
         await loadProjects();
-        pomoStatusEl.textContent = `Sesión guardada (${formatClock(elapsedSeconds)}).`;
+        showBarMessage(`Sesión guardada (${formatClock(elapsedSeconds)}).`);
     } else if (wasFocus) {
-        pomoStatusEl.textContent = 'Sesión descartada (menos de 1 minuto).';
-    } else {
-        pomoStatusEl.textContent = '';
+        showBarMessage('Sesión descartada (menos de 1 minuto).');
     }
 }
 
@@ -456,11 +454,11 @@ async function finishStopwatch({ announce }) {
         await postSession(payload);
         await refreshTodaySeconds();
         await loadProjects();
-        pomoStatusEl.textContent = auto
+        showBarMessage(auto
             ? `Cronómetro cerrado solo a las 8 h. Tiempo guardado (${formatStopwatch(durationSeconds)}).`
-            : `Tiempo guardado (${formatStopwatch(durationSeconds)}).`;
+            : `Tiempo guardado (${formatStopwatch(durationSeconds)}).`);
     } else {
-        pomoStatusEl.textContent = 'Tiempo descartado (menos de 1 minuto).';
+        showBarMessage('Tiempo descartado (menos de 1 minuto).');
     }
 
     if (announce) {
@@ -489,23 +487,18 @@ async function startTimerForTask(projectId, taskId, mode = 'stopwatch', taskTitl
     }
 
     pomoState = createIdlePomoState(mode);
-    pomoProjectSelect.value = String(projectId);
-    await populateTaskSelect();
-    // El select solo lista tareas pendientes, y desde el tablero se puede
-    // cronometrar una tarjeta de cualquier columna, "Hecho" incluida.
-    if (!Array.from(pomoTaskSelect.options).some(o => o.value === String(taskId))) {
-        const option = document.createElement('option');
-        option.value = String(taskId);
-        option.textContent = taskTitle || 'Tarea';
-        pomoTaskSelect.appendChild(option);
-    }
-    pomoTaskSelect.value = String(taskId);
-    startPomodoro();
-    goToView(1);
+    startPomodoro(projectId, taskId, taskTitle || null);
 }
 
-function startStopwatchForTask(projectId, taskId) {
-    return startTimerForTask(projectId, taskId, 'stopwatch');
+function startStopwatchForTask(projectId, taskId, taskTitle = '') {
+    return startTimerForTask(projectId, taskId, 'stopwatch', taskTitle);
+}
+
+function startBreak(mode) {
+    clearBarMessage();
+    if (pomoState.status !== 'idle') return;
+    pomoState = createIdlePomoState(mode);
+    startPomodoro();
 }
 
 // announce=false se usa al rehidratar una sesión que terminó hace rato,
@@ -543,7 +536,16 @@ async function finishPomodoro(endedEpochMs, announce) {
         scheduledBeep = [];
 
         notifyPomodoroEnd(finishedState.mode);
-        pomoStatusEl.textContent = wasFocus ? '¡Pomodoro completado!' : 'Descanso terminado.';
+        if (wasFocus) {
+            // Sin la tarjeta del reloj, el descanso se ofrece aquí mismo
+            showBarMessage('¡Pomodoro completado!', [
+                { label: 'Descanso 5 min', onClick: () => startBreak('short_break') },
+                { label: '15 min', onClick: () => startBreak('long_break') },
+                { label: 'Ahora no', onClick: clearBarMessage },
+            ], BAR_OFFER_MS);
+        } else {
+            showBarMessage('Descanso terminado.');
+        }
     } else {
         cancelScheduledBeep();
     }
@@ -560,8 +562,46 @@ function pomoBarLabelText() {
         long_break: 'Descanso largo',
         stopwatch: 'Cronómetro',
     }[pomoState.mode];
+    if (pomoState.taskTitle) return `${modeLabel} · ${pomoState.taskTitle}`;
     const project = projectsState.projects.find(p => p.id === pomoState.projectId);
     return project ? `${modeLabel} · ${project.name}` : modeLabel;
+}
+
+// Modo mensaje de la barra: sin timer corriendo, enseña un aviso ("Sesión
+// guardada", "¡Pomodoro completado!") con botones opcionales, y se va solo.
+const BAR_MESSAGE_MS = 5000;
+const BAR_OFFER_MS = 120000; // la oferta de descanso espera más
+let barMessage = null; // { text, actions: [{ label, onClick }] }
+let barMessageTimer = null;
+
+function showBarMessage(text, actions = [], timeoutMs = BAR_MESSAGE_MS) {
+    clearTimeout(barMessageTimer);
+    barMessage = { text, actions };
+    barMessageTimer = setTimeout(clearBarMessage, timeoutMs);
+    renderPomoUI();
+}
+
+function clearBarMessage() {
+    clearTimeout(barMessageTimer);
+    barMessageTimer = null;
+    if (!barMessage) return;
+    barMessage = null;
+    renderPomoUI();
+}
+
+function renderBarActions() {
+    pomodoroBarActions.innerHTML = '';
+    (barMessage ? barMessage.actions : []).forEach(action => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'pomodoro-bar-action';
+        button.textContent = action.label;
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            action.onClick();
+        });
+        pomodoroBarActions.appendChild(button);
+    });
 }
 
 function renderPomoUI() {
@@ -582,21 +622,20 @@ function renderPomoUI() {
         progressPct = Math.min(100, Math.max(0, 100 - (remainingMs / totalMs) * 100));
     }
 
-    pomoDisplay.textContent = clock;
+    const showMessage = !isActive && barMessage !== null;
+    pomodoroBar.classList.toggle('message', showMessage);
+    pomodoroBarTime.classList.toggle('hidden', !isActive);
+    pomodoroBarPauseBtn.classList.toggle('hidden', !isActive);
+    pomodoroBarStopBtn.classList.toggle('hidden', !isActive);
+    renderBarActions();
 
-    pomoStartBtn.classList.toggle('hidden', isActive);
-    pomoPauseBtn.classList.toggle('hidden', !isActive);
-    pomoStopBtn.classList.toggle('hidden', !isActive);
-    pomoPauseBtn.textContent = pomoState.status === 'paused' ? 'Reanudar' : 'Pausar';
-
-    pomoModeBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === pomoState.mode);
-        btn.disabled = isActive; // no cambiar de modo a mitad de sesión
-    });
-    pomoProjectSelect.disabled = isActive;
-    pomoTaskSelect.disabled = isActive || !pomoProjectSelect.value;
-
-    if (isActive) {
+    if (showMessage) {
+        pomodoroBar.classList.remove('hidden');
+        document.body.classList.add('has-pomodoro-bar');
+        pomodoroBarProgress.style.width = '0%';
+        pomodoroBarLabel.textContent = barMessage.text;
+        document.title = 'Habit Tracker';
+    } else if (isActive) {
         pomodoroBar.classList.remove('hidden');
         document.body.classList.add('has-pomodoro-bar');
 
@@ -613,12 +652,14 @@ function renderPomoUI() {
         document.title = 'Habit Tracker';
     }
 
-    // Marca la fila de la tarea que se está cronometrando. projects.js la
-    // repinta en cada render de proyectos, así que aquí solo se ajusta la clase.
-    document.querySelectorAll('.task-row.timing').forEach(row => row.classList.remove('timing'));
+    // Marca la fila (lista) y la tarjeta (tablero) de la tarea que se está
+    // cronometrando. Las dos se repintan al refrescar, y esto corre en cada
+    // tick, así que aquí solo se ajusta la clase.
+    document.querySelectorAll('.task-row.timing, .board-card.timing').forEach(el => el.classList.remove('timing'));
     if (isActive && pomoState.taskId) {
-        const row = document.querySelector(`.task-row[data-task-id="${pomoState.taskId}"]`);
-        if (row) row.classList.add('timing');
+        document.querySelectorAll(
+            `.task-row[data-task-id="${pomoState.taskId}"], .board-card[data-task-id="${pomoState.taskId}"]`
+        ).forEach(el => el.classList.add('timing'));
     }
 }
 
@@ -724,53 +765,6 @@ function updateSoundBtn() {
     pomoSoundBtn.setAttribute('aria-label', label);
 }
 
-// ============================================
-// Selects de proyecto / tarea
-// ============================================
-
-function populateProjectSelect() {
-    const previousValue = pomoProjectSelect.value;
-    pomoProjectSelect.innerHTML = '<option value="">Sin proyecto</option>';
-
-    projectsState.projects.forEach(project => {
-        const option = document.createElement('option');
-        option.value = String(project.id);
-        option.textContent = project.name;
-        pomoProjectSelect.appendChild(option);
-    });
-
-    const stillExists = Array.from(pomoProjectSelect.options).some(o => o.value === previousValue);
-    pomoProjectSelect.value = stillExists ? previousValue : '';
-
-    populateTaskSelect();
-}
-
-async function populateTaskSelect() {
-    const previousValue = pomoTaskSelect.value;
-    pomoTaskSelect.innerHTML = '<option value="">Sin tarea</option>';
-    const projectId = pomoProjectSelect.value;
-    pomoTaskSelect.disabled = !projectId || pomoState.status !== 'idle';
-
-    if (!projectId) return;
-
-    try {
-        const data = await apiFetch(`/api/tasks?project_id=${projectId}&include_done=false`);
-        data.tasks.forEach(task => {
-            const option = document.createElement('option');
-            option.value = String(task.id);
-            option.textContent = task.title;
-            pomoTaskSelect.appendChild(option);
-        });
-
-        // Conservar la tarea elegida: ahora esto corre en cada cambio de tarea,
-        // y marcar otra como hecha no debe perder la selección del usuario.
-        const stillExists = Array.from(pomoTaskSelect.options).some(o => o.value === previousValue);
-        pomoTaskSelect.value = stillExists ? previousValue : '';
-    } catch (error) {
-        console.error('Error al cargar tareas para el selector de pomodoro:', error);
-    }
-}
-
 async function refreshTodaySeconds() {
     // initPomodoro corre desde appInitHooks, que initApp() ejecuta también sin
     // sesión (pantalla de login). Sin esta guarda, cada visita al login deja un
@@ -790,26 +784,6 @@ async function refreshTodaySeconds() {
 // ============================================
 // Eventos
 // ============================================
-
-pomoModeBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        if (pomoState.status !== 'idle') return;
-        pomoState.mode = btn.dataset.mode;
-        pomoState.plannedSeconds = POMO_DURATIONS[pomoState.mode];
-        renderPomoUI();
-    });
-});
-
-pomoProjectSelect.addEventListener('change', populateTaskSelect);
-
-pomoStartBtn.addEventListener('click', startPomodoro);
-
-pomoPauseBtn.addEventListener('click', () => {
-    if (pomoState.status === 'running') pausePomodoro();
-    else if (pomoState.status === 'paused') resumePomodoro();
-});
-
-pomoStopBtn.addEventListener('click', stopPomodoro);
 
 pomoSoundBtn.addEventListener('click', () => {
     setSoundEnabled(!isSoundEnabled());
@@ -836,9 +810,10 @@ pomodoroBarStopBtn.addEventListener('click', (event) => {
     stopPomodoro();
 });
 
-// Tocar el cuerpo de la barra (no sus botones) lleva a la vista Proyectos.
+// Tocar el cuerpo de la barra (no sus botones) lleva a la vista Tableros,
+// salvo en modo mensaje, que no tiene nada que enseñar allí.
 pomodoroBar.addEventListener('click', () => {
-    goToView(1);
+    if (pomoState.status !== 'idle') goToView(1);
 });
 
 // ============================================
@@ -1208,11 +1183,6 @@ window.appInitHooks.push(initPomodoro);
 // pendiente por un 401 esperaría a un F5: iniciar sesión otra vez en la misma
 // pestaña no la reenviaba.
 window.appDataHooks.push(flushPendingSessions);
-// Los selects se llenan desde projectsState, así que se enganchan al hook de
-// projects.js en vez de a appDataHooks: corre al cargar los proyectos (login)
-// y además en cada alta, edición o borrado de proyecto o tarea, sin que el
-// usuario tenga que recargar la página.
-window.projectsChangedHooks.push(populateProjectSelect);
 // El total de hoy cambia al registrar tiempo a mano, no solo al terminar un
 // pomodoro, y ese registro pasa por loadProjects().
 window.projectsChangedHooks.push(refreshTodaySeconds);

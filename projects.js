@@ -675,9 +675,9 @@ projectsList.addEventListener('click', (event) => {
     // archivo; el click ocurre mucho más tarde, así que la global ya existe.
     const playTaskBtn = event.target.closest('.task-play');
     if (playTaskBtn) {
-        const taskId = Number(playTaskBtn.closest('.task-row').dataset.taskId);
+        const row = playTaskBtn.closest('.task-row');
         const projectId = Number(playTaskBtn.closest('.task-list').dataset.projectId);
-        startStopwatchForTask(projectId, taskId);
+        startStopwatchForTask(projectId, Number(row.dataset.taskId), row.querySelector('.task-title').textContent);
         return;
     }
 

@@ -308,7 +308,7 @@ tablero se refresca una vez, al cerrar.
 
 ### Vistas y navegación
 
-Dos vistas (`#viewCalendar`, `#viewProjects`) dentro de `#viewsTrack`, con tabs arriba y
+Dos vistas (`#viewCalendar`, `#viewProjects` — la pestaña se llama "Tableros") dentro de `#viewsTrack`, con tabs arriba y
 swipe horizontal. Toda la lógica está en `projects.js` (`goToView()`, `VIEW_COUNT`, manejo
 de `touchstart/move/end` con detección de eje). Agregar una vista implica tocar
 `VIEW_COUNT`, el HTML de tabs y el indicador.
@@ -347,6 +347,17 @@ del dispositivo) y `board_selected` (último tablero abierto; se borra al cerrar
 El pomodoro es **offline-first**: si el POST de una sesión falla, `queuePendingSession()`
 la guarda en `pomodoro_pending` y `flushPendingSessions()` la reintenta al iniciar. No
 romper esa cola.
+
+### Timer
+
+No hay tarjeta de reloj: el tiempo se inicia desde una tarea (▶ de la tarjeta o de la
+lista, o el detalle de la tarjeta) con `startTimerForTask(projectId, taskId, mode, title)`,
+que acaba en `startPomodoro(projectId, taskId, title)`. Mientras corre, se controla desde
+`#pomodoroBar`, la barra flotante (hija de `<body>`, visible en cualquier pestaña). Sin
+timer, esa barra tiene un **modo mensaje** (`showBarMessage(text, actions, ms)`) para los
+avisos ("Sesión guardada") y la oferta de descanso al terminar un pomodoro: los descansos
+solo se inician desde ahí (`startBreak`). "Hoy" y el botón de sonido viven en la barra del
+tablero.
 
 ## Reglas duras
 

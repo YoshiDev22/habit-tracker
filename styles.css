@@ -541,104 +541,6 @@ body {
    Pomodoro
    ============================================ */
 
-.pomodoro-card {
-    background: var(--bg-surface);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.pomodoro-modes {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 16px;
-}
-
-.pomodoro-mode-btn {
-    flex: 1;
-    background: var(--bg-surface-2);
-    border: none;
-    border-radius: 8px;
-    padding: 8px 4px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.pomodoro-mode-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-.pomodoro-mode-btn.active {
-    background: var(--accent);
-    color: var(--text-on-accent);
-}
-
-.pomodoro-display {
-    font-size: 3rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -1px;
-    margin-bottom: 4px;
-}
-
-.pomodoro-status {
-    min-height: 1.2em;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-}
-
-.pomodoro-selects {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-
-.pomodoro-selects select {
-    flex: 1;
-    padding: 8px 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-surface-2);
-    color: var(--text-primary);
-    font-size: 0.85rem;
-}
-
-.pomodoro-selects select:disabled {
-    opacity: 0.6;
-}
-
-.pomodoro-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.pomodoro-controls .submit-btn {
-    margin-top: 0;
-    flex: 1;
-    max-width: 160px;
-}
-
-.pomodoro-today {
-    margin-top: 14px;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.pomodoro-note {
-    margin-top: 4px;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
-
-/* Mini-barra persistente, hija de <body> (ver comentario en index.html) */
 .pomodoro-bar {
     position: fixed;
     left: 0;
@@ -1917,6 +1819,7 @@ body.has-pomodoro-bar {
 
 .board-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
@@ -1924,7 +1827,9 @@ body.has-pomodoro-bar {
 }
 
 .board-select {
-    flex: 1;
+    /* Base de 180px: en el teléfono la barra salta de línea y deja al
+       tablero y ⚙ arriba, en vez de aplastar el selector a dos letras. */
+    flex: 1 1 180px;
     min-width: 0;
     max-width: 360px;
     padding: 8px 10px;
@@ -2297,8 +2202,7 @@ body.board-wide .app-container {
 }
 
 body.board-wide .app-brand,
-body.board-wide .tabs,
-body.board-wide .pomodoro-card {
+body.board-wide .tabs {
     max-width: 600px;
     margin-left: auto;
     margin-right: auto;
@@ -2917,4 +2821,77 @@ body.board-wide .board-column {
     margin-top: 0;
     padding: 10px 16px;
     font-size: 0.9rem;
+}
+
+/* ============================================
+   Lo que quedó del reloj: "Hoy", sonido, barra en modo mensaje
+   ============================================ */
+
+.timer-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.timer-today {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.timer-sound-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.timer-sound-btn:hover {
+    background: var(--bg-hover);
+}
+
+.pomodoro-bar.message {
+    cursor: default;
+}
+
+.pomodoro-bar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pomodoro-bar-actions:empty {
+    display: none;
+}
+
+.pomodoro-bar-action {
+    padding: 6px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--accent);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.pomodoro-bar-action:first-child {
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+
+/* La tarjeta que se está cronometrando, igual que .task-row.timing en la lista */
+.board-card.timing {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.board-card.timing .board-card-play {
+    opacity: 1;
+    background: var(--accent);
+    color: var(--text-on-accent);
 }

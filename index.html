@@ -118,7 +118,7 @@
             <button id="tabCalendar" class="tab-btn active" role="tab"
                     aria-selected="true" aria-controls="viewCalendar" data-view="0" tabindex="0">Calendario</button>
             <button id="tabProjects" class="tab-btn" role="tab"
-                    aria-selected="false" aria-controls="viewProjects" data-view="1" tabindex="-1">Proyectos</button>
+                    aria-selected="false" aria-controls="viewProjects" data-view="1" tabindex="-1">Tableros</button>
             <span class="tab-indicator" aria-hidden="true"></span>
         </nav>
 
@@ -173,42 +173,17 @@
                 </section>
 
                 <section id="viewProjects" class="view" role="tabpanel" aria-labelledby="tabProjects">
-                    <div class="pomodoro-card">
-                        <div class="pomodoro-modes">
-                            <button type="button" class="pomodoro-mode-btn" data-mode="stopwatch">Cronómetro</button>
-                            <button type="button" class="pomodoro-mode-btn active" data-mode="focus">Enfoque</button>
-                            <button type="button" class="pomodoro-mode-btn" data-mode="short_break">Descanso</button>
-                            <button type="button" class="pomodoro-mode-btn" data-mode="long_break">Descanso largo</button>
-                        </div>
-
-                        <div class="pomodoro-display" id="pomoDisplay" role="timer" aria-live="off">25:00</div>
-                        <p class="pomodoro-status" id="pomoStatus" aria-live="polite"></p>
-
-                        <div class="pomodoro-selects">
-                            <select id="pomoProjectSelect" aria-label="Proyecto">
-                                <option value="">Sin proyecto</option>
-                            </select>
-                            <select id="pomoTaskSelect" aria-label="Tarea" disabled>
-                                <option value="">Sin tarea</option>
-                            </select>
-                        </div>
-
-                        <div class="pomodoro-controls">
-                            <button type="button" id="pomoStartBtn" class="submit-btn">Iniciar</button>
-                            <button type="button" id="pomoPauseBtn" class="submit-btn btn-neutral hidden">Pausar</button>
-                            <button type="button" id="pomoStopBtn" class="submit-btn btn-danger hidden">Detener</button>
-                            <button type="button" id="pomoSoundBtn" class="icon-btn" aria-label="Sonido activado" title="Sonido activado">🔊</button>
-                        </div>
-
-                        <p class="pomodoro-today" id="pomoToday">Hoy: 0m</p>
-                        <p class="pomodoro-note">Suena aunque estés en otra pestaña. Acepta las notificaciones para que además te avise el sistema.</p>
-                    </div>
-
                     <!-- Tablero o lista: board.js alterna entre las dos y recuerda
                          la elección en localStorage.projects_view. -->
                     <div class="board-toolbar">
                         <select id="boardSelect" class="board-select" aria-label="Tablero"></select>
                         <button type="button" id="boardConfigBtn" class="board-config-btn" aria-label="Organizar tableros, columnas y etiquetas" title="Organizar">⚙</button>
+                        <!-- Lo que quedó de la tarjeta del reloj: el tiempo se inicia
+                             desde cada tarjeta y corre en la barra flotante (pomodoro.js). -->
+                        <div class="timer-meta">
+                            <span class="timer-today" id="pomoToday" title="Tiempo registrado hoy">Hoy: 0m</span>
+                            <button type="button" id="pomoSoundBtn" class="timer-sound-btn" aria-label="Sonido activado" title="Sonido activado">🔊</button>
+                        </div>
                         <div class="view-toggle" role="group" aria-label="Cómo ver los proyectos">
                             <button type="button" class="view-toggle-btn" data-projects-view="board" aria-pressed="true">Tablero</button>
                             <button type="button" class="view-toggle-btn" data-projects-view="list" aria-pressed="false">Lista</button>
@@ -261,10 +236,12 @@
     <div id="pomodoroBar" class="pomodoro-bar hidden">
         <div class="pomodoro-bar-progress" id="pomodoroBarProgress"></div>
         <div class="pomodoro-bar-content">
-            <span class="pomodoro-bar-label" id="pomodoroBarLabel">Enfoque</span>
+            <span class="pomodoro-bar-label" id="pomodoroBarLabel" aria-live="polite">Enfoque</span>
             <span class="pomodoro-bar-time" id="pomodoroBarTime">25:00</span>
             <button type="button" class="pomodoro-bar-btn" id="pomodoroBarPauseBtn" aria-label="Pausar">⏸</button>
             <button type="button" class="pomodoro-bar-btn" id="pomodoroBarStopBtn" aria-label="Detener">■</button>
+            <!-- Modo mensaje (sin timer corriendo): avisos y la oferta de descanso -->
+            <span class="pomodoro-bar-actions" id="pomodoroBarActions"></span>
         </div>
     </div>
 
