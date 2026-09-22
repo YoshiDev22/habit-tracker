@@ -14,6 +14,7 @@ from backend.schemas import (
 )
 from backend.auth import get_current_user
 from backend.statuses import ensure_user_statuses, first_status_id, get_owned_status
+from backend.routers.tasks import delete_task_details
 
 router = APIRouter(tags=["projects"])
 
@@ -252,7 +253,8 @@ def delete_project(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Elimina permanentemente un proyecto y sus tareas.
+    Elimina permanentemente un proyecto y sus tareas (con su checklist y
+    sus comentarios).
     Para conservar el historial, usa PATCH con is_active=false en su lugar.
     """
     project = session.exec(
@@ -274,6 +276,7 @@ def delete_project(
             Task.user_id == current_user.id
         )
     ).all()
+    delete_task_details(session, current_user.id, [t.id for t in tasks])
     for t in tasks:
         session.delete(t)
 

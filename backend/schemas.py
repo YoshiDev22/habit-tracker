@@ -315,6 +315,11 @@ class TaskResponse(SQLModel):
     completed_at: Optional[date_type] = None
     created_at: date_type
 
+    # Para pintar la tarjeta sin pedir el detalle de cada tarea
+    checklist_total: int = 0
+    checklist_done: int = 0
+    comment_count: int = 0
+
     class Config:
         from_attributes = True
 
@@ -322,6 +327,71 @@ class TaskResponse(SQLModel):
 class TaskListResponse(SQLModel):
     """Lista de tareas"""
     tasks: List[TaskResponse]
+    total: int
+
+
+# ==================== Checklist Schemas ====================
+
+class ChecklistItemCreate(SQLModel):
+    """Esquema para agregar una línea al checklist de una tarea"""
+    text: str = Field(min_length=1, max_length=200)
+    order: Optional[int] = None  # sin él, va al final
+
+
+class ChecklistItemUpdate(SQLModel):
+    """Esquema para actualizar una línea del checklist (PATCH parcial)"""
+    text: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    is_done: Optional[bool] = None
+    order: Optional[int] = None
+
+
+class ChecklistItemResponse(SQLModel):
+    """Esquema de respuesta para una línea del checklist"""
+    id: int
+    task_id: int
+    text: str
+    is_done: bool
+    order: int
+
+    class Config:
+        from_attributes = True
+
+
+class ChecklistListResponse(SQLModel):
+    """Checklist de una tarea"""
+    items: List[ChecklistItemResponse]
+    total: int
+
+
+# ==================== Comment Schemas ====================
+
+class CommentCreate(SQLModel):
+    """Esquema para comentar una tarea"""
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class CommentUpdate(SQLModel):
+    """Esquema para editar un comentario propio"""
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class CommentResponse(SQLModel):
+    """
+    Esquema de respuesta para un comentario. author_name es el display_name
+    del autor o, si no tiene, su email.
+    """
+    id: int
+    task_id: int
+    author_id: int
+    author_name: str
+    body: str
+    created_at: datetime
+    edited_at: Optional[datetime] = None
+
+
+class CommentListResponse(SQLModel):
+    """Comentarios de una tarea, del más viejo al más nuevo"""
+    comments: List[CommentResponse]
     total: int
 
 

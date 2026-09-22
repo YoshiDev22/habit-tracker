@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field
 from typing import Optional, Dict, List
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, timezone
 from sqlalchemy import JSON, UniqueConstraint
 
 
@@ -159,6 +159,52 @@ class Task(SQLModel, table=True):
 
     completed_at: Optional[date_type] = Field(default=None)
     created_at: date_type = Field(default_factory=date_type.today)
+
+
+def utc_now_naive() -> datetime:
+    """UTC naive, el mismo formato que started_at/ended_at del pomodoro, sin
+    el datetime.utcnow() deprecado (backlog 8)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+class TaskChecklistItem(SQLModel, table=True):
+    """Subtarea de una tarea: una línea que se marca, sin tiempos. Tabla NUEVA."""
+    __tablename__ = "task_checklist_items"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)  # denormalizado, igual que Task
+    task_id: int = Field(foreign_key="tasks.id", index=True)
+
+    text: str
+    is_done: bool = Field(default=False)
+
+    # Orden de aparición en la UI (menor = primero)
+    order: int = Field(default=0)
+
+    created_at: date_type = Field(default_factory=date_type.today)
+
+
+class TaskComment(SQLModel, table=True):
+    """
+    Comentario de seguimiento en una tarea. Tabla NUEVA.
+
+    user_id es el DUEÑO de la tarea, y es lo que filtran las queries, igual
+    que en el resto de tablas. author_id es quien lo escribió. Hoy son
+    siempre la misma persona; están separados para que un tablero compartido
+    el día de mañana no obligue a migrar los comentarios.
+    """
+    __tablename__ = "task_comments"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    task_id: int = Field(foreign_key="tasks.id", index=True)
+    author_id: int = Field(foreign_key="users.id")
+
+    body: str
+
+    # UTC naive. El cliente lo convierte a su hora local solo para mostrarlo.
+    created_at: datetime = Field(default_factory=utc_now_naive)
+    edited_at: Optional[datetime] = Field(default=None)
 
 
 class PomodoroSession(SQLModel, table=True):
