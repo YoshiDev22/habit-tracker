@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -13,6 +13,7 @@ from backend.schemas import (
     ProjectSummaryListResponse,
 )
 from backend.auth import get_current_user
+from backend.statuses import ensure_user_statuses, first_status_id, get_owned_status
 
 router = APIRouter(tags=["projects"])
 
@@ -20,17 +21,24 @@ router = APIRouter(tags=["projects"])
 @router.get("", response_model=ProjectListResponse)
 def get_projects(
     include_inactive: bool = False,
+    status_id: Optional[int] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Lista los proyectos del usuario.
-    Por defecto solo devuelve los activos (is_active=True).
+    Por defecto solo devuelve los no archivados (is_active=True), sea cual
+    sea su estado; status_id filtra además por estado.
     """
+    ensure_user_statuses(session, current_user.id)
+
     query = select(Project).where(Project.user_id == current_user.id)
 
     if not include_inactive:
         query = query.where(Project.is_active == True)
+
+    if status_id is not None:
+        query = query.where(Project.status_id == status_id)
 
     projects = session.exec(query.order_by(Project.order, Project.id)).all()
 
@@ -64,6 +72,12 @@ def create_project(
             detail=f"Ya existe un proyecto con el nombre '{project_in.name}' para este usuario"
         )
 
+    ensure_user_statuses(session, current_user.id)
+    if project_in.status_id is not None:
+        status_id = get_owned_status(session, current_user.id, project_in.status_id, "project").id
+    else:
+        status_id = first_status_id(session, current_user.id, "project", "active")
+
     new_project = Project(
         user_id=current_user.id,
         name=project_in.name,
@@ -72,6 +86,7 @@ def create_project(
         icon=project_in.icon,
         order=project_in.order or 0,
         is_active=True,
+        status_id=status_id,
     )
     session.add(new_project)
     session.commit()
@@ -213,6 +228,13 @@ def update_project(
             )
 
     update_data = project_in.model_dump(exclude_unset=True)
+
+    if "status_id" in update_data:
+        if update_data["status_id"] is None:
+            del update_data["status_id"]
+        else:
+            get_owned_status(session, current_user.id, update_data["status_id"], "project")
+
     for field, value in update_data.items():
         setattr(project, field, value)
 

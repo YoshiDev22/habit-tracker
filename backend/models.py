@@ -68,6 +68,36 @@ class Habit(SQLModel, table=True):
     created_at: date_type = Field(default_factory=date_type.today)
 
 
+class Status(SQLModel, table=True):
+    """
+    Estado configurable por usuario. Sirve a dos cosas según `scope`:
+    las columnas del tablero de tareas ("task") y los estados de un
+    proyecto ("project"). Tabla NUEVA: create_all() la crea sola.
+
+    El usuario elige nombre, color y orden, y puede agregar más. `category`
+    es fija y es lo único que lee el código: una columna llamada
+    "Esperando cliente" sigue siendo "doing". Las categorías válidas y los
+    estados por defecto están en backend/statuses.py.
+    """
+    __tablename__ = "statuses"
+    __table_args__ = (UniqueConstraint("user_id", "scope", "name", name="uq_statuses_user_scope_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+
+    scope: str = Field(index=True)  # task | project
+    category: str                   # task: todo|doing|done · project: idea|active|paused|done
+    name: str
+
+    # Color hexadecimal (ej: "#3498db")
+    color: Optional[str] = Field(default=None)
+
+    # Orden de la columna en la UI (menor = primero)
+    order: int = Field(default=0)
+
+    created_at: date_type = Field(default_factory=date_type.today)
+
+
 class Project(SQLModel, table=True):
     """
     Proyecto u objetivo del usuario. Tabla NUEVA: create_all() la crea sola
@@ -97,6 +127,12 @@ class Project(SQLModel, table=True):
     # Si es False, el proyecto está "archivado" pero sus tareas se conservan
     is_active: bool = Field(default=True)
 
+    # Estado (scope="project"). Columna AÑADIDA a una tabla existente: la
+    # agrega scripts/migrate.py como NULL, y ensure_user_statuses() rellena
+    # los NULL al primer request del usuario. Sin index=True a propósito:
+    # migrate.py no crea índices y una base nueva quedaría distinta a la de prod.
+    status_id: Optional[int] = Field(default=None, foreign_key="statuses.id")
+
     created_at: date_type = Field(default_factory=date_type.today)
 
 
@@ -110,7 +146,13 @@ class Task(SQLModel, table=True):
 
     title: str
     notes: Optional[str] = Field(default=None)
+
+    # Se mantiene sincronizado con la categoría de status_id ("done" <=> True),
+    # para que el progreso de /api/projects/summary siga saliendo de aquí.
     is_done: bool = Field(default=False)
+
+    # Columna del tablero (scope="task"). AÑADIDA, igual que Project.status_id.
+    status_id: Optional[int] = Field(default=None, foreign_key="statuses.id")
 
     # Orden de aparición en la UI (menor = primero)
     order: int = Field(default=0)

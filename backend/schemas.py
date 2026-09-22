@@ -1,5 +1,6 @@
 from sqlmodel import Field, SQLModel
 from pydantic import field_validator
+import re
 from typing import Optional, Dict, List
 from datetime import date as date_type, datetime
 from sqlalchemy import JSON
@@ -142,6 +143,68 @@ class HabitListResponse(SQLModel):
     total: int
 
 
+# ==================== Status Schemas ====================
+
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _validate_hex_color(v: Optional[str]) -> Optional[str]:
+    # A mano y no con Field(regex=...): sqlmodel 0.0.14 no lo aplica con
+    # Pydantic v2 y el valor pasaba sin validar.
+    if v is not None and not HEX_COLOR.match(v):
+        raise ValueError("El color debe ser hexadecimal, por ejemplo #3498db")
+    return v
+
+
+class StatusCreate(SQLModel):
+    """Esquema para crear un estado (columna del tablero o estado de proyecto)"""
+    scope: str                        # task | project
+    category: str                     # ver CATEGORIES_BY_SCOPE en backend/statuses.py
+    name: str = Field(min_length=1, max_length=40)
+    color: Optional[str] = None
+    order: Optional[int] = 0
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class StatusUpdate(SQLModel):
+    """
+    Esquema para actualizar un estado (PATCH parcial). La categoría no se
+    cambia: sus tareas tendrían que recalcular is_done. Para eso, crear un
+    estado nuevo, mover lo que haga falta y borrar el viejo.
+    """
+    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    color: Optional[str] = None
+    order: Optional[int] = None
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class StatusResponse(SQLModel):
+    """Esquema de respuesta para un estado"""
+    id: int
+    scope: str
+    category: str
+    name: str
+    color: Optional[str] = None
+    order: int
+
+    class Config:
+        from_attributes = True
+
+
+class StatusListResponse(SQLModel):
+    """Lista de estados del usuario"""
+    statuses: List[StatusResponse]
+    total: int
+
+
 # ==================== Project Schemas ====================
 
 class ProjectCreate(SQLModel):
@@ -151,6 +214,7 @@ class ProjectCreate(SQLModel):
     color: Optional[str] = None
     icon: Optional[str] = None
     order: Optional[int] = 0
+    status_id: Optional[int] = None   # sin él, el primer estado "active"
 
 
 class ProjectUpdate(SQLModel):
@@ -164,6 +228,7 @@ class ProjectUpdate(SQLModel):
     icon: Optional[str] = None
     order: Optional[int] = None
     is_active: Optional[bool] = None  # False = archivar (conserva las tareas)
+    status_id: Optional[int] = None
 
 
 class ProjectResponse(SQLModel):
@@ -175,6 +240,7 @@ class ProjectResponse(SQLModel):
     icon: Optional[str] = None
     order: int
     is_active: bool
+    status_id: Optional[int] = None
     created_at: date_type
 
     class Config:
@@ -221,6 +287,7 @@ class TaskCreate(SQLModel):
     title: str
     notes: Optional[str] = None
     order: Optional[int] = 0
+    status_id: Optional[int] = None   # sin él, la primera columna "todo"
 
 
 class TaskUpdate(SQLModel):
@@ -233,6 +300,7 @@ class TaskUpdate(SQLModel):
     is_done: Optional[bool] = None
     order: Optional[int] = None
     project_id: Optional[int] = None  # mover la tarea a otro proyecto
+    status_id: Optional[int] = None   # mover la tarea de columna; manda sobre is_done
 
 
 class TaskResponse(SQLModel):
@@ -242,6 +310,7 @@ class TaskResponse(SQLModel):
     title: str
     notes: Optional[str] = None
     is_done: bool
+    status_id: Optional[int] = None
     order: int
     completed_at: Optional[date_type] = None
     created_at: date_type

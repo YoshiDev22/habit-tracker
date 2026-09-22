@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from backend.database import create_db_and_tables
-from backend.routers import auth, habits, projects, tasks, pomodoro
+from backend.routers import auth, habits, projects, tasks, pomodoro, statuses
 
 # Rutas de los archivos frontend (directorio raíz del proyecto)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,6 +47,7 @@ app.include_router(habits.router, prefix="/api/habits")
 app.include_router(projects.router, prefix="/api/projects")
 app.include_router(tasks.router, prefix="/api/tasks")
 app.include_router(pomodoro.router, prefix="/api/pomodoro")
+app.include_router(statuses.router, prefix="/api/statuses")
 
 
 def get_frontend_path(filename: str = "index.html") -> str:
