@@ -42,6 +42,7 @@ MIGRATIONS = [
     # backend/boards.py, en el primer request de cada usuario.
     {"table": "projects", "column": "status_id", "type": "INTEGER"},
     {"table": "tasks", "column": "column_id", "type": "INTEGER"},
+    {"table": "projects", "column": "is_system", "type": "BOOLEAN", "default": 0},
 ]
 
 # El icono que pone el modelo cuando nadie manda uno. Un `habits.icon` con este

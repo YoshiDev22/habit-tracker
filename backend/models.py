@@ -180,6 +180,12 @@ class Project(SQLModel, table=True):
     # crea índices y una base nueva quedaría distinta a la de prod.
     status_id: Optional[int] = Field(default=None, foreign_key="project_statuses.id")
 
+    # True solo en "Sin asignar", el proyecto que cada usuario recibe para las
+    # tareas sin proyecto. Existe porque tasks.project_id es NOT NULL y quitar
+    # eso en SQLite obliga a reconstruir la tabla en producción. No se
+    # renombra, ni se archiva, ni se borra. Columna AÑADIDA: migrate.py.
+    is_system: bool = Field(default=False)
+
     created_at: date_type = Field(default_factory=date_type.today)
 
 

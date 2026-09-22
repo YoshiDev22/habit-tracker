@@ -18,6 +18,7 @@ from backend.auth import get_current_user
 from backend.dates import resolve_client_today
 from backend.boards import (
     ensure_user_setup, default_board_id, first_column_id, get_owned_board, get_owned_column,
+    unassigned_project_id,
 )
 
 router = APIRouter(tags=["tasks"])
@@ -125,26 +126,30 @@ def create_task(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Crea una tarea con su proyecto (etiqueta). Dónde queda:
+    Crea una tarea con su proyecto (etiqueta); sin project_id va a
+    "Sin asignar". Dónde queda:
     - column_id: en esa columna. Si es "done", nace hecha, con
       completed_at = ?today.
     - board_id sin column_id: en la primera columna "todo" de ese tablero.
     - ninguno: en la primera "todo" del primer tablero activo.
     """
-    project = session.exec(
-        select(Project).where(
-            Project.id == task_in.project_id,
-            Project.user_id == current_user.id
-        )
-    ).first()
-
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Proyecto no encontrado"
-        )
-
     ensure_user_setup(session, current_user.id)
+
+    if task_in.project_id is None:
+        project_id = unassigned_project_id(session, current_user.id)
+    else:
+        project = session.exec(
+            select(Project).where(
+                Project.id == task_in.project_id,
+                Project.user_id == current_user.id
+            )
+        ).first()
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proyecto no encontrado"
+            )
+        project_id = project.id
 
     if task_in.column_id is not None:
         column = get_owned_column(session, current_user.id, task_in.column_id)
@@ -158,7 +163,7 @@ def create_task(
 
     new_task = Task(
         user_id=current_user.id,
-        project_id=task_in.project_id,
+        project_id=project_id,
         title=task_in.title,
         notes=task_in.notes,
         order=task_in.order or 0,
@@ -184,6 +189,7 @@ def update_task(
     """
     Actualiza parcialmente una tarea (título, notas, orden, cambiarle el
     proyecto o moverla de columna, incluso a la de otro tablero).
+    project_id: null la deja en "Sin asignar".
 
     is_done y column_id van siempre juntos:
     - column_id (mover de columna) manda: is_done pasa a ser "la columna es
@@ -222,7 +228,9 @@ def update_task(
         if field in update_data and update_data[field] is None:
             del update_data[field]
 
-    if "project_id" in update_data:
+    if "project_id" in update_data and update_data["project_id"] is None:
+        update_data["project_id"] = unassigned_project_id(session, current_user.id)
+    elif "project_id" in update_data:
         target_project = session.exec(
             select(Project).where(
                 Project.id == update_data["project_id"],

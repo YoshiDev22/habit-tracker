@@ -230,6 +230,15 @@ def update_project(
 
     update_data = project_in.model_dump(exclude_unset=True)
 
+    if project.is_system and (
+        ("name" in update_data and update_data["name"] != project.name)
+        or update_data.get("is_active") is False
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"'{project.name}' es el proyecto de las tareas sin proyecto: no se renombra ni se archiva"
+        )
+
     if "status_id" in update_data:
         if update_data["status_id"] is None:
             del update_data["status_id"]
@@ -256,6 +265,7 @@ def delete_project(
     Elimina permanentemente un proyecto y sus tareas (con su checklist y
     sus comentarios).
     Para conservar el historial, usa PATCH con is_active=false en su lugar.
+    "Sin asignar" no se borra.
     """
     project = session.exec(
         select(Project).where(
@@ -268,6 +278,12 @@ def delete_project(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Proyecto no encontrado"
+        )
+
+    if project.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"'{project.name}' es el proyecto de las tareas sin proyecto y no se borra"
         )
 
     tasks = session.exec(

@@ -15,6 +15,7 @@ COLUMN_CATEGORIES = ("todo", "doing", "done")
 PROJECT_STATUS_CATEGORIES = ("idea", "active", "paused", "done")
 
 DEFAULT_BOARD_NAME = "Mi tablero"
+UNASSIGNED_PROJECT_NAME = "Sin asignar"
 
 # Las que recibe cada tablero nuevo y cada usuario: (categoría, nombre, color).
 DEFAULT_COLUMNS = [
@@ -89,6 +90,13 @@ def first_project_status_id(session: Session, user_id: int, category: str) -> Op
     ).first()
 
 
+def unassigned_project_id(session: Session, user_id: int) -> Optional[int]:
+    """El proyecto "Sin asignar" del usuario: el de las tareas sin proyecto."""
+    return session.exec(
+        select(Project.id).where(Project.user_id == user_id, Project.is_system == True)  # noqa: E712
+    ).first()
+
+
 def add_board_with_columns(session: Session, user_id: int, name: str, order: int = 0) -> Board:
     """Crea un tablero con las columnas por defecto. Sin commit."""
     board = Board(user_id=user_id, name=name, order=order)
@@ -116,6 +124,7 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
     Deja al usuario listo para el tablero, y es idempotente:
     - estados de proyecto por defecto, si no tiene;
     - un tablero "Mi tablero" con sus columnas, si no tiene ninguno;
+    - el proyecto "Sin asignar", si no lo tiene;
     - estado para los proyectos y columna para las tareas que no lo tengan.
 
     Vive aquí y no en scripts/migrate.py por el orden del deploy: migrate.py
@@ -137,6 +146,23 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
     has_board = session.exec(select(Board.id).where(Board.user_id == user_id)).first()
     if has_board is None:
         add_board_with_columns(session, user_id, DEFAULT_BOARD_NAME)
+        _commit_seed(session)
+
+    if unassigned_project_id(session, user_id) is None:
+        # Si el usuario ya tenía un proyecto llamado así, ese pasa a ser el
+        # suyo: lo que tenga dentro es, justamente, lo que no tiene proyecto.
+        same_name = session.exec(
+            select(Project).where(Project.user_id == user_id, Project.name == UNASSIGNED_PROJECT_NAME)
+        ).first()
+        if same_name is not None:
+            same_name.is_system = True
+            same_name.is_active = True  # "Sin asignar" no se archiva
+            session.add(same_name)
+        else:
+            session.add(Project(
+                user_id=user_id, name=UNASSIGNED_PROJECT_NAME, color="#95a5a6", is_system=True,
+                status_id=first_project_status_id(session, user_id, "active"),
+            ))
         _commit_seed(session)
 
     orphan_tasks = session.exec(

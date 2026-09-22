@@ -308,6 +308,7 @@ class ProjectResponse(SQLModel):
     order: int
     is_active: bool
     status_id: Optional[int] = None
+    is_system: bool = False           # "Sin asignar": no se renombra, archiva ni borra
     created_at: date_type
 
     class Config:
@@ -350,7 +351,7 @@ class ProjectSummaryListResponse(SQLModel):
 
 class TaskCreate(SQLModel):
     """Esquema para crear una tarea"""
-    project_id: int
+    project_id: Optional[int] = None  # sin él, "Sin asignar"
     title: str
     notes: Optional[str] = None
     order: Optional[int] = 0
@@ -367,7 +368,7 @@ class TaskUpdate(SQLModel):
     notes: Optional[str] = None
     is_done: Optional[bool] = None
     order: Optional[int] = None
-    project_id: Optional[int] = None  # mover la tarea a otro proyecto
+    project_id: Optional[int] = None  # cambiar el proyecto; null = "Sin asignar"
     column_id: Optional[int] = None   # mover la tarea de columna (o de tablero); manda sobre is_done
 
 
