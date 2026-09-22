@@ -49,11 +49,12 @@ const projectStatusInput = document.getElementById('projectStatus');
 const projectFormError = document.getElementById('projectFormError');
 const closeProjectModalBtn = document.getElementById('closeProjectModalBtn');
 
-const projectActionModal = document.getElementById('projectActionModal');
-const projectActionMessage = document.getElementById('projectActionMessage');
-const archiveProjectBtn = document.getElementById('archiveProjectBtn');
-const deleteProjectBtn = document.getElementById('deleteProjectBtn');
-const cancelProjectActionBtn = document.getElementById('cancelProjectActionBtn');
+const projectDeleteModal = document.getElementById('projectDeleteModal');
+const projectDeleteMessage = document.getElementById('projectDeleteMessage');
+const projectDeleteTimeOption = document.getElementById('projectDeleteTimeOption');
+const projectDeleteTimeInput = document.getElementById('projectDeleteTime');
+const projectDeleteTimeLabel = document.getElementById('projectDeleteTimeLabel');
+const confirmProjectDeleteBtn = document.getElementById('confirmProjectDeleteBtn');
 
 // ============================================
 // Tabs + swipe
@@ -396,6 +397,13 @@ function buildProjectCard(project) {
     card.appendChild(main);
     card.appendChild(logTimeBtn);
     card.appendChild(toggleBtn);
+    // "Sin asignar" no se archiva ni se borra: su menú estaría vacío. Se
+    // oculta sin quitarlo, para que sus botones queden alineados con el resto.
+    if (project.is_system) {
+        menuBtn.style.visibility = 'hidden';
+        menuBtn.tabIndex = -1;
+        menuBtn.setAttribute('aria-hidden', 'true');
+    }
     card.appendChild(menuBtn);
 
     return card;
@@ -643,7 +651,7 @@ projectsList.addEventListener('click', (event) => {
     const menuBtn = event.target.closest('.project-menu');
     if (menuBtn) {
         const projectId = Number(menuBtn.closest('.project-card').dataset.projectId);
-        openProjectActionModal(projectId);
+        openProjectMenu(projectId, menuBtn);
         return;
     }
 
@@ -843,22 +851,65 @@ closeProjectModalBtn.addEventListener('click', () => hideModal(projectModal));
 projectModal.querySelector('.modal-overlay').addEventListener('click', () => hideModal(projectModal));
 
 // ============================================
-// Modal de archivar/eliminar proyecto
+// Menú del proyecto: archivar o eliminar
 // ============================================
+//
+// Un menú pequeño junto al ⋯ en vez de un modal con tres botones grandes.
+// Archivar es reversible y va directo; eliminar pide confirmación.
 
-function openProjectActionModal(projectId) {
+const projectMenu = document.createElement('div');
+projectMenu.className = 'project-menu-popover hidden';
+projectMenu.setAttribute('role', 'menu');
+projectMenu.innerHTML = `
+    <button type="button" role="menuitem" data-project-action="archive">📦 Archivar</button>
+    <button type="button" role="menuitem" data-project-action="delete" class="danger">🗑️ Eliminar…</button>
+`;
+document.body.appendChild(projectMenu);
+
+function openProjectMenu(projectId, anchor) {
+    if (!projectMenu.classList.contains('hidden') && pendingProjectId === projectId) {
+        closeProjectMenu();
+        return;
+    }
     pendingProjectId = projectId;
-    const project = projectsState.projects.find(p => p.id === projectId);
-    projectActionMessage.textContent = project
-        ? `Elige qué hacer con "${project.name}":`
-        : 'Selecciona una opción para el proyecto:';
-    showModal(projectActionModal);
+    projectMenu.classList.remove('hidden');
+    // Fijo a la ventana, alineado a la derecha del ⋯ y sin salirse de ella:
+    // si no cabe debajo, se abre hacia arriba.
+    const rect = anchor.getBoundingClientRect();
+    const width = projectMenu.offsetWidth;
+    const height = projectMenu.offsetHeight;
+    const fitsBelow = rect.bottom + 4 + height <= window.innerHeight - 8;
+    projectMenu.style.top = `${fitsBelow ? rect.bottom + 4 : Math.max(8, rect.top - 4 - height)}px`;
+    projectMenu.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
+    projectMenu.querySelector('button').focus();
 }
 
-function closeProjectActionModal() {
-    hideModal(projectActionModal);
-    pendingProjectId = null;
+function closeProjectMenu() {
+    projectMenu.classList.add('hidden');
 }
+
+document.addEventListener('click', (event) => {
+    if (projectMenu.classList.contains('hidden')) return;
+    if (projectMenu.contains(event.target) || event.target.closest('.project-menu')) return;
+    closeProjectMenu();
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeProjectMenu();
+});
+// Posición fija: al desplazar o cambiar de tamaño quedaría suelto
+window.addEventListener('scroll', closeProjectMenu, true);
+window.addEventListener('resize', closeProjectMenu);
+
+projectMenu.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-project-action]');
+    if (!item || pendingProjectId == null) return;
+    closeProjectMenu();
+    if (item.dataset.projectAction === 'archive') {
+        archivePendingProject();
+    } else {
+        openProjectDeleteModal(pendingProjectId);
+    }
+});
 
 async function archivePendingProject() {
     if (pendingProjectId == null) return;
@@ -867,28 +918,69 @@ async function archivePendingProject() {
     } catch (error) {
         console.error('Error al archivar proyecto:', error);
     }
-    closeProjectActionModal();
+    pendingProjectId = null;
     await loadProjects();
+}
+
+function updateProjectDeleteButton() {
+    confirmProjectDeleteBtn.textContent = projectDeleteTimeInput.checked
+        ? 'Eliminar proyecto y tiempo'
+        : 'Eliminar';
+}
+
+function openProjectDeleteModal(projectId) {
+    const project = projectsState.projects.find(p => p.id === projectId);
+    if (!project) return;
+    pendingProjectId = projectId;
+
+    const summary = projectsState.summaryByProject[projectId];
+    const taskTotal = summary ? summary.task_total : 0;
+    const seconds = summary ? summary.total_seconds : 0;
+
+    document.getElementById('projectDeleteTitle').textContent = `¿Eliminar "${project.name}"?`;
+    const tasksText = taskTotal === 1 ? 'Su tarea' : `Sus ${taskTotal} tareas`;
+    if (taskTotal > 0 && seconds > 0) {
+        projectDeleteMessage.textContent = `${tasksText} y su tiempo pasarán a Sin asignar.`;
+    } else if (taskTotal > 0) {
+        projectDeleteMessage.textContent = `${tasksText} ${taskTotal === 1 ? 'pasará' : 'pasarán'} a Sin asignar.`;
+    } else if (seconds > 0) {
+        projectDeleteMessage.textContent = 'Su tiempo registrado pasará a Sin asignar.';
+    } else {
+        projectDeleteMessage.textContent = 'No tiene tareas ni tiempo registrado.';
+    }
+
+    projectDeleteTimeInput.checked = false;
+    projectDeleteTimeLabel.textContent = `Borrar también su tiempo registrado (${formatDuration(seconds)})`;
+    projectDeleteTimeOption.classList.toggle('hidden', seconds === 0);
+    updateProjectDeleteButton();
+    showModal(projectDeleteModal);
+}
+
+function closeProjectDeleteModal() {
+    hideModal(projectDeleteModal);
+    pendingProjectId = null;
 }
 
 async function deletePendingProject() {
     if (pendingProjectId == null) return;
     const projectId = pendingProjectId;
+    const deleteSessions = projectDeleteTimeInput.checked;
     try {
-        await apiFetch(`/api/projects/${projectId}`, { method: 'DELETE' });
+        await apiFetch(`/api/projects/${projectId}${deleteSessions ? '?delete_sessions=true' : ''}`, { method: 'DELETE' });
     } catch (error) {
         console.error('Error al eliminar proyecto:', error);
     }
-    delete projectsState.tasksByProject[projectId];
+    // Sus tareas ahora son de "Sin asignar": se invalida toda la caché
+    projectsState.tasksByProject = {};
     projectsState.expanded.delete(projectId);
-    closeProjectActionModal();
+    closeProjectDeleteModal();
     await loadProjects();
 }
 
-archiveProjectBtn.addEventListener('click', archivePendingProject);
-deleteProjectBtn.addEventListener('click', deletePendingProject);
-cancelProjectActionBtn.addEventListener('click', closeProjectActionModal);
-projectActionModal.querySelector('.modal-overlay').addEventListener('click', closeProjectActionModal);
+projectDeleteTimeInput.addEventListener('change', updateProjectDeleteButton);
+confirmProjectDeleteBtn.addEventListener('click', deletePendingProject);
+document.getElementById('cancelProjectDeleteBtn').addEventListener('click', closeProjectDeleteModal);
+projectDeleteModal.querySelector('.modal-overlay').addEventListener('click', closeProjectDeleteModal);
 
 // ============================================
 // Registro en los hooks de script.js (Fase 0)

@@ -476,21 +476,21 @@
         </div>
     </div>
 
-    <div id="projectActionModal" class="modal hidden">
+    <!-- Confirmación de borrar un proyecto (projects.js). Por defecto sus
+         tareas y su tiempo pasan a "Sin asignar"; la casilla borra además el
+         tiempo, y entonces el botón lo dice. -->
+    <div id="projectDeleteModal" class="modal hidden">
         <div class="modal-overlay"></div>
-        <div class="modal-content setup-modal" style="max-width: 400px;">
-            <h2 class="modal-title">¿Qué quieres hacer?</h2>
-            <p id="projectActionMessage" class="setup-subtitle">Selecciona una opción para el proyecto:</p>
-            <div class="habit-action-options">
-                <button id="archiveProjectBtn" type="button" class="submit-btn btn-warning">
-                    📦 Archivar (mantener historial)
-                </button>
-                <button id="deleteProjectBtn" type="button" class="submit-btn btn-danger">
-                    🗑️ Eliminar (borrar datos)
-                </button>
-                <button id="cancelProjectActionBtn" type="button" class="submit-btn btn-neutral">
-                    Cancelar
-                </button>
+        <div class="modal-content project-delete-modal" role="dialog" aria-modal="true" aria-labelledby="projectDeleteTitle">
+            <h2 class="modal-title" id="projectDeleteTitle">¿Eliminar proyecto?</h2>
+            <p id="projectDeleteMessage" class="setup-subtitle"></p>
+            <label class="project-delete-option" id="projectDeleteTimeOption">
+                <input type="checkbox" id="projectDeleteTime">
+                <span id="projectDeleteTimeLabel">Borrar también su tiempo registrado</span>
+            </label>
+            <div class="project-delete-actions">
+                <button type="button" id="cancelProjectDeleteBtn" class="submit-btn btn-neutral">Cancelar</button>
+                <button type="button" id="confirmProjectDeleteBtn" class="submit-btn btn-danger">Eliminar</button>
             </div>
         </div>
     </div>
@@ -632,8 +632,7 @@
     </div>
 
     <!-- Confirm genérico (sí/no), reutilizado por confirmDialog() en script.js.
-         Distinto de projectActionModal, que es de 3 opciones fijas: este es de
-         propósito general, con mensaje y botones dinámicos. -->
+         Es de propósito general, con mensaje y botones dinámicos. -->
     <div id="confirmModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal" style="max-width: 400px;">
