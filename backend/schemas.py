@@ -358,6 +358,7 @@ class TaskResponse(SQLModel):
     checklist_done: int = 0
     comment_count: int = 0
     tag_ids: List[int] = []
+    seconds: int = 0                  # tiempo de foco registrado, sea cual sea su proyecto
 
     model_config = ConfigDict(from_attributes=True)
 

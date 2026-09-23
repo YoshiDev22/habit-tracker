@@ -70,8 +70,8 @@ def _set_task_tags(session: Session, user_id: int, task_id: int, tag_ids: List[i
 
 
 def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[TaskResponse]:
-    """TaskResponse con los conteos de checklist y comentarios, en dos
-    consultas agrupadas para todas las tareas en vez de dos por tarea."""
+    """TaskResponse con los conteos de checklist y comentarios y su tiempo,
+    en consultas agrupadas para todas las tareas en vez de varias por tarea."""
     ids = [t.id for t in tasks]
     if not ids:
         return []
@@ -107,6 +107,19 @@ def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[T
         .group_by(TaskComment.task_id)
     ).all())
 
+    # Mismo criterio que /api/projects/summary (solo foco), pero sin depender
+    # de que el proyecto esté activo: la tarjeta de un proyecto archivado
+    # conserva su tiempo.
+    seconds = dict(session.exec(
+        select(PomodoroSession.task_id, func.sum(PomodoroSession.duration_seconds))
+        .where(
+            PomodoroSession.user_id == user_id,
+            PomodoroSession.task_id.in_(ids),
+            PomodoroSession.mode == "focus",
+        )
+        .group_by(PomodoroSession.task_id)
+    ).all())
+
     responses = []
     for t in tasks:
         r = TaskResponse.model_validate(t)
@@ -115,6 +128,7 @@ def _task_responses(session: Session, user_id: int, tasks: List[Task]) -> List[T
         r.comment_count = comments.get(t.id, 0)
         r.board_id = board_by_column.get(t.column_id)
         r.tag_ids = tags_by_task.get(t.id, [])
+        r.seconds = seconds.get(t.id, 0) or 0
         responses.append(r)
     return responses
 

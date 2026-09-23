@@ -270,8 +270,9 @@ para guardar la sesión en curso antes de perder el token).
 
 **Toda mutación de tareas o proyectos termina en `loadProjects()`** (en `board.js`, vía
 `refreshAfterBoardChange()`, que además vacía la caché de tareas de la lista). No refrescar
-el tablero por otro camino: el tiempo de cada tarjeta sale del resumen que carga
-`loadProjects()`.
+el tablero por otro camino: `loadProjects()` dispara `loadBoard()`, que vuelve a pedir las
+tareas, y el tiempo de cada tarjeta es su campo `seconds` (calculado en `_task_responses()`,
+así que también vale para tareas de proyectos archivados).
 
 ### `apiFetch` y `ApiError`
 

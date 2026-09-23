@@ -22,7 +22,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
-| 18 | P3 | Tarjetas de proyectos archivados muestran 0m | diagnosticado |
 | 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 
@@ -403,26 +402,6 @@ línea corta junto a cada hábito del Calendario, además de la sección de meta
 catálogo de plantillas de la fase 1.
 
 **Orden.** Después de la entrada 12 (Reportes), que no toca el esquema.
-
----
-
-## 18 · P3 · Tarjetas de proyectos archivados muestran 0m
-
-**Síntoma.** Una tarea cuyo proyecto está archivado aparece en el tablero con 0m, aunque
-tenga tiempo registrado.
-
-**Causa.** `boardTaskSeconds()` en [board.js](board.js) lee el tiempo por tarea de
-`projectsState.summaryByProject`, que sale de `GET /api/projects/summary`, y ese endpoint
-solo resume proyectos activos (`Project.is_active == True` en
-[backend/routers/projects.py](backend/routers/projects.py)).
-
-**Arreglo.** Que el tablero pida el tiempo por tarea de sus propias tareas sin importar
-el proyecto: `?include_inactive=true` en el resumen, o un `seconds` en `TaskResponse`
-calculado en `_task_responses()`, que ya agrupa por tarea. Lo segundo evita depender de
-otro endpoint.
-
-**Aceptación.** Registrar tiempo en una tarea, archivar su proyecto y ver en el tablero el
-mismo tiempo que antes.
 
 ---
 

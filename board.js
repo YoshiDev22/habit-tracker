@@ -109,11 +109,10 @@ function projectById(projectId) {
     return boardState.projects.find(p => p.id === projectId) || null;
 }
 
-// Tiempo por tarea, del mismo resumen que usa la lista: así los dos muestran
-// lo mismo. Solo cubre proyectos activos (el resumen no trae archivados).
+// Tiempo por tarea, calculado por la API junto con la tarea: sirve también
+// para tareas de proyectos archivados, que el resumen de proyectos no trae.
 function boardTaskSeconds(task) {
-    const summary = projectsState.summaryByProject[task.project_id];
-    return summary && summary.seconds_by_task ? (summary.seconds_by_task[String(task.id)] || 0) : 0;
+    return task.seconds || 0;
 }
 
 // ============================================
