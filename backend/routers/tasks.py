@@ -140,12 +140,16 @@ def get_tasks(
     column_id: Optional[int] = None,
     tag_id: Optional[int] = None,
     include_done: bool = True,
+    completed_from: Optional[date_type] = None,
+    completed_to: Optional[date_type] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Lista las tareas del usuario, opcionalmente filtradas por proyecto,
-    tablero, columna o etiqueta.
+    tablero, columna o etiqueta. completed_from/completed_to (fechas LOCALES,
+    incluidas) dejan solo las terminadas en ese rango: completed_at se borra
+    al desmarcar, así que no hace falta mirar is_done.
     """
     ensure_user_setup(session, current_user.id)
 
@@ -173,6 +177,11 @@ def get_tasks(
 
     if not include_done:
         query = query.where(Task.is_done == False)
+
+    if completed_from is not None:
+        query = query.where(Task.completed_at >= completed_from)
+    if completed_to is not None:
+        query = query.where(Task.completed_at <= completed_to)
 
     tasks = session.exec(query.order_by(Task.order, Task.id)).all()
 

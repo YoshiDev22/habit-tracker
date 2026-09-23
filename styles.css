@@ -3343,8 +3343,14 @@ body.board-wide .board-column {
 
 .report-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
+}
+
+@media (max-width: 499px) {
+    .report-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .report-stat {
@@ -3605,4 +3611,80 @@ body.board-wide .board-column {
 
 .src-manual {
     background: var(--neutral-solid);
+}
+
+.report-compare-small {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.report-tasks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.report-task {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.report-task:last-child {
+    border-bottom: none;
+}
+
+.report-task-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.report-task-title {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.report-task-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.report-task-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.report-task-date {
+    color: var(--text-secondary);
+}
+
+.report-task-time {
+    color: var(--text-muted);
+}
+
+.report-more {
+    display: block;
+    margin: 8px auto 0;
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.report-more:hover {
+    background: var(--bg-hover);
 }

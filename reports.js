@@ -188,14 +188,20 @@ async function fetchReportData() {
     const { from, to } = reportsState;
     const prev = previousRange();
     const tagQuery = [...reportsState.tagIds].map(id => `&tag_ids=${id}`).join('');
-    const [sessions, prevSessions, projectsData, tagSummary] = await Promise.all([
+    const completedQuery = (f, t) => `/api/tasks?completed_from=${getDateKey(f)}&completed_to=${getDateKey(t)}`;
+    const [sessions, prevSessions, projectsData, tagSummary, completed, prevCompleted] = await Promise.all([
         fetchFocusSessions(from, to),
         fetchFocusSessions(prev.from, prev.to),
         // Con los archivados: su tiempo del rango también cuenta
         apiFetch('/api/projects?include_inactive=true'),
         apiFetch(`/api/tags/summary?${rangeQuery(from, to)}${tagQuery}`),
+        apiFetch(completedQuery(from, to)),
+        apiFetch(completedQuery(prev.from, prev.to)),
     ]);
-    return { sessions, prevSessions, projects: projectsData.projects, tagSummary };
+    return {
+        sessions, prevSessions, projects: projectsData.projects, tagSummary,
+        completed: completed.tasks, prevCompleted: prevCompleted.tasks,
+    };
 }
 
 function reportsMessage(text) {
@@ -239,6 +245,7 @@ function renderReports(data) {
         renderByDay(data),
         renderByProject(data),
         renderByTag(data),
+        renderCompleted(data),
         renderByHour(data),
         renderBySource(data),
     ].filter(Boolean));
@@ -270,7 +277,7 @@ function summaryStat(value, label) {
     return stat;
 }
 
-function renderSummary({ sessions, prevSessions }) {
+function renderSummary({ sessions, prevSessions, completed, prevCompleted }) {
     const total = sumSeconds(sessions);
     const prevTotal = sumSeconds(prevSessions);
     const days = elapsedDays();
@@ -281,13 +288,19 @@ function renderSummary({ sessions, prevSessions }) {
         summaryStat(formatDuration(total), 'tiempo total'),
         summaryStat(days ? formatDuration(Math.round(total / days)) : '—', 'promedio por día'),
         summaryStat(`${activeDays}${days ? ` de ${days}` : ''}`, 'días con tiempo'),
+        summaryStat(String(completed.length), completed.length === 1 ? 'tarea terminada' : 'tareas terminadas'),
     );
 
     const comparison = comparisonText(total, prevTotal);
     const note = comparison
         ? el('p', `report-compare ${total >= prevTotal ? 'up' : 'down'}`, comparison)
         : null;
-    return reportCard('Resumen', grid, note);
+    const diffTasks = completed.length - prevCompleted.length;
+    const tasksNote = (completed.length || prevCompleted.length) && diffTasks !== 0
+        ? el('p', 'report-compare-small',
+            `${diffTasks > 0 ? '+' : '−'}${Math.abs(diffTasks)} ${Math.abs(diffTasks) === 1 ? 'tarea' : 'tareas'} vs. ${previousPeriodName()}`)
+        : null;
+    return reportCard('Resumen', grid, note, tasksNote);
 }
 
 // ============================================
@@ -511,6 +524,51 @@ function renderByTag({ tagSummary }) {
             + 'Elige varias para ver su total sin contar doble.');
     }
     return reportCard('Por etiqueta', list, footer);
+}
+
+// ============================================
+// Tareas terminadas
+// ============================================
+
+const COMPLETED_PREVIEW = 8;
+
+function renderCompleted({ completed, projects }) {
+    if (completed.length === 0) {
+        return reportCard('Tareas terminadas', reportsMessage('Ninguna tarea terminada en este periodo.'));
+    }
+    const byId = new Map(projects.map(p => [p.id, p]));
+    // Lo más reciente primero; el mismo día, en el orden del tablero
+    const tasks = [...completed].sort((a, b) => b.completed_at.localeCompare(a.completed_at));
+
+    const list = el('ul', 'report-tasks');
+    tasks.forEach((task, i) => {
+        const item = el('li', 'report-task');
+        if (i >= COMPLETED_PREVIEW) item.classList.add('hidden');
+        const project = byId.get(task.project_id);
+        const dot = el('i', 'report-bar-dot');
+        if (project && project.color && !project.is_system) dot.style.background = project.color;
+        const main = el('div', 'report-task-main');
+        main.append(el('span', 'report-task-title', task.title),
+            el('span', 'report-task-meta', project && !project.is_system ? project.name : 'Sin asignar'));
+        const date = dateFromKey(task.completed_at);
+        const side = el('div', 'report-task-side');
+        side.append(el('span', 'report-task-date', `${date.getDate()} ${MONTH_SHORT[date.getMonth()]}`),
+            el('span', 'report-task-time', task.seconds ? formatDuration(task.seconds) : ''));
+        item.append(dot, main, side);
+        list.appendChild(item);
+    });
+
+    let more = null;
+    if (tasks.length > COMPLETED_PREVIEW) {
+        more = el('button', 'report-more', `Ver las ${tasks.length}`);
+        more.type = 'button';
+        more.addEventListener('click', () => {
+            list.querySelectorAll('.report-task.hidden').forEach(item => item.classList.remove('hidden'));
+            more.remove();
+        });
+    }
+    const note = el('p', 'report-note', 'El tiempo de cada tarea es el total registrado, no solo el de este periodo.');
+    return reportCard('Tareas terminadas', list, more, note);
 }
 
 // ============================================
