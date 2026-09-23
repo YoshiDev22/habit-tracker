@@ -227,51 +227,6 @@ class BoardListResponse(SQLModel):
     total: int
 
 
-# ==================== Project Status Schemas ====================
-
-class ProjectStatusCreate(SQLModel):
-    """Esquema para crear un estado de proyecto"""
-    category: str                     # idea | active | paused | done
-    name: str = Field(min_length=1, max_length=40)
-    color: Optional[str] = None
-    order: Optional[int] = None       # sin él, va al final
-
-    @field_validator("color")
-    @classmethod
-    def validate_color(cls, v: Optional[str]) -> Optional[str]:
-        return _validate_hex_color(v)
-
-
-class ProjectStatusUpdate(SQLModel):
-    """Esquema para actualizar un estado de proyecto. La categoría es fija."""
-    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
-    color: Optional[str] = None
-    order: Optional[int] = None
-
-    @field_validator("color")
-    @classmethod
-    def validate_color(cls, v: Optional[str]) -> Optional[str]:
-        return _validate_hex_color(v)
-
-
-class ProjectStatusResponse(SQLModel):
-    """Esquema de respuesta para un estado de proyecto"""
-    id: int
-    category: str
-    name: str
-    color: Optional[str] = None
-    order: int
-
-    class Config:
-        from_attributes = True
-
-
-class ProjectStatusListResponse(SQLModel):
-    """Estados de proyecto del usuario"""
-    statuses: List[ProjectStatusResponse]
-    total: int
-
-
 # ==================== Project Schemas ====================
 
 class ProjectCreate(SQLModel):
@@ -281,7 +236,6 @@ class ProjectCreate(SQLModel):
     color: Optional[str] = None
     icon: Optional[str] = None
     order: Optional[int] = 0
-    status_id: Optional[int] = None   # sin él, el primer estado "active"
 
 
 class ProjectUpdate(SQLModel):
@@ -295,7 +249,6 @@ class ProjectUpdate(SQLModel):
     icon: Optional[str] = None
     order: Optional[int] = None
     is_active: Optional[bool] = None  # False = archivar (conserva las tareas)
-    status_id: Optional[int] = None
 
 
 class ProjectResponse(SQLModel):
@@ -307,7 +260,6 @@ class ProjectResponse(SQLModel):
     icon: Optional[str] = None
     order: int
     is_active: bool
-    status_id: Optional[int] = None
     is_system: bool = False           # "Sin asignar": no se renombra, archiva ni borra
     created_at: date_type
 

@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -13,9 +13,7 @@ from backend.schemas import (
     ProjectSummaryListResponse,
 )
 from backend.auth import get_current_user
-from backend.boards import (
-    ensure_user_setup, first_project_status_id, get_owned_project_status, unassigned_project_id,
-)
+from backend.boards import ensure_user_setup, unassigned_project_id
 
 router = APIRouter(tags=["projects"])
 
@@ -23,14 +21,12 @@ router = APIRouter(tags=["projects"])
 @router.get("", response_model=ProjectListResponse)
 def get_projects(
     include_inactive: bool = False,
-    status_id: Optional[int] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Lista los proyectos del usuario.
-    Por defecto solo devuelve los no archivados (is_active=True), sea cual
-    sea su estado; status_id filtra además por estado.
+    Por defecto solo devuelve los no archivados (is_active=True).
     """
     ensure_user_setup(session, current_user.id)
 
@@ -38,9 +34,6 @@ def get_projects(
 
     if not include_inactive:
         query = query.where(Project.is_active == True)
-
-    if status_id is not None:
-        query = query.where(Project.status_id == status_id)
 
     projects = session.exec(query.order_by(Project.order, Project.id)).all()
 
@@ -74,12 +67,6 @@ def create_project(
             detail=f"Ya existe un proyecto con el nombre '{project_in.name}' para este usuario"
         )
 
-    ensure_user_setup(session, current_user.id)
-    if project_in.status_id is not None:
-        status_id = get_owned_project_status(session, current_user.id, project_in.status_id).id
-    else:
-        status_id = first_project_status_id(session, current_user.id, "active")
-
     new_project = Project(
         user_id=current_user.id,
         name=project_in.name,
@@ -88,7 +75,6 @@ def create_project(
         icon=project_in.icon,
         order=project_in.order or 0,
         is_active=True,
-        status_id=status_id,
     )
     session.add(new_project)
     session.commit()
@@ -239,12 +225,6 @@ def update_project(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"'{project.name}' es el proyecto de las tareas sin proyecto: no se renombra ni se archiva"
         )
-
-    if "status_id" in update_data:
-        if update_data["status_id"] is None:
-            del update_data["status_id"]
-        else:
-            get_owned_project_status(session, current_user.id, update_data["status_id"])
 
     for field, value in update_data.items():
         setattr(project, field, value)

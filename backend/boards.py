@@ -4,30 +4,22 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from backend.models import Board, BoardColumn, ProjectStatus, Project, Task
+from backend.models import Board, BoardColumn, Project, Task
 
 
-# Lo único fijo de una columna o de un estado de proyecto es su categoría: el
-# código decide con ella (una tarea está hecha si su columna es "done", el
-# pomodoro ofrece los proyectos "active") y el usuario es libre con el nombre,
-# el color y cuántas hay.
+# Lo único fijo de una columna es su categoría: el código decide con ella (una
+# tarea está hecha si su columna es "done", las nuevas llegan a la primera
+# "todo") y el usuario es libre con el nombre, el color y cuántas hay.
 COLUMN_CATEGORIES = ("todo", "doing", "done")
-PROJECT_STATUS_CATEGORIES = ("idea", "active", "paused", "done")
 
 DEFAULT_BOARD_NAME = "Mi tablero"
 UNASSIGNED_PROJECT_NAME = "Sin asignar"
 
-# Las que recibe cada tablero nuevo y cada usuario: (categoría, nombre, color).
+# Las que recibe cada tablero nuevo: (categoría, nombre, color).
 DEFAULT_COLUMNS = [
     ("todo", "Por hacer", "#95a5a6"),
     ("doing", "Haciendo", "#3498db"),
     ("done", "Hecho", "#2ecc71"),
-]
-DEFAULT_PROJECT_STATUSES = [
-    ("idea", "Ideas", "#9b59b6"),
-    ("active", "En curso", "#3498db"),
-    ("paused", "En pausa", "#f39c12"),
-    ("done", "Terminado", "#2ecc71"),
 ]
 
 
@@ -53,15 +45,6 @@ def get_owned_column(session: Session, user_id: int, column_id: int) -> BoardCol
     return column
 
 
-def get_owned_project_status(session: Session, user_id: int, status_id: int) -> ProjectStatus:
-    found = session.exec(
-        select(ProjectStatus).where(ProjectStatus.id == status_id, ProjectStatus.user_id == user_id)
-    ).first()
-    if not found:
-        raise _not_found("Estado de proyecto no encontrado")
-    return found
-
-
 def default_board_id(session: Session, user_id: int) -> Optional[int]:
     """El primer tablero activo: a donde va una tarea creada sin decir dónde."""
     return session.exec(
@@ -78,15 +61,6 @@ def first_column_id(session: Session, board_id: int, category: str) -> Optional[
             BoardColumn.board_id == board_id,
             BoardColumn.category == category,
         ).order_by(BoardColumn.order, BoardColumn.id)
-    ).first()
-
-
-def first_project_status_id(session: Session, user_id: int, category: str) -> Optional[int]:
-    return session.exec(
-        select(ProjectStatus.id).where(
-            ProjectStatus.user_id == user_id,
-            ProjectStatus.category == category,
-        ).order_by(ProjectStatus.order, ProjectStatus.id)
     ).first()
 
 
@@ -122,9 +96,8 @@ def _commit_seed(session: Session) -> None:
 def ensure_user_setup(session: Session, user_id: int) -> None:
     """
     Deja al usuario listo para el tablero, y es idempotente:
-    - estados de proyecto por defecto, si no tiene;
     - el proyecto "Sin asignar", si no lo tiene;
-    - estado para los proyectos y columna para las tareas que no lo tengan.
+    - columna para las tareas que no la tengan.
 
     "Mi tablero" solo se crea si hay tareas que acomodar (las que existían
     antes de los tableros): un usuario nuevo empieza sin tableros y la
@@ -137,16 +110,6 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
     columnas (NULL) y este relleno ocurre en el primer request. También cubre
     a los usuarios que se registren después, sin tocar /register.
     """
-    has_statuses = session.exec(
-        select(ProjectStatus.id).where(ProjectStatus.user_id == user_id)
-    ).first()
-    if has_statuses is None:
-        for order, (category, name, color) in enumerate(DEFAULT_PROJECT_STATUSES):
-            session.add(ProjectStatus(
-                user_id=user_id, category=category, name=name, color=color, order=order,
-            ))
-        _commit_seed(session)
-
     if unassigned_project_id(session, user_id) is None:
         # Si el usuario ya tenía un proyecto llamado así, ese pasa a ser el
         # suyo: lo que tenga dentro es, justamente, lo que no tiene proyecto.
@@ -160,40 +123,31 @@ def ensure_user_setup(session: Session, user_id: int) -> None:
         else:
             session.add(Project(
                 user_id=user_id, name=UNASSIGNED_PROJECT_NAME, color="#95a5a6", is_system=True,
-                status_id=first_project_status_id(session, user_id, "active"),
             ))
         _commit_seed(session)
 
     orphan_tasks = session.exec(
         select(Task).where(Task.user_id == user_id, Task.column_id == None)  # noqa: E711
     ).all()
-    orphan_projects = session.exec(
-        select(Project).where(Project.user_id == user_id, Project.status_id == None)  # noqa: E711
-    ).all()
-    if not orphan_tasks and not orphan_projects:
+    if not orphan_tasks:
         return
 
-    if orphan_tasks and session.exec(select(Board.id).where(Board.user_id == user_id)).first() is None:
+    if session.exec(select(Board.id).where(Board.user_id == user_id)).first() is None:
         add_board_with_columns(session, user_id, DEFAULT_BOARD_NAME)
         _commit_seed(session)
 
     # Lo que ya existía se traduce sin perder nada: una tarea marcada va a
-    # "Hecho" y una pendiente a "Por hacer" del primer tablero; los proyectos
-    # quedan "En curso". is_active no se toca: lo archivado sigue archivado.
+    # "Hecho" y una pendiente a "Por hacer" del primer tablero.
     board_id = default_board_id(session, user_id)
     if board_id is None:
         # Solo tableros archivados: las tareas sueltas van al primero de ellos
         board_id = session.exec(
             select(Board.id).where(Board.user_id == user_id).order_by(Board.order, Board.id)
         ).first()
-    done_id = first_column_id(session, board_id, "done") if board_id else None
-    todo_id = first_column_id(session, board_id, "todo") if board_id else None
-    active_id = first_project_status_id(session, user_id, "active")
+    done_id = first_column_id(session, board_id, "done")
+    todo_id = first_column_id(session, board_id, "todo")
 
     for t in orphan_tasks:
         t.column_id = done_id if t.is_done else todo_id
         session.add(t)
-    for p in orphan_projects:
-        p.status_id = active_id
-        session.add(p)
     session.commit()

@@ -7,7 +7,6 @@ const projectsState = {
     summaryByProject: {},    // { [id]: ProjectSummary }
     tasksByProject: {},      // { [id]: TaskResponse[] } — cache, se invalida en cada mutación
     sessionsByProject: {},   // { [id]: PomodoroSessionResponse[] } — mismo criterio
-    statuses: [],            // ProjectStatusResponse[] (Ideas, En curso, En pausa, Terminado...)
     expanded: new Set(),
 };
 
@@ -44,8 +43,6 @@ const projectNameInput = document.getElementById('projectName');
 const projectDescriptionInput = document.getElementById('projectDescription');
 const projectIconInput = document.getElementById('projectIcon');
 const projectColorInput = document.getElementById('projectColor');
-const projectStatusGroup = document.getElementById('projectStatusGroup');
-const projectStatusInput = document.getElementById('projectStatus');
 const projectFormError = document.getElementById('projectFormError');
 const closeProjectModalBtn = document.getElementById('closeProjectModalBtn');
 
@@ -204,14 +201,12 @@ async function loadProjects() {
     if (!getToken()) return;
 
     try {
-        const [listData, summaryData, statusData] = await Promise.all([
+        const [listData, summaryData] = await Promise.all([
             apiFetch('/api/projects'),
             apiFetch('/api/projects/summary'),
-            apiFetch('/api/project-statuses'),
         ]);
 
         projectsState.projects = listData.projects;
-        projectsState.statuses = statusData.statuses;
         projectsState.summaryByProject = {};
         // Los registros de tiempo cambian con cada alta o borrado; se vuelven a
         // pedir para los proyectos que estén desplegados.
@@ -331,14 +326,11 @@ function formatDuration(totalSeconds) {
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-function formatProjectMeta(project, summary) {
-    // "Sin asignar" no tiene estado que valga la pena enseñar
-    const status = project.is_system ? null : projectsState.statuses.find(s => s.id === project.status_id);
-    const prefix = status ? `${status.name} · ` : '';
+function formatProjectMeta(summary) {
     if (!summary || summary.task_total === 0) {
-        return `${prefix}Sin tareas`;
+        return 'Sin tareas';
     }
-    let meta = `${prefix}${summary.task_done}/${summary.task_total} tareas`;
+    let meta = `${summary.task_done}/${summary.task_total} tareas`;
     // total_seconds siempre es 0 hasta que exista Pomodoro (fase siguiente).
     if (summary.total_seconds > 0) {
         meta += ` · ${formatDuration(summary.total_seconds)}`;
@@ -367,7 +359,7 @@ function buildProjectCard(project) {
 
     const meta = document.createElement('p');
     meta.className = 'project-meta';
-    meta.textContent = formatProjectMeta(project, summary);
+    meta.textContent = formatProjectMeta(summary);
 
     main.appendChild(name);
     main.appendChild(meta);
@@ -758,28 +750,11 @@ async function addTask(projectId, title) {
 // Modal de crear/editar proyecto
 // ============================================
 
-// Sin valor elegido, un proyecto nuevo nace en el primer estado "activo",
-// igual que decide el backend cuando no se le manda status_id.
-function fillProjectStatusSelect(selectedId) {
-    projectStatusInput.innerHTML = '';
-    projectsState.statuses.forEach(status => {
-        const option = document.createElement('option');
-        option.value = String(status.id);
-        option.textContent = status.name;
-        projectStatusInput.appendChild(option);
-    });
-    const fallback = projectsState.statuses.find(s => s.category === 'active');
-    const value = selectedId || (fallback && fallback.id);
-    if (value) projectStatusInput.value = String(value);
-}
-
 function openCreateProjectModal() {
     editingProjectId = null;
     projectModalTitle.textContent = 'Nuevo Proyecto';
     projectForm.reset();
     projectColorInput.value = '#3498db';
-    fillProjectStatusSelect(null);
-    projectStatusGroup.classList.remove('hidden');
     projectFormError.classList.add('hidden');
     showModal(projectModal);
 }
@@ -791,8 +766,6 @@ function openEditProjectModal(project) {
     projectDescriptionInput.value = project.description || '';
     projectIconInput.value = project.icon || '';
     projectColorInput.value = project.color || '#3498db';
-    fillProjectStatusSelect(project.status_id);
-    projectStatusGroup.classList.toggle('hidden', !!project.is_system);
     projectFormError.classList.add('hidden');
     showModal(projectModal);
 }
@@ -827,9 +800,6 @@ async function submitProjectForm(event) {
         icon: projectIconInput.value.trim() || null,
         color: projectColorInput.value,
     };
-    if (!projectStatusGroup.classList.contains('hidden') && projectStatusInput.value) {
-        payload.status_id = Number(projectStatusInput.value);
-    }
 
     try {
         if (editingProjectId) {

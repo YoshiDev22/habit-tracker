@@ -119,7 +119,6 @@ Los endpoints se agrupan por módulo, todos con prefijo `/api`:
 | `/api/auth` | Registro y login |
 | `/api/habits` | Entradas diarias, estadísticas, racha y definiciones de hábitos |
 | `/api/projects` | CRUD de proyectos (etiquetas de las tareas) y resumen de progreso |
-| `/api/project-statuses` | Estados de proyecto configurables (Ideas, En curso...) |
 | `/api/boards` | Tableros y sus columnas |
 | `/api/tasks` | Tareas (tarjetas), con su checklist y sus comentarios |
 | `/api/tags` | Etiquetas y tiempo por etiqueta |
@@ -169,9 +168,9 @@ habit-tracker/
 │   ├── models.py          # Tablas de hábitos, proyectos, tablero, tareas y pomodoro
 │   ├── schemas.py         # Esquemas de request/response
 │   ├── auth.py            # Hashing, JWT, get_current_user
-│   ├── boards.py          # Tableros y estados por defecto de cada usuario
+│   ├── boards.py          # "Sin asignar" y columnas de las tareas de cada usuario
 │   ├── .env.example       # Plantilla del .env (el .env real no se versiona)
-│   └── routers/           # auth, habits, projects, project_statuses, boards, tasks, tags, pomodoro
+│   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro
 ├── scripts/migrate.py     # Columnas nuevas en tablas existentes (correr antes de reiniciar)
 ├── index.html             # Única página: ambas vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]

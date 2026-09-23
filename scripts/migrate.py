@@ -35,12 +35,10 @@ MIGRATIONS = [
     {"table": "users", "column": "last_name", "type": "VARCHAR"},
     {"table": "pomodoro_sessions", "column": "source", "type": "VARCHAR", "default": "timer"},
     {"table": "users", "column": "rest_days", "type": "JSON"},
-    # Nacen NULL a propósito. Las tablas a las que apuntan (project_statuses,
-    # board_columns) todavía no existen cuando esto corre: las crea
-    # create_all() al reiniciar. Así que asignar estado a cada proyecto y
-    # tablero/columna a cada tarea lo hace la app, ensure_user_setup() en
+    # Nace NULL a propósito. La tabla a la que apunta (board_columns) todavía
+    # no existe cuando esto corre: la crea create_all() al reiniciar. Así que
+    # asignar columna a cada tarea lo hace la app, ensure_user_setup() en
     # backend/boards.py, en el primer request de cada usuario.
-    {"table": "projects", "column": "status_id", "type": "INTEGER"},
     {"table": "tasks", "column": "column_id", "type": "INTEGER"},
     {"table": "projects", "column": "is_system", "type": "BOOLEAN", "default": 0},
 ]

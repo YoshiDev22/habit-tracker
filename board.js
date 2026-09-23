@@ -1191,7 +1191,6 @@ function columnBadge(column, columns) {
     }
     return { text: '', title: '' };
 }
-const PROJECT_STATUS_LABELS = { idea: 'Idea', active: 'Activo', paused: 'En pausa', done: 'Terminado' };
 
 const boardConfigModal = document.getElementById('boardConfigModal');
 const boardConfigError = document.getElementById('boardConfigError');
@@ -1204,14 +1203,11 @@ const configColumnsEl = document.getElementById('configColumns');
 const configColumnForm = document.getElementById('configColumnForm');
 const configTagsEl = document.getElementById('configTags');
 const configTagForm = document.getElementById('configTagForm');
-const configStatusesEl = document.getElementById('configProjectStatuses');
-const configStatusForm = document.getElementById('configProjectStatusForm');
 
 const configState = {
     boards: [],          // todos, archivados incluidos
     columnsBoardId: null,
     tags: [],
-    statuses: [],        // estados de proyecto
     dirty: false,
 };
 
@@ -1220,14 +1216,12 @@ function configBoard() {
 }
 
 async function reloadConfig() {
-    const [data, tagsData, statusData] = await Promise.all([
+    const [data, tagsData] = await Promise.all([
         apiFetch('/api/boards?include_inactive=true'),
         apiFetch('/api/tags'),
-        apiFetch('/api/project-statuses'),
     ]);
     configState.boards = data.boards;
     configState.tags = tagsData.tags;
-    configState.statuses = statusData.statuses;
     const active = data.boards.filter(b => b.is_active);
     if (!active.some(b => b.id === configState.columnsBoardId)) {
         configState.columnsBoardId = active.some(b => b.id === boardState.boardId)
@@ -1358,7 +1352,7 @@ function renderConfig() {
     });
     if (configState.columnsBoardId !== null) configColumnsBoard.value = String(configState.columnsBoardId);
 
-    renderConfigTagsAndStatuses();
+    renderConfigTags();
 
     configColumnsEl.innerHTML = '';
     const board = configBoard();
@@ -1374,7 +1368,7 @@ function renderConfig() {
     });
 }
 
-function renderConfigTagsAndStatuses() {
+function renderConfigTags() {
     configTagsEl.innerHTML = '';
     if (configState.tags.length === 0) {
         const hint = document.createElement('p');
@@ -1386,16 +1380,6 @@ function renderConfigTagsAndStatuses() {
         configTagsEl.appendChild(buildConfigRow({
             id: tag.id, color: tag.color, name: tag.name, maxLength: 30,
             reorder: false, deleteClass: 'config-delete-tag',
-        }));
-    });
-
-    configStatusesEl.innerHTML = '';
-    configState.statuses.forEach((status, index) => {
-        configStatusesEl.appendChild(buildConfigRow({
-            id: status.id, color: status.color, name: status.name, maxLength: 40,
-            typeLabel: PROJECT_STATUS_LABELS[status.category] || status.category,
-            first: index === 0, last: index === configState.statuses.length - 1,
-            reorder: true, deleteClass: 'config-delete-status',
         }));
     });
 }
@@ -1562,7 +1546,7 @@ configColumnForm.addEventListener('submit', (event) => {
     });
 });
 
-// Etiquetas y estados de proyecto: nombre y color al salir del campo
+// Etiquetas: nombre y color al salir del campo
 function handleConfigItemChange(event, urlFor) {
     const row = event.target.closest('.config-row');
     if (!row) return;
@@ -1580,7 +1564,6 @@ function handleConfigItemChange(event, urlFor) {
 }
 
 configTagsEl.addEventListener('change', (event) => handleConfigItemChange(event, id => `/api/tags/${id}`));
-configStatusesEl.addEventListener('change', (event) => handleConfigItemChange(event, id => `/api/project-statuses/${id}`));
 
 configTagsEl.addEventListener('click', async (event) => {
     if (!event.target.closest('.config-delete-tag')) return;
@@ -1595,24 +1578,6 @@ configTagsEl.addEventListener('click', async (event) => {
     configAction(() => apiFetch(`/api/tags/${tagId}`, { method: 'DELETE' }));
 });
 
-configStatusesEl.addEventListener('click', (event) => {
-    const row = event.target.closest('.config-row');
-    if (!row) return;
-    const statusId = Number(row.dataset.itemId);
-
-    const move = event.target.closest('.config-move');
-    if (move) {
-        const requests = reorderRequests(configState.statuses, statusId, Number(move.dataset.delta),
-            status => `/api/project-statuses/${status.id}`);
-        if (requests) configAction(requests);
-        return;
-    }
-    // El backend no borra un estado con proyectos ni el último de su tipo
-    if (event.target.closest('.config-delete-status')) {
-        configAction(() => apiFetch(`/api/project-statuses/${statusId}`, { method: 'DELETE' }));
-    }
-});
-
 configTagForm.addEventListener('submit', (event) => {
     event.preventDefault();
     const input = configTagForm.querySelector('input');
@@ -1620,18 +1585,6 @@ configTagForm.addEventListener('submit', (event) => {
     if (!name) return;
     configAction(async () => {
         await apiFetch('/api/tags', { method: 'POST', json: { name } });
-        input.value = '';
-    });
-});
-
-configStatusForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const input = configStatusForm.querySelector('input');
-    const category = configStatusForm.querySelector('select').value;
-    const name = input.value.trim();
-    if (!name) return;
-    configAction(async () => {
-        await apiFetch('/api/project-statuses', { method: 'POST', json: { name, category } });
         input.value = '';
     });
 });

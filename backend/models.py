@@ -121,30 +121,6 @@ class BoardColumn(SQLModel, table=True):
     created_at: date_type = Field(default_factory=date_type.today)
 
 
-class ProjectStatus(SQLModel, table=True):
-    """
-    Estado de un proyecto (Ideas, En curso, En pausa, Terminado...), por
-    usuario. Igual que BoardColumn: nombre libre, `category` fija
-    (idea | active | paused | done). Tabla NUEVA.
-    """
-    __tablename__ = "project_statuses"
-    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_project_statuses_user_name"),)
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id", index=True)
-
-    category: str
-    name: str
-
-    # Color hexadecimal (ej: "#3498db")
-    color: Optional[str] = Field(default=None)
-
-    # Orden de aparición en la UI (menor = primero)
-    order: int = Field(default=0)
-
-    created_at: date_type = Field(default_factory=date_type.today)
-
-
 class Project(SQLModel, table=True):
     """
     Proyecto u objetivo del usuario. Tabla NUEVA: create_all() la crea sola
@@ -174,12 +150,6 @@ class Project(SQLModel, table=True):
     # Si es False, el proyecto está "archivado" pero sus tareas se conservan
     is_active: bool = Field(default=True)
 
-    # Estado del proyecto. Columna AÑADIDA a una tabla existente: la agrega
-    # scripts/migrate.py como NULL, y ensure_user_setup() rellena los NULL al
-    # primer request del usuario. Sin index=True a propósito: migrate.py no
-    # crea índices y una base nueva quedaría distinta a la de prod.
-    status_id: Optional[int] = Field(default=None, foreign_key="project_statuses.id")
-
     # True solo en "Sin asignar", el proyecto que cada usuario recibe para las
     # tareas sin proyecto. Existe porque tasks.project_id es NOT NULL y quitar
     # eso en SQLite obliga a reconstruir la tabla en producción. No se
@@ -208,7 +178,10 @@ class Task(SQLModel, table=True):
     # para que el progreso de /api/projects/summary siga saliendo de aquí.
     is_done: bool = Field(default=False)
 
-    # Columna del tablero. AÑADIDA, igual que Project.status_id.
+    # Columna del tablero. Columna AÑADIDA a una tabla existente: la agrega
+    # scripts/migrate.py como NULL, y ensure_user_setup() rellena los NULL al
+    # primer request del usuario. Sin index=True a propósito: migrate.py no
+    # crea índices y una base nueva quedaría distinta a la de prod.
     column_id: Optional[int] = Field(default=None, foreign_key="board_columns.id")
 
     # Orden de aparición en la UI (menor = primero)

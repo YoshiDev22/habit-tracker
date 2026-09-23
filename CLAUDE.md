@@ -48,7 +48,7 @@ habit-tracker/
 │   ├── schemas.py         # Esquemas Pydantic/SQLModel de request/response
 │   ├── auth.py            # Hashing, JWT (create/verify), get_current_user, lee SECRET_KEY
 │   ├── dates.py           # resolve_client_today(): el "hoy" del usuario, no el del servidor (UTC)
-│   ├── boards.py          # ensure_user_setup(): defaults y relleno perezoso de tableros/estados
+│   ├── boards.py          # ensure_user_setup(): "Sin asignar" y relleno perezoso de columnas
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -58,7 +58,6 @@ habit-tracker/
 │       ├── projects.py    # /api/projects/*
 │       ├── tasks.py       # /api/tasks/*       (+ /{id}/checklist y /{id}/comments)
 │       ├── boards.py      # /api/boards/*      (+ /{id}/columns)
-│       ├── project_statuses.py  # /api/project-statuses/*
 │       ├── tags.py        # /api/tags/*
 │       └── pomodoro.py    # /api/pomodoro/*
 ├── scripts/
@@ -67,7 +66,7 @@ habit-tracker/
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
 ├── projects.js            # Tabs con swipe, vista Lista (proyectos y tareas), menú y borrado de proyecto
-├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas, estados)
+├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas)
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 ├── requirements.txt
@@ -123,7 +122,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 ## Modelo de datos
 
 Tablas en `backend/models.py`: `User`, `HabitEntry`, `Habit`, `Project`, `Task`,
-`PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `ProjectStatus`, `Tag`,
+`PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
 es lo único que separa los datos entre usuarios.
@@ -137,7 +136,6 @@ Board ("Escuela")  ── BoardColumn (Por hacer · Haciendo · Hecho, configura
                                 ├── TaskTag → Tag (VARIAS: tipo de actividad)
                                 ├── TaskChecklistItem (subtareas, sin tiempos)
                                 └── TaskComment (seguimiento, con author_id)
-Project ── status_id → ProjectStatus (Ideas · En curso · En pausa · Terminado, por usuario)
 ```
 
 Lo que no se deduce leyendo los modelos:
@@ -171,10 +169,14 @@ Lo que no se deduce leyendo los modelos:
   **`DELETE /api/projects/{id}` NO borra sus tareas**: el proyecto es una etiqueta, así que
   sus tareas y su tiempo pasan a "Sin asignar"; con `?delete_sessions=true` el tiempo se
   borra (la UI lo pide con una casilla explícita).
-- **De columnas y estados, el código solo lee `category`.** `BoardColumn.category` es
-  `todo | doing | done` y `ProjectStatus.category` es `idea | active | paused | done`; el
-  nombre, color, orden y cuántas hay son del usuario, y la categoría no se cambia después
-  de crear. Nunca comparar por nombre ("Hecho"): el usuario lo renombra.
+- **De una columna, el código solo lee `category`** (`todo | doing | done`); el nombre,
+  color, orden y cuántas hay son del usuario, y la categoría no se cambia después de
+  crear. Nunca comparar por nombre ("Hecho"): el usuario lo renombra. La UI no enseña la
+  categoría: marca "📥 Entrada" (la primera `todo`) y "✓ Terminada" (las `done`).
+- **No hay estados de proyecto** (Ideas / En curso / En pausa…): se probaron y se quitaron
+  antes de salir a producción porque no tenían uso visible. Un proyecto está activo o
+  archivado, nada más. En una base local de desarrollo pueden quedar la tabla
+  `project_statuses` y la columna `projects.status_id` de esa prueba: sobran y no estorban.
 - **`Task.is_done` y `Task.column_id` van siempre juntos** (`update_task` en
   `routers/tasks.py`): mover a una columna `done` marca hecha, y el checkbox mueve a la
   primera columna `done`/`todo` **del mismo tablero**. `is_done` sigue existiendo porque
@@ -187,8 +189,7 @@ Lo que no se deduce leyendo los modelos:
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;
   sus tareas sí.
 - **Los defaults y el relleno son perezosos**: `ensure_user_setup()` (`backend/boards.py`)
-  crea los estados de proyecto y "Sin asignar", y asigna columna/estado a lo que no lo
-  tenga. "Mi tablero" solo se crea si hay tareas sin columna que acomodar (datos de antes
+  crea "Sin asignar" y asigna columna a las tareas que no la tengan. "Mi tablero" solo se crea si hay tareas sin columna que acomodar (datos de antes
   de los tableros) o al crear una tarea sin tener ningún tablero; un usuario nuevo empieza
   sin tableros y `board.js` le ofrece crear el primero al entrar a la pestaña. Corre en los endpoints que lo necesitan, no en
   `migrate.py`, porque esas tablas las crea `create_all()` DESPUÉS de que migrate.py corre.
