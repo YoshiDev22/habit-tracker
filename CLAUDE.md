@@ -216,8 +216,6 @@ Un router por módulo en `backend/routers/` (`auth`, `habits`, `projects`, `task
 `pomodoro`), montados con prefijo `/api/<módulo>` en `main.py`. Para la lista completa con
 sus esquemas, levantar el server y abrir **`/api/docs`** (Swagger) — no `/docs`. Todo
 requiere `Authorization: Bearer` salvo `/api/auth/*`, `/api`, `/api/version` y `/api/health`.
-En producción Caddy solo reenvía rutas con un segmento después de `/api`: una ruta pública
-nueva va bajo `/api/<algo>`, nunca en la raíz (`/health` daba 404 por eso).
 
 Lo que no se ve en Swagger:
 
@@ -497,7 +495,9 @@ detecta ni se aplica.
 Contexto para que Claude no proponga rutas ni patrones equivocados:
 
 - Los proyectos viven en `~/Proyectos/`, **no** en `/var/www`.
-- Reverse proxy: **Caddy** (no nginx, no Apache).
+- Reverse proxy: **Caddy** (no nginx, no Apache). Para este sitio hace `reverse_proxy` de
+  **todo** a la app; nunca `root` + `file_server` sobre la carpeta del repo, que dejaría
+  descargar `backend/.env` y la base de datos. La app ya sirve el frontend ella sola.
 - El servicio corre bajo systemd con `User=yoshi`, `Group=devshare`.
 - Permisos: grupo `devshare` (GID 1002), directorios con setgid y modo 775.
   Yoshio (uid 1001) es el dueño de los archivos; el bot RDX corre en un contenedor
