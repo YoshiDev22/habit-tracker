@@ -28,8 +28,8 @@ Versiones confirmadas en `requirements.txt` (no hay `pyproject.toml` en el repo)
   `Field(regex=...)` **no valida nada** en esta versión; usar un `@field_validator` (ver
   `_validate_hex_color` en `schemas.py`). `min_length`/`max_length` sí funcionan.
 - `python-jose[cryptography]==3.3.0` para JWT
-- `bcrypt==4.0.1` para hashear/verificar contraseñas — usado directamente en `backend/auth.py`.
-  `passlib[bcrypt]==1.7.4` está en `requirements.txt` pero no se importa en ningún módulo del código.
+- `bcrypt==4.0.1` para hashear/verificar contraseñas — usado directamente en `backend/auth.py`
+  (sin `passlib`, que se quitó por no usarse).
 - `python-multipart==0.0.6` (requerido por FastAPI para leer el form-data de `OAuth2PasswordRequestForm` en `/api/auth/login`)
 - `python-dotenv==1.0.1` para cargar `backend/.env`
 - Frontend estático servido por la misma app (sin build step, sin dependencias JS)

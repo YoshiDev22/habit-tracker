@@ -18,7 +18,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
-| 10 | P4 | `passlib` declarado y sin usar | diagnosticado |
 | 11 | P4 | `/health` sin uso y 404 detrás del proxy | reproducido |
 | 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
@@ -137,21 +136,6 @@ hay `StaticFiles` montado: cada archivo nuevo necesita su propio `@app.get`.
 
 **Aceptación.** No hay 404 de favicon en los logs al cargar. Si se hace la PWA, Chrome
 ofrece "Instalar".
-
----
-
-## 10 · P4 · `passlib` declarado y sin usar
-
-**Síntoma.** Ninguno. Es una dependencia muerta.
-
-**Causa.** `requirements.txt` incluye `passlib[bcrypt]==1.7.4`, pero ningún módulo lo
-importa: el hashing usa `bcrypt` directamente en
-[backend/auth.py:5](backend/auth.py#L5).
-
-**Arreglo.** Quitar la línea de `requirements.txt`.
-
-**Aceptación.** `grep -rn passlib backend/` no devuelve nada, y la app arranca y hace login
-con el entorno reinstalado desde cero.
 
 ---
 
