@@ -408,15 +408,16 @@ solo se inician desde ahí (`startBreak`). "Hoy" y el botón de sonido viven en 
 tablero. **Tocar "Hoy"** abre `#dayLogModal` (`openDayLog()` en `pomodoro.js`): todos los
 registros de un día, de todas las tareas, con ‹ › entre días, ✎ y ×. Marca con ⚠ los
 cronómetros que se cerraron solos a las 8 h (nota `POMO_AUTOCLOSE_NOTE`), y al corregir la
-duración de uno esa nota se quita.
-
-**Cronómetro olvidado.** Nada interrumpe mientras se trabaja (Yoshio lo pidió así). Solo
-al llegar al tope de 8 h: si hubo clics o teclas en la app en las últimas 2 h
-(`POMO_IDLE_ASK_MS`, medido con `pomodoro_activity`) se cierra solo con 8 h y su nota, como
-siempre; si no, el cronómetro se detiene en 8:00:00 y `#idleCheckModal` pregunta "Guardar
-hasta las HH:MM" (la última actividad, vía `finishStopwatch({ endAtEpochMs })`) o "Guardar
-las 8 h". Contestar la pregunta no cuenta como actividad. Las filas salen de `buildSessionRow()` (`projects.js`),
+duración de uno esa nota se quita. Las filas salen de `buildSessionRow()` (`projects.js`),
 la misma del historial de la tarjeta.
+
+**Tope del cronómetro.** Nada interrumpe mientras se trabaja, y la app no adivina cuánto se
+trabajó (Yoshio lo pidió así: es decisión del usuario). Al llegar a 8 h el cronómetro se
+detiene en 8:00:00 y `#idleCheckModal` (`askStopwatchCap()`) pregunta cuánto se trabajó,
+empezando en 8 h. La última actividad en la app (`pomodoro_activity`) sale solo como pista,
+con "Usar esa hora". Lo elegido se guarda sin la nota de cierre automático
+(`finishStopwatch({ endAtEpochMs, chosenByUser })`), y nada se guarda hasta contestar,
+también si se recarga. Contestar la pregunta no cuenta como actividad.
 
 ## Reglas duras
 
