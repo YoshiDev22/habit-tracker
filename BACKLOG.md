@@ -24,7 +24,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
-| 16 | P3 | Falta validar `color`, `label` y `key` en `HabitCreate` | parcial |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 18 | P3 | Tarjetas de proyectos archivados muestran 0m | diagnosticado |
 | 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
@@ -383,34 +382,6 @@ motor genérico hasta que duela repetir código.
 **Aceptación (del primer paso, no de la épica).** Las pestañas se generan desde un array
 de configuración: añadir una entrada al array crea su tab y su vista, y el swipe, las
 flechas del teclado y `Home`/`End` funcionan sin tocar ninguna constante.
-
----
-
-## 16 · P3 · Falta validar `color`, `label` y `key` en `HabitCreate`
-
-**Hecho.** La mitad del frontend está resuelta: ninguna fila de hábito se construye ya con
-`innerHTML`. Todas salen de `buildHabitRow()` con `createElement` y `textContent`, así que
-un `label` con `<img src=x onerror=...>` se muestra como texto literal.
-
-**Lo que queda.** `HabitCreate` ([backend/schemas.py](backend/schemas.py)) sigue declarando
-`key`, `label` y `color` como `str` pelado: sin longitud máxima y sin validar que `color`
-sea un hex. El backend guarda lo que le manden.
-
-**Por qué sigue siendo P3.** Las consultas de hábitos filtran por
-`Habit.user_id == current_user.id` y no hay nada de compartir, así que solo puedes
-ensuciar tus propios datos. Pero el backend es la última línea: el día que otra vista
-—hábitos compartidos, un panel, una exportación que alguien abra en su navegador— pinte
-datos de una cuenta en la pantalla de otra, el que valide o no valide es él, no el
-frontend de hoy.
-
-**Arreglo.** En `HabitCreate`: `max_length` razonable para `key` y `label`, y `color`
-contra `^#[0-9a-fA-F]{6}$` admitiendo `None`. Mismo trato en `HabitUpdate` para `label` y
-`color`. **Ojo:** con sqlmodel 0.0.14 `Field(regex=...)` no valida nada; usar un
-`@field_validator` con `_validate_hex_color()`, que ya existe en `schemas.py` para
-columnas, etiquetas y proyectos.
-
-**Aceptación.** `POST /api/habits/definitions` con `color: "rojo; drop table"` o con un
-`label` de 5.000 caracteres devuelve 422, no 201.
 
 ---
 

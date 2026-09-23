@@ -100,11 +100,18 @@ class HabitCreate(SQLModel):
     Esquema para crear un nuevo hábito.
     El frontend envía estos datos al registrar un hábito nuevo.
     """
-    key: str                          # Clave única por usuario (ej: "lectura")
-    label: str                        # Nombre visible (ej: "Lectura")
-    icon: Optional[str] = None        # Emoji (ej: "📚")
+    # Los topes siguen al campo del formulario (maxlength="40"); el del emoji
+    # deja sitio a las secuencias compuestas (👨‍👩‍👧 son varios code points).
+    key: str = Field(min_length=1, max_length=40)    # Clave única por usuario (ej: "lectura")
+    label: str = Field(min_length=1, max_length=40)  # Nombre visible (ej: "Lectura")
+    icon: Optional[str] = Field(default=None, max_length=16)  # Emoji (ej: "📚")
     color: Optional[str] = None       # Hex color (ej: "#3498db")
     order: Optional[int] = 0         # Posición en la UI
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
 
 
 class HabitUpdate(SQLModel):
@@ -112,11 +119,16 @@ class HabitUpdate(SQLModel):
     Esquema para actualizar un hábito existente.
     Todos los campos son opcionales (PATCH parcial).
     """
-    label: Optional[str] = None
-    icon: Optional[str] = None
+    label: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    icon: Optional[str] = Field(default=None, max_length=16)
     color: Optional[str] = None
     order: Optional[int] = None
     is_active: Optional[bool] = None  # False = archivar (no borra datos históricos)
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
 
 
 class HabitResponse(SQLModel):
