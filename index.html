@@ -223,15 +223,18 @@
                         </div>
                         <div class="reports-nav">
                             <button id="reportsPrev" class="nav-btn" type="button" aria-label="Periodo anterior">&lt;</button>
-                            <h2 id="reportsRangeLabel" class="reports-range-label"></h2>
+                            <div class="reports-range">
+                                <h2 id="reportsRangeLabel" class="reports-range-label"></h2>
+                                <!-- Se usa poco: un enlace pequeño bajo la fecha -->
+                                <button type="button" id="reportsExport" class="reports-export"
+                                        title="Descargar los registros de tiempo de este periodo (se abre en Excel o Google Sheets)">⬇ Exportar CSV</button>
+                            </div>
                             <button id="reportsNext" class="nav-btn" type="button" aria-label="Periodo siguiente">&gt;</button>
                         </div>
                         <div id="reportsCustom" class="reports-custom hidden">
                             <label>Desde <input type="date" id="reportsFrom"></label>
                             <label>Hasta <input type="date" id="reportsTo"></label>
                         </div>
-                        <button type="button" id="reportsExport" class="reports-export"
-                                title="Descargar los registros de tiempo de este periodo (se abre en Excel o Google Sheets)">⬇ Exportar CSV</button>
                     </div>
                     <div id="reportsBody" class="reports-body" aria-live="polite"></div>
                 </section>
