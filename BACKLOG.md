@@ -26,7 +26,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 16 | P3 | Falta validar `color`, `label` y `key` en `HabitCreate` | parcial |
-| 17 | P2 | Objetivos medibles (hábitos, cantidades, mediciones) | épica |
+| 17 | P2 | Metas con hábitos y avance medible | épica |
 | 18 | P3 | Tarjetas de proyectos archivados muestran 0m | diagnosticado |
 | 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
@@ -438,30 +438,48 @@ columnas, etiquetas y proyectos.
 
 ---
 
-## 17 · P2 · Objetivos medibles (hábitos, cantidades, mediciones)
+## 17 · P2 · Metas con hábitos y avance medible
 
-**Esto es una épica.** Que los hábitos pasen a ser **objetivos** con avance medible, sin
-perder el registro diario que ya existe. Planteado el 2026-09-22.
+**Esto es una épica.** Que los hábitos estén al servicio de **metas** con avance visible,
+sin perder el registro diario que ya existe. Planteado el 2026-09-22; modelo acordado con
+Yoshio el 2026-09-23.
 
-**Tipos propuestos:**
+**Modelo acordado: una meta agrupa hábitos; los hábitos siguen siendo sí/no.**
 
-| Tipo | Ejemplo | Qué se registra | Cómo se ve el avance |
-|---|---|---|---|
-| Hábito (sí/no) | Meditar, gym | Casilla diaria (lo de hoy) | Racha y % de días |
-| Cantidad | Leer 20 páginas/día | Un número por día | Barra hacia la meta del período |
-| Medición | Bajar de 85 a 78 kg | Un valor al medir | Tendencia y % del camino |
-| Evitar | Dejar de fumar | Recaídas, o cantidad con tope | Días sin recaer, récord |
+```
+Meta "Bajar de peso" (85 → 75 kg)          Meta "Leer 10 libros"      Meta "Dejar de fumar"
+ ├── hábito Ejercicio  (sí/no, "30 min")    ├── hábito Leer            └── hábito Sin fumar
+ └── hábito Comer bien (sí/no)               │   (sí/no, "15 min mín.")      (sí/no)
+                                             └── registro: libro 1, 2…
+```
 
-**Diseño propuesto.** Los hábitos actuales pasan a ser objetivos "sí/no" **sin migrar
-datos**: siguen en `habit_entries.habits_data`, con su racha y días de descanso. Los tipos
-nuevos guardan sus valores en una tabla nueva `goal_entries` (objetivo, fecha, valor).
-Columnas nuevas en `habits` (tipo, unidad, meta, período, valor inicial, dirección,
-fecha límite) vía `scripts/migrate.py`: **cambio de esquema sobre datos reales**, avisar
-el impacto antes de escribir código. La racha sigue calculándose solo en el backend.
+- **Hábitos: no cambian de tipo.** Se marcan hechos o no, como hoy. Se les puede añadir un
+  texto de mínimo recomendado ("15 minutos al día"), que es solo una guía para el usuario.
+  No hay hábitos de "cantidad por día" ni de "evitar": dejar de fumar es un hábito sí/no
+  ("hoy no fumé") y su dato son los días y la racha, como cualquier otro.
+- **Meta: tres formas, todas opcionales para la parte numérica:**
 
-**Opción que conecta con el tablero.** Un objetivo de cantidad medido con el tiempo
-registrado: "Lectura: 5 h/semana" sumaría las sesiones de las tareas con la etiqueta
-*lectura* o de un proyecto.
+  | Meta | Ejemplo | Qué anota el usuario | Avance |
+  |---|---|---|---|
+  | Solo hábitos | Meditar más | Nada extra | Días cumplidos de sus hábitos, racha |
+  | Contador | Leer 10 libros | "+1" a mano (terminé un libro) | "3 de 10 libros" |
+  | Medición | Bajar de 85 a 75 kg | Un valor cuando se mide | "81 kg, te faltan 6" |
+
+- **Avance en días primero**: "Ejercicio 18 de 30 días este mes", "12 días sin fumar
+  (récord 20)", y la cifra de la meta si la tiene. El porcentaje, como mucho de apoyo.
+- **Tiempo del tablero (opcional, acordado).** Una meta puede enlazarse a un proyecto o
+  una etiqueta y mostrar "llevas 3 h de 5 h esta semana" con el tiempo ya registrado en
+  el cronómetro. Es **solo lectura**: la misma suma de sesiones que hará Reportes
+  (entrada 12), reutilizada; el timer y las tarjetas no cambian. Por eso va después de
+  Reportes y puede dejarse para una segunda entrega si complica la primera.
+
+**Esquema (borrador, avisar el impacto antes de escribir código).** Tablas nuevas, que
+`create_all()` crea solas: `goals` (nombre, tipo solo-hábitos/contador/medición, valor
+inicial, meta, unidad, fecha límite opcional, `project_id`/`tag_id` opcionales),
+`goal_habits` (meta ↔ hábito) y `goal_entries` (meta, fecha local, valor). El texto de
+mínimo recomendado sería una columna nueva en `habits` → **va en `scripts/migrate.py`**
+(o se guarda en `goal_habits` y se evita tocar `habits`; decidir en el plan). Los hábitos
+y su historial (`habit_entries.habits_data`, racha, días de descanso) no se migran.
 
 **Asistente para elegir objetivos (decidido 2026-09-23): plantillas primero, IA después.**
 Al crear un objetivo, la app pregunta qué quiere lograr el usuario y le propone hábitos
@@ -507,10 +525,9 @@ motiva con constancia (días marcados, racha). Los objetivos van en un lugar apa
 propone el menú de configuración para crearlos y editarlos. El avance se expresa en días
 siempre que se pueda ("12 de 30 días", "8 días sin fumar") y no solo como porcentaje.
 
-**Decisiones pendientes de Yoshio antes del plan detallado:**
-
-1. ¿Sirven los cuatro tipos, o falta alguno?
-2. ¿Objetivos alimentados por el tiempo de una etiqueta o un proyecto?
+**Pendiente para el plan detallado:** dónde se ve el avance a diario (propuesta: una
+línea corta junto a cada hábito del Calendario, además de la sección de metas) y el
+catálogo de plantillas de la fase 1.
 
 **Orden.** Después de la entrada 12 (Reportes), que no toca el esquema.
 
