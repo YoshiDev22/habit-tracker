@@ -888,6 +888,7 @@ const dayLogTotalEl = document.getElementById('dayLogTotal');
 const dayLogListEl = document.getElementById('dayLogList');
 const dayLogPrevBtn = document.getElementById('dayLogPrev');
 const dayLogNextBtn = document.getElementById('dayLogNext');
+const dayLogPicker = document.getElementById('dayLogPicker');
 const DAY_LOG_WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 const dayLogState = {
@@ -933,8 +934,10 @@ function shiftDayLog(days) {
 async function loadDayLog() {
     const date = dayLogState.date;
     const key = getDateKey(date);
-    dayLogDateEl.textContent = dayLogLabel(date);
+    dayLogDateEl.textContent = `${dayLogLabel(date)} ▾`;
     dayLogNextBtn.disabled = date >= localMidnight(new Date());
+    dayLogPicker.value = key;
+    dayLogPicker.max = getDateKey(new Date());
     const requestId = ++dayLogState.requestId;
 
     try {
@@ -1021,6 +1024,27 @@ dayLogListEl.addEventListener('click', async (event) => {
 pomoTodayEl.addEventListener('click', openDayLog);
 dayLogPrevBtn.addEventListener('click', () => shiftDayLog(-1));
 dayLogNextBtn.addEventListener('click', () => shiftDayLog(1));
+dayLogDateEl.addEventListener('click', () => {
+    try {
+        dayLogPicker.showPicker();
+    } catch (error) {
+        // Sin showPicker (navegadores viejos): el input se enfoca y el
+        // teclado o el clic lo abren
+        dayLogPicker.focus();
+    }
+});
+dayLogPicker.addEventListener('change', () => {
+    if (!dayLogPicker.value) return;
+    const [y, m, d] = dayLogPicker.value.split('-').map(Number);
+    const picked = new Date(y, m - 1, d);
+    // El max ya bloquea el futuro en el calendario; esto cubre lo que se teclee
+    if (picked > localMidnight(new Date())) {
+        dayLogPicker.value = getDateKey(dayLogState.date);
+        return;
+    }
+    dayLogState.date = picked;
+    loadDayLog();
+});
 document.getElementById('closeDayLogBtn').addEventListener('click', closeDayLog);
 dayLogModal.querySelector('.modal-overlay').addEventListener('click', closeDayLog);
 document.addEventListener('keydown', (event) => {

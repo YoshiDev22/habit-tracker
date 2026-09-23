@@ -464,7 +464,11 @@
             <div class="day-log-nav">
                 <button type="button" class="nav-btn" id="dayLogPrev" aria-label="Día anterior">&lt;</button>
                 <div class="day-log-day">
-                    <span id="dayLogDate" class="day-log-date"></span>
+                    <!-- La fecha abre el calendario nativo del navegador para saltar a
+                         cualquier día; el input queda invisible debajo, para que el
+                         calendario se despliegue junto a la fecha -->
+                    <button type="button" id="dayLogDate" class="day-log-date" title="Elegir otro día"></button>
+                    <input type="date" id="dayLogPicker" class="day-log-picker" tabindex="-1" aria-label="Ir a un día">
                     <span id="dayLogTotal" class="day-log-total"></span>
                 </div>
                 <button type="button" class="nav-btn" id="dayLogNext" aria-label="Día siguiente">&gt;</button>

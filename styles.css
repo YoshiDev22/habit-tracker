@@ -3778,11 +3778,6 @@ button.timer-today:focus-visible {
     text-align: center;
 }
 
-.day-log-date {
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
 .day-log-date::first-letter {
     text-transform: uppercase;
 }
@@ -3810,4 +3805,40 @@ button.timer-today:focus-visible {
 
 .session-row.session-flag .session-detail {
     color: var(--danger-fg);
+}
+
+/* La fecha del tiempo del día es un botón que abre el calendario nativo */
+.day-log-day {
+    position: relative;
+}
+
+button.day-log-date {
+    background: none;
+    border: none;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+button.day-log-date:hover,
+button.day-log-date:focus-visible {
+    background: var(--bg-hover);
+    color: var(--accent);
+}
+
+/* Invisible, pero renderizado bajo la fecha: showPicker() necesita un input
+   visible en el layout, y así el calendario se abre junto a ella */
+.day-log-picker {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
 }
