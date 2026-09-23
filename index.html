@@ -608,13 +608,14 @@
 
             <section class="config-section">
                 <h3 class="config-section-title">Proyectos</h3>
-                <p class="config-hint">El proyecto es la etiqueta principal de una tarea: su tiempo se suma ahí. Para borrar uno y decidir qué pasa con su tiempo, usa la vista Lista.</p>
+                <p class="config-hint">El proyecto es la etiqueta principal de una tarea: su tiempo se suma ahí. Archivar lo oculta sin perder nada. Para borrarlo y decidir qué pasa con su tiempo, usa la vista Lista (si está archivado, restáuralo primero).</p>
                 <div id="configProjects" class="config-list"></div>
                 <form id="configProjectForm" class="config-add-row">
                     <input type="color" id="configProjectColor" value="#3498db" class="config-color" aria-label="Color del proyecto nuevo">
                     <input type="text" maxlength="80" placeholder="Nuevo proyecto (ej: Tesis)" aria-label="Nombre del proyecto nuevo">
                     <button type="submit" aria-label="Crear proyecto">+</button>
                 </form>
+                <div id="configArchivedProjects" class="config-archived"></div>
             </section>
 
             <section class="config-section">

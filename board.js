@@ -1251,6 +1251,7 @@ const configColumnsEl = document.getElementById('configColumns');
 const configColumnForm = document.getElementById('configColumnForm');
 const configTagsEl = document.getElementById('configTags');
 const configProjectsEl = document.getElementById('configProjects');
+const configArchivedProjectsEl = document.getElementById('configArchivedProjects');
 const configProjectForm = document.getElementById('configProjectForm');
 const configTagForm = document.getElementById('configTagForm');
 
@@ -1259,6 +1260,7 @@ const configState = {
     columnsBoardId: null,
     tags: [],
     projects: [],        // activos, sin "Sin asignar" (no se renombra ni se archiva)
+    archivedProjects: [],
     dirty: false,
 };
 
@@ -1270,13 +1272,15 @@ async function reloadConfig() {
     const [data, tagsData, projectsData] = await Promise.all([
         apiFetch('/api/boards?include_inactive=true'),
         apiFetch('/api/tags'),
-        apiFetch('/api/projects'),
+        apiFetch('/api/projects?include_inactive=true'),
     ]);
     configState.boards = data.boards;
     configState.tags = tagsData.tags;
-    configState.projects = projectsData.projects
+    const userProjects = projectsData.projects
         .filter(p => !p.is_system)
         .sort((a, b) => a.name.localeCompare(b.name));
+    configState.projects = userProjects.filter(p => p.is_active);
+    configState.archivedProjects = userProjects.filter(p => !p.is_active);
     const active = data.boards.filter(b => b.is_active);
     if (!active.some(b => b.id === configState.columnsBoardId)) {
         configState.columnsBoardId = active.some(b => b.id === boardState.boardId)
@@ -1438,6 +1442,26 @@ function renderConfigProjects() {
             reorder: false, deleteClass: 'config-archive-project',
             deleteText: 'Archivar', deleteLabel: `Archivar ${project.name}`,
         }));
+    });
+
+    // Los archivados, con Restaurar: antes no se veían en ningún sitio, y la
+    // única forma de recuperarlos era crear otro con el mismo nombre.
+    configArchivedProjectsEl.innerHTML = '';
+    if (configState.archivedProjects.length === 0) return;
+    const title = document.createElement('p');
+    title.className = 'config-hint';
+    title.textContent = 'Archivados:';
+    configArchivedProjectsEl.appendChild(title);
+    configState.archivedProjects.forEach(project => {
+        const row = document.createElement('div');
+        row.className = 'config-row archived';
+        row.dataset.itemId = String(project.id);
+        const name = document.createElement('span');
+        name.className = 'config-name';
+        name.textContent = project.name;
+        row.appendChild(name);
+        row.appendChild(configButton('config-action config-restore-project', `Restaurar ${project.name}`, 'Restaurar'));
+        configArchivedProjectsEl.appendChild(row);
     });
 }
 
@@ -1646,6 +1670,12 @@ configProjectsEl.addEventListener('click', (event) => {
     const projectId = Number(event.target.closest('.config-row').dataset.itemId);
     boardState.filterProjects.delete(projectId);
     configAction(() => apiFetch(`/api/projects/${projectId}`, { method: 'PATCH', json: { is_active: false } }));
+});
+
+configArchivedProjectsEl.addEventListener('click', (event) => {
+    if (!event.target.closest('.config-restore-project')) return;
+    const projectId = Number(event.target.closest('.config-row').dataset.itemId);
+    configAction(() => apiFetch(`/api/projects/${projectId}`, { method: 'PATCH', json: { is_active: true } }));
 });
 
 configProjectForm.addEventListener('submit', (event) => {
