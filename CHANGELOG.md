@@ -7,6 +7,32 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.11.0] — 2026-09-23
+
+Ordenar el tablero a tu gusto, y una tanda de arreglos y endurecimiento.
+
+### Nuevo
+- **Ordenar tarjetas arrastrando**: suelta una tarjeta en cualquier punto de una columna,
+  la suya incluida; una línea marca dónde caerá y el orden se guarda. Las tarjetas nuevas
+  y las que llegan de otra columna se ponen al final.
+- **Ordenar columnas arrastrando** en Organizar, por el asa ⠿. En el teléfono siguen las
+  flechas.
+
+### Cambios
+- Los datos de un hábito (nombre, emoji y color) se validan al guardarse: un nombre de
+  más de 40 caracteres o un color que no sea hexadecimal se rechazan.
+- La app solo acepta peticiones desde su propia página: se quitó una configuración que
+  aceptaba cualquier sitio.
+- La comprobación de estado para monitores pasa a `/api/health`, que sí responde en
+  producción.
+
+### Correcciones
+- Las tarjetas de un proyecto archivado mostraban 0m aunque tuvieran tiempo registrado.
+
+### Para actualizar
+Sin migraciones: basta con actualizar el código y reiniciar el servicio. `passlib` ya no
+está en `requirements.txt`; si queda instalado no estorba.
+
 ## [1.10.0] — 2026-09-22
 
 La pestaña Proyectos se convierte en **Tableros**: un kanban donde cada tarjeta es una
@@ -140,6 +166,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.11.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.11.0
 [1.10.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.10.0
 [1.9.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.9.0
 [1.8.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.8.0
