@@ -28,7 +28,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 16 | P3 | Falta validar `color`, `label` y `key` en `HabitCreate` | parcial |
 | 17 | P2 | Objetivos medibles (hábitos, cantidades, mediciones) | épica |
 | 18 | P3 | Tarjetas de proyectos archivados muestran 0m | diagnosticado |
-| 19 | P4 | Reordenar tarjetas dentro de una columna | pendiente |
 | 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 
@@ -491,22 +490,6 @@ otro endpoint.
 
 **Aceptación.** Registrar tiempo en una tarea, archivar su proyecto y ver en el tablero el
 mismo tiempo que antes.
-
----
-
-## 19 · P4 · Reordenar tarjetas dentro de una columna
-
-**Síntoma.** Arrastrar una tarjeta a su misma columna no hace nada, y al moverla a otra
-queda al final. No hay forma de ordenar por prioridad.
-
-**Causa.** El drop solo cambia `column_id` ([board.js](board.js), `moveTaskToColumn`). La
-columna `tasks.order` existe y el backend la acepta en el PATCH, pero nadie la escribe.
-
-**Arreglo.** Calcular la posición entre las dos tarjetas donde se suelta y reescribir el
-`order` de las que cambien, igual que ya hace `reorderRequests()` con las columnas en
-Organizar. En táctil, "Subir / Bajar" en el menú de la tarjeta.
-
-**Aceptación.** Ordenar tres tarjetas de una columna, recargar y verlas en ese orden.
 
 ---
 
