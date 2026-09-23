@@ -224,7 +224,7 @@ class TaskTag(SQLModel, table=True):
 
 def utc_now_naive() -> datetime:
     """UTC naive, el mismo formato que started_at/ended_at del pomodoro, sin
-    el datetime.utcnow() deprecado (backlog 8)."""
+    el datetime.utcnow() deprecado."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
@@ -287,7 +287,7 @@ class PomodoroSession(SQLModel, table=True):
     # horario del usuario. Toda la agregación por día/mes usa esta columna.
     session_date: date_type = Field(index=True)
 
-    # UTC naive, igual que backend/auth.py (datetime.utcnow()). El cliente
+    # UTC naive (utc_now_naive() o el datetime.utcnow() de antes). El cliente
     # nunca parsea estos valores para la lógica del timer (solo Date.now()
     # + localStorage), evitando el problema de que un datetime naive se
     # interprete como hora local al hacer new Date(...) en el navegador.

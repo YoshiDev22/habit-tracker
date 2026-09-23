@@ -17,7 +17,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage (habit_colors) | parcial |
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
-| 8 | P3 | `datetime.utcnow()` deprecado | diagnosticado |
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
 | 10 | P4 | `passlib` declarado y sin usar | diagnosticado |
 | 11 | P4 | `/health` sin uso y 404 detrás del proxy | reproducido |
@@ -121,28 +120,6 @@ como declaración de intención. Alternativa más limpia si se acepta una herram
 
 **Aceptación.** Un `pip install` desde cero en dos máquinas produce las mismas versiones,
 verificable comparando `pip freeze`.
-
----
-
-## 8 · P3 · `datetime.utcnow()` deprecado
-
-**Síntoma.** Ninguno hoy. `DeprecationWarning` en Python 3.12+; se romperá en una versión
-futura.
-
-**Causa.** [backend/auth.py:51](backend/auth.py#L51) y
-[backend/auth.py:53](backend/auth.py#L53). El entorno corre Python 3.13.
-
-**Ya hecho.** `utc_now_naive()` en [backend/models.py](backend/models.py) da UTC naive
-sin la llamada deprecada, y los comentarios de tarea ya lo usan. Queda `auth.py`.
-
-**Arreglo.** `datetime.now(timezone.utc)`. Cuidado: devuelve un datetime *aware*, mientras
-que `utcnow()` devolvía uno *naive*. Revisar que `jwt.encode` reciba lo que espera, y que
-el mismo cambio no se cuele a `PomodoroSession.started_at`/`ended_at`, que están declarados
-naive a propósito ([backend/models.py:135](backend/models.py#L135)) — mezclar aware y naive
-lanza `TypeError` al compararlos.
-
-**Aceptación.** `python -W error::DeprecationWarning -c "import backend.main"` no lanza. El
-login sigue emitiendo tokens válidos.
 
 ---
 
