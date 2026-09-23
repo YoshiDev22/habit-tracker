@@ -3233,3 +3233,31 @@ body.board-wide .board-column {
     background: var(--accent);
     pointer-events: none;
 }
+
+/* Asa para arrastrar filas en Organizar (board.js) */
+.config-drag {
+    flex-shrink: 0;
+    width: 18px;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+    text-align: center;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.config-drag:hover {
+    color: var(--text-primary);
+}
+
+.config-row.dragging {
+    opacity: 0.45;
+}
+
+/* En táctil no hay arrastre HTML5: ahí quedan las flechas */
+@media (hover: none) {
+    .config-drag {
+        display: none;
+    }
+}

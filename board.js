@@ -1374,6 +1374,17 @@ function buildConfigRow({ id, color, name, maxLength, typeLabel, typeTitle, firs
     row.className = 'config-row';
     row.dataset.itemId = String(id);
 
+    // El asa hace arrastrable la fila solo mientras se sujeta: si toda la fila
+    // lo fuera, no se podría seleccionar texto dentro del nombre.
+    if (reorder) {
+        const handle = document.createElement('span');
+        handle.className = 'config-drag';
+        handle.title = 'Arrastra para ordenar';
+        handle.setAttribute('aria-hidden', 'true');
+        handle.textContent = '⠿';
+        row.appendChild(handle);
+    }
+
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
     colorInput.className = 'config-color';
@@ -1413,16 +1424,20 @@ function buildConfigRow({ id, color, name, maxLength, typeLabel, typeTitle, firs
 }
 
 // Reescribe "order" de los elementos que cambiaron de sitio al mover uno
+function orderRequests(list, urlFor) {
+    return () => Promise.all(list
+        .map((item, index) => ({ item, index }))
+        .filter(({ item, index }) => item.order !== index)
+        .map(({ item, index }) => apiFetch(urlFor(item), { method: 'PATCH', json: { order: index } })));
+}
+
 function reorderRequests(items, itemId, delta, urlFor) {
     const list = [...items];
     const from = list.findIndex(item => item.id === itemId);
     const to = from + delta;
     if (from < 0 || to < 0 || to >= list.length) return null;
     [list[from], list[to]] = [list[to], list[from]];
-    return () => Promise.all(list
-        .map((item, index) => ({ item, index }))
-        .filter(({ item, index }) => item.order !== index)
-        .map(({ item, index }) => apiFetch(urlFor(item), { method: 'PATCH', json: { order: index } })));
+    return orderRequests(list, urlFor);
 }
 
 function renderConfig() {
@@ -1693,6 +1708,75 @@ configColumnsEl.addEventListener('click', (event) => {
         // Sin confirmación: el backend no borra una columna con tareas ni la
         // última de su tipo, así que lo peor es quitar una columna vacía.
         configAction(() => apiFetch(`/api/boards/${board.id}/columns/${columnId}`, { method: 'DELETE' }));
+    }
+});
+
+// Arrastrar columnas por el asa ⠿ (las flechas siguen para teclado y táctil)
+let draggedConfigColumnId = null;
+const configDropIndicator = document.createElement('div');
+configDropIndicator.className = 'drop-indicator';
+
+configColumnsEl.addEventListener('pointerdown', (event) => {
+    const handle = event.target.closest('.config-drag');
+    if (handle) handle.closest('.config-row').draggable = true;
+});
+
+configColumnsEl.addEventListener('dragstart', (event) => {
+    const row = event.target.closest('.config-row');
+    if (!row || !row.draggable) return;
+    draggedConfigColumnId = Number(row.dataset.itemId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', row.dataset.itemId);
+    row.classList.add('dragging');
+});
+
+function configRowBeforePointer(clientY) {
+    const rows = [...configColumnsEl.querySelectorAll('.config-row:not(.dragging)')];
+    return rows.find(row => {
+        const box = row.getBoundingClientRect();
+        return clientY < box.top + box.height / 2;
+    }) || null;
+}
+
+configColumnsEl.addEventListener('dragover', (event) => {
+    if (draggedConfigColumnId === null) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const before = configRowBeforePointer(event.clientY);
+    if (before) configColumnsEl.insertBefore(configDropIndicator, before);
+    else configColumnsEl.appendChild(configDropIndicator);
+});
+
+configColumnsEl.addEventListener('drop', (event) => {
+    const board = configBoard();
+    if (draggedConfigColumnId === null || !board) return;
+    event.preventDefault();
+    const before = configRowBeforePointer(event.clientY);
+    const moved = board.columns.find(c => c.id === draggedConfigColumnId);
+    const others = board.columns.filter(c => c.id !== draggedConfigColumnId);
+    let index = before ? others.findIndex(c => c.id === Number(before.dataset.itemId)) : others.length;
+    if (index < 0) index = others.length;
+    const list = [...others.slice(0, index), moved, ...others.slice(index)];
+    endConfigColumnDrag();
+    if (list.some((column, i) => column.order !== i)) {
+        configAction(orderRequests(list, column => `/api/boards/${board.id}/columns/${column.id}`));
+    }
+});
+
+function endConfigColumnDrag() {
+    draggedConfigColumnId = null;
+    configDropIndicator.remove();
+    configColumnsEl.querySelectorAll('.config-row').forEach(row => {
+        row.draggable = false;
+        row.classList.remove('dragging');
+    });
+}
+
+configColumnsEl.addEventListener('dragend', endConfigColumnDrag);
+// Soltar el asa sin arrastrar no debe dejar la fila arrastrable
+document.addEventListener('pointerup', () => {
+    if (draggedConfigColumnId === null) {
+        configColumnsEl.querySelectorAll('.config-row[draggable="true"]').forEach(row => { row.draggable = false; });
     }
 });
 
