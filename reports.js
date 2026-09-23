@@ -189,7 +189,7 @@ async function fetchReportData() {
     const prev = previousRange();
     const tagQuery = [...reportsState.tagIds].map(id => `&tag_ids=${id}`).join('');
     const completedQuery = (f, t) => `/api/tasks?completed_from=${getDateKey(f)}&completed_to=${getDateKey(t)}`;
-    const [sessions, prevSessions, projectsData, tagSummary, completed, prevCompleted] = await Promise.all([
+    const [sessions, prevSessions, projectsData, tagSummary, completed, prevCompleted, habitReport] = await Promise.all([
         fetchFocusSessions(from, to),
         fetchFocusSessions(prev.from, prev.to),
         // Con los archivados: su tiempo del rango también cuenta
@@ -197,10 +197,11 @@ async function fetchReportData() {
         apiFetch(`/api/tags/summary?${rangeQuery(from, to)}${tagQuery}`),
         apiFetch(completedQuery(from, to)),
         apiFetch(completedQuery(prev.from, prev.to)),
+        apiFetch(`/api/habits/report?${rangeQuery(from, to)}&today=${getDateKey(new Date())}`),
     ]);
     return {
         sessions, prevSessions, projects: projectsData.projects, tagSummary,
-        completed: completed.tasks, prevCompleted: prevCompleted.tasks,
+        completed: completed.tasks, prevCompleted: prevCompleted.tasks, habitReport,
     };
 }
 
@@ -242,6 +243,7 @@ function renderReports(data) {
     // Una sección sin nada que mostrar devuelve null y se omite
     reportsBody.replaceChildren(...[
         renderSummary(data),
+        renderHabits(data),
         renderByDay(data),
         renderByProject(data),
         renderByTag(data),
@@ -301,6 +303,80 @@ function renderSummary({ sessions, prevSessions, completed, prevCompleted }) {
             `${diffTasks > 0 ? '+' : '−'}${Math.abs(diffTasks)} ${Math.abs(diffTasks) === 1 ? 'tarea' : 'tareas'} vs. ${previousPeriodName()}`)
         : null;
     return reportCard('Resumen', grid, note, tasksNote);
+}
+
+// ============================================
+// Hábitos
+// ============================================
+
+// Los colores de los hábitos siguen en localStorage (BACKLOG, entrada 4): el
+// mismo que pinta el calendario, y el del backend si no hay.
+function habitColors() {
+    try {
+        return JSON.parse(localStorage.getItem('habit_colors') || '{}');
+    } catch (error) {
+        return {};
+    }
+}
+
+function daysText(n) {
+    return `${n} ${n === 1 ? 'día' : 'días'}`;
+}
+
+function renderHabits({ habitReport }) {
+    const report = habitReport;
+    if (report.habits.length === 0) {
+        return reportCard('Hábitos', reportsMessage('Aún no tienes hábitos: configúralos desde el Calendario.'));
+    }
+
+    // La racha es la del backend (calculate_streak), la misma del calendario
+    const streak = el('div', 'streak-container report-streak');
+    const info = el('div', 'streak-info');
+    info.append(el('span', 'streak-count', String(report.streak)),
+        el('span', 'streak-label', report.streak === 1 ? 'día seguido' : 'días seguidos'));
+    streak.append(el('div', 'streak-icon', '🔥'), info);
+    const facts = el('div', 'report-streak-facts');
+    facts.append(el('span', '', `Récord: ${daysText(report.best_streak)}`));
+    if (report.days_elapsed > 0) {
+        facts.append(el('span', '', `Con algún hábito: ${report.active_days} de ${daysText(report.days_elapsed)}`));
+    }
+    streak.appendChild(facts);
+
+    // Los días de descanso no cuentan como días que tocaban
+    const target = Math.max(0, report.days_elapsed - report.rest_days_elapsed);
+    const colors = habitColors();
+    const list = el('ul', 'report-bars');
+    report.habits.forEach(habit => {
+        const color = colors[habit.key] || habit.color;
+        const item = el('li', 'report-bar-row');
+        const head = el('div', 'report-bar-head');
+        const name = el('span', 'report-bar-name');
+        const dot = el('i', 'report-bar-dot');
+        if (color) dot.style.background = color;
+        name.append(dot, document.createTextNode(habitDisplayName(habit.icon, habit.label)));
+        const value = target > 0 && habit.days_done <= target
+            ? `${habit.days_done} de ${daysText(target)}`
+            : daysText(habit.days_done);
+        head.append(name, el('span', 'report-bar-value', value));
+
+        const track = el('div', 'report-bar-track');
+        const fill = el('div', 'report-bar-fill');
+        fill.style.width = `${target > 0 ? Math.min(1, habit.days_done / target) * 100 : 0}%`;
+        if (color) fill.style.background = color;
+        track.appendChild(fill);
+
+        const meta = el('div', 'report-habit-meta');
+        meta.textContent = habit.current_streak > 0
+            ? `🔥 ${daysText(habit.current_streak)} seguidos · récord ${daysText(habit.best_streak)}`
+            : `Récord: ${daysText(habit.best_streak)}`;
+        item.append(head, track, meta);
+        list.appendChild(item);
+    });
+
+    const note = report.rest_days_elapsed > 0
+        ? el('p', 'report-note', 'Los días de descanso no cuentan en el total de días.')
+        : null;
+    return reportCard('Hábitos', streak, list, note);
 }
 
 // ============================================

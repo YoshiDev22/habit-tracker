@@ -3688,3 +3688,24 @@ body.board-wide .board-column {
 .report-more:hover {
     background: var(--bg-hover);
 }
+
+.report-streak {
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.report-streak-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--streak-label-color);
+    text-align: right;
+}
+
+.report-habit-meta {
+    margin-top: 4px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}

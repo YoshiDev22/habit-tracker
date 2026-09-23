@@ -1,5 +1,5 @@
 from datetime import date as date_type, timedelta
-from typing import Optional, Dict
+from typing import Optional, Dict, Set
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -15,6 +15,8 @@ from backend.schemas import (
     HabitUpdate,
     HabitResponse,
     HabitListResponse,
+    HabitReportItem,
+    HabitReportResponse,
 )
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
@@ -175,6 +177,78 @@ def get_streak(
     """
     streak = calculate_streak(current_user.id, session, current_user, resolve_client_today(today))
     return {"streak": streak}
+
+
+@router.get("/report", response_model=HabitReportResponse)
+def get_habit_report(
+    date_from: date_type,
+    date_to: date_type,
+    today: Optional[date_type] = None,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cuántos días se hizo cada hábito activo en el rango (fechas LOCALES,
+    incluidas), con su racha actual y su récord. `today` es la fecha local del
+    cliente (ver backend/dates.py).
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from no puede ser posterior a date_to"
+        )
+    today = resolve_client_today(today)
+    rest_days = set(current_user.rest_days or [])
+
+    # Todo el historial hasta hoy: el récord puede ser de hace meses
+    entries = session.exec(
+        select(HabitEntry).where(
+            HabitEntry.user_id == current_user.id,
+            HabitEntry.entry_date <= today
+        )
+    ).all()
+    done_by_key: Dict[str, Set[date_type]] = {}
+    any_done: Set[date_type] = set()
+    for entry in entries:
+        for key, value in (entry.habits_data or {}).items():
+            if value:
+                done_by_key.setdefault(key, set()).add(entry.entry_date)
+                any_done.add(entry.entry_date)
+
+    last_day = min(date_to, today)
+    days_elapsed = (last_day - date_from).days + 1 if last_day >= date_from else 0
+    rest_elapsed = sum(
+        1 for i in range(days_elapsed)
+        if (date_from + timedelta(days=i)).weekday() in rest_days
+    )
+    in_range = lambda dates: sum(1 for d in dates if date_from <= d <= date_to)
+
+    habits = session.exec(
+        select(Habit).where(Habit.user_id == current_user.id, Habit.is_active == True)
+        .order_by(Habit.order, Habit.id)
+    ).all()
+    cutoff = today - timedelta(days=400)
+    items = []
+    for habit in habits:
+        done = done_by_key.get(habit.key, set())
+        items.append(HabitReportItem(
+            key=habit.key,
+            label=habit.label,
+            icon=habit.icon,
+            color=habit.color,
+            days_done=in_range(done),
+            current_streak=_current_streak(done, rest_days, today, cutoff),
+            best_streak=_best_streak(done, rest_days, today),
+        ))
+
+    return HabitReportResponse(
+        days_elapsed=days_elapsed,
+        rest_days_elapsed=rest_elapsed,
+        active_days=in_range(any_done),
+        streak=_current_streak(any_done, rest_days, today, cutoff),
+        best_streak=_best_streak(any_done, rest_days, today),
+        habits=items,
+    )
 
 
 # ==================== Endpoints: Definición de Hábitos ====================
@@ -379,28 +453,48 @@ def calculate_streak(
         )
     ).all()
 
-    entries_by_date = {entry.entry_date: entry for entry in entries}
+    done_dates = {
+        entry.entry_date for entry in entries
+        if entry.habits_data and any(v for v in entry.habits_data.values() if v)
+    }
+    return _current_streak(done_dates, rest_days, today, cutoff_date)
 
+
+def _current_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type,
+                    cutoff_date: date_type) -> int:
+    """La regla de calculate_streak sobre un conjunto de días hechos, para
+    usarla igual con todos los hábitos juntos o con uno solo."""
     streak = 0
     check_date = today
 
     while check_date >= cutoff_date:
-        entry = entries_by_date.get(check_date)
-        has_any_habit = False
-        if entry and entry.habits_data:
-            has_any_habit = any(v for v in entry.habits_data.values() if v)
-
-        if has_any_habit:
+        if check_date in done_dates:
             streak += 1
-            check_date -= timedelta(days=1)
         elif check_date == today:
             # Hoy no tiene hábitos completados pero sigue en curso; no corta la racha
-            check_date -= timedelta(days=1)
+            pass
         elif check_date.weekday() in rest_days:
             # Día de descanso semanal sin hábitos: congela la racha (no suma y no corta)
-            check_date -= timedelta(days=1)
+            pass
         else:
             # Día sin hábitos completados: se corta la racha
             break
+        check_date -= timedelta(days=1)
 
     return streak
+
+
+def _best_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type) -> int:
+    """La racha más larga del historial, con la misma regla que la actual."""
+    if not done_dates:
+        return 0
+    best = current = 0
+    day = min(done_dates)
+    while day <= today:
+        if day in done_dates:
+            current += 1
+            best = max(best, current)
+        elif day != today and day.weekday() not in rest_days:
+            current = 0
+        day += timedelta(days=1)
+    return best

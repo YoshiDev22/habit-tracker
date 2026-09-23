@@ -147,6 +147,30 @@ class HabitResponse(SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class HabitReportItem(SQLModel):
+    """Un hábito en el reporte de un rango"""
+    key: str
+    label: str
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    days_done: int                    # días del rango en que se marcó
+    current_streak: int               # racha de este hábito hasta hoy
+    best_streak: int                  # la más larga de su historial
+
+
+class HabitReportResponse(SQLModel):
+    """
+    Hábitos en un rango de fechas locales. Las rachas siguen la regla de
+    calculate_streak (hoy no corta, los días de descanso congelan).
+    """
+    days_elapsed: int                 # días del rango hasta hoy, incluido
+    rest_days_elapsed: int            # de esos, cuántos son de descanso
+    active_days: int                  # días del rango con algún hábito hecho
+    streak: int                       # racha general (la del calendario)
+    best_streak: int
+    habits: List[HabitReportItem]
+
+
 class HabitListResponse(SQLModel):
     """Lista de hábitos del usuario (activos e inactivos)"""
     habits: List[HabitResponse]
