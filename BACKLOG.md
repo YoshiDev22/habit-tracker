@@ -463,11 +463,32 @@ el impacto antes de escribir código. La racha sigue calculándose solo en el ba
 registrado: "Lectura: 5 h/semana" sumaría las sesiones de las tareas con la etiqueta
 *lectura* o de un proyecto.
 
+**Idea: asistente con IA al empezar (2026-09-23).** El usuario escribe qué quiere lograr
+("bajar de peso", "leer más") y la app le propone 3-5 hábitos concretos, cada uno con una
+explicación breve de cómo ayuda, frecuencia y duración recomendadas, y una meta medible;
+el usuario elige cuáles adopta y se crean como objetivos. Diseño propuesto:
+
+- **Solo esa sugerencia usa IA.** El avance ("llevas 60 %, sigue así") se calcula en el
+  backend con los datos del objetivo: es gratis, instantáneo y nunca inventa números.
+- Llamada a la API de Claude **desde el backend** (`POST /api/goals/suggest`, con sesión),
+  con la clave en `backend/.env` del VPS y nunca en el navegador. Respuesta como JSON
+  validado contra un esquema (structured outputs), que el frontend pinta para elegir.
+- Límite por usuario (p. ej. 10 sugerencias al día) para acotar el costo.
+- **Salud**: bienestar general, sin dietas, calorías ni fármacos; metas dentro de rangos
+  prudentes; recomendar un profesional para dejar de fumar, bajar de peso o si hay una
+  condición médica; manejar la negativa del modelo (`stop_reason: "refusal"`).
+- Plantillas escritas a mano (bajar de peso, leer, dejar de fumar…) como respaldo cuando
+  la IA no esté disponible, y como primer paso si se quiere empezar sin IA.
+- Implica una dependencia nueva (`anthropic`), una clave de API, costo por uso y enviar
+  el texto del objetivo a Anthropic: decidirlo explícitamente.
+
 **Decisiones pendientes de Yoshio antes del plan detallado:**
 
 1. ¿Sirven los cuatro tipos, o falta alguno?
 2. ¿Objetivos alimentados por el tiempo de una etiqueta o un proyecto?
 3. ¿La pestaña sigue siendo "Calendario" o pasa a "Objetivos" con el calendario dentro?
+4. ¿Asistente con IA (y con qué modelo), plantillas sin IA, o plantillas primero y la IA
+   después?
 
 **Orden.** Después de la entrada 12 (Reportes), que no toca el esquema.
 
