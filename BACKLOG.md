@@ -463,32 +463,50 @@ el impacto antes de escribir código. La racha sigue calculándose solo en el ba
 registrado: "Lectura: 5 h/semana" sumaría las sesiones de las tareas con la etiqueta
 *lectura* o de un proyecto.
 
-**Idea: asistente con IA al empezar (2026-09-23).** El usuario escribe qué quiere lograr
-("bajar de peso", "leer más") y la app le propone 3-5 hábitos concretos, cada uno con una
-explicación breve de cómo ayuda, frecuencia y duración recomendadas, y una meta medible;
-el usuario elige cuáles adopta y se crean como objetivos. Diseño propuesto:
+**Asistente para elegir objetivos (decidido 2026-09-23): plantillas primero, IA después.**
+Al crear un objetivo, la app pregunta qué quiere lograr el usuario y le propone hábitos
+concretos, cada uno con una explicación breve de cómo ayuda, frecuencia y duración
+recomendadas, y una meta medible. El usuario elige, ajusta y confirma; nada se guarda sin
+su visto bueno. El avance ("llevas 60 %, sigue así") lo calcula el backend con los datos
+del objetivo en las dos fases: gratis, instantáneo y sin inventar números.
 
-- **Solo esa sugerencia usa IA.** El avance ("llevas 60 %, sigue así") se calcula en el
-  backend con los datos del objetivo: es gratis, instantáneo y nunca inventa números.
-- Llamada a la API de Claude **desde el backend** (`POST /api/goals/suggest`, con sesión),
-  con la clave en `backend/.env` del VPS y nunca en el navegador. Respuesta como JSON
-  validado contra un esquema (structured outputs), que el frontend pinta para elegir.
-- Límite por usuario (p. ej. 10 sugerencias al día) para acotar el costo.
-- **Salud**: bienestar general, sin dietas, calorías ni fármacos; metas dentro de rangos
-  prudentes; recomendar un profesional para dejar de fumar, bajar de peso o si hay una
-  condición médica; manejar la negativa del modelo (`stop_reason: "refusal"`).
-- Plantillas escritas a mano (bajar de peso, leer, dejar de fumar…) como respaldo cuando
-  la IA no esté disponible, y como primer paso si se quiere empezar sin IA.
-- Implica una dependencia nueva (`anthropic`), una clave de API, costo por uso y enviar
-  el texto del objetivo a Anthropic: decidirlo explícitamente.
+*Fase 1 — guiado con plantillas, sin IA (la que se implementa con esta épica).* Que se
+sienta como que alguien ayuda, sin llamar a ningún servicio externo:
+
+- Un catálogo de metas escrito a mano (bajar de peso, leer más, dejar de fumar, dormir
+  mejor, hacer ejercicio, aprender algo, ahorrar…) con 3-5 hábitos sugeridos cada una:
+  texto de por qué ayuda, frecuencia/duración recomendada y meta por defecto editable.
+- Flujo en pasos, tono cercano: "¿Qué quieres lograr?" → tarjetas de sugerencia con su
+  explicación → elegir y ajustar → confirmar. Opción "Otra meta" para crear a mano.
+- Vive en el frontend como datos estáticos (o un JSON servido por la app): sin tabla ni
+  endpoint nuevo, salvo lo que ya necesite crear objetivos.
+- Mensajes de ánimo según el avance calculado (umbrales fijos: empezar, 25 %, 50 %, 75 %,
+  meta cumplida, racha rota), también escritos a mano.
+- **Salud**: bienestar general, sin dietas, calorías ni fármacos; metas prudentes; en
+  bajar de peso y dejar de fumar, una línea que recomiende apoyo profesional.
+
+*Fase 2 — sugerencias con IA (en espera, no se trabaja por ahora).* Se aplaza para no
+exponer una clave de API ni abrir la puerta a un mal uso antes de tener la fase 1 probada.
+Plan cuando se retome:
+
+- Solo la sugerencia usa IA: el usuario escribe su meta con sus palabras y recibe hábitos
+  con el mismo formato que las plantillas, así la UI de la fase 1 se reutiliza tal cual.
+- Llamada **desde el backend** (`POST /api/goals/suggest`, con sesión) con la librería
+  `anthropic`; la clave en `backend/.env` del VPS, nunca en el navegador ni en el repo.
+  Respuesta como JSON validado contra un esquema (structured outputs).
+- Contra el mal uso: límite por usuario (p. ej. 10 al día) y tope de gasto en la consola
+  de Anthropic; longitud máxima del texto; el prompt solo sugiere hábitos y rechaza lo
+  demás; la salida nunca se ejecuta ni se guarda sin confirmación; manejar la negativa del
+  modelo (`stop_reason: "refusal"`). Si la API falla o se llega al límite, se cae a las
+  plantillas.
+- Decidir entonces: modelo (costo aprox. por sugerencia de ~$0.01 a ~$0.08 USD según el
+  modelo), y avisar que el texto de la meta se envía a Anthropic.
 
 **Decisiones pendientes de Yoshio antes del plan detallado:**
 
 1. ¿Sirven los cuatro tipos, o falta alguno?
 2. ¿Objetivos alimentados por el tiempo de una etiqueta o un proyecto?
 3. ¿La pestaña sigue siendo "Calendario" o pasa a "Objetivos" con el calendario dentro?
-4. ¿Asistente con IA (y con qué modelo), plantillas sin IA, o plantillas primero y la IA
-   después?
 
 **Orden.** Después de la entrada 12 (Reportes), que no toca el esquema.
 
