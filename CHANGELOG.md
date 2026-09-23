@@ -7,6 +7,37 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.13.0] — 2026-09-23
+
+Ver de dónde sale el tiempo de cada día, corregirlo y exportarlo, y un cronómetro olvidado
+ya no suma horas que no trabajaste.
+
+### Nuevo
+- **Tiempo registrado del día**: toca «Hoy» en la barra del tablero y ves cada registro
+  del día, de todas las tareas, en orden: tarea, proyecto, horario y duración. Edítalo (✎)
+  o bórralo (×) ahí mismo.
+  - Muévete entre días con ‹ ›, o toca la fecha para elegir cualquier día en un
+    calendario.
+  - Los cronómetros que se cerraron solos a las 8 h salen marcados con ⚠ para corregirlos
+    rápido.
+- **Exportar a CSV** desde Reportes: los registros del periodo elegido, uno por fila
+  (fecha, horario, duración, tarea, proyecto, etiquetas, origen y nota), listos para Excel
+  o Google Sheets.
+- **Cronómetro olvidado**: si lleva 2 h corriendo sin que toques la app, te pregunta si
+  seguiste trabajando y te ofrece guardar solo hasta tu última actividad. Si estás usando
+  la app, no pregunta.
+
+### Cambios
+- Un cronómetro que llega a las 8 h mientras no estás ya no se cierra solo con 8 h:
+  primero te pregunta.
+- Al corregir la duración de un cronómetro que se cerró solo, se quita su nota automática.
+
+### Correcciones
+- Los registros de un proyecto archivado no se podían editar.
+
+### Para actualizar
+Sin migraciones: basta con actualizar el código y reiniciar el servicio.
+
 ## [1.12.0] — 2026-09-23
 
 Nueva pestaña **Reportes** para ver en qué se fue tu tiempo y cómo van tus hábitos, y el
@@ -201,6 +232,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.13.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.13.0
 [1.12.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.12.0
 [1.11.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.11.0
 [1.10.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.10.0
