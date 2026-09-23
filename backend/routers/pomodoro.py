@@ -116,10 +116,12 @@ def get_pomodoro_sessions(
     date_from: Optional[date_type] = None,
     date_to: Optional[date_type] = None,
     project_id: Optional[int] = None,
+    task_id: Optional[int] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
-    """Lista las sesiones de pomodoro del usuario, más recientes primero."""
+    """Lista las sesiones de pomodoro del usuario, más recientes primero.
+    task_id deja solo las de esa tarea (el historial del detalle de tarjeta)."""
     query = select(PomodoroSession).where(PomodoroSession.user_id == current_user.id)
 
     if date_from:
@@ -128,6 +130,8 @@ def get_pomodoro_sessions(
         query = query.where(PomodoroSession.session_date <= date_to)
     if project_id is not None:
         query = query.where(PomodoroSession.project_id == project_id)
+    if task_id is not None:
+        query = query.where(PomodoroSession.task_id == task_id)
 
     sessions = session.exec(query.order_by(PomodoroSession.started_at.desc())).all()
 

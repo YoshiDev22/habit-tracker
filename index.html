@@ -544,6 +544,13 @@
                 <button type="button" class="card-timer-btn" data-timer="manual">✍️ Registrar a mano</button>
             </div>
 
+            <!-- Cada registro de tiempo de la tarea, para ver de dónde sale su total
+                 y corregirlo (✎ abre el registro manual encima, sin cerrar la tarjeta) -->
+            <section class="card-section">
+                <h3 class="card-section-title">Historial de tiempo <span id="cardHistoryMeta" class="card-section-meta"></span></h3>
+                <div id="cardHistory" class="card-history"></div>
+            </section>
+
             <section class="card-section">
                 <h3 class="card-section-title">Descripción</h3>
                 <textarea id="cardNotes" class="card-notes" rows="3" placeholder="Añade detalles…" aria-label="Descripción"></textarea>

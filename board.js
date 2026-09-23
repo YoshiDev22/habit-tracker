@@ -702,10 +702,16 @@ const cardChecklistForm = document.getElementById('cardChecklistForm');
 const cardCommentsEl = document.getElementById('cardComments');
 const cardCommentForm = document.getElementById('cardCommentForm');
 
+const cardHistoryEl = document.getElementById('cardHistory');
+const cardHistoryMetaEl = document.getElementById('cardHistoryMeta');
+const CARD_HISTORY_PREVIEW = 5;
+
 const cardState = {
     taskId: null,
     checklist: null,  // null mientras carga
     comments: null,
+    sessions: null,   // registros de tiempo de la tarea (solo foco), null mientras carga
+    historyExpanded: false,
     dirty: false,     // algo cambió: refrescar el tablero al cerrar
 };
 
@@ -862,8 +868,136 @@ function renderCardHeader(task) {
 function refreshOpenCard() {
     if (cardModal.classList.contains('hidden')) return;
     const task = cardTask();
-    if (task) renderCardHeader(task);
+    if (!task) return;
+    renderCardHeader(task);
+    // El total cambió o puede haber cambiado: el historial va con él
+    loadCardHistory(task.id);
 }
+
+// ============================================
+// Historial de tiempo de la tarjeta
+// ============================================
+
+async function loadCardHistory(taskId) {
+    try {
+        const data = await apiFetch(`/api/pomodoro?task_id=${taskId}`);
+        if (cardState.taskId !== taskId) return; // se cerró o se abrió otra
+        // Solo foco: es lo que suma el tiempo de la tarjeta
+        cardState.sessions = data.sessions.filter(s => s.mode === 'focus');
+        renderCardHistory();
+    } catch (error) {
+        console.error('Error al cargar el historial de tiempo:', error);
+    }
+}
+
+function renderCardHistory() {
+    cardHistoryEl.replaceChildren();
+    const sessions = cardState.sessions;
+    cardHistoryMetaEl.textContent = sessions && sessions.length
+        ? `· ${sessions.length} ${sessions.length === 1 ? 'registro' : 'registros'}`
+        : '';
+
+    if (sessions === null) {
+        cardHistoryEl.appendChild(Object.assign(document.createElement('p'),
+            { className: 'card-empty', textContent: 'Cargando…' }));
+        return;
+    }
+    if (sessions.length === 0) {
+        cardHistoryEl.appendChild(Object.assign(document.createElement('p'), {
+            className: 'card-empty',
+            textContent: 'Todavía no hay tiempo registrado. Empieza con ▶ o regístralo a mano.',
+        }));
+        return;
+    }
+
+    // Vienen del más reciente al más antiguo
+    const visible = cardState.historyExpanded ? sessions : sessions.slice(0, CARD_HISTORY_PREVIEW);
+    visible.forEach(session => {
+        const row = document.createElement('div');
+        row.className = 'session-row';
+        row.dataset.sessionId = String(session.id);
+
+        const originInfo = sessionOrigin(session);
+        const origin = document.createElement('span');
+        origin.className = 'session-origin';
+        origin.textContent = originInfo.icon;
+        origin.title = originInfo.title;
+
+        const body = document.createElement('div');
+        body.className = 'session-body';
+        const when = document.createElement('span');
+        when.className = 'session-when';
+        when.textContent = `${formatShortDate(session.session_date)} · ${formatClockRange(session)} · ${formatDuration(session.duration_seconds)}`;
+        body.appendChild(when);
+        const detail = document.createElement('span');
+        detail.className = 'session-detail';
+        detail.textContent = session.note ? `${originInfo.title} — ${session.note}` : originInfo.title;
+        body.appendChild(detail);
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'session-edit';
+        editBtn.dataset.action = 'edit';
+        editBtn.title = 'Editar registro';
+        editBtn.setAttribute('aria-label', 'Editar registro');
+        editBtn.textContent = '✎';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'session-delete';
+        deleteBtn.dataset.action = 'delete';
+        deleteBtn.title = 'Eliminar registro';
+        deleteBtn.setAttribute('aria-label', 'Eliminar registro');
+        deleteBtn.textContent = '×';
+
+        row.append(origin, body, editBtn, deleteBtn);
+        cardHistoryEl.appendChild(row);
+    });
+
+    if (sessions.length > visible.length) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'card-history-more';
+        more.dataset.action = 'more';
+        more.textContent = `Ver los ${sessions.length} registros`;
+        cardHistoryEl.appendChild(more);
+    }
+}
+
+cardHistoryEl.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-action]');
+    const task = cardTask();
+    if (!button || !task) return;
+
+    if (button.dataset.action === 'more') {
+        cardState.historyExpanded = true;
+        renderCardHistory();
+        return;
+    }
+
+    const sessionId = Number(button.closest('.session-row').dataset.sessionId);
+    const session = (cardState.sessions || []).find(s => s.id === sessionId);
+    if (!session) return;
+
+    if (button.dataset.action === 'edit') {
+        // Se abre encima de la tarjeta (z-index propio); al guardar,
+        // loadProjects() recarga el tablero y refreshOpenCard() este historial.
+        openLogTimeModal(session.project_id || task.project_id, session);
+        return;
+    }
+
+    const summary = `${formatShortDate(session.session_date)} · ${formatClockRange(session)} · ${formatDuration(session.duration_seconds)}`;
+    const ok = await confirmDialog(`${summary}. Se descuenta del tiempo de la tarea y de su proyecto.`, {
+        title: '¿Eliminar este registro?', confirmLabel: 'Eliminar', danger: true,
+    });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/pomodoro/${sessionId}`, { method: 'DELETE' });
+        await refreshAfterBoardChange();
+    } catch (error) {
+        console.error('Error al eliminar el registro:', error);
+    }
+});
 
 function renderCardChecklist() {
     cardChecklistEl.innerHTML = '';
@@ -974,6 +1108,8 @@ async function openCardModal(taskId) {
     cardState.taskId = taskId;
     cardState.checklist = null;
     cardState.comments = null;
+    cardState.sessions = null;
+    cardState.historyExpanded = false;
     cardState.dirty = false;
     cardNotesInput.value = task.notes || '';
     cardTimerEl.dataset.timerTask = String(taskId);
@@ -982,7 +1118,9 @@ async function openCardModal(taskId) {
 
     showModal(cardModal);
     renderCardModal();
+    renderCardHistory();
     syncTimerMarks();
+    loadCardHistory(taskId);
 
     try {
         const [checklist, comments] = await Promise.all([
@@ -1250,10 +1388,10 @@ cardCommentsEl.addEventListener('click', async (event) => {
     renderCardComments();
 });
 
-// Cada botón hace lo suyo al instante. Arrancar o detener deja el detalle
-// abierto, para seguir escribiendo mientras corre (syncTimerMarks cambia los
-// botones por "■ Detener" con el reloj). Solo el registro a mano lo cierra:
-// comparte z-index con el detalle y ocuparía su lugar.
+// Cada botón hace lo suyo al instante y el detalle sigue abierto: arrancar o
+// detener, para seguir escribiendo mientras corre (syncTimerMarks cambia los
+// botones por "■ Detener" con el reloj), y el registro a mano, que se abre
+// encima con su propio z-index.
 cardTimerEl.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-timer]');
     const task = cardTask();
@@ -1263,7 +1401,6 @@ cardTimerEl.addEventListener('click', async (event) => {
     if (action === 'stop') {
         await stopTimer();
     } else if (action === 'manual') {
-        await closeCardModal();
         openLogTimeModal(task.project_id, null, { id: task.id, title: task.title });
     } else {
         await startTimerForTask(task.project_id, task.id, action, task.title);
@@ -1294,6 +1431,11 @@ document.addEventListener('keydown', (event) => {
     // Con el confirm abierto encima, Escape es de él
     if (event.key !== 'Escape') return;
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
+    // Con el registro de tiempo abierto sobre la tarjeta, Escape cierra ese
+    if (!document.getElementById('logTimeModal').classList.contains('hidden')) {
+        hideModal(document.getElementById('logTimeModal'));
+        return;
+    }
     if (!cardModal.classList.contains('hidden') && isTagPickerOpen()) closeTagPicker();
     else if (!cardModal.classList.contains('hidden')) closeCardModal();
     else if (!boardConfigModal.classList.contains('hidden')) closeBoardConfig();

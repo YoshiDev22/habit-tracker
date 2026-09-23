@@ -316,9 +316,12 @@ tiene que resolver la promesa pendiente, o quien la esperaba se queda colgado—
 
 Los modales de `board.js` (`#cardModal`, `#boardConfigModal`) y `#projectDeleteModal` se
 cierran con sus propios listeners, no con `handleModalDismiss()`. El detalle de tarjeta
-**se cierra antes** de abrir el registro manual o el cronómetro: comparte el `z-index`
-1000 con `#logTimeModal`. Sus campos se guardan al cambiar (sin botón de guardar) y el
-tablero se refresca una vez, al cerrar.
+**sigue abierto** al arrancar, detener o registrar tiempo: `#logTimeModal` tiene su propio
+`z-index` (1050) para abrirse encima, tanto en "Registrar a mano" como al editar un
+registro del "Historial de tiempo" de la tarjeta. Sus campos se guardan al cambiar (sin
+botón de guardar) y el tablero se refresca una vez, al cerrar; pero si el tablero se
+recarga con el detalle abierto (p. ej. al detener el tiempo), `refreshOpenCard()` repinta
+su tiempo y su historial.
 
 ### Vistas y navegación
 

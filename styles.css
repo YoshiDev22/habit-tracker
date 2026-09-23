@@ -1109,6 +1109,12 @@ body.has-pomodoro-bar {
     z-index: 1050;
 }
 
+/* El registro de tiempo se abre sobre el detalle de la tarjeta (1000) para
+   editar su historial sin cerrarla; el confirm (1100) sigue encima de todo. */
+#logTimeModal {
+    z-index: 1050;
+}
+
 .modal.hidden {
     display: none;
 }
@@ -3710,4 +3716,22 @@ body.board-wide .board-column {
     margin-top: 4px;
     font-size: 0.7rem;
     color: var(--text-muted);
+}
+
+/* Historial de tiempo en el detalle de la tarjeta (board.js). Las filas
+   reutilizan .session-row de la vista Lista. */
+.card-history-more {
+    display: block;
+    margin: 6px auto 0;
+    padding: 5px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.card-history-more:hover {
+    background: var(--bg-hover);
 }

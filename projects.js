@@ -274,6 +274,17 @@ function formatShortDate(dateKey) {
     return `${day} ${MONTHS[month - 1]}`;
 }
 
+// De dónde salió un registro de tiempo. El pomodoro conserva su ⏱ de siempre
+// para no cambiarle el icono a los registros que ya existen. Lo usan la Lista
+// y el historial de la tarjeta (board.js).
+function sessionOrigin(session) {
+    const originBySource = {
+        manual: { icon: '✍️', title: 'Registrado a mano' },
+        stopwatch: { icon: '▶', title: 'Medido con el cronómetro' },
+    };
+    return originBySource[session.source] || { icon: '⏱', title: 'Medido con un pomodoro' };
+}
+
 async function loadSessions(projectId) {
     try {
         const data = await apiFetch(`/api/pomodoro?project_id=${projectId}`);
@@ -568,13 +579,7 @@ function buildSessionLog(projectId, tasks) {
 
         const origin = document.createElement('span');
         origin.className = 'session-origin';
-        // El pomodoro conserva su ⏱ de siempre para no cambiarle el icono a
-        // los registros que ya existen.
-        const originBySource = {
-            manual: { icon: '✍️', title: 'Registrado a mano' },
-            stopwatch: { icon: '▶', title: 'Medido con el cronómetro' },
-        };
-        const originInfo = originBySource[session.source] || { icon: '⏱', title: 'Medido con un pomodoro' };
+        const originInfo = sessionOrigin(session);
         origin.textContent = originInfo.icon;
         origin.title = originInfo.title;
 
