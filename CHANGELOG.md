@@ -7,6 +7,41 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.12.0] — 2026-09-23
+
+Nueva pestaña **Reportes** para ver en qué se fue tu tiempo y cómo van tus hábitos, y el
+historial de tiempo de cada tarea.
+
+### Nuevo
+- **Reportes**, la tercera pestaña: elige Semana (de lunes a domingo), Mes o un rango
+  propio, y muévete al periodo anterior o siguiente con las flechas.
+  - **Resumen**: tiempo total, promedio por día, días con tiempo y tareas terminadas,
+    comparado con el periodo anterior.
+  - **Hábitos**: tu racha y tu récord, y cuántos días hiciste cada hábito ("18 de 20
+    días"). Los días de descanso no cuentan como días que tocaban.
+  - **Tiempo por día**, con los días de descanso marcados.
+  - **Por proyecto** y **por etiqueta**. Toca varias etiquetas para ver su total juntas
+    sin contar doble.
+  - **Tareas terminadas** en el periodo, con su proyecto y su tiempo.
+  - **¿A qué hora rindes más?**: un mapa por día y hora con tu mejor franja.
+  - **Cómo se registró**: cuánto fue pomodoro, cronómetro o a mano.
+- **Historial de tiempo en cada tarjeta**: cada registro con su origen, fecha, horario y
+  nota. Edítalo (✎) o bórralo (×) sin salir de la tarjeta.
+- La app **vuelve a la última pestaña** que usaste al recargar.
+
+### Cambios
+- "Registrar a mano" se abre encima de la tarjeta en vez de cerrarla.
+
+### Correcciones
+- Al detener el tiempo desde una tarjeta abierta, su total no cambiaba hasta cerrarla.
+- Con la app abierta en dos pestañas, un pomodoro que terminaba se guardaba dos veces.
+- Una sesión sin conexión que se encolaba mientras se reenviaban otras podía perderse.
+- Las pestañas cortas quedaban con mucho espacio en blanco debajo después de ver una
+  más larga.
+
+### Para actualizar
+Sin migraciones: basta con actualizar el código y reiniciar el servicio.
+
 ## [1.11.0] — 2026-09-23
 
 Ordenar el tablero a tu gusto, y una tanda de arreglos y endurecimiento.
@@ -166,6 +201,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.12.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.12.0
 [1.11.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.11.0
 [1.10.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.10.0
 [1.9.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.9.0
