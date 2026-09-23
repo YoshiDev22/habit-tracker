@@ -23,6 +23,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
+| 22 | P4 | Sesión de tiempo duplicada si el navegador se cae al guardarla | diagnosticado |
 
 ---
 
@@ -394,3 +395,28 @@ y etiquetas ve un invitado (hoy son del dueño), invitaciones, y quién puede bo
 
 **Orden.** Solo si de verdad se va a usar con otra persona: es el cambio de seguridad más
 grande de la app.
+
+---
+
+## 22 · P4 · Sesión de tiempo duplicada si el navegador se cae al guardarla
+
+**Síntoma.** Muy raro: si el navegador se cierra de golpe justo después de enviar una
+sesión (un pomodoro que termina, un cronómetro que se detiene), al volver la app puede
+enviarla otra vez y el tiempo aparece dos veces.
+
+**Causa.** El cliente reclama la sesión (`claimPomoState()` en [pomodoro.js](pomodoro.js))
+borrándola de `localStorage` antes del POST, pero el navegador escribe `localStorage` a
+disco un momento después, y tampoco lo propaga al instante a otro proceso. Si muere en
+ese intervalo, o si la pestaña se recarga justo mientras guarda (pasa al reabrir el
+navegador con la pestaña restaurada: `ui_persist` lo reproduce ~1 de cada 7 corridas),
+la página nueva encuentra el estado viejo y lo rehidrata. Lo mismo con la cola `pomodoro_pending`: un POST que llegó al
+servidor pero cuya respuesta se perdió se reintenta. Las pestañas duplicadas del mismo
+navegador ya están resueltas (lock + reclamo); esto es lo que queda.
+
+**Arreglo.** Idempotencia en el servidor: el cliente genera un id (`crypto.randomUUID()`)
+al iniciar cada sesión, lo guarda en `pomodoro_state` y lo manda en el POST; el backend
+lo guarda con una restricción única por usuario y, si ya existe, devuelve la sesión
+existente en vez de crear otra. **Cambio de esquema** (columna nueva en
+`pomodoro_sessions` → `scripts/migrate.py`): avisar el impacto antes.
+
+**Aceptación.** Enviar dos veces el mismo POST (mismo id) crea una sola sesión.
