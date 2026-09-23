@@ -22,6 +22,13 @@ class User(SQLModel, table=True):
     # Días de descanso semanal (0=lunes ... 6=domingo). Congelan la racha.
     rest_days: List[int] = Field(default=[], sa_type=JSON)
 
+    # Duraciones del pomodoro, en segundos. NULL = el valor por defecto
+    # (25 / 5 / 15 min), así las cuentas que ya existen no necesitan relleno.
+    # Columnas añadidas en la 1.14: van en scripts/migrate.py.
+    pomodoro_focus_seconds: Optional[int] = Field(default=None)
+    pomodoro_short_break_seconds: Optional[int] = Field(default=None)
+    pomodoro_long_break_seconds: Optional[int] = Field(default=None)
+
 
 class HabitEntry(SQLModel, table=True):
     """Modelo de Entrada de Hábito (día específico) — se mantiene sin cambios"""

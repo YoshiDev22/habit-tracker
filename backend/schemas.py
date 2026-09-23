@@ -26,6 +26,12 @@ class UserResponse(SQLModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     rest_days: Optional[List[int]] = None
+    pomodoro_focus_seconds: Optional[int] = None
+    pomodoro_short_break_seconds: Optional[int] = None
+    pomodoro_long_break_seconds: Optional[int] = None
+
+
+POMODORO_FIELDS = ("pomodoro_focus_seconds", "pomodoro_short_break_seconds", "pomodoro_long_break_seconds")
 
 
 class UserUpdate(SQLModel):
@@ -34,6 +40,18 @@ class UserUpdate(SQLModel):
     first_name: Optional[str] = Field(default=None, max_length=60)
     last_name: Optional[str] = Field(default=None, max_length=60)
     rest_days: Optional[List[int]] = None
+    # null = volver al valor por defecto
+    pomodoro_focus_seconds: Optional[int] = None
+    pomodoro_short_break_seconds: Optional[int] = None
+    pomodoro_long_break_seconds: Optional[int] = None
+
+    @field_validator(*POMODORO_FIELDS)
+    @classmethod
+    def validate_pomodoro_seconds(cls, v: Optional[int]) -> Optional[int]:
+        # Entre 1 minuto y 4 horas: un cero dejaría el timer inservible
+        if v is not None and not (60 <= v <= 4 * 3600):
+            raise ValueError("La duración debe estar entre 1 minuto y 4 horas")
+        return v
 
     @field_validator("rest_days")
     @classmethod

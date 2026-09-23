@@ -4,7 +4,22 @@
 
 // El cronómetro (stopwatch) cuenta hacia arriba y no tiene duración planeada.
 // Entra en el mapa con 0 para que nada lea undefined.
-const POMO_DURATIONS = { focus: 1500, short_break: 300, long_break: 900, stopwatch: 0 }; // segundos
+// Por defecto, en segundos. Cada usuario puede cambiar los tres primeros en su
+// perfil (users.pomodoro_*_seconds, null = este valor): ver pomoDuration().
+const POMO_DURATIONS = { focus: 1500, short_break: 300, long_break: 900, stopwatch: 0 };
+const POMO_DURATION_FIELDS = {
+    focus: 'pomodoro_focus_seconds',
+    short_break: 'pomodoro_short_break_seconds',
+    long_break: 'pomodoro_long_break_seconds',
+};
+
+// La duración con la que ARRANCA un timer. Uno en marcha guarda la suya en
+// plannedSeconds, así que cambiar el ajuste no le cambia el final.
+function pomoDuration(mode) {
+    const field = POMO_DURATION_FIELDS[mode];
+    const custom = field && typeof currentUser !== 'undefined' && currentUser ? currentUser[field] : null;
+    return custom || POMO_DURATIONS[mode];
+}
 const POMO_MIN_LOG_SECONDS = 60; // debajo de esto, "Detener" descarta en vez de guardar
 const POMO_STORAGE_KEY = 'pomodoro_state';
 const POMO_PENDING_KEY = 'pomodoro_pending';
@@ -20,7 +35,7 @@ function createIdlePomoState(mode = 'focus') {
     return {
         status: 'idle',           // idle | running | paused
         mode,                      // focus | short_break | long_break | stopwatch
-        plannedSeconds: POMO_DURATIONS[mode],
+        plannedSeconds: pomoDuration(mode),
         targetEpochMs: null,       // deadline absoluto mientras corre (el cronómetro no lo usa)
         pausedRemainingMs: null,   // ms restantes mientras está en pausa (cuenta atrás)
         pausedAccumMs: 0,          // solo cronómetro: ms en pausa, que no cuentan como trabajo
@@ -445,7 +460,7 @@ function startPomodoro(projectId = null, taskId = null, taskTitle = null) {
 
     const mode = pomoState.mode;
     const stopwatch = mode === 'stopwatch';
-    const plannedSeconds = POMO_DURATIONS[mode];
+    const plannedSeconds = pomoDuration(mode);
     const now = Date.now();
 
     pomoState = {
@@ -731,8 +746,8 @@ async function finishPomodoro(endedEpochMs, announce) {
         if (wasFocus) {
             // Sin la tarjeta del reloj, el descanso se ofrece aquí mismo
             showBarMessage('¡Pomodoro completado!', [
-                { label: 'Descanso 5 min', onClick: () => startBreak('short_break') },
-                { label: '15 min', onClick: () => startBreak('long_break') },
+                { label: `Descanso ${Math.round(pomoDuration('short_break') / 60)} min`, onClick: () => startBreak('short_break') },
+                { label: `${Math.round(pomoDuration('long_break') / 60)} min`, onClick: () => startBreak('long_break') },
                 { label: 'Ahora no', onClick: clearBarMessage },
             ], BAR_OFFER_MS);
         } else {

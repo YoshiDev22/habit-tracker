@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from backend.database import get_session
 from backend.models import User
-from backend.schemas import UserCreate, UserUpdate, UserResponse, Token
+from backend.schemas import UserCreate, UserUpdate, UserResponse, Token, POMODORO_FIELDS
 from backend.auth import (
     verify_password, 
     get_password_hash, 
@@ -112,7 +112,7 @@ def update_current_user(
     # Aplicar solo los campos enviados (PATCH parcial)
     update_data = user_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field == "rest_days":
+        if field == "rest_days" or field in POMODORO_FIELDS:
             setattr(current_user, field, value)
         else:
             setattr(current_user, field, clean_optional(value))

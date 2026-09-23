@@ -3987,3 +3987,39 @@ button.day-log-date:focus-visible {
     width: auto;
     padding: 8px 18px;
 }
+
+/* Perfil: duraciones del pomodoro, en minutos (vacío = el valor por defecto) */
+.profile-pomodoro {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin: 4px 0 12px;
+    padding: 10px 12px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.profile-pomodoro legend {
+    padding: 0 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.profile-pomodoro label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 90px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.profile-pomodoro input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+}

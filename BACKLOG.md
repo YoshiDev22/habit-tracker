@@ -17,7 +17,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
-| 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
@@ -97,61 +96,6 @@ hay `StaticFiles` montado: cada archivo nuevo necesita su propio `@app.get`.
 
 **Aceptación.** No hay 404 de favicon en los logs al cargar. Si se hace la PWA, Chrome
 ofrece "Instalar".
-
----
-
-## 13 · P3 · Duraciones del pomodoro fijas en el código
-
-**Síntoma.** El enfoque dura siempre 25 minutos, el descanso corto 5 y el largo 15. No
-hay forma de cambiarlos desde la app: quien trabaje en bloques de 50 minutos, o quiera un
-descanso largo de media hora, no puede.
-
-**Causa.** Están escritos como constante en
-[pomodoro.js:5](pomodoro.js#L5):
-
-```js
-const POMO_DURATIONS = { focus: 1500, short_break: 300, long_break: 900, stopwatch: 0 };
-```
-
-Desde la 1.10.0 no hay tarjeta de reloj: el pomodoro se inicia desde una tarjeta y los
-descansos desde la oferta de la barra al terminar (`startBreak`). El ajuste tiene que
-llegar a esos dos caminos.
-
-`createIdlePomoState()` la lee al construir cada estado, así que cambiarla es cambiar el
-código y volver a desplegar.
-
-**Arreglo.** Tres ajustes por usuario: enfoque, descanso corto y descanso largo.
-
-Sobre **dónde guardarlos**, la elección importa y hay precedente en este mismo backlog:
-los colores y etiquetas de los hábitos estuvieron en `localStorage` en vez de en la base
-y costó varias versiones sacarlos (el último, el color, en la 1.14). No repetir ese
-error — van en el backend, en tres
-columnas nullable sobre `users`:
-
-```
-pomodoro_focus_seconds, pomodoro_short_break_seconds, pomodoro_long_break_seconds
-```
-
-Nullable a propósito: `NULL` significa "usa el valor por defecto", así que las cuentas
-que ya existen no necesitan que nadie las rellene. Con `scripts/migrate.py` esto son tres
-líneas en su lista de migraciones.
-
-En la UI, un formulario en el modal de perfil (el ⚙️ del tablero es para organizar
-tableros, proyectos y etiquetas). Validar
-rangos razonables (entre 1 minuto y 4 horas) para que un cero no deje el timer inservible.
-
-**Lo que NO hay que tocar.** `planned_seconds` ya se guarda en cada
-`PomodoroSession`, así que las sesiones pasadas conservan la duración que tenían cuando
-se hicieron. Cambiar el ajuste no reescribe el histórico ni descuadra ningún total.
-
-**Cuidado.** Un timer en marcha guarda su `plannedSeconds` en `localStorage`
-([pomodoro.js:16](pomodoro.js#L16)). Si el ajuste cambia mientras hay un pomodoro
-corriendo, la sesión en curso debe terminar con la duración con la que arrancó, no con la
-nueva.
-
-**Aceptación.** Cambiar el enfoque a 50 minutos y el descanso largo a 30, recargar, y ver
-que el timer arranca con esos valores. Las sesiones anteriores siguen mostrando su
-duración original en el historial del proyecto.
 
 ---
 

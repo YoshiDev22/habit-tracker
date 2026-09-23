@@ -41,6 +41,10 @@ MIGRATIONS = [
     # backend/boards.py, en el primer request de cada usuario.
     {"table": "tasks", "column": "column_id", "type": "INTEGER"},
     {"table": "projects", "column": "is_system", "type": "BOOLEAN", "default": 0},
+    # Duraciones del pomodoro por usuario: NULL significa "la de por defecto"
+    {"table": "users", "column": "pomodoro_focus_seconds", "type": "INTEGER"},
+    {"table": "users", "column": "pomodoro_short_break_seconds", "type": "INTEGER"},
+    {"table": "users", "column": "pomodoro_long_break_seconds", "type": "INTEGER"},
 ]
 
 # El icono que pone el modelo cuando nadie manda uno. Un `habits.icon` con este

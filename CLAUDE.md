@@ -411,6 +411,12 @@ cronómetros que se cerraron solos a las 8 h (nota `POMO_AUTOCLOSE_NOTE`), y al 
 duración de uno esa nota se quita. Las filas salen de `buildSessionRow()` (`projects.js`),
 la misma del historial de la tarjeta.
 
+**Duraciones del pomodoro por usuario.** `users.pomodoro_focus_seconds`,
+`pomodoro_short_break_seconds` y `pomodoro_long_break_seconds` (NULL = 25 / 5 / 15 min), en el
+modal de perfil en minutos. `pomoDuration(mode)` las lee de `currentUser` solo al
+**arrancar** un timer: el que ya corre guarda su `plannedSeconds` y termina con esa
+duración aunque cambie el ajuste. La API acepta de 60 s a 4 h; `null` vuelve al valor por defecto.
+
 **Tope del cronómetro.** Nada interrumpe mientras se trabaja, y la app no adivina cuánto se
 trabajó (Yoshio lo pidió así: es decisión del usuario). Al llegar a 8 h el cronómetro se
 detiene en 8:00:00 y `#idleCheckModal` (`askStopwatchCap()`) pregunta cuánto se trabajó,

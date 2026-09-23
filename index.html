@@ -293,6 +293,13 @@
                     <label for="profileLastName">Apellido</label>
                     <input type="text" id="profileLastName" name="lastName" placeholder="Tus apellidos" maxlength="60">
                 </div>
+                <!-- En minutos; vacío = el valor por defecto (el placeholder) -->
+                <fieldset class="profile-pomodoro">
+                    <legend>Pomodoro (minutos)</legend>
+                    <label>Enfoque <input type="number" id="profilePomoFocus" min="1" max="240" step="1" inputmode="numeric" placeholder="25"></label>
+                    <label>Descanso corto <input type="number" id="profilePomoShort" min="1" max="240" step="1" inputmode="numeric" placeholder="5"></label>
+                    <label>Descanso largo <input type="number" id="profilePomoLong" min="1" max="240" step="1" inputmode="numeric" placeholder="15"></label>
+                </fieldset>
                 <div id="profileError" class="form-error hidden"></div>
                 <button type="submit" class="submit-btn">Guardar</button>
             </form>
