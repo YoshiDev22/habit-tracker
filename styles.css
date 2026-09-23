@@ -184,7 +184,9 @@ body {
 }
 
 .views-viewport {
-    overflow-x: hidden;
+    /* Alto = el de la vista activa (projects.js, watchActiveView): lo que
+       sobra de las otras vistas se recorta en vez de alargar la página. */
+    overflow: hidden;
     touch-action: pan-y;
 }
 

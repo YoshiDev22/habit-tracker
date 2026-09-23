@@ -79,9 +79,37 @@ function goToView(index, opts = {}) {
         tab.tabIndex = active ? 0 : -1;
     });
     tabIndicator.style.transform = `translateX(${100 * currentViewIndex}%)`;
+    watchActiveView();
 
     window.viewChangedHooks.forEach(hook => hook(currentViewIndex));
 }
+
+// Las vistas van lado a lado en el track, así que la página tomaría la altura
+// de la más alta: con Reportes cargado, el Calendario quedaba con metros de
+// blanco debajo. El viewport mide lo que la vista activa y la sigue cuando
+// crece o encoge (un tablero que carga, un reporte que se pinta).
+const viewSections = [...viewsTrack.children];
+let observedView = null;
+const viewResizeObserver = 'ResizeObserver' in window
+    ? new ResizeObserver(fitViewportToActiveView)
+    : null;
+
+function fitViewportToActiveView() {
+    viewsViewport.style.height = `${viewSections[currentViewIndex].offsetHeight}px`;
+}
+
+function watchActiveView() {
+    if (!viewResizeObserver) return;   // sin él, la página conserva la altura del track
+    const view = viewSections[currentViewIndex];
+    if (observedView !== view) {
+        if (observedView) viewResizeObserver.unobserve(observedView);
+        viewResizeObserver.observe(view);
+        observedView = view;
+    }
+    fitViewportToActiveView();
+}
+
+watchActiveView();
 
 VIEW_TABS.forEach((tab, i) => {
     tab.addEventListener('click', () => goToView(i));
