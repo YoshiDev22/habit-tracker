@@ -5,12 +5,15 @@ Código, comentarios, nombres de variables y mensajes de commit: en inglés.
 
 ## Qué es
 
-App personal de productividad. Tres módulos sobre la misma cuenta:
+App personal de productividad. Tres módulos sobre la misma cuenta, más una vista de
+reportes:
 
 1. **Hábitos** — calendario mensual, marcado por día, rachas y estadísticas.
 2. **Proyectos y tareas** — tableros kanban (cada uno con sus columnas) cuyas tarjetas son
    tareas; el proyecto es una etiqueta de la tarea. También hay vista Lista por proyecto.
 3. **Pomodoro** — timer (cronómetro, pomodoro o registro manual) con tiempo por proyecto/tarea.
+4. **Reportes** — pestaña de solo lectura: tiempo por día, proyecto, etiqueta y hora, tareas
+   terminadas y días/rachas de hábitos en una semana, un mes o un rango.
 
 Backend FastAPI + SQLite con autenticación JWT, frontend estático (HTML/CSS/JS
 vanilla, sin build step) servido por la misma app.
@@ -68,6 +71,7 @@ habit-tracker/
 ├── projects.js            # Tabs con swipe, vista Lista (proyectos y tareas), menú y borrado de proyecto
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas)
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
+├── reports.js             # Vista Reportes: rango, gráficas SVG y desgloses (solo lee)
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 ├── CHANGELOG.md           # Novedades de cada versión, para el usuario
 ├── requirements.txt
@@ -160,7 +164,9 @@ Lo que no se deduce leyendo los modelos:
   `scripts/migrate.py` normaliza lo que ya estaba guardado así; es idempotente.
 - **La racha solo la calcula el backend** (`calculate_streak` en `routers/habits.py`). La
   pantalla muestra el `streak` de `GET /api/habits` y lo refresca con
-  `GET /api/habits/streak` después de marcar un día. No volver a calcularla en el
+  `GET /api/habits/streak` después de marcar un día. La regla vive en `_current_streak()`
+  (y el récord en `_best_streak()`), que `GET /api/habits/report` aplica también a cada
+  hábito por separado: un cambio de regla se hace ahí, una sola vez. No volver a calcularla en el
   navegador: hubo una copia de la regla en `script.js`, ignoraba los días de descanso y la
   UI contradecía a la API.
 - `started_at` / `ended_at` son UTC naive (`datetime.utcnow()`). El cliente nunca los parsea
@@ -225,7 +231,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los cuatro scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los cinco scripts en orden y **el
 orden importa**:
 
 ```html
@@ -233,6 +239,7 @@ orden importa**:
 <script src="projects.js"></script> <!-- define projectsState y projectsChangedHooks -->
 <script src="board.js"></script>    <!-- usa los dos; su loadBoard corre antes que los selects del pomodoro -->
 <script src="pomodoro.js"></script>
+<script src="reports.js"></script>  <!-- solo lee: usa helpers de script.js y projects.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -315,10 +322,24 @@ tablero se refresca una vez, al cerrar.
 
 ### Vistas y navegación
 
-Dos vistas (`#viewCalendar`, `#viewProjects` — la pestaña se llama "Tableros") dentro de `#viewsTrack`, con tabs arriba y
-swipe horizontal. Toda la lógica está en `projects.js` (`goToView()`, `VIEW_COUNT`, manejo
-de `touchstart/move/end` con detección de eje). Agregar una vista implica tocar
-`VIEW_COUNT`, el HTML de tabs y el indicador.
+Tres vistas (`#viewCalendar`, `#viewProjects` — la pestaña se llama "Tableros" —,
+`#viewReports`) dentro de `#viewsTrack`, con tabs arriba y swipe horizontal. Toda la
+lógica está en `projects.js` (`goToView()`, `VIEW_TABS`, manejo de `touchstart/move/end`
+con detección de eje). Agregar una vista implica sumar su tab a `VIEW_TABS`, el HTML de
+tabs y el ancho de `.tab-indicator` (`calc(100% / N)`).
+
+**El alto del viewport es el de la vista activa** (`watchActiveView()`, con un
+`ResizeObserver`): las vistas están lado a lado, y sin eso la página tomaba la altura de la
+más alta y el Calendario quedaba con metros de blanco debajo tras abrir Reportes. Lo que
+necesite salirse de una vista (popovers) va fuera del track, como `#habitPopover`.
+
+**Reportes** (`reports.js`) no guarda nada: pide de nuevo cada vez que se entra a la vista
+(y en `projectsChangedHooks` mientras se ve), con el rango en fechas locales. Semana de
+lunes a domingo. Solo cuenta sesiones `focus`, igual que tarjetas y Lista, así que sus
+cifras deben cuadrar con ellas. El mapa por hora usa el huso **actual** del navegador sobre
+`started_at` UTC: sesiones registradas desde otro huso se verían corridas. Si algún día
+importa, guardar el offset en una columna nueva vía `scripts/migrate.py`. Endpoints propios: `GET /api/habits/report` y los filtros
+`completed_from`/`completed_to` de `GET /api/tasks`.
 
 Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 

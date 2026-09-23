@@ -6,6 +6,8 @@ App personal de productividad, con tres módulos sobre una misma cuenta:
 - **Proyectos y tareas** — tableros kanban con columnas configurables. Cada tarjeta es una
   tarea con proyecto, etiquetas, descripción, checklist y comentarios. También hay vista Lista.
 - **Pomodoro** — cronómetro, pomodoro o registro manual, con tiempo por proyecto, tarea y etiqueta.
+- **Reportes** — tiempo por día, proyecto, etiqueta y hora, tareas terminadas y rachas de
+  hábitos, por semana, mes o rango.
 
 Backend FastAPI + SQLite con autenticación JWT. Frontend estático (HTML/CSS/JS vanilla,
 sin build step ni dependencias) servido por la misma app.
@@ -178,6 +180,7 @@ habit-tracker/
 ├── projects.js            # Tabs con swipe, vista Lista de proyectos
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar"
 ├── pomodoro.js            # Timer y envío de sesiones
+├── reports.js             # Vista Reportes
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 └── requirements.txt
 ```

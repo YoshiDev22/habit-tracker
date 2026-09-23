@@ -18,7 +18,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
-| 12 | P2 | Pestaña de Reportes sobre el tiempo registrado | pendiente |
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
@@ -46,7 +45,9 @@ navegador, los hábitos salen con el color por defecto.
 ([backend/models.py:29](backend/models.py#L29)) y la API lo expone en
 `/api/habits/definitions`, pero `renderHabitRows()` hace ganar al valor de
 `localStorage.habit_colors` sobre el del backend, y `handleSaveHabits()` escribe ahí en vez
-de mandarlo. La base tiene el dato y el navegador lo ignora.
+de mandarlo. La base tiene el dato y el navegador lo ignora. `habitColors()` en
+[reports.js](reports.js) hace lo mismo para pintar los hábitos en Reportes: cambiarlo a
+la vez.
 
 **Arreglo.** Leer el color de `/api/habits/definitions` y mandarlo en el mismo `PATCH` que
 ya se usa para el emoji (`handleSaveHabits()` compara contra `existing` y manda solo lo que
@@ -137,53 +138,6 @@ ofrece "Instalar".
 
 ---
 
-## 12 · P2 · Pestaña de Reportes sobre el tiempo registrado
-
-**Síntoma.** Ninguno: es una feature pedida, no un fallo. Hoy el tiempo solo se ve como
-total por tarjeta, por proyecto (vista Lista) y "Hoy". No hay forma de responder "¿a qué
-hora rindo más?" ni "¿en qué se me fue la semana?".
-
-**Plan acordado (2026-09-22).** Tercera pestaña, "Reportes", después de Tableros:
-
-- **Rango**: Esta semana / Este mes / Personalizado, con flechas para ir al anterior.
-- **Resumen**: tiempo total, tareas terminadas, promedio por día y comparación con el
-  período anterior ("+2 h vs. la semana pasada").
-- **Tiempo por día**: barras, con los días de descanso (`users.rest_days`) marcados.
-- **Por proyecto**: barras horizontales; "Sin asignar" aparte, como tiempo sin clasificar.
-- **Por etiqueta**: desglose (cuenta doble por diseño), "Sin etiqueta" y, al elegir
-  varias, su total sin contar doble.
-- **¿A qué hora rindes más?**: mapa de calor día de la semana × hora.
-- **Tareas terminadas** en el rango y **cronometrado vs. registrado a mano**.
-
-**Lo que ya existe y no hay que construir:**
-
-- La hora exacta de cada sesión (`started_at`/`ended_at`, UTC naive), su día local
-  (`session_date`) y su origen (`source`), desde el primer pomodoro.
-- `GET /api/pomodoro/stats` con `by_date` y `by_project`, filtrable por fechas.
-- `GET /api/tags/summary` con el desglose, `combined_*` (varias etiquetas sin contar doble)
-  y `untagged_*`, filtrable por fechas.
-- `tasks.completed_at` con la fecha local del cliente (entrada 15, cerrada).
-- El sistema de vistas: `goToView()` y `VIEW_COUNT` en [projects.js](projects.js), y
-  `viewChangedHooks` para lo que dependa de la vista.
-
-**Decisiones.** Gráficas en HTML/CSS y SVG, sin librerías. El mapa por hora se calcula en
-el cliente sobre `GET /api/pomodoro` con la hora local del navegador. Única API nueva
-probable: tareas terminadas por rango. **Sin cambios de esquema.**
-
-**Commits propuestos.** (1) Pestaña con el selector de rango, (2) resumen y por día,
-(3) por proyecto y por etiqueta, (4) mapa por hora, (5) tareas terminadas y comparación.
-
-**Cuidado con el huso horario.** Los datetimes se guardan en UTC y la hora local se
-calcula con el desfase *actual* del navegador. Registros hechos desde otro huso se
-pintarían corridos. Para un solo usuario en un huso fijo da igual; si algún día importa,
-la solución es guardar el offset en una columna nueva vía `scripts/migrate.py`.
-
-**Aceptación.** Con sesiones repartidas en varias horas y días, la pestaña muestra el
-total por día, por proyecto, por etiqueta y por hora, y las cifras cuadran con las de las
-tarjetas y la vista Lista.
-
----
-
 ## 13 · P3 · Duraciones del pomodoro fijas en el código
 
 **Síntoma.** El enfoque dura siempre 25 minutos, el descanso corto 5 y el largo 15. No
@@ -243,8 +197,8 @@ duración original en el historial del proyecto.
 **Esto no es una entrada, es una épica.** El resto del backlog se puede trabajar de una
 sentada; esto no. Está aquí para que la idea no se pierda y para dejar escritas las
 decisiones que hay que tomar antes de escribir código, no como algo que se empiece tal
-cual. Antes de tocarlo, hacer la entrada 12: una tercera pestaña fija enseña la mitad de
-los problemas por una fracción del trabajo.
+cual. La pestaña fija de Reportes (1.12.0) ya enseñó cómo se añade una vista: empezar por
+ahí (`VIEW_TABS` y `watchActiveView()` en projects.js).
 
 **Idea.** Que el usuario pueda añadir las pestañas que necesite para organizarse, a partir
 de **plantillas**: horarios, cronograma de un proyecto, dieta, calendario de recordatorios
@@ -341,9 +295,10 @@ Meta "Bajar de peso" (85 → 75 kg)          Meta "Leer 10 libros"      Meta "De
   (récord 20)", y la cifra de la meta si la tiene. El porcentaje, como mucho de apoyo.
 - **Tiempo del tablero (opcional, acordado).** Una meta puede enlazarse a un proyecto o
   una etiqueta y mostrar "llevas 3 h de 5 h esta semana" con el tiempo ya registrado en
-  el cronómetro. Es **solo lectura**: la misma suma de sesiones que hará Reportes
-  (entrada 12), reutilizada; el timer y las tarjetas no cambian. Por eso va después de
-  Reportes y puede dejarse para una segunda entrega si complica la primera.
+  el cronómetro. Es **solo lectura**: la misma suma de sesiones `focus` por rango que ya
+  hace Reportes (`GET /api/pomodoro?date_from&date_to`, o `/api/tags/summary` con
+  `combined_seconds` para una etiqueta); el timer y las tarjetas no cambian. Puede
+  dejarse para una segunda entrega si complica la primera.
 
 **Esquema (borrador, avisar el impacto antes de escribir código).** Tablas nuevas, que
 `create_all()` crea solas: `goals` (nombre, tipo solo-hábitos/contador/medición, valor
@@ -401,7 +356,8 @@ siempre que se pueda ("12 de 30 días", "8 días sin fumar") y no solo como porc
 línea corta junto a cada hábito del Calendario, además de la sección de metas) y el
 catálogo de plantillas de la fase 1.
 
-**Orden.** Después de la entrada 12 (Reportes), que no toca el esquema.
+**Orden.** Reportes ya está (1.12.0). Antes de esta épica, la entrada 4 (colores de
+hábitos al backend), porque las dos tocan los hábitos.
 
 ---
 
