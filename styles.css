@@ -178,7 +178,7 @@ body {
     bottom: -1px;
     left: 0;
     height: 2px;
-    width: 50%;
+    width: calc(100% / 3);  /* una pestaña: Calendario, Tableros, Reportes */
     background: var(--accent);
     transition: transform 0.3s ease;
 }
@@ -3260,4 +3260,66 @@ body.board-wide .board-column {
     .config-drag {
         display: none;
     }
+}
+
+/* ============================================
+   Reportes (reports.js)
+   ============================================ */
+
+.reports-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.reports-toolbar .view-toggle {
+    margin-left: 0;
+}
+
+.reports-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    max-width: 360px;
+}
+
+.reports-range-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.reports-nav .nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.reports-custom {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 16px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.reports-custom input {
+    margin-left: 4px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.reports-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }

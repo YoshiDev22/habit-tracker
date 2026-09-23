@@ -119,6 +119,8 @@
                     aria-selected="true" aria-controls="viewCalendar" data-view="0" tabindex="0">Calendario</button>
             <button id="tabProjects" class="tab-btn" role="tab"
                     aria-selected="false" aria-controls="viewProjects" data-view="1" tabindex="-1">Tableros</button>
+            <button id="tabReports" class="tab-btn" role="tab"
+                    aria-selected="false" aria-controls="viewReports" data-view="2" tabindex="-1">Reportes</button>
             <span class="tab-indicator" aria-hidden="true"></span>
         </nav>
 
@@ -209,6 +211,27 @@
                             Todavía no tienes proyectos. Usa el botón "+" para crear el primero.
                         </p>
                     </div>
+                </section>
+
+                <section id="viewReports" class="view" role="tabpanel" aria-labelledby="tabReports">
+                    <!-- reports.js pinta todo a partir del rango elegido aquí -->
+                    <div class="reports-toolbar">
+                        <div class="view-toggle" role="group" aria-label="Rango">
+                            <button type="button" class="view-toggle-btn" data-range="week" aria-pressed="true">Semana</button>
+                            <button type="button" class="view-toggle-btn" data-range="month" aria-pressed="false">Mes</button>
+                            <button type="button" class="view-toggle-btn" data-range="custom" aria-pressed="false">Personalizado</button>
+                        </div>
+                        <div class="reports-nav">
+                            <button id="reportsPrev" class="nav-btn" type="button" aria-label="Periodo anterior">&lt;</button>
+                            <h2 id="reportsRangeLabel" class="reports-range-label"></h2>
+                            <button id="reportsNext" class="nav-btn" type="button" aria-label="Periodo siguiente">&gt;</button>
+                        </div>
+                        <div id="reportsCustom" class="reports-custom hidden">
+                            <label>Desde <input type="date" id="reportsFrom"></label>
+                            <label>Hasta <input type="date" id="reportsTo"></label>
+                        </div>
+                    </div>
+                    <div id="reportsBody" class="reports-body" aria-live="polite"></div>
                 </section>
             </div>
         </div>
@@ -665,5 +688,6 @@
     <script src="projects.js"></script>
     <script src="board.js"></script>
     <script src="pomodoro.js"></script>
+    <script src="reports.js"></script>
 </body>
 </html>

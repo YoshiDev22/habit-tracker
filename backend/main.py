@@ -95,6 +95,12 @@ def pomodoro_js():
     return FileResponse(get_frontend_path("pomodoro.js"))
 
 
+@app.get("/reports.js")
+def reports_js():
+    """Serve reports.js"""
+    return FileResponse(get_frontend_path("reports.js"))
+
+
 def build_api_info() -> dict:
     """Payload shared by /api and /api/version"""
     return {

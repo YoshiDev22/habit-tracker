@@ -28,6 +28,7 @@ window.viewChangedHooks = [];
 
 const tabCalendar = document.getElementById('tabCalendar');
 const tabProjects = document.getElementById('tabProjects');
+const tabReports = document.getElementById('tabReports');
 const viewsViewport = document.getElementById('viewsViewport');
 const viewsTrack = document.getElementById('viewsTrack');
 const tabIndicator = document.querySelector('.tab-indicator');
@@ -57,7 +58,8 @@ const confirmProjectDeleteBtn = document.getElementById('confirmProjectDeleteBtn
 // Tabs + swipe
 // ============================================
 
-const VIEW_COUNT = 2;
+const VIEW_TABS = [tabCalendar, tabProjects, tabReports];
+const VIEW_COUNT = VIEW_TABS.length;
 let currentViewIndex = 0;
 
 function goToView(index, opts = {}) {
@@ -70,8 +72,7 @@ function goToView(index, opts = {}) {
     viewsTrack.style.transition = animate ? '' : 'none';
     viewsTrack.style.transform = `translateX(${-100 * currentViewIndex}%)`;
 
-    const tabs = [tabCalendar, tabProjects];
-    tabs.forEach((tab, i) => {
+    VIEW_TABS.forEach((tab, i) => {
         const active = i === currentViewIndex;
         tab.classList.toggle('active', active);
         tab.setAttribute('aria-selected', String(active));
@@ -82,11 +83,12 @@ function goToView(index, opts = {}) {
     window.viewChangedHooks.forEach(hook => hook(currentViewIndex));
 }
 
-tabCalendar.addEventListener('click', () => goToView(0));
-tabProjects.addEventListener('click', () => goToView(1));
+VIEW_TABS.forEach((tab, i) => {
+    tab.addEventListener('click', () => goToView(i));
+});
 
 // Patrón WAI-ARIA tabs: flechas, Home/End, roving tabindex.
-[tabCalendar, tabProjects].forEach((tab, i) => {
+VIEW_TABS.forEach((tab, i) => {
     tab.addEventListener('keydown', (event) => {
         let target = null;
         if (event.key === 'ArrowRight') target = (i + 1) % VIEW_COUNT;
@@ -97,7 +99,7 @@ tabProjects.addEventListener('click', () => goToView(1));
         if (target !== null) {
             event.preventDefault();
             goToView(target);
-            [tabCalendar, tabProjects][target].focus();
+            VIEW_TABS[target].focus();
         }
     });
 });
