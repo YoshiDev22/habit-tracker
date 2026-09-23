@@ -10,7 +10,7 @@ commit. Al terminar, borrar la entrada de este archivo en el mismo commit que la
 server local y fallaron de forma observable. Las marcadas *diagnosticado* salen de leer el
 código y no se reprodujeron todavía.
 
-Levantado el 2026-09-08 sobre v1.3.0.
+Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
@@ -26,6 +26,11 @@ Levantado el 2026-09-08 sobre v1.3.0.
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 16 | P3 | Falta validar `color`, `label` y `key` en `HabitCreate` | parcial |
+| 17 | P2 | Objetivos medibles (hábitos, cantidades, mediciones) | épica |
+| 18 | P3 | Tarjetas de proyectos archivados muestran 0m | diagnosticado |
+| 19 | P4 | Reordenar tarjetas dentro de una columna | pendiente |
+| 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
+| 21 | P4 | Tableros compartidos entre usuarios | épica |
 
 ---
 
@@ -66,24 +71,39 @@ cuenta y ver el color nuevo. Sin escrituras a `habit_colors` en el código.
 
 ## 5 · P3 · Sin tests ni CI
 
-**Síntoma.** No hay forma de saber si un cambio rompió algo salvo probando a mano. Las
-entradas 1 y 2 de este backlog llevaban tiempo en producción sin que nada avisara.
+**Síntoma.** No hay forma de saber si un cambio rompió algo salvo probando a mano o con
+guiones sueltos.
 
 **Causa.** El repo no tiene tests, ni `requirements-dev.txt`, ni configuración de CI.
 
-**Arreglo.** Empezar chico y donde más duele. `pytest` + el `TestClient` de FastAPI cubren
-el backend sin dependencias nuevas en runtime:
+**Lo que ya se hizo fuera del repo.** La 1.10.0 se desarrolló con 17 baterías de prueba
+escritas a mano en una carpeta temporal, que no se versionaron:
 
-- `requirements-dev.txt` con `pytest` y `httpx`.
-- Un fixture que use SQLite en memoria y sobreescriba `get_session`, para no tocar
-  `habits.db`.
-- Primeros tests: los casos de aceptación de las entradas 1 y 2, que hoy fallan. Sirven
-  como regresión desde el minuto uno.
+- **API**: un cliente `urllib` contra el server real sobre una copia de la base, que
+  simula el deploy completo (base con el código viejo → `migrate.py` → código nuevo) y
+  comprueba el relleno, el aislamiento entre usuarios y las reglas de cada endpoint.
+- **Navegador**: Edge headless controlado por el protocolo de DevTools con `websockets`
+  (ya instalado por `uvicorn[standard]`), sin Playwright ni Node. Probó el tablero, el
+  arrastre, el detalle, el reloj en vivo, la persistencia al cerrar el navegador o la
+  sesión, y el teléfono en 390 px.
+
+Encontraron bugs reales antes de salir: `Field(regex=...)` que no valida, el tiempo que
+no seguía a la tarea, el POST de despedida del logout sin token.
+
+**Arreglo.** Traer lo anterior al repo como punto de partida, sin dependencias nuevas en
+runtime:
+
+- `requirements-dev.txt` con `pytest` y `httpx`; el backend con el `TestClient` de FastAPI
+  y un fixture de SQLite en memoria que sobreescriba `get_session`.
+- Un test que reproduzca el deploy (base vieja → `migrate.py` → arranque) con la regla
+  de `check_pending_migrations()`.
+- Las pruebas de navegador, si se traen, en `tests/ui/`, opcionales y fuera de CI al
+  principio: dependen de tener Edge o Chrome.
 
 CI en GitHub Actions después, cuando haya algo que correr.
 
-**Aceptación.** `pytest` corre en verde desde la raíz del repo, e incluye un test que
-falla si se revierte el arreglo de la entrada 1 o la 2.
+**Aceptación.** `pytest` corre en verde desde la raíz del repo e incluye la simulación del
+deploy y el aislamiento entre usuarios de tableros, tareas y etiquetas.
 
 ---
 
@@ -135,8 +155,11 @@ producción.
 **Síntoma.** Ninguno hoy. `DeprecationWarning` en Python 3.12+; se romperá en una versión
 futura.
 
-**Causa.** [backend/auth.py:46](backend/auth.py#L46) y
-[backend/auth.py:48](backend/auth.py#L48). El entorno corre Python 3.13.
+**Causa.** [backend/auth.py:51](backend/auth.py#L51) y
+[backend/auth.py:53](backend/auth.py#L53). El entorno corre Python 3.13.
+
+**Ya hecho.** `utc_now_naive()` en [backend/models.py](backend/models.py) da UTC naive
+sin la llamada deprecada, y los comentarios de tarea ya lo usan. Queda `auth.py`.
 
 **Arreglo.** `datetime.now(timezone.utc)`. Cuidado: devuelve un datetime *aware*, mientras
 que `utcnow()` devolvía uno *naive*. Revisar que `jwt.encode` reciba lo que espera, y que
@@ -218,34 +241,38 @@ nada en el repo.
 ## 12 · P2 · Pestaña de Reportes sobre el tiempo registrado
 
 **Síntoma.** Ninguno: es una feature pedida, no un fallo. Hoy el tiempo solo se ve como
-un total por proyecto y un desglose por tarea dentro de cada tarjeta. No hay forma de
-responder "¿a qué hora rindo más?" ni "¿en qué se me fue la semana?".
+total por tarjeta, por proyecto (vista Lista) y "Hoy". No hay forma de responder "¿a qué
+hora rindo más?" ni "¿en qué se me fue la semana?".
 
-**Estado actual — lo que ya está listo y no hay que construir:**
+**Plan acordado (2026-09-22).** Tercera pestaña, "Reportes", después de Tableros:
 
-- **La hora exacta de cada sesión ya está guardada**, y desde el primer pomodoro:
-  `started_at` y `ended_at` en [backend/models.py:141](backend/models.py#L141), UTC naive.
-  Todo el histórico sirve para un reporte de productividad por hora sin migrar nada.
-- **`GET /api/pomodoro/stats`** ya devuelve `by_date` y `by_project` agregados
-  ([backend/routers/pomodoro.py:107](backend/routers/pomodoro.py#L107)), y acepta
-  `date_from` / `date_to`.
-- **`GET /api/pomodoro`** lista sesiones crudas, filtrables por proyecto y rango.
-- **`source`** distingue lo cronometrado de lo escrito a mano.
-- **`seconds_by_task`** en `/api/projects/summary` da el desglose por tarea.
-- **El sistema de vistas ya soporta una tercera pestaña**: `goToView()` en
-  [projects.js:57](projects.js#L57) usa `VIEW_COUNT` y `translateX(-100 * i%)`, sin nada
-  cableado a dos vistas. Falta el `<section>`, el `<button>` de tab, subir `VIEW_COUNT` y
-  añadir la tab al array de `goToView()`.
+- **Rango**: Esta semana / Este mes / Personalizado, con flechas para ir al anterior.
+- **Resumen**: tiempo total, tareas terminadas, promedio por día y comparación con el
+  período anterior ("+2 h vs. la semana pasada").
+- **Tiempo por día**: barras, con los días de descanso (`users.rest_days`) marcados.
+- **Por proyecto**: barras horizontales; "Sin asignar" aparte, como tiempo sin clasificar.
+- **Por etiqueta**: desglose (cuenta doble por diseño), "Sin etiqueta" y, al elegir
+  varias, su total sin contar doble.
+- **¿A qué hora rindes más?**: mapa de calor día de la semana × hora.
+- **Tareas terminadas** en el rango y **cronometrado vs. registrado a mano**.
 
-**Arreglo.** Vista "Reportes" como tercera pestaña, después de Proyectos. Contenido
-mínimo útil:
+**Lo que ya existe y no hay que construir:**
 
-- Tiempo por día en un rango (ya está en `by_date`).
-- Tiempo por proyecto en ese rango (ya está en `by_project`).
-- **Productividad por hora del día**: agrupar las sesiones por la hora local de
-  `started_at`. Es lo único que necesita cálculo nuevo; se puede hacer en el cliente
-  sobre `GET /api/pomodoro`, o como endpoint `by_hour` si la lista crece.
-- Opcional: filtrar por `source` para ver cuánto se está registrando a mano.
+- La hora exacta de cada sesión (`started_at`/`ended_at`, UTC naive), su día local
+  (`session_date`) y su origen (`source`), desde el primer pomodoro.
+- `GET /api/pomodoro/stats` con `by_date` y `by_project`, filtrable por fechas.
+- `GET /api/tags/summary` con el desglose, `combined_*` (varias etiquetas sin contar doble)
+  y `untagged_*`, filtrable por fechas.
+- `tasks.completed_at` con la fecha local del cliente (entrada 15, cerrada).
+- El sistema de vistas: `goToView()` y `VIEW_COUNT` en [projects.js](projects.js), y
+  `viewChangedHooks` para lo que dependa de la vista.
+
+**Decisiones.** Gráficas en HTML/CSS y SVG, sin librerías. El mapa por hora se calcula en
+el cliente sobre `GET /api/pomodoro` con la hora local del navegador. Única API nueva
+probable: tareas terminadas por rango. **Sin cambios de esquema.**
+
+**Commits propuestos.** (1) Pestaña con el selector de rango, (2) resumen y por día,
+(3) por proyecto y por etiqueta, (4) mapa por hora, (5) tareas terminadas y comparación.
 
 **Cuidado con el huso horario.** Los datetimes se guardan en UTC y la hora local se
 calcula con el desfase *actual* del navegador. Registros hechos desde otro huso se
@@ -253,8 +280,8 @@ pintarían corridos. Para un solo usuario en un huso fijo da igual; si algún d�
 la solución es guardar el offset en una columna nueva vía `scripts/migrate.py`.
 
 **Aceptación.** Con sesiones repartidas en varias horas y días, la pestaña muestra el
-total por día, por proyecto y por hora del día, y las cifras cuadran con las que ya
-muestran las tarjetas de proyecto.
+total por día, por proyecto, por etiqueta y por hora, y las cifras cuadran con las de las
+tarjetas y la vista Lista.
 
 ---
 
@@ -268,8 +295,12 @@ descanso largo de media hora, no puede.
 [pomodoro.js:5](pomodoro.js#L5):
 
 ```js
-const POMO_DURATIONS = { focus: 1500, short_break: 300, long_break: 900 };
+const POMO_DURATIONS = { focus: 1500, short_break: 300, long_break: 900, stopwatch: 0 };
 ```
+
+Desde la 1.10.0 no hay tarjeta de reloj: el pomodoro se inicia desde una tarjeta y los
+descansos desde la oferta de la barra al terminar (`startBreak`). El ajuste tiene que
+llegar a esos dos caminos.
 
 `createIdlePomoState()` la lee al construir cada estado, así que cambiarla es cambiar el
 código y volver a desplegar.
@@ -289,7 +320,8 @@ Nullable a propósito: `NULL` significa "usa el valor por defecto", así que las
 que ya existen no necesitan que nadie las rellene. Con `scripts/migrate.py` esto son tres
 líneas en su lista de migraciones.
 
-En la UI, un formulario en el modal de perfil, o uno propio colgado del ⚙️. Validar
+En la UI, un formulario en el modal de perfil (el ⚙️ del tablero es para organizar
+tableros, proyectos y etiquetas). Validar
 rangos razonables (entre 1 minuto y 4 horas) para que un cero no deje el timer inservible.
 
 **Lo que NO hay que tocar.** `planned_seconds` ya se guarda en cada
@@ -398,7 +430,116 @@ frontend de hoy.
 
 **Arreglo.** En `HabitCreate`: `max_length` razonable para `key` y `label`, y `color`
 contra `^#[0-9a-fA-F]{6}$` admitiendo `None`. Mismo trato en `HabitUpdate` para `label` y
-`color`.
+`color`. **Ojo:** con sqlmodel 0.0.14 `Field(regex=...)` no valida nada; usar un
+`@field_validator` con `_validate_hex_color()`, que ya existe en `schemas.py` para
+columnas, etiquetas y proyectos.
 
 **Aceptación.** `POST /api/habits/definitions` con `color: "rojo; drop table"` o con un
 `label` de 5.000 caracteres devuelve 422, no 201.
+
+---
+
+## 17 · P2 · Objetivos medibles (hábitos, cantidades, mediciones)
+
+**Esto es una épica.** Que los hábitos pasen a ser **objetivos** con avance medible, sin
+perder el registro diario que ya existe. Planteado el 2026-09-22.
+
+**Tipos propuestos:**
+
+| Tipo | Ejemplo | Qué se registra | Cómo se ve el avance |
+|---|---|---|---|
+| Hábito (sí/no) | Meditar, gym | Casilla diaria (lo de hoy) | Racha y % de días |
+| Cantidad | Leer 20 páginas/día | Un número por día | Barra hacia la meta del período |
+| Medición | Bajar de 85 a 78 kg | Un valor al medir | Tendencia y % del camino |
+| Evitar | Dejar de fumar | Recaídas, o cantidad con tope | Días sin recaer, récord |
+
+**Diseño propuesto.** Los hábitos actuales pasan a ser objetivos "sí/no" **sin migrar
+datos**: siguen en `habit_entries.habits_data`, con su racha y días de descanso. Los tipos
+nuevos guardan sus valores en una tabla nueva `goal_entries` (objetivo, fecha, valor).
+Columnas nuevas en `habits` (tipo, unidad, meta, período, valor inicial, dirección,
+fecha límite) vía `scripts/migrate.py`: **cambio de esquema sobre datos reales**, avisar
+el impacto antes de escribir código. La racha sigue calculándose solo en el backend.
+
+**Opción que conecta con el tablero.** Un objetivo de cantidad medido con el tiempo
+registrado: "Lectura: 5 h/semana" sumaría las sesiones de las tareas con la etiqueta
+*lectura* o de un proyecto.
+
+**Decisiones pendientes de Yoshio antes del plan detallado:**
+
+1. ¿Sirven los cuatro tipos, o falta alguno?
+2. ¿Objetivos alimentados por el tiempo de una etiqueta o un proyecto?
+3. ¿La pestaña sigue siendo "Calendario" o pasa a "Objetivos" con el calendario dentro?
+
+**Orden.** Después de la entrada 12 (Reportes), que no toca el esquema.
+
+---
+
+## 18 · P3 · Tarjetas de proyectos archivados muestran 0m
+
+**Síntoma.** Una tarea cuyo proyecto está archivado aparece en el tablero con 0m, aunque
+tenga tiempo registrado.
+
+**Causa.** `boardTaskSeconds()` en [board.js](board.js) lee el tiempo por tarea de
+`projectsState.summaryByProject`, que sale de `GET /api/projects/summary`, y ese endpoint
+solo resume proyectos activos (`Project.is_active == True` en
+[backend/routers/projects.py](backend/routers/projects.py)).
+
+**Arreglo.** Que el tablero pida el tiempo por tarea de sus propias tareas sin importar
+el proyecto: `?include_inactive=true` en el resumen, o un `seconds` en `TaskResponse`
+calculado en `_task_responses()`, que ya agrupa por tarea. Lo segundo evita depender de
+otro endpoint.
+
+**Aceptación.** Registrar tiempo en una tarea, archivar su proyecto y ver en el tablero el
+mismo tiempo que antes.
+
+---
+
+## 19 · P4 · Reordenar tarjetas dentro de una columna
+
+**Síntoma.** Arrastrar una tarjeta a su misma columna no hace nada, y al moverla a otra
+queda al final. No hay forma de ordenar por prioridad.
+
+**Causa.** El drop solo cambia `column_id` ([board.js](board.js), `moveTaskToColumn`). La
+columna `tasks.order` existe y el backend la acepta en el PATCH, pero nadie la escribe.
+
+**Arreglo.** Calcular la posición entre las dos tarjetas donde se suelta y reescribir el
+`order` de las que cambien, igual que ya hace `reorderRequests()` con las columnas en
+Organizar. En táctil, "Subir / Bajar" en el menú de la tarjeta.
+
+**Aceptación.** Ordenar tres tarjetas de una columna, recargar y verlas en ese orden.
+
+---
+
+## 20 · P4 · Editar comentarios y elementos del checklist
+
+**Síntoma.** Un comentario o un elemento del checklist con una errata solo se puede
+borrar y escribir de nuevo.
+
+**Causa.** La API ya edita los dos (`PATCH /api/tasks/{id}/comments/{cid}` guarda
+`edited_at`; `PATCH /api/tasks/{id}/checklist/{iid}` acepta `text`), pero el detalle de la
+tarjeta solo ofrece borrar.
+
+**Arreglo.** Doble clic (o un ✎) para editar en el sitio; Enter guarda, Escape cancela.
+Los comentarios ya muestran "· editado" cuando `edited_at` existe.
+
+**Aceptación.** Editar un comentario propio y ver "· editado" tras recargar; editar un
+elemento del checklist sin perder si estaba marcado.
+
+---
+
+## 21 · P4 · Tableros compartidos entre usuarios
+
+**Esto es una épica.** Que un tablero se comparta con otra cuenta y los dos vean las
+mismas columnas y tarjetas. Para eso los tableros son dueños de sus columnas (1.10.0).
+
+**Ya preparado.** `task_comments.author_id` separado de `user_id` (el dueño): los
+comentarios de un tablero compartido no necesitarán migración.
+
+**Lo que obliga a decidir.** Hoy **toda** query filtra por `current_user.id`, y es lo
+único que separa los datos entre usuarios. Compartir necesita una tabla de miembros
+(`board_id`, `user_id`, rol) y reescribir el acceso de tableros, columnas, tareas,
+checklist, comentarios y sesiones de tiempo para "dueño o miembro". Además: qué proyectos
+y etiquetas ve un invitado (hoy son del dueño), invitaciones, y quién puede borrar qué.
+
+**Orden.** Solo si de verdad se va a usar con otra persona: es el cambio de seguridad más
+grande de la app.
