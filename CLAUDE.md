@@ -72,6 +72,8 @@ habit-tracker/
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas)
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
 ├── reports.js             # Vista Reportes: rango, gráficas SVG y desgloses (solo lee)
+├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
+├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 ├── CHANGELOG.md           # Novedades de cada versión, para el usuario
 ├── requirements.txt
@@ -227,7 +229,9 @@ Lo que no se ve en Swagger:
 - Los 409 del tablero traen el motivo en español ("tiene 6 tareas", "es la única columna de
   su tipo") y la UI de Organizar lo enseña tal cual: mantener esos mensajes legibles.
 - El frontend se sirve desde `main.py` con un `@app.get` por archivo. No hay `StaticFiles`
-  montado, así que **un archivo JS nuevo necesita su propia ruta** o devuelve 404.
+  montado, así que **un archivo JS nuevo necesita su propia ruta** o devuelve 404. Los
+  iconos van por `/icons/{name}` con una lista cerrada (`APP_ICONS`). Que la app sirva
+  solo lo que tiene ruta es a propósito: nada más de la carpeta del repo sale a internet.
 
 ## Arquitectura del frontend
 

@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Habit Tracker</title>
     <meta name="theme-color" id="themeColorMeta" content="#fafafa">
+    <!-- Instalable como app (pantalla de inicio, sin barra del navegador). Sin
+         service worker a propósito: nada queda en caché, cada despliegue se ve
+         al recargar. -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <!-- El icono de la pestaña es un archivo real; /favicon.ico queda como ruta
+         para los navegadores y bots que lo piden por su cuenta -->
+    <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Habit Tracker">
     <script>
     // Resuelve el tema ANTES del primer paint, para evitar el flash de tema
     // incorrecto (FOUC). Debe ir antes del <link> de estilos.

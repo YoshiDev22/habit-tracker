@@ -181,6 +181,8 @@ habit-tracker/
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar"
 ├── pomodoro.js            # Timer y envío de sesiones
 ├── reports.js             # Vista Reportes
+├── manifest.webmanifest   # Instalable como app
+├── icons/                 # Iconos y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 └── requirements.txt
 ```

@@ -16,7 +16,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 |---|---|---|---|
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
-| 9 | P4 | Sin favicon ni manifest | diagnosticado |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
@@ -79,23 +78,6 @@ como declaración de intención. Alternativa más limpia si se acepta una herram
 
 **Aceptación.** Un `pip install` desde cero en dos máquinas produce las mismas versiones,
 verificable comparando `pip freeze`.
-
----
-
-## 9 · P4 · Sin favicon ni manifest
-
-**Síntoma.** Un 404 de `/favicon.ico` en cada carga, que ensucia los logs. Y la app, con
-gestos táctiles y navegación por tabs, no se puede instalar en el teléfono.
-
-**Causa.** No existen los archivos, y `main.py` no tiene rutas para ellos. Recordar que no
-hay `StaticFiles` montado: cada archivo nuevo necesita su propio `@app.get`.
-
-**Arreglo.** Un favicon y su ruta. Si se quiere PWA: `manifest.json` con iconos, el
-`<link rel="manifest">` en `index.html`, y un service worker mínimo. La app ya tiene
-`theme-color` y es responsive, así que el resto del camino es corto.
-
-**Aceptación.** No hay 404 de favicon en los logs al cargar. Si se hace la PWA, Chrome
-ofrece "Instalar".
 
 ---
 

@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
@@ -99,6 +99,34 @@ def pomodoro_js():
 def reports_js():
     """Serve reports.js"""
     return FileResponse(get_frontend_path("reports.js"))
+
+
+# Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
+# cerrada, no por el nombre que pida la URL, para no servir otros archivos.
+APP_ICONS = {
+    "icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png",
+    "apple-touch-icon.png", "favicon-48.png",
+}
+
+
+@app.get("/manifest.webmanifest")
+def web_manifest():
+    """Serve the web app manifest"""
+    return FileResponse(get_frontend_path("manifest.webmanifest"), media_type="application/manifest+json")
+
+
+@app.get("/icons/{name}")
+def app_icon(name: str):
+    """Serve one of the app icons"""
+    if name not in APP_ICONS:
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(get_frontend_path(os.path.join("icons", name)), media_type="image/png")
+
+
+@app.get("/favicon.ico")
+def favicon():
+    """Serve the favicon (a PNG: every current browser accepts it)"""
+    return FileResponse(get_frontend_path(os.path.join("icons", "favicon-48.png")), media_type="image/png")
 
 
 def build_api_info() -> dict:
