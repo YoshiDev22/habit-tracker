@@ -172,8 +172,25 @@ async function loadReports() {
     }
 }
 
+function rangeQuery(from, to) {
+    return `date_from=${getDateKey(from)}&date_to=${getDateKey(to)}`;
+}
+
+// Solo foco: los descansos no son trabajo, y así las cifras cuadran con las
+// de las tarjetas y la vista Lista.
+async function fetchFocusSessions(from, to) {
+    const data = await apiFetch(`/api/pomodoro?${rangeQuery(from, to)}`);
+    return data.sessions.filter(s => s.mode === 'focus');
+}
+
 async function fetchReportData() {
-    return {};
+    const { from, to } = reportsState;
+    const prev = previousRange();
+    const [sessions, prevSessions] = await Promise.all([
+        fetchFocusSessions(from, to),
+        fetchFocusSessions(prev.from, prev.to),
+    ]);
+    return { sessions, prevSessions };
 }
 
 function reportsMessage(text) {
@@ -183,8 +200,186 @@ function reportsMessage(text) {
     return p;
 }
 
-function renderReports() {
-    reportsBody.replaceChildren();
+function sumSeconds(sessions) {
+    return sessions.reduce((total, s) => total + s.duration_seconds, 0);
+}
+
+// Días del rango que ya pasaron (hoy incluido): el promedio no se diluye
+// con los que faltan de la semana o el mes.
+function elapsedDays() {
+    const { from, to } = reportsState;
+    const today = startOfToday();
+    if (from > today) return 0;
+    return daysBetween(from, to < today ? to : today);
+}
+
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+}
+
+function reportCard(title, ...children) {
+    const card = el('section', 'report-card');
+    card.appendChild(el('h3', 'report-card-title', title));
+    children.forEach(child => child && card.appendChild(child));
+    return card;
+}
+
+function renderReports(data) {
+    reportsBody.replaceChildren(
+        renderSummary(data),
+        renderByDay(data),
+    );
+}
+
+// ============================================
+// Resumen
+// ============================================
+
+function previousPeriodName() {
+    if (reportsState.kind === 'week') return 'la semana anterior';
+    if (reportsState.kind === 'month') return 'el mes anterior';
+    return 'el periodo anterior';
+}
+
+function comparisonText(total, prevTotal) {
+    if (prevTotal === 0) {
+        return total > 0 ? `Sin tiempo registrado en ${previousPeriodName()}` : '';
+    }
+    const diff = total - prevTotal;
+    if (Math.abs(diff) < 60) return `Igual que ${previousPeriodName()}`;
+    const sign = diff > 0 ? '+' : '−';
+    return `${sign}${formatDuration(Math.abs(diff))} vs. ${previousPeriodName()}`;
+}
+
+function summaryStat(value, label) {
+    const stat = el('div', 'report-stat');
+    stat.append(el('span', 'report-stat-value', value), el('span', 'report-stat-label', label));
+    return stat;
+}
+
+function renderSummary({ sessions, prevSessions }) {
+    const total = sumSeconds(sessions);
+    const prevTotal = sumSeconds(prevSessions);
+    const days = elapsedDays();
+    const activeDays = new Set(sessions.map(s => s.session_date)).size;
+
+    const grid = el('div', 'report-stats');
+    grid.append(
+        summaryStat(formatDuration(total), 'tiempo total'),
+        summaryStat(days ? formatDuration(Math.round(total / days)) : '—', 'promedio por día'),
+        summaryStat(`${activeDays}${days ? ` de ${days}` : ''}`, 'días con tiempo'),
+    );
+
+    const comparison = comparisonText(total, prevTotal);
+    const note = comparison
+        ? el('p', `report-compare ${total >= prevTotal ? 'up' : 'down'}`, comparison)
+        : null;
+    return reportCard('Resumen', grid, note);
+}
+
+// ============================================
+// Tiempo por día
+// ============================================
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const WEEKDAY_INITIALS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];   // por getDay()
+
+function svg(tag, attrs = {}) {
+    const node = document.createElementNS(SVG_NS, tag);
+    Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
+    return node;
+}
+
+function svgText(attrs, text) {
+    const node = svg('text', attrs);
+    node.textContent = text;
+    return node;
+}
+
+// Ancho real de la tarjeta, no uno fijo escalado: en el teléfono un viewBox
+// de 600 dejaría los textos en 7px.
+function chartWidth() {
+    const available = reportsBody.clientWidth - 40;   // padding de .report-card
+    return Math.max(280, Math.min(900, available || 600));
+}
+
+// users.rest_days usa weekday() de Python: lunes = 0. getDay() da domingo = 0.
+function isRestDay(date) {
+    const restDays = (typeof currentUser !== 'undefined' && currentUser && currentUser.rest_days) || [];
+    return restDays.includes((date.getDay() + 6) % 7);
+}
+
+function renderByDay({ sessions }) {
+    const { from, to } = reportsState;
+    const count = daysBetween(from, to);
+    const byDate = {};
+    sessions.forEach(s => { byDate[s.session_date] = (byDate[s.session_date] || 0) + s.duration_seconds; });
+
+    const days = Array.from({ length: count }, (_, i) => {
+        const date = addDays(from, i);
+        const key = getDateKey(date);
+        return { date, key, seconds: byDate[key] || 0 };
+    });
+    // Escala en horas enteras y múltiplo del paso, para que la guía de arriba
+    // quede por encima de la barra más alta.
+    const peakHours = Math.max(1, Math.ceil(Math.max(...days.map(d => d.seconds)) / 3600));
+    const hourStep = peakHours <= 4 ? 1 : Math.ceil(peakHours / 4);
+    const maxHours = Math.ceil(peakHours / hourStep) * hourStep;
+
+    const W = chartWidth(), H = 190, L = 34, R = 6, T = 10, B = 34;
+    const plotW = W - L - R, plotH = H - T - B;
+    const step = plotW / count;
+    const barW = Math.max(3, Math.min(34, step * 0.62));
+    const y = seconds => T + plotH - (seconds / (maxHours * 3600)) * plotH;
+    const todayKey = getDateKey(startOfToday());
+
+    const chart = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'report-chart', role: 'img',
+        'aria-label': 'Tiempo registrado por día' });
+
+    for (let h = 0; h <= maxHours; h += hourStep) {
+        chart.appendChild(svg('line', { x1: L, x2: W - R, y1: y(h * 3600), y2: y(h * 3600), class: 'chart-grid' }));
+        chart.appendChild(svgText({ x: L - 6, y: y(h * 3600) + 4, class: 'chart-axis', 'text-anchor': 'end' }, `${h}h`));
+    }
+
+    // En un mes no caben todas las etiquetas: una cada pocos días
+    const labelEvery = count <= 14 ? 1 : count <= 31 ? 5 : Math.ceil(count / 7);
+    days.forEach((day, i) => {
+        const cx = L + step * i + step / 2;
+        if (isRestDay(day.date)) {
+            chart.appendChild(svg('rect', { x: L + step * i + 1, y: T, width: Math.max(1, step - 2), height: plotH,
+                class: 'chart-rest' }));
+        }
+        if (day.seconds > 0) {
+            const top = y(day.seconds);
+            const bar = svg('rect', { x: cx - barW / 2, y: top, width: barW, height: T + plotH - top, rx: 3,
+                class: 'chart-bar' });
+            const tip = svg('title');
+            tip.textContent = `${day.date.getDate()} ${MONTH_SHORT[day.date.getMonth()]}: ${formatDuration(day.seconds)}`;
+            bar.appendChild(tip);
+            chart.appendChild(bar);
+        }
+        if (i % labelEvery === 0) {
+            const cls = `chart-axis${day.key === todayKey ? ' today' : ''}`;
+            const top = count <= 7 ? WEEKDAY_INITIALS[day.date.getDay()] : String(day.date.getDate());
+            chart.appendChild(svgText({ x: cx, y: H - B + 16, class: cls, 'text-anchor': 'middle' }, top));
+            if (count <= 7) {
+                chart.appendChild(svgText({ x: cx, y: H - B + 29, class: `${cls} small`, 'text-anchor': 'middle' },
+                    String(day.date.getDate())));
+            }
+        }
+    });
+
+    let legend = null;
+    if (days.some(d => isRestDay(d.date))) {
+        legend = el('div', 'report-legend');
+        const item = el('span', 'legend-item');
+        item.append(el('i', 'legend-swatch rest'), document.createTextNode('Día de descanso'));
+        legend.appendChild(item);
+    }
+    return reportCard('Tiempo por día', chart, legend);
 }
 
 // ============================================
