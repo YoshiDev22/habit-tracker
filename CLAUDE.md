@@ -69,6 +69,7 @@ habit-tracker/
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas)
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
+├── CHANGELOG.md           # Novedades de cada versión, para el usuario
 ├── requirements.txt
 ├── README.md
 ├── BACKLOG.md             # Cola de trabajo pendiente
@@ -402,6 +403,18 @@ en el VPS, no cada commit.
 **El bump va en su propio commit**, `chore: bump version to X.Y.Z`, justo antes de desplegar.
 El historial tiene las dos formas —a veces viaja dentro del commit de la feature— pero
 separarlo deja claro qué se desplegó y cuándo.
+
+**Cada versión se publica así** (desde la 1.10.0):
+
+1. El commit del bump cambia `VERSION` **y** añade la sección de la versión arriba de
+   `CHANGELOG.md`: Nuevo / Cambios / Correcciones, escrito para quien usa la app (qué
+   cambia para él, no qué función se tocó), con la fecha y su enlace al tag al final.
+   Si el lote trae migración, una sección "Para actualizar" lo dice.
+2. Tag anotado sobre ese commit: `git tag -a vX.Y.Z -m "vX.Y.Z"`. Las versiones 1.0.0 a
+   1.9.0 también tienen el suyo, puesto después sobre el commit que cambió `VERSION`.
+3. Yoshio hace `git push` y `git push --tags`, y despliega.
+4. Release en GitHub con el texto de la sección del CHANGELOG (con `gh release create` si
+   `gh` está instalado; si no, se pega en la web).
 
 **Antes de subir la versión, revisar migraciones.** Si el lote agregó una columna a un modelo
 que ya existía, su entrada tiene que estar en `scripts/migrate.py`. El deploy corre
