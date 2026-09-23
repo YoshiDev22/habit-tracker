@@ -1,6 +1,5 @@
 import os
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
@@ -34,14 +33,9 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
-# Configuración CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS middleware on purpose: the frontend is served by this same app, so
+# every browser request is same-origin. Allowing "*" with credentials made
+# Starlette echo back any Origin, i.e. accept every site.
 
 # Incluir routers
 app.include_router(auth.router, prefix="/api/auth")

@@ -17,7 +17,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage (habit_colors) | parcial |
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
-| 7 | P3 | CORS abierto con credenciales | diagnosticado |
 | 8 | P3 | `datetime.utcnow()` deprecado | diagnosticado |
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
 | 10 | P4 | `passlib` declarado y sin usar | diagnosticado |
@@ -123,29 +122,6 @@ como declaración de intención. Alternativa más limpia si se acepta una herram
 
 **Aceptación.** Un `pip install` desde cero en dos máquinas produce las mismas versiones,
 verificable comparando `pip freeze`.
-
----
-
-## 7 · P3 · CORS abierto con credenciales
-
-**Síntoma.** Ninguno visible. Es endurecimiento, no un bug.
-
-**Causa.** [backend/main.py:38](backend/main.py#L38) declara `allow_origins=["*"]` junto a
-`allow_credentials=True`. La combinación es inválida según la spec de CORS y Starlette la
-resuelve reflejando el origen que pida, lo que en la práctica acepta cualquiera. Además es
-innecesaria: el frontend se sirve desde el mismo origen que la API, así que no hay petición
-cross-origin que permitir.
-
-**Riesgo real acotado:** el token vive en `localStorage`, no en una cookie, así que un sitio
-externo no puede robarlo vía CORS. Por eso es P3 y no P1.
-
-**Arreglo.** Restringir a los orígenes conocidos (`https://habits.yoshidev22.com` y
-`http://localhost:8000`), o quitar el middleware entero si no se necesita ningún acceso
-cross-origin.
-
-**Aceptación.** Una petición con `Origin` arbitrario no recibe
-`Access-Control-Allow-Origin` con ese valor. La app sigue funcionando en local y en
-producción.
 
 ---
 
