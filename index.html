@@ -503,6 +503,14 @@
                     <select id="cardProject"></select>
                 </label>
             </div>
+            <!-- "＋ Nuevo proyecto…" del select abre esta fila: se crea sin salir de la tarjeta -->
+            <form class="card-new-project hidden" id="cardNewProjectForm">
+                <input type="color" id="cardNewProjectColor" value="#3498db" aria-label="Color del proyecto nuevo">
+                <input type="text" id="cardNewProjectName" maxlength="80" placeholder="Nombre del proyecto nuevo" aria-label="Nombre del proyecto nuevo">
+                <button type="submit" class="card-new-project-ok">Crear</button>
+                <button type="button" class="card-new-project-cancel" id="cardNewProjectCancel" aria-label="Cancelar">×</button>
+                <div class="form-error hidden" id="cardNewProjectError" role="alert"></div>
+            </form>
 
             <!-- data-timer-task lo pone board.js al abrir: con la tarea corriendo,
                  syncTimerMarks() (pomodoro.js) cambia los botones por ■ Detener -->
@@ -595,6 +603,17 @@
                         <input type="checkbox" id="configColumnDone">
                         ✓ Las tareas aquí cuentan como terminadas
                     </label>
+                </form>
+            </section>
+
+            <section class="config-section">
+                <h3 class="config-section-title">Proyectos</h3>
+                <p class="config-hint">El proyecto es la etiqueta principal de una tarea: su tiempo se suma ahí. Para borrar uno y decidir qué pasa con su tiempo, usa la vista Lista.</p>
+                <div id="configProjects" class="config-list"></div>
+                <form id="configProjectForm" class="config-add-row">
+                    <input type="color" id="configProjectColor" value="#3498db" class="config-color" aria-label="Color del proyecto nuevo">
+                    <input type="text" maxlength="80" placeholder="Nuevo proyecto (ej: Tesis)" aria-label="Nombre del proyecto nuevo">
+                    <button type="submit" aria-label="Crear proyecto">+</button>
                 </form>
             </section>
 

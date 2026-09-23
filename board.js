@@ -612,6 +612,11 @@ const cardTimeEl = document.getElementById('cardTime');
 const cardColumnSelect = document.getElementById('cardColumn');
 const cardProjectSelect = document.getElementById('cardProject');
 const cardTimerEl = document.getElementById('cardTimer');
+const cardNewProjectForm = document.getElementById('cardNewProjectForm');
+const cardNewProjectName = document.getElementById('cardNewProjectName');
+const cardNewProjectColor = document.getElementById('cardNewProjectColor');
+const cardNewProjectError = document.getElementById('cardNewProjectError');
+const NEW_PROJECT_OPTION = 'new';
 const cardTagRow = document.getElementById('cardTagRow');
 const tagPicker = document.getElementById('tagPicker');
 const tagPickerList = document.getElementById('tagPickerList');
@@ -674,6 +679,10 @@ function renderCardProjectSelect(task) {
             option.textContent = project.is_active ? project.name : `${project.name} (archivado)`;
             cardProjectSelect.appendChild(option);
         });
+    const create = document.createElement('option');
+    create.value = NEW_PROJECT_OPTION;
+    create.textContent = '＋ Nuevo proyecto…';
+    cardProjectSelect.appendChild(create);
     cardProjectSelect.value = String(task.project_id);
 }
 
@@ -891,6 +900,7 @@ async function openCardModal(taskId) {
     cardNotesInput.value = task.notes || '';
     cardTimerEl.dataset.timerTask = String(taskId);
     tagPicker.classList.add('hidden');
+    cardNewProjectForm.classList.add('hidden');
 
     showModal(cardModal);
     renderCardModal();
@@ -976,8 +986,46 @@ cardColumnSelect.addEventListener('change', () => {
 });
 
 cardProjectSelect.addEventListener('change', () => {
+    if (cardProjectSelect.value === NEW_PROJECT_OPTION) {
+        // No es un proyecto: se vuelve al que tenía y se abre la fila de crear
+        const task = cardTask();
+        if (task) cardProjectSelect.value = String(task.project_id);
+        openCardNewProject();
+        return;
+    }
     patchCardTask({ project_id: Number(cardProjectSelect.value) });
 });
+
+function openCardNewProject() {
+    cardNewProjectError.classList.add('hidden');
+    cardNewProjectName.value = '';
+    cardNewProjectForm.classList.remove('hidden');
+    cardNewProjectName.focus();
+}
+
+function closeCardNewProject() {
+    cardNewProjectForm.classList.add('hidden');
+}
+
+cardNewProjectForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = cardNewProjectName.value.trim();
+    if (!name || !cardTask()) return;
+    try {
+        const project = await apiFetch('/api/projects', {
+            method: 'POST',
+            json: { name, color: cardNewProjectColor.value },
+        });
+        boardState.projects.push(project);
+        closeCardNewProject();
+        await patchCardTask({ project_id: project.id });
+    } catch (error) {
+        // 409: el nombre ya existe (quizá archivado); el backend lo explica
+        showError(cardNewProjectError, error.message || 'No se pudo crear el proyecto');
+    }
+});
+
+document.getElementById('cardNewProjectCancel').addEventListener('click', closeCardNewProject);
 
 cardTagRow.addEventListener('click', (event) => {
     if (!event.target.closest('button')) return;
@@ -1202,12 +1250,15 @@ const configColumnsBoard = document.getElementById('configColumnsBoard');
 const configColumnsEl = document.getElementById('configColumns');
 const configColumnForm = document.getElementById('configColumnForm');
 const configTagsEl = document.getElementById('configTags');
+const configProjectsEl = document.getElementById('configProjects');
+const configProjectForm = document.getElementById('configProjectForm');
 const configTagForm = document.getElementById('configTagForm');
 
 const configState = {
     boards: [],          // todos, archivados incluidos
     columnsBoardId: null,
     tags: [],
+    projects: [],        // activos, sin "Sin asignar" (no se renombra ni se archiva)
     dirty: false,
 };
 
@@ -1216,12 +1267,16 @@ function configBoard() {
 }
 
 async function reloadConfig() {
-    const [data, tagsData] = await Promise.all([
+    const [data, tagsData, projectsData] = await Promise.all([
         apiFetch('/api/boards?include_inactive=true'),
         apiFetch('/api/tags'),
+        apiFetch('/api/projects'),
     ]);
     configState.boards = data.boards;
     configState.tags = tagsData.tags;
+    configState.projects = projectsData.projects
+        .filter(p => !p.is_system)
+        .sort((a, b) => a.name.localeCompare(b.name));
     const active = data.boards.filter(b => b.is_active);
     if (!active.some(b => b.id === configState.columnsBoardId)) {
         configState.columnsBoardId = active.some(b => b.id === boardState.boardId)
@@ -1241,7 +1296,7 @@ function configButton(className, label, text) {
     return button;
 }
 
-function buildConfigRow({ id, color, name, maxLength, typeLabel, typeTitle, first, last, reorder, deleteClass }) {
+function buildConfigRow({ id, color, name, maxLength, typeLabel, typeTitle, first, last, reorder, deleteClass, deleteText = '×', deleteLabel = null }) {
     const row = document.createElement('div');
     row.className = 'config-row';
     row.dataset.itemId = String(id);
@@ -1280,7 +1335,7 @@ function buildConfigRow({ id, color, name, maxLength, typeLabel, typeTitle, firs
         row.appendChild(up);
         row.appendChild(down);
     }
-    row.appendChild(configButton(`config-action danger ${deleteClass}`, `Eliminar ${name}`, '×'));
+    row.appendChild(configButton(`config-action danger ${deleteClass}`, deleteLabel || `Eliminar ${name}`, deleteText));
     return row;
 }
 
@@ -1352,6 +1407,7 @@ function renderConfig() {
     });
     if (configState.columnsBoardId !== null) configColumnsBoard.value = String(configState.columnsBoardId);
 
+    renderConfigProjects();
     renderConfigTags();
 
     configColumnsEl.innerHTML = '';
@@ -1364,6 +1420,23 @@ function renderConfig() {
             typeTitle: columnBadge(column, board.columns).title,
             first: index === 0, last: index === board.columns.length - 1,
             reorder: true, deleteClass: 'config-delete-column',
+        }));
+    });
+}
+
+function renderConfigProjects() {
+    configProjectsEl.innerHTML = '';
+    if (configState.projects.length === 0) {
+        const hint = document.createElement('p');
+        hint.className = 'config-hint';
+        hint.textContent = 'Todavía no hay proyectos.';
+        configProjectsEl.appendChild(hint);
+    }
+    configState.projects.forEach(project => {
+        configProjectsEl.appendChild(buildConfigRow({
+            id: project.id, color: project.color, name: project.name, maxLength: 80,
+            reorder: false, deleteClass: 'config-archive-project',
+            deleteText: 'Archivar', deleteLabel: `Archivar ${project.name}`,
         }));
     });
 }
@@ -1546,7 +1619,7 @@ configColumnForm.addEventListener('submit', (event) => {
     });
 });
 
-// Etiquetas: nombre y color al salir del campo
+// Etiquetas y proyectos: nombre y color al salir del campo
 function handleConfigItemChange(event, urlFor) {
     const row = event.target.closest('.config-row');
     if (!row) return;
@@ -1564,6 +1637,28 @@ function handleConfigItemChange(event, urlFor) {
 }
 
 configTagsEl.addEventListener('change', (event) => handleConfigItemChange(event, id => `/api/tags/${id}`));
+configProjectsEl.addEventListener('change', (event) => handleConfigItemChange(event, id => `/api/projects/${id}`));
+
+// Archivar no pide confirmación: conserva tareas y tiempo, y crear otra vez
+// un proyecto con ese nombre lo reactiva.
+configProjectsEl.addEventListener('click', (event) => {
+    if (!event.target.closest('.config-archive-project')) return;
+    const projectId = Number(event.target.closest('.config-row').dataset.itemId);
+    boardState.filterProjects.delete(projectId);
+    configAction(() => apiFetch(`/api/projects/${projectId}`, { method: 'PATCH', json: { is_active: false } }));
+});
+
+configProjectForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = configProjectForm.querySelector('input[type="text"]');
+    const color = document.getElementById('configProjectColor');
+    const name = input.value.trim();
+    if (!name) return;
+    configAction(async () => {
+        await apiFetch('/api/projects', { method: 'POST', json: { name, color: color.value } });
+        input.value = '';
+    });
+});
 
 configTagsEl.addEventListener('click', async (event) => {
     if (!event.target.closest('.config-delete-tag')) return;

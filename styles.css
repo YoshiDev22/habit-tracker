@@ -3156,3 +3156,71 @@ body.board-wide .board-column {
     font-size: 1rem;
     cursor: pointer;
 }
+
+/* El color no se estira como el nombre en las filas de "añadir" de Organizar */
+.config-add-row input[type="color"] {
+    flex: 0 0 34px;
+    height: 34px;
+    padding: 0;
+}
+
+/* Crear proyecto desde el detalle de la tarjeta (board.js) */
+.card-new-project {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: -4px 0 12px;
+}
+
+.card-new-project input[type="color"] {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+
+.card-new-project input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.card-new-project input[type="text"]:focus {
+    outline: none;
+}
+
+.card-new-project-ok {
+    padding: 7px 14px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.card-new-project-cancel {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.card-new-project .form-error {
+    flex-basis: 100%;
+}
