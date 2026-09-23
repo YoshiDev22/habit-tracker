@@ -29,6 +29,14 @@ const HABITS = [];
 // saliera dos veces.
 const HABIT_LABELS = {};
 const HABIT_ICONS = {};
+// Y su color, también del backend (habits.color). Hasta la 1.13 vivía solo en
+// localStorage.habit_colors y no viajaba entre dispositivos.
+const HABIT_COLORS = {};
+const DEFAULT_HABIT_COLOR = '#3498db';
+
+function habitColor(key) {
+    return HABIT_COLORS[key] || DEFAULT_HABIT_COLOR;
+}
 
 let previousHabits = [];
 let initialSelectedHabits = [];
@@ -747,20 +755,13 @@ function getRowIcon(row) {
 
 // La lista de arriba es lo que sigues, y nada más.
 function renderHabitRows(habits) {
-    // El color de localStorage manda sobre el del backend mientras siga viva la
-    // deuda de la entrada 4 del backlog.
-    let savedColors = {};
-    try {
-        savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
-    } catch (e) {}
-
     habitsOptions.innerHTML = '';
     habits.forEach(habit => {
         habitsOptions.appendChild(buildHabitRow({
             key: habit.key,
             label: habit.label || habit.key,
             icon: habit.icon,
-            color: savedColors[habit.key] || habit.color,
+            color: habit.color || DEFAULT_HABIT_COLOR,
             checked: true
         }));
     });
@@ -1027,14 +1028,11 @@ async function handleSaveHabits() {
     if (!confirmed) return;
 
     // Recién ahora se persiste, para que cancelar el confirm no deje nada a
-    // medias. El color sigue en localStorage (deuda de la entrada 4 del
-    // backlog); el nombre y el emoji ya no: viven en el backend, que es lo que
-    // los hace viajar entre dispositivos.
+    // medias. Nombre, emoji y color viven en el backend, que es lo que los hace
+    // viajar entre dispositivos.
     const selectedKeys = checkedRows.map(row => row.dataset.habitKey);
 
-    localStorage.setItem('habit_colors', JSON.stringify(getSelectedHabitColors()));
     localStorage.setItem('user_habits', JSON.stringify(selectedKeys));
-    loadSavedColors();
 
     const selectedRestDays = [];
     habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked').forEach(cb => {
@@ -1103,11 +1101,13 @@ async function handleSaveHabits() {
                 continue;
             }
 
-            // Un solo PATCH con lo que de verdad cambió: reactivar y cambiar el
-            // emoji pueden pasar en el mismo Guardar.
+            // Un solo PATCH con lo que de verdad cambió: reactivar, cambiar el
+            // emoji y el color pueden pasar en el mismo Guardar.
             const changes = {};
+            const color = row.querySelector('input[type="color"]').value;
             if (!existing.is_active) changes.is_active = true;
             if ((existing.icon || '') !== icon) changes.icon = icon;
+            if ((existing.color || '').toLowerCase() !== color.toLowerCase()) changes.color = color;
             if (Object.keys(changes).length === 0) continue;
 
             await apiFetch(`/api/habits/definitions/${existing.id}`, {
@@ -1292,9 +1292,12 @@ async function loadHabitDefinitionsFromAPI() {
 
         const data = await apiFetch('/api/habits/definitions');
 
+        await uploadLocalHabitColors(data.habits || []);
+
         HABITS.length = 0;
         Object.keys(HABIT_LABELS).forEach(key => delete HABIT_LABELS[key]);
         Object.keys(HABIT_ICONS).forEach(key => delete HABIT_ICONS[key]);
+        Object.keys(HABIT_COLORS).forEach(key => delete HABIT_COLORS[key]);
 
         if (data.habits && data.habits.length > 0) {
             data.habits.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1302,6 +1305,7 @@ async function loadHabitDefinitionsFromAPI() {
                 HABITS.push(h.key);
                 HABIT_LABELS[h.key] = h.label;
                 HABIT_ICONS[h.key] = h.icon || '';
+                if (h.color) HABIT_COLORS[h.key] = h.color;
             });
         }
 
@@ -1473,15 +1477,13 @@ function renderMetrics() {
     const statsGrid = document.getElementById('statsGrid');
     statsGrid.innerHTML = '';
     
-    const savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
-    
     HABITS.forEach(habit => {
         const statCard = document.createElement('div');
         statCard.className = 'stat-card';
         
         const dot = document.createElement('div');
         dot.className = `stat-dot ${habit}`;
-        dot.style.backgroundColor = savedColors[habit] || '#3498db';
+        dot.style.backgroundColor = habitColor(habit);
         
         const value = document.createElement('span');
         value.className = 'stat-value';
@@ -1570,22 +1572,18 @@ function renderCalendar() {
         const dotsContainer = document.createElement('div');
         dotsContainer.className = 'habit-dots';
         
-        // Cargar colores guardados
-        const savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
         const activeHabits = getActiveHabits();
         
         activeHabits.forEach(habit => {
             const dot = document.createElement('span');
             dot.className = `habit-dot ${habit}`;
             
-            // Cargar color del hábito
-            const habitColor = savedColors[habit] || '#3498db';
-            
+
             // Si el hábito está marcado para este día, mostrar con su color
             // Si no está marcado, mostrar en gris
             if (dayData[habit]) {
                 dot.classList.add('active');
-                dot.style.backgroundColor = habitColor;
+                dot.style.backgroundColor = habitColor(habit);
             } else {
                 // Sin color inline: .habit-dot ya trae var(--dot-inactive) en CSS,
                 // así el punto sigue el tema en vez de quedar gris fijo.
@@ -1636,9 +1634,7 @@ function showHabitPopover(dateKey, targetCell) {
         // También actualizar el color del dot según el estado
         const dot = btn.querySelector('.habit-dot');
         if (dot) {
-            const savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
-            const habitColor = savedColors[habit] || '#3498db';
-            dot.style.backgroundColor = isCompleted ? habitColor : '';
+            dot.style.backgroundColor = isCompleted ? habitColor(habit) : '';
         }
     });
     
@@ -1784,7 +1780,6 @@ function getActiveHabits() {
 // Función para renderizar los botones del popover dinámicamente
 function renderHabitPopoverButtons() {
     const habitsList = document.getElementById('habitsList');
-    const savedColors = JSON.parse(localStorage.getItem('habit_colors') || '{}');
     const activeHabits = getActiveHabits();
     
     habitsList.innerHTML = '';
@@ -1802,8 +1797,7 @@ function renderHabitPopoverButtons() {
         const dot = document.createElement('span');
         dot.className = `habit-dot ${habit}`;
         
-        // Aplicar color guardado o color por defecto
-        const color = savedColors[habit] || '#3498db';
+        const color = habitColor(habit);
         dot.style.backgroundColor = color;
         
         const label = document.createElement('span');
@@ -1821,8 +1815,42 @@ function renderHabitPopoverButtons() {
 }
 
 function loadSavedColors() {
-    // Cargar colores guardados y renderizar popover
+    // Los colores ya están en HABIT_COLORS: solo repinta el popover
     renderHabitPopoverButtons();
+}
+
+// Hasta la 1.13 el color de cada hábito solo se guardaba en este navegador
+// (localStorage.habit_colors). La primera vez que carga esta versión, se sube
+// lo que haya al backend y se borra la clave. Si un PATCH falla, la clave se
+// queda para reintentar en la próxima carga.
+async function uploadLocalHabitColors(habits) {
+    let local = null;
+    try {
+        local = JSON.parse(localStorage.getItem('habit_colors') || 'null');
+    } catch (e) {
+        local = null;
+    }
+    if (!local || typeof local !== 'object') {
+        try { localStorage.removeItem('habit_colors'); } catch (e) {}
+        return;
+    }
+
+    for (const habit of habits) {
+        const color = local[habit.key];
+        if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) continue;
+        if (color.toLowerCase() === (habit.color || '').toLowerCase()) continue;
+        try {
+            const updated = await apiFetch(`/api/habits/definitions/${habit.id}`, {
+                method: 'PATCH',
+                json: { color },
+            });
+            habit.color = updated.color;
+        } catch (error) {
+            console.error('No se pudo subir el color del hábito:', error);
+            return;
+        }
+    }
+    try { localStorage.removeItem('habit_colors'); } catch (e) {}
 }
 
 // ============================================

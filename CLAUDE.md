@@ -369,18 +369,19 @@ Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 
 ### Estado en localStorage
 
-Claves: `access_token`, `theme`, `habitsData`, `user_habits`, `habit_colors`,
+Claves: `access_token`, `theme`, `habitsData`, `user_habits`,
 `pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`, `pomodoro_activity` (último clic o
 tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista,
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión) y
 `last_view` (última pestaña: `projects.js` la aplica al cargar, antes del primer pintado,
 y se borra al cerrar sesión).
 
-**Inconsistencia conocida:** el modelo `Habit` ya tiene `label`, `color`, `icon` e
-`is_active` en la base. Archivar, borrar, el nombre y el emoji ya operan contra el backend
-(se eliminaron `hidden_habits` y `habit_labels`), pero **el color sigue en localStorage**
-(`habit_colors`), y el usuario lo pierde al cambiar de dispositivo. Es la entrada 4 del
-`BACKLOG.md`. Al tocar esa zona, mover hacia el backend.
+**Nombre, emoji y color de cada hábito viven en el backend** (`habits.label`, `icon`,
+`color`) y se leen de `HABIT_LABELS`, `HABIT_ICONS` y `HABIT_COLORS` (`habitColor(key)`),
+que llena `loadHabitDefinitionsFromAPI()`. Hasta la 1.13 el color vivía en
+`localStorage.habit_colors`: `uploadLocalHabitColors()` sube lo que quede ahí la primera vez
+y borra la clave. No volver a guardar preferencias de la cuenta en localStorage: no viajan
+entre dispositivos.
 
 El pomodoro es **offline-first**: si el POST de una sesión falla, `queuePendingSession()`
 la guarda en `pomodoro_pending` y `flushPendingSessions()` la reintenta al iniciar. No

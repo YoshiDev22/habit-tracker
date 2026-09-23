@@ -14,7 +14,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 4 | P2 | Fuente de verdad partida entre `Habit` y localStorage (habit_colors) | parcial |
 | 5 | P3 | Sin tests ni CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 9 | P4 | Sin favicon ni manifest | diagnosticado |
@@ -24,43 +23,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 22 | P4 | Sesión de tiempo duplicada si el navegador se cae al guardarla | diagnosticado |
-
----
-
-## 4 · P2 · Fuente de verdad partida entre `Habit` y localStorage (habit_colors)
-
-**Estado:** Parcialmente resuelto, y ya solo queda el color.
-
-- `hidden_habits` se eliminó del código y de `localStorage`: archivar y borrar van
-  directos al backend (`PATCH /api/habits/definitions/{id}` con `is_active: false`,
-  `DELETE /api/habits/delete-habit` y `DELETE /api/habits/definitions/{id}`).
-- `habit_labels` también se fue. El nombre lo manda el backend (`HABIT_LABELS` se llena en
-  `loadHabitDefinitionsFromAPI()`), y el emoji igual, en `HABIT_ICONS`. Los dos se editan
-  contra `PATCH /api/habits/definitions/{id}`.
-- Falta `habit_colors`.
-
-**Síntoma.** El color de cada hábito no viaja entre dispositivos: entrando desde otro
-navegador, los hábitos salen con el color por defecto.
-
-**Causa.** El modelo `Habit` ya tiene `color` en la base
-([backend/models.py:29](backend/models.py#L29)) y la API lo expone en
-`/api/habits/definitions`, pero `renderHabitRows()` hace ganar al valor de
-`localStorage.habit_colors` sobre el del backend, y `handleSaveHabits()` escribe ahí en vez
-de mandarlo. La base tiene el dato y el navegador lo ignora. `habitColors()` en
-[reports.js](reports.js) hace lo mismo para pintar los hábitos en Reportes: cambiarlo a
-la vez.
-
-**Arreglo.** Leer el color de `/api/habits/definitions` y mandarlo en el mismo `PATCH` que
-ya se usa para el emoji (`handleSaveHabits()` compara contra `existing` y manda solo lo que
-cambió: agregar `color` a esa comparación es el cambio). Conviene una migración suave: en
-el primer guardado tras el cambio, subir lo que haya en `habit_colors` y después dejar de
-leerlo.
-
-Ojo con el orden: `loadHabitDefinitionsFromAPI()` llama a `loadSavedColors()`, así que hay
-que desmontar esa dependencia.
-
-**Aceptación.** Cambiar el color de un hábito, entrar desde otro navegador con la misma
-cuenta y ver el color nuevo. Sin escrituras a `habit_colors` en el código.
 
 ---
 
@@ -162,8 +124,9 @@ código y volver a desplegar.
 **Arreglo.** Tres ajustes por usuario: enfoque, descanso corto y descanso largo.
 
 Sobre **dónde guardarlos**, la elección importa y hay precedente en este mismo backlog:
-la entrada 4 describe el lío de tener los colores y etiquetas de los hábitos en
-`localStorage` en vez de en la base. No repetir ese error — van en el backend, en tres
+los colores y etiquetas de los hábitos estuvieron en `localStorage` en vez de en la base
+y costó varias versiones sacarlos (el último, el color, en la 1.14). No repetir ese
+error — van en el backend, en tres
 columnas nullable sobre `users`:
 
 ```
@@ -357,8 +320,8 @@ siempre que se pueda ("12 de 30 días", "8 días sin fumar") y no solo como porc
 línea corta junto a cada hábito del Calendario, además de la sección de metas) y el
 catálogo de plantillas de la fase 1.
 
-**Orden.** Reportes ya está (1.12.0). Antes de esta épica, la entrada 4 (colores de
-hábitos al backend), porque las dos tocan los hábitos.
+**Orden.** Reportes (1.12.0) y los colores de hábitos en el backend ya están. Antes de
+esta épica conviene la entrada 5 (pruebas en el repo), porque esta cambia el esquema.
 
 ---
 

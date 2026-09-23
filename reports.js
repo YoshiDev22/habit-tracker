@@ -311,16 +311,6 @@ function renderSummary({ sessions, prevSessions, completed, prevCompleted }) {
 // Hábitos
 // ============================================
 
-// Los colores de los hábitos siguen en localStorage (BACKLOG, entrada 4): el
-// mismo que pinta el calendario, y el del backend si no hay.
-function habitColors() {
-    try {
-        return JSON.parse(localStorage.getItem('habit_colors') || '{}');
-    } catch (error) {
-        return {};
-    }
-}
-
 function daysText(n) {
     return `${n} ${n === 1 ? 'día' : 'días'}`;
 }
@@ -346,10 +336,9 @@ function renderHabits({ habitReport }) {
 
     // Los días de descanso no cuentan como días que tocaban
     const target = Math.max(0, report.days_elapsed - report.rest_days_elapsed);
-    const colors = habitColors();
     const list = el('ul', 'report-bars');
     report.habits.forEach(habit => {
-        const color = colors[habit.key] || habit.color;
+        const color = habit.color;
         const item = el('li', 'report-bar-row');
         const head = el('div', 'report-bar-head');
         const name = el('span', 'report-bar-name');
