@@ -410,12 +410,12 @@ registros de un día, de todas las tareas, con ‹ › entre días, ✎ y ×. Ma
 cronómetros que se cerraron solos a las 8 h (nota `POMO_AUTOCLOSE_NOTE`), y al corregir la
 duración de uno esa nota se quita.
 
-**Cronómetro olvidado.** Con el cronómetro corriendo y 2 h sin clics ni teclas en la app
-(`POMO_IDLE_ASK_MS`, medido con `pomodoro_activity`), el tick abre `#idleCheckModal` en vez
-de seguir sumando: "Guardar hasta las HH:MM" (la última actividad, vía
-`finishStopwatch({ endAtEpochMs })`) o "Sí, sigo trabajando". Pasado el tope de 8 h solo se
-cierra solo si hubo actividad reciente; si no, pregunta. Contestar la pregunta no cuenta
-como actividad. Las filas salen de `buildSessionRow()` (`projects.js`),
+**Cronómetro olvidado.** Nada interrumpe mientras se trabaja (Yoshio lo pidió así). Solo
+al llegar al tope de 8 h: si hubo clics o teclas en la app en las últimas 2 h
+(`POMO_IDLE_ASK_MS`, medido con `pomodoro_activity`) se cierra solo con 8 h y su nota, como
+siempre; si no, el cronómetro se detiene en 8:00:00 y `#idleCheckModal` pregunta "Guardar
+hasta las HH:MM" (la última actividad, vía `finishStopwatch({ endAtEpochMs })`) o "Guardar
+las 8 h". Contestar la pregunta no cuenta como actividad. Las filas salen de `buildSessionRow()` (`projects.js`),
 la misma del historial de la tarjeta.
 
 ## Reglas duras

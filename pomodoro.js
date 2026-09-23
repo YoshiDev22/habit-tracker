@@ -14,8 +14,8 @@ const POMO_STALE_MS = 24 * 60 * 60 * 1000; // rehidratar más viejo que esto: de
 // cierra solo al llegar a este tope y la sesión se guarda recortada, con nota.
 const POMO_STOPWATCH_MAX_SECONDS = 8 * 60 * 60;
 const POMO_AUTOCLOSE_NOTE = 'Cerrado automáticamente a las 8 h';
-// Tras este rato sin tocar la app con el cronómetro corriendo, se pregunta si
-// se siguió trabajando y se ofrece guardar solo hasta la última actividad.
+// Al llegar al tope, si no se tocó la app en este rato, se pregunta en vez de
+// guardar 8 h: lo más probable es que el cronómetro se olvidara.
 const POMO_IDLE_ASK_MS = 2 * 60 * 60 * 1000;
 const POMO_ACTIVITY_KEY = 'pomodoro_activity';
 
@@ -247,10 +247,10 @@ function getElapsedMs(state, atEpochMs = Date.now()) {
 // ============================================
 //
 // Se guarda la última vez que se tocó la app (clic o tecla, en cualquier
-// pestaña; como mucho una escritura cada 30 s). Con el cronómetro corriendo y
-// 2 h sin actividad, en vez de seguir sumando (o cerrarse solo a las 8 h con
-// horas que no se trabajaron) se pregunta, y se ofrece guardar hasta la última
-// actividad. Si se está usando la app, nunca pregunta.
+// pestaña; como mucho una escritura cada 30 s). Nada interrumpe mientras se
+// trabaja: solo al llegar al tope de 8 h, y si no hubo actividad en las últimas
+// 2 h, el cronómetro se detiene y pregunta si guardar hasta la última actividad
+// o las 8 h. Con actividad reciente se cierra solo a las 8 h, como siempre.
 
 let lastActivityWrite = 0;
 
@@ -299,11 +299,10 @@ function clockLabel(epochMs) {
 function askIdleStopwatch() {
     if (!idleCheckModal.classList.contains('hidden')) return;
     idleCheckLastActivity = lastActivityFor(pomoState);
-    const elapsed = Math.round(getElapsedMs(pomoState) / 1000);
     const untilLast = Math.round(getElapsedMs(pomoState, idleCheckLastActivity) / 1000);
     const task = pomoState.taskTitle ? ` de «${pomoState.taskTitle}»` : '';
     const day = new Date(idleCheckLastActivity).toDateString() === new Date().toDateString() ? '' : ' de ayer';
-    idleCheckMessage.textContent = `El cronómetro${task} lleva ${formatDuration(elapsed)}. `
+    idleCheckMessage.textContent = `El cronómetro${task} llegó al tope de 8 h. `
         + `Tu última actividad en la app fue a las ${clockLabel(idleCheckLastActivity)}${day}.`;
     idleCheckSaveBtn.textContent = `Guardar hasta las ${clockLabel(idleCheckLastActivity)} (${formatDuration(untilLast)})`;
     showModal(idleCheckModal);
@@ -321,14 +320,11 @@ idleCheckSaveBtn.addEventListener('click', async () => {
     await finishStopwatch({ announce: false, endAtEpochMs: until });
 });
 
+// "Guardar las 8 h": el cierre de siempre, recortado al tope y con su nota
 idleCheckKeepBtn.addEventListener('click', async () => {
     closeIdleCheck();
-    recordActivity(true);
-    // Si mientras tanto pasó el tope, se cierra ya como siempre
-    if (isStopwatch(pomoState) && pomoState.status === 'running'
-        && getElapsedMs(pomoState) >= POMO_STOPWATCH_MAX_SECONDS * 1000) {
-        await finishStopwatch({ announce: false });
-    }
+    if (!isStopwatch(pomoState) || pomoState.status === 'idle') return;
+    await finishStopwatch({ announce: false });
 });
 
 // formatClock() solo hace mm:ss, y pasada la hora mostraría "90:00".
@@ -394,14 +390,15 @@ function tickPomodoro() {
     if (pomoState.status !== 'running') return;
 
     if (isStopwatch(pomoState)) {
-        // Sin actividad hace rato: preguntar antes que sumar (o cerrar a las 8 h)
-        if (isIdleStopwatch()) {
-            askIdleStopwatch();
-            renderPomoUI();
-            return;
-        }
-        // Sin meta: el único final automático es el tope de 8 h.
+        // Sin meta: el único final automático es el tope de 8 h. Si para
+        // entonces nadie tocó la app, se detiene y pregunta en vez de guardar 8 h.
         if (getElapsedMs(pomoState) >= POMO_STOPWATCH_MAX_SECONDS * 1000) {
+            if (isIdleStopwatch()) {
+                stopTicking();
+                askIdleStopwatch();
+                renderPomoUI();
+                return;
+            }
             finishStopwatch({ announce: true });
             return;
         }
@@ -789,7 +786,8 @@ function renderPomoUI() {
     let clock;
     let progressPct;
     if (isStopwatch(pomoState)) {
-        const elapsedSeconds = Math.floor(getElapsedMs(pomoState) / 1000);
+        // Tope incluido: mientras espera respuesta en el tope, el reloj no pasa de 8 h
+        const elapsedSeconds = Math.min(POMO_STOPWATCH_MAX_SECONDS, Math.floor(getElapsedMs(pomoState) / 1000));
         clock = formatStopwatch(elapsedSeconds);
         progressPct = Math.min(100, (elapsedSeconds / POMO_STOPWATCH_MAX_SECONDS) * 100);
     } else {
@@ -856,7 +854,9 @@ function syncTimerMarks(clock = null) {
 }
 
 function pomoClockText() {
-    if (isStopwatch(pomoState)) return formatStopwatch(Math.floor(getElapsedMs(pomoState) / 1000));
+    if (isStopwatch(pomoState)) {
+        return formatStopwatch(Math.min(POMO_STOPWATCH_MAX_SECONDS, Math.floor(getElapsedMs(pomoState) / 1000)));
+    }
     return formatClock(Math.max(0, Math.ceil(getRemainingMs(pomoState) / 1000)));
 }
 

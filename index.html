@@ -685,8 +685,8 @@
         </div>
     </div>
 
-    <!-- Cronómetro olvidado (pomodoro.js, askIdleStopwatch): tras 2 h sin
-         actividad en la app pregunta en vez de seguir sumando en silencio. -->
+    <!-- Cronómetro olvidado (pomodoro.js, askIdleStopwatch): al llegar al tope
+         de 8 h sin actividad reciente, pregunta en vez de guardar 8 h. -->
     <div id="idleCheckModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal" style="max-width: 420px;" role="alertdialog" aria-modal="true" aria-labelledby="idleCheckTitle">
@@ -694,7 +694,7 @@
             <p id="idleCheckMessage" class="setup-subtitle"></p>
             <div class="habit-action-options">
                 <button type="button" id="idleCheckSaveBtn" class="submit-btn"></button>
-                <button type="button" id="idleCheckKeepBtn" class="submit-btn btn-neutral">Sí, sigo trabajando</button>
+                <button type="button" id="idleCheckKeepBtn" class="submit-btn btn-neutral">Guardar las 8 h</button>
             </div>
             <p class="form-hint">Después puedes corregirlo tocando «Hoy».</p>
         </div>
