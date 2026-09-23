@@ -367,7 +367,9 @@ Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 
 Claves: `access_token`, `theme`, `habitsData`, `user_habits`, `habit_colors`,
 `pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`, `projects_view` (tablero o lista,
-del dispositivo) y `board_selected` (último tablero abierto; se borra al cerrar sesión).
+del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión) y
+`last_view` (última pestaña: `projects.js` la aplica al cargar, antes del primer pintado,
+y se borra al cerrar sesión).
 
 **Inconsistencia conocida:** el modelo `Habit` ya tiene `label`, `color`, `icon` e
 `is_active` en la base. Archivar, borrar, el nombre y el emoji ya operan contra el backend

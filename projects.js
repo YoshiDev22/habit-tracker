@@ -80,6 +80,7 @@ function goToView(index, opts = {}) {
     });
     tabIndicator.style.transform = `translateX(${100 * currentViewIndex}%)`;
     watchActiveView();
+    writeLastView(currentViewIndex);
 
     window.viewChangedHooks.forEach(hook => hook(currentViewIndex));
 }
@@ -110,6 +111,42 @@ function watchActiveView() {
 }
 
 watchActiveView();
+
+// La última pestaña se recuerda en este dispositivo (localStorage.last_view):
+// al recargar se vuelve a ella sin pedir nada extra al servidor. Se aplica ya,
+// al cargar el script, para no enseñar un instante el Calendario; los hooks de
+// vista (tablero ancho, cargar Reportes) se disparan en init, cuando board.js y
+// reports.js ya se registraron.
+const LAST_VIEW_KEY = 'last_view';
+
+function readLastView() {
+    try {
+        const index = Number(localStorage.getItem(LAST_VIEW_KEY));
+        return Number.isInteger(index) && index >= 0 && index < VIEW_COUNT ? index : 0;
+    } catch (error) {
+        return 0;
+    }
+}
+
+function writeLastView(index) {
+    try {
+        localStorage.setItem(LAST_VIEW_KEY, String(index));
+    } catch (error) {
+        // Sin almacenamiento (modo privado estricto): solo no se recuerda
+    }
+}
+
+goToView(readLastView(), { animate: false });
+window.appInitHooks.push(() => goToView(currentViewIndex, { animate: false }));
+// Quien entre después en este dispositivo empieza por el Calendario
+window.appLogoutHooks.push(() => {
+    goToView(0, { animate: false });
+    try {
+        localStorage.removeItem(LAST_VIEW_KEY);
+    } catch (error) {
+        // nada que limpiar
+    }
+});
 
 VIEW_TABS.forEach((tab, i) => {
     tab.addEventListener('click', () => goToView(i));

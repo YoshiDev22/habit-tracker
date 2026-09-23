@@ -16,6 +16,7 @@ const reportsState = {
     from: null,         // Date local, a medianoche
     to: null,           // Date local, incluido
     requestId: 0,       // descarta respuestas de un rango que ya no se ve
+    sawFirstProjects: false,  // la primera carga de proyectos de la sesión no es un cambio
     tagIds: new Set(),  // etiquetas elegidas para su total sin contar doble
 };
 
@@ -770,6 +771,7 @@ function initReports() {
 
 function resetReports() {
     reportsState.requestId++;
+    reportsState.sawFirstProjects = false;
     reportsState.tagIds.clear();
     reportsBody.replaceChildren();
     initReports();
@@ -780,9 +782,17 @@ function resetReports() {
 window.viewChangedHooks.push(index => {
     if (index === REPORTS_VIEW_INDEX) loadReports();
 });
-// Mientras se ve (p. ej. termina un pomodoro), también se refresca
+// Mientras se ve (p. ej. termina un pomodoro), también se refresca. La primera
+// carga de proyectos de la sesión no cuenta: al recargar con Reportes abierto,
+// la vista ya se pidió al entrar y se pediría dos veces.
 window.projectsChangedHooks.push(() => {
+    if (!reportsState.sawFirstProjects) {
+        reportsState.sawFirstProjects = true;
+        return;
+    }
     if (isReportsVisible()) loadReports();
 });
-window.appInitHooks.push(initReports);
+// El rango inicial se fija ya, al cargar: projects.js puede abrir esta vista
+// (última pestaña recordada) antes de que corran los appInitHooks de aquí.
+initReports();
 window.appLogoutHooks.push(resetReports);
