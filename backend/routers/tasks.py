@@ -10,7 +10,7 @@ from backend.models import (
     TaskChecklistItem, TaskComment, Tag, TaskTag, utc_now_naive,
 )
 from backend.schemas import (
-    TaskCreate, TaskUpdate, TaskResponse, TaskListResponse,
+    TaskCreate, TaskUpdate, TaskResponse, TaskListResponse, TaskReorder,
     ChecklistItemCreate, ChecklistItemUpdate, ChecklistItemResponse, ChecklistListResponse,
     CommentCreate, CommentUpdate, CommentResponse, CommentListResponse,
 )
@@ -34,6 +34,15 @@ def _get_owned_task(session: Session, user_id: int, task_id: int) -> Task:
             detail="Tarea no encontrada"
         )
     return task
+
+
+def _next_order(session: Session, user_id: int, column_id: Optional[int]) -> int:
+    """Una posición detrás de la última tarjeta de la columna: lo nuevo y lo que
+    llega de otra columna queda al final, no encima de lo ya ordenado."""
+    last = session.exec(
+        select(func.max(Task.order)).where(Task.user_id == user_id, Task.column_id == column_id)
+    ).one()
+    return 0 if last is None else last + 1
 
 
 def _set_task_tags(session: Session, user_id: int, task_id: int, tag_ids: List[int]) -> None:
@@ -210,7 +219,7 @@ def create_task(
         project_id=project_id,
         title=task_in.title,
         notes=task_in.notes,
-        order=task_in.order or 0,
+        order=task_in.order if task_in.order is not None else _next_order(session, current_user.id, column_id),
         column_id=column_id,
         is_done=is_done,
         completed_at=resolve_client_today(today) if is_done else None,
@@ -223,6 +232,45 @@ def create_task(
     session.refresh(new_task)
 
     return _task_responses(session, current_user.id, [new_task])[0]
+
+
+@router.post("/reorder", status_code=status.HTTP_204_NO_CONTENT)
+def reorder_tasks(
+    reorder_in: TaskReorder,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Guarda el orden de una columna tras arrastrar una tarjeta: task_ids es la
+    columna completa, de arriba abajo. Todas tienen que ser del usuario y estar
+    ya en esa columna (mover de columna es el PATCH de la tarea, antes).
+    """
+    column = get_owned_column(session, current_user.id, reorder_in.column_id)
+    ids = reorder_in.task_ids
+    if len(set(ids)) != len(ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Hay tareas repetidas en el orden"
+        )
+
+    tasks = session.exec(
+        select(Task).where(Task.user_id == current_user.id, Task.id.in_(ids))
+    ).all() if ids else []
+    by_id = {t.id: t for t in tasks}
+    if len(by_id) != len(ids):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarea no encontrada")
+    if any(t.column_id != column.id for t in tasks):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Todas las tareas tienen que estar en esa columna"
+        )
+
+    for position, task_id in enumerate(ids):
+        task = by_id[task_id]
+        if task.order != position:
+            task.order = position
+            session.add(task)
+    session.commit()
 
 
 @router.patch("/{task_id}", response_model=TaskResponse)
@@ -294,11 +342,16 @@ def update_task(
     if "column_id" in update_data:
         column = get_owned_column(session, current_user.id, update_data["column_id"])
         update_data["is_done"] = column.category == "done"
+        # Cambiar de columna sin decir dónde: al final de la nueva
+        if column.id != task.column_id and update_data.get("order") is None:
+            update_data["order"] = _next_order(session, current_user.id, column.id)
     elif "is_done" in update_data:
         current = session.get(BoardColumn, task.column_id)
         if (current.category == "done") != update_data["is_done"]:
             category = "done" if update_data["is_done"] else "todo"
             update_data["column_id"] = first_column_id(session, current.board_id, category)
+            if update_data.get("order") is None:
+                update_data["order"] = _next_order(session, current_user.id, update_data["column_id"])
 
     if "is_done" in update_data:
         if update_data["is_done"] and not task.is_done:

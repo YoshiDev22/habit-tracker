@@ -306,7 +306,7 @@ class TaskCreate(SQLModel):
     project_id: Optional[int] = None  # sin él, "Sin asignar"
     title: str
     notes: Optional[str] = None
-    order: Optional[int] = 0
+    order: Optional[int] = None       # sin él, al final de su columna
     column_id: Optional[int] = None   # columna exacta; manda sobre board_id
     board_id: Optional[int] = None    # sin column_id: la primera "todo" de este tablero
     tag_ids: Optional[List[int]] = None
@@ -324,6 +324,12 @@ class TaskUpdate(SQLModel):
     project_id: Optional[int] = None  # cambiar el proyecto; null = "Sin asignar"
     column_id: Optional[int] = None   # mover la tarea de columna (o de tablero); manda sobre is_done
     tag_ids: Optional[List[int]] = None  # reemplaza TODAS las etiquetas; [] las quita
+
+
+class TaskReorder(SQLModel):
+    """El orden completo de una columna, de arriba abajo, tras arrastrar una tarjeta."""
+    column_id: int
+    task_ids: List[int]
 
 
 class TaskResponse(SQLModel):

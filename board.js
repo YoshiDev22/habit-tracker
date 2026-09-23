@@ -479,8 +479,10 @@ async function moveTaskToColumn(taskId, columnId) {
     const task = boardState.tasks.find(t => t.id === taskId);
     if (!task || task.column_id === columnId) return;
 
-    // Optimista: la tarjeta cambia de columna ya, y el refresco confirma.
+    // Optimista: la tarjeta pasa ya al final de la otra columna, como hace el
+    // servidor, y el refresco confirma.
     task.column_id = columnId;
+    boardState.tasks = [...boardState.tasks.filter(t => t.id !== taskId), task];
     renderBoard();
 
     try {
@@ -554,8 +556,30 @@ boardColumns.addEventListener('keydown', (event) => {
 // ============================================
 // Arrastrar y soltar (solo mouse/trackpad)
 // ============================================
+//
+// Una tarjeta se suelta en cualquier punto de una columna, la suya incluida:
+// una línea marca dónde caerá, y al soltar se guarda el orden de la columna.
 
 let draggedTaskId = null;
+const dropIndicator = document.createElement('div');
+dropIndicator.className = 'drop-indicator';
+
+// La tarjeta (visible, y que no sea la arrastrada) delante de la que caería:
+// la primera cuya mitad queda por debajo del puntero. null = al final.
+function cardBeforePointer(list, clientY) {
+    const cards = [...list.querySelectorAll('.board-card:not(.dragging)')];
+    return cards.find(card => {
+        const box = card.getBoundingClientRect();
+        return clientY < box.top + box.height / 2;
+    }) || null;
+}
+
+function clearDropMarks() {
+    dropIndicator.remove();
+    boardColumns.querySelectorAll('.dragging, .drop-target').forEach(el => {
+        el.classList.remove('dragging', 'drop-target');
+    });
+}
 
 boardColumns.addEventListener('dragstart', (event) => {
     const card = event.target.closest('.board-card');
@@ -576,6 +600,11 @@ boardColumns.addEventListener('dragover', (event) => {
         if (c !== column) c.classList.remove('drop-target');
     });
     column.classList.add('drop-target');
+
+    const list = column.querySelector('.board-cards');
+    const before = cardBeforePointer(list, event.clientY);
+    if (before) list.insertBefore(dropIndicator, before);
+    else list.appendChild(dropIndicator);
 });
 
 boardColumns.addEventListener('dragleave', (event) => {
@@ -587,17 +616,57 @@ boardColumns.addEventListener('drop', (event) => {
     const column = event.target.closest('.board-column');
     if (!column || draggedTaskId === null) return;
     event.preventDefault();
+    const list = column.querySelector('.board-cards');
+    const before = cardBeforePointer(list, event.clientY);
     const taskId = draggedTaskId;
     draggedTaskId = null;
-    moveTaskToColumn(taskId, Number(column.dataset.columnId));
+    clearDropMarks();
+    dropTask(taskId, Number(column.dataset.columnId), before ? Number(before.dataset.taskId) : null);
 });
 
 boardColumns.addEventListener('dragend', () => {
     draggedTaskId = null;
-    boardColumns.querySelectorAll('.dragging, .drop-target').forEach(el => {
-        el.classList.remove('dragging', 'drop-target');
-    });
+    clearDropMarks();
 });
+
+// Suelta la tarea en la columna, delante de beforeId (null = al final). El
+// orden se calcula sobre TODAS las tareas de la columna, no solo las visibles:
+// con un filtro activo, las ocultas conservan su sitio relativo.
+async function dropTask(taskId, columnId, beforeId) {
+    const task = boardState.tasks.find(t => t.id === taskId);
+    if (!task || beforeId === taskId) return;
+
+    const others = boardState.tasks.filter(t => t.column_id === columnId && t.id !== taskId);
+    let index = beforeId === null ? others.length : others.findIndex(t => t.id === beforeId);
+    if (index < 0) index = others.length;
+    const ordered = [...others.slice(0, index), task, ...others.slice(index)];
+
+    const sameColumn = task.column_id === columnId;
+    const current = boardState.tasks.filter(t => t.column_id === columnId).map(t => t.id);
+    if (sameColumn && current.join(',') === ordered.map(t => t.id).join(',')) return;
+
+    // Optimista: el tablero se ve ya como quedará, y el refresco lo confirma
+    task.column_id = columnId;
+    const rest = boardState.tasks.filter(t => t.column_id !== columnId);
+    boardState.tasks = [...rest, ...ordered];
+    renderBoard();
+
+    try {
+        if (!sameColumn) {
+            await apiFetch(`/api/tasks/${taskId}?today=${getDateKey(new Date())}`, {
+                method: 'PATCH',
+                json: { column_id: columnId },
+            });
+        }
+        await apiFetch('/api/tasks/reorder', {
+            method: 'POST',
+            json: { column_id: columnId, task_ids: ordered.map(t => t.id) },
+        });
+    } catch (error) {
+        console.error('Error al mover la tarjeta:', error);
+    }
+    await refreshAfterBoardChange();
+}
 
 // ============================================
 // Detalle de la tarjeta

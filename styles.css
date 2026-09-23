@@ -3224,3 +3224,12 @@ body.board-wide .board-column {
 .card-new-project .form-error {
     flex-basis: 100%;
 }
+
+/* Dónde caerá la tarjeta que se arrastra (board.js) */
+.drop-indicator {
+    height: 3px;
+    margin: -2px 0;
+    border-radius: 2px;
+    background: var(--accent);
+    pointer-events: none;
+}
