@@ -28,6 +28,7 @@ const reportsCustom = document.getElementById('reportsCustom');
 const reportsFrom = document.getElementById('reportsFrom');
 const reportsTo = document.getElementById('reportsTo');
 const reportsRangeBtns = document.querySelectorAll('[data-range]');
+const reportsExportBtn = document.getElementById('reportsExport');
 
 // ============================================
 // Fechas
@@ -755,6 +756,98 @@ function renderBySource({ sessions }) {
     });
     return reportCard('Cómo se registró', bar, legend);
 }
+
+// ============================================
+// Exportar a CSV
+// ============================================
+//
+// Un registro por fila, del rango que se ve, para abrirlo en Excel o Google
+// Sheets. Se arma en el navegador con los mismos endpoints de la vista.
+
+const CSV_HEADER = ['Fecha', 'Inicio', 'Fin', 'Duración', 'Horas', 'Tarea', 'Proyecto', 'Etiquetas', 'Origen', 'Nota'];
+
+function csvCell(value) {
+    let text = value === null || value === undefined ? '' : String(value);
+    // Un título que empiece por = + - @ lo ejecutaría Excel como fórmula
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function clockOf(date) {
+    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function buildTimeCsv(sessions, tasks, projects, tags) {
+    const taskById = new Map(tasks.map(t => [t.id, t]));
+    const projectById = new Map(projects.map(p => [p.id, p]));
+    const tagById = new Map(tags.map(t => [t.id, t]));
+    const sourceLabel = Object.fromEntries(SOURCE_KINDS.map(k => [k.key, k.label]));
+
+    const rows = [...sessions]
+        .sort((a, b) => a.started_at.localeCompare(b.started_at))
+        .map(s => {
+            const task = taskById.get(s.task_id);
+            const project = projectById.get(s.project_id);
+            const minutes = Math.round(s.duration_seconds / 60);
+            const tagNames = task ? task.tag_ids.map(id => (tagById.get(id) || {}).name).filter(Boolean) : [];
+            return [
+                s.session_date,
+                clockOf(parseUtcIso(s.started_at)),
+                clockOf(parseUtcIso(s.ended_at)),
+                `${Math.floor(minutes / 60)}:${pad2(minutes % 60)}`,
+                (s.duration_seconds / 3600).toFixed(2),
+                task ? task.title : '',
+                project ? project.name : '',
+                tagNames.join(', '),
+                sourceLabel[s.source] || s.source,
+                s.note || '',
+            ];
+        });
+    // BOM: sin él, Excel abre el UTF-8 como Latin-1 y rompe los acentos
+    return '\uFEFF' + [CSV_HEADER, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+}
+
+function downloadText(filename, text, type) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportReportCsv() {
+    const { from, to } = reportsState;
+    const label = reportsExportBtn.textContent;
+    reportsExportBtn.disabled = true;
+    reportsExportBtn.textContent = 'Preparando…';
+    try {
+        const [sessions, tasksData, projectsData, tagsData] = await Promise.all([
+            fetchFocusSessions(from, to),
+            apiFetch('/api/tasks'),
+            apiFetch('/api/projects?include_inactive=true'),
+            apiFetch('/api/tags'),
+        ]);
+        if (sessions.length === 0) {
+            reportsExportBtn.textContent = 'Sin registros en este periodo';
+            setTimeout(() => { reportsExportBtn.textContent = label; }, 2500);
+            return;
+        }
+        const csv = buildTimeCsv(sessions, tasksData.tasks, projectsData.projects, tagsData.tags);
+        downloadText(`habit-tracker-tiempo_${getDateKey(from)}_${getDateKey(to)}.csv`, csv, 'text/csv;charset=utf-8');
+        reportsExportBtn.textContent = label;
+    } catch (error) {
+        console.error('Error al exportar el reporte:', error);
+        reportsExportBtn.textContent = 'No se pudo exportar';
+        setTimeout(() => { reportsExportBtn.textContent = label; }, 2500);
+    } finally {
+        reportsExportBtn.disabled = false;
+    }
+}
+
+reportsExportBtn.addEventListener('click', exportReportCsv);
 
 // ============================================
 // Hooks

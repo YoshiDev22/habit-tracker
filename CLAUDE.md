@@ -344,6 +344,10 @@ cifras deben cuadrar con ellas. El mapa por hora usa el huso **actual** del nave
 importa, guardar el offset en una columna nueva vía `scripts/migrate.py`. Endpoints propios: `GET /api/habits/report` y los filtros
 `completed_from`/`completed_to` de `GET /api/tasks`.
 
+"Exportar CSV" (`exportReportCsv()`) arma el archivo en el navegador con los mismos
+endpoints: una fila por sesión `focus` del rango, BOM UTF-8 para Excel, y `csvCell()`
+antepone `'` a lo que empiece por `= + - @` (un título así se ejecutaría como fórmula).
+
 Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 
 - **Computadora (≥ 900 px):** mientras se ve, `body.board-wide` ensancha `.app-container`

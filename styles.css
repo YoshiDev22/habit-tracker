@@ -3842,3 +3842,23 @@ button.day-log-date:focus-visible {
     opacity: 0;
     pointer-events: none;
 }
+
+.reports-export {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.reports-export:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--accent);
+}
+
+.reports-export:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
