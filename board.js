@@ -88,6 +88,7 @@ async function loadBoard() {
         boardState.loaded = true;
         renderBoardSelect();
         renderBoard();
+        refreshOpenCard();
         maybeOfferFirstBoard();
     } catch (error) {
         console.error('Error al cargar el tablero:', error);
@@ -853,6 +854,15 @@ function renderCardHeader(task) {
         fitTitleHeight();
     }
     cardTimeEl.textContent = formatDuration(boardTaskSeconds(task));
+}
+
+// Con el detalle abierto, el tablero se recarga debajo (p. ej. al detener el
+// tiempo desde la tarjeta): su tiempo tiene que seguirlo, no esperar a cerrar.
+// Solo la cabecera: título y descripción pueden estar a medio escribir.
+function refreshOpenCard() {
+    if (cardModal.classList.contains('hidden')) return;
+    const task = cardTask();
+    if (task) renderCardHeader(task);
 }
 
 function renderCardChecklist() {
