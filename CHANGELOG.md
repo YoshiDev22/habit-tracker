@@ -7,6 +7,56 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.10.0] — 2026-09-22
+
+La pestaña Proyectos se convierte en **Tableros**: un kanban donde cada tarjeta es una
+tarea.
+
+### Nuevo
+- **Tableros kanban**: varios tableros ("Escuela", "Trabajo"…), cada uno con sus propias
+  columnas. Las tarjetas se arrastran entre columnas en la computadora; en el teléfono se
+  ve una columna a la vez y se mueven con "Mover a…". Al entrar sin tableros, la app te
+  ofrece crear el primero.
+- **Organizar (⚙)**: crear, renombrar, reordenar, archivar y borrar tableros y columnas.
+  Una columna marcada "✓ Terminada" da la tarea por hecha; a la "📥 Entrada" llegan las
+  nuevas.
+- **Detalle de la tarjeta**: descripción, checklist, comentarios con autor y fecha,
+  proyecto y etiquetas. Todo se guarda al escribir.
+- **Etiquetas**: varias por tarea, bajo el título, para filtrar el tablero y saber en qué
+  tipo de actividad se va tu tiempo. Al sumar varias, cada sesión cuenta una sola vez.
+- **Tareas sin proyecto**: van a "Sin asignar", así ves qué tiempo te falta clasificar.
+  Al darles proyecto, su tiempo se va con ellas.
+- **Tiempo desde la tarjeta**: cronómetro, pomodoro o registro a mano. Mientras corre, la
+  tarjeta muestra el reloj en vivo y ■ para detenerlo; al terminar un pomodoro se ofrece
+  el descanso.
+- Crear proyectos desde el tablero (en la tarjeta o en Organizar) y ver y restaurar los
+  archivados.
+- **Hábitos**: emoji propio elegido de un panel, y una lista de hábitos archivados para
+  restaurarlos o borrarlos del todo.
+
+### Cambios
+- Borrar un proyecto ya no borra sus tareas ni su tiempo: pasan a "Sin asignar", salvo que
+  marques "Borrar también su tiempo registrado".
+- Menú pequeño ⋯ en cada proyecto (Archivar / Eliminar…) en vez de una ventana grande.
+- La tarjeta grande del reloj desaparece: el tiempo se controla desde la barra inferior, y
+  "Hoy" y el sonido pasan junto al selector de tablero.
+- El cronómetro aparece primero entre los modos, y detener antes de un minuto ya no pide
+  confirmación.
+
+### Correcciones
+- Una tarea terminada de noche quedaba con la fecha del día siguiente.
+- Cerrar sesión con el reloj corriendo perdía ese tiempo.
+- Editar un registro de tiempo de una tarea terminada le quitaba la tarea.
+- Los modales largos se podían salir de la pantalla; "Guardar Hábitos" queda siempre a la
+  vista.
+- El emoji de un hábito salía dos veces.
+
+### Para actualizar
+Esta versión añade columnas a la base de datos: correr `python3 scripts/migrate.py`
+**antes** de reiniciar el servicio. Si se olvida, el servicio no arranca y el log dice qué
+falta. Al primer acceso, tus tareas aparecen en "Mi tablero": las terminadas en *Hecho* y
+las pendientes en *Por hacer*.
+
 ## [1.9.0] — 2026-09-17
 
 ### Nuevo
@@ -90,6 +140,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.10.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.10.0
 [1.9.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.9.0
 [1.8.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.8.0
 [1.7.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.7.0
