@@ -502,11 +502,15 @@ Plan cuando se retome:
 - Decidir entonces: modelo (costo aprox. por sugerencia de ~$0.01 a ~$0.08 USD según el
   modelo), y avisar que el texto de la meta se envía a Anthropic.
 
+**Decidido (2026-09-23): el Calendario no cambia.** Sigue siendo la vista diaria que
+motiva con constancia (días marcados, racha). Los objetivos van en un lugar aparte; Yoshio
+propone el menú de configuración para crearlos y editarlos. El avance se expresa en días
+siempre que se pueda ("12 de 30 días", "8 días sin fumar") y no solo como porcentaje.
+
 **Decisiones pendientes de Yoshio antes del plan detallado:**
 
 1. ¿Sirven los cuatro tipos, o falta alguno?
 2. ¿Objetivos alimentados por el tiempo de una etiqueta o un proyecto?
-3. ¿La pestaña sigue siendo "Calendario" o pasa a "Objetivos" con el calendario dentro?
 
 **Orden.** Después de la entrada 12 (Reportes), que no toca el esquema.
 
