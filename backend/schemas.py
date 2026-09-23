@@ -1,5 +1,5 @@
 from sqlmodel import Field, SQLModel
-from pydantic import field_validator
+from pydantic import ConfigDict, field_validator
 import re
 from typing import Optional, Dict, List
 from datetime import date as date_type, datetime
@@ -77,8 +77,7 @@ class HabitEntryResponse(SQLModel):
     date: date_type = Field(alias="entry_date")
     habits_data: Dict = Field(default={}, sa_type=JSON)
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class HabitStats(SQLModel):
@@ -145,8 +144,7 @@ class HabitResponse(SQLModel):
     is_active: bool
     created_at: date_type
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class HabitListResponse(SQLModel):
@@ -206,8 +204,7 @@ class ColumnResponse(SQLModel):
     color: Optional[str] = None
     order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BoardCreate(SQLModel):
@@ -275,8 +272,7 @@ class ProjectResponse(SQLModel):
     is_system: bool = False           # "Sin asignar": no se renombra, archiva ni borra
     created_at: date_type
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectListResponse(SQLModel):
@@ -363,8 +359,7 @@ class TaskResponse(SQLModel):
     comment_count: int = 0
     tag_ids: List[int] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskListResponse(SQLModel):
@@ -403,8 +398,7 @@ class TagResponse(SQLModel):
     name: str
     color: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TagListResponse(SQLModel):
@@ -470,8 +464,7 @@ class ChecklistItemResponse(SQLModel):
     is_done: bool
     order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ChecklistListResponse(SQLModel):
@@ -559,8 +552,7 @@ class PomodoroSessionResponse(SQLModel):
     source: str = "timer"
     created_at: date_type
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PomodoroSessionListResponse(SQLModel):
