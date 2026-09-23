@@ -16,6 +16,7 @@ const reportsState = {
     from: null,         // Date local, a medianoche
     to: null,           // Date local, incluido
     requestId: 0,       // descarta respuestas de un rango que ya no se ve
+    tagIds: new Set(),  // etiquetas elegidas para su total sin contar doble
 };
 
 const reportsBody = document.getElementById('reportsBody');
@@ -186,11 +187,15 @@ async function fetchFocusSessions(from, to) {
 async function fetchReportData() {
     const { from, to } = reportsState;
     const prev = previousRange();
-    const [sessions, prevSessions] = await Promise.all([
+    const tagQuery = [...reportsState.tagIds].map(id => `&tag_ids=${id}`).join('');
+    const [sessions, prevSessions, projectsData, tagSummary] = await Promise.all([
         fetchFocusSessions(from, to),
         fetchFocusSessions(prev.from, prev.to),
+        // Con los archivados: su tiempo del rango también cuenta
+        apiFetch('/api/projects?include_inactive=true'),
+        apiFetch(`/api/tags/summary?${rangeQuery(from, to)}${tagQuery}`),
     ]);
-    return { sessions, prevSessions };
+    return { sessions, prevSessions, projects: projectsData.projects, tagSummary };
 }
 
 function reportsMessage(text) {
@@ -231,6 +236,8 @@ function renderReports(data) {
     reportsBody.replaceChildren(
         renderSummary(data),
         renderByDay(data),
+        renderByProject(data),
+        renderByTag(data),
     );
 }
 
@@ -383,6 +390,127 @@ function renderByDay({ sessions }) {
 }
 
 // ============================================
+// Barras horizontales (proyectos y etiquetas)
+// ============================================
+
+// rows: [{ name, color, seconds, note?, muted? }]. La barra es relativa a la
+// fila más larga; el porcentaje, al total que se pase (si se pasa).
+function barList(rows, total) {
+    const max = Math.max(1, ...rows.map(r => r.seconds));
+    const list = el('ul', 'report-bars');
+    rows.forEach(row => {
+        const item = el('li', `report-bar-row${row.muted ? ' muted' : ''}`);
+        const head = el('div', 'report-bar-head');
+        const name = el('span', 'report-bar-name');
+        const dot = el('i', 'report-bar-dot');
+        if (row.color) dot.style.background = row.color;
+        name.append(dot, document.createTextNode(row.name));
+        if (row.note) name.appendChild(el('span', 'report-bar-note', row.note));
+        const value = el('span', 'report-bar-value', formatDuration(row.seconds));
+        if (total) value.appendChild(el('span', 'report-bar-pct', ` · ${Math.round(row.seconds / total * 100)}%`));
+        head.append(name, value);
+
+        const track = el('div', 'report-bar-track');
+        const fill = el('div', 'report-bar-fill');
+        fill.style.width = `${(row.seconds / max) * 100}%`;
+        if (row.color) fill.style.background = row.color;
+        track.appendChild(fill);
+        item.append(head, track);
+        list.appendChild(item);
+    });
+    return list;
+}
+
+// ============================================
+// Por proyecto
+// ============================================
+
+function renderByProject({ sessions, projects }) {
+    const byId = new Map(projects.map(p => [p.id, p]));
+    const seconds = new Map();
+    let unassigned = 0;
+    sessions.forEach(s => {
+        const project = byId.get(s.project_id);
+        // "Sin asignar" y las sesiones sin proyecto son lo mismo: tiempo sin clasificar
+        if (!project || project.is_system) {
+            unassigned += s.duration_seconds;
+            return;
+        }
+        seconds.set(project.id, (seconds.get(project.id) || 0) + s.duration_seconds);
+    });
+
+    const total = sumSeconds(sessions);
+    if (total === 0) return reportCard('Por proyecto', reportsMessage('Sin tiempo registrado en este periodo.'));
+
+    const rows = [...seconds.entries()]
+        .map(([id, secs]) => {
+            const p = byId.get(id);
+            return { name: p.icon ? `${p.icon} ${p.name}` : p.name, color: p.color, seconds: secs,
+                note: p.is_active ? '' : 'archivado' };
+        })
+        .sort((a, b) => b.seconds - a.seconds);
+    if (unassigned > 0) {
+        rows.push({ name: 'Sin asignar', seconds: unassigned, note: 'sin clasificar', muted: true });
+    }
+    return reportCard('Por proyecto', barList(rows, total));
+}
+
+// ============================================
+// Por etiqueta
+// ============================================
+
+function renderByTag({ tagSummary }) {
+    const used = tagSummary.summaries.filter(t => t.total_seconds > 0)
+        .sort((a, b) => b.total_seconds - a.total_seconds);
+    // Una etiqueta elegida que ya no tiene tiempo en el rango deja de contar
+    const usedIds = new Set(used.map(t => t.tag_id));
+    [...reportsState.tagIds].forEach(id => { if (!usedIds.has(id)) reportsState.tagIds.delete(id); });
+
+    if (used.length === 0 && tagSummary.untagged_seconds === 0) {
+        return reportCard('Por etiqueta', reportsMessage('Sin tiempo registrado en este periodo.'));
+    }
+
+    const rows = used.map(t => ({ name: t.name, color: t.color, seconds: t.total_seconds, tagId: t.tag_id }));
+    if (tagSummary.untagged_seconds > 0) {
+        rows.push({ name: 'Sin etiqueta', seconds: tagSummary.untagged_seconds, muted: true });
+    }
+    const list = barList(rows);
+
+    // Tocar una etiqueta la elige; con dos o más se ve su total sin contar doble
+    [...list.children].forEach((item, i) => {
+        const tagId = rows[i].tagId;
+        if (tagId === undefined) return;
+        item.classList.add('selectable');
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
+        item.setAttribute('aria-pressed', String(reportsState.tagIds.has(tagId)));
+        const toggle = () => {
+            if (reportsState.tagIds.has(tagId)) reportsState.tagIds.delete(tagId);
+            else reportsState.tagIds.add(tagId);
+            loadReports();
+        };
+        item.addEventListener('click', toggle);
+        item.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggle();
+            }
+        });
+    });
+
+    let footer;
+    if (reportsState.tagIds.size >= 2) {
+        footer = el('p', 'report-note strong',
+            `Juntas: ${formatDuration(tagSummary.combined_seconds)}, cada sesión contada una vez.`);
+    } else {
+        footer = el('p', 'report-note',
+            'Una sesión cuenta en cada etiqueta de su tarea, así que estos tiempos no se suman entre sí. '
+            + 'Elige varias para ver su total sin contar doble.');
+    }
+    return reportCard('Por etiqueta', list, footer);
+}
+
+// ============================================
 // Hooks
 // ============================================
 
@@ -397,6 +525,7 @@ function initReports() {
 
 function resetReports() {
     reportsState.requestId++;
+    reportsState.tagIds.clear();
     reportsBody.replaceChildren();
     initReports();
 }
