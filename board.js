@@ -712,6 +712,7 @@ const cardState = {
     comments: null,
     sessions: null,   // registros de tiempo de la tarea (solo foco), null mientras carga
     historyExpanded: false,
+    editing: null,    // { kind: 'check' | 'comment', id } mientras se edita en el sitio
     dirty: false,     // algo cambió: refrescar el tablero al cerrar
 };
 
@@ -979,6 +980,19 @@ function renderCardChecklist() {
         row.className = 'card-check-row' + (item.is_done ? ' done' : '');
         row.dataset.itemId = String(item.id);
 
+        if (isEditing('check', item.id)) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'card-inline-edit';
+            input.maxLength = 200;
+            input.value = item.text;
+            input.setAttribute('aria-label', 'Editar elemento del checklist');
+            row.appendChild(input);
+            cardChecklistEl.appendChild(row);
+            requestAnimationFrame(() => { input.focus(); input.select(); });
+            return;
+        }
+
         const label = document.createElement('label');
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -988,6 +1002,13 @@ function renderCardChecklist() {
         label.appendChild(checkbox);
         label.appendChild(text);
 
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'card-check-edit';
+        editBtn.setAttribute('aria-label', `Editar ${item.text}`);
+        editBtn.title = 'Editar';
+        editBtn.textContent = '✎';
+
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'card-check-delete';
@@ -995,6 +1016,7 @@ function renderCardChecklist() {
         remove.textContent = '×';
 
         row.appendChild(label);
+        row.appendChild(editBtn);
         row.appendChild(remove);
         cardChecklistEl.appendChild(row);
     });
@@ -1034,20 +1056,52 @@ function renderCardComments() {
         meta.appendChild(author);
         meta.appendChild(when);
 
-        // Solo el autor puede borrarlo (el backend lo exige igual)
-        if (currentUser && comment.author_id === currentUser.id) {
+        // Solo el autor puede editarlo o borrarlo (el backend lo exige igual)
+        const editing = isEditing('comment', comment.id);
+        if (currentUser && comment.author_id === currentUser.id && !editing) {
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'card-comment-edit';
+            editBtn.textContent = 'Editar';
+            meta.appendChild(editBtn);
             const remove = document.createElement('button');
             remove.type = 'button';
             remove.className = 'card-comment-delete';
             remove.textContent = 'Eliminar';
             meta.appendChild(remove);
         }
+        item.appendChild(meta);
+
+        if (editing) {
+            const form = document.createElement('form');
+            form.className = 'card-comment-edit-form';
+            const textarea = document.createElement('textarea');
+            textarea.className = 'card-inline-edit';
+            textarea.rows = 3;
+            textarea.maxLength = 2000;
+            textarea.value = comment.body;
+            textarea.setAttribute('aria-label', 'Editar comentario');
+            const actions = document.createElement('div');
+            actions.className = 'card-comment-edit-actions';
+            const save = document.createElement('button');
+            save.type = 'submit';
+            save.className = 'card-comment-save';
+            save.textContent = 'Guardar';
+            const cancel = document.createElement('button');
+            cancel.type = 'button';
+            cancel.className = 'card-comment-cancel';
+            cancel.textContent = 'Cancelar';
+            actions.append(save, cancel);
+            form.append(textarea, actions);
+            item.appendChild(form);
+            cardCommentsEl.appendChild(item);
+            requestAnimationFrame(() => textarea.focus());
+            return;
+        }
 
         const body = document.createElement('p');
         body.className = 'card-comment-body';
         body.textContent = comment.body;
-
-        item.appendChild(meta);
         item.appendChild(body);
         cardCommentsEl.appendChild(item);
     });
@@ -1074,6 +1128,7 @@ async function openCardModal(taskId) {
     cardState.comments = null;
     cardState.sessions = null;
     cardState.historyExpanded = false;
+    cardState.editing = null;
     cardState.dirty = false;
     cardNotesInput.value = task.notes || '';
     cardTimerEl.dataset.timerTask = String(taskId);
@@ -1303,7 +1358,119 @@ cardChecklistEl.addEventListener('change', async (event) => {
     renderCardChecklist();
 });
 
+// ============================================
+// Editar en el sitio: elementos del checklist y comentarios
+// ============================================
+
+function isEditing(kind, id) {
+    return !!cardState.editing && cardState.editing.kind === kind && cardState.editing.id === id;
+}
+
+function startEditing(kind, id) {
+    cardState.editing = { kind, id };
+    if (kind === 'check') renderCardChecklist();
+    else renderCardComments();
+}
+
+function stopEditing() {
+    const kind = cardState.editing && cardState.editing.kind;
+    cardState.editing = null;
+    if (kind === 'check') renderCardChecklist();
+    else if (kind === 'comment') renderCardComments();
+}
+
+async function saveChecklistText(itemId, value) {
+    const item = (cardState.checklist || []).find(i => i.id === itemId);
+    const text = value.trim();
+    // Vacío o sin cambios: se deja como estaba (para quitarlo está la ×)
+    if (!item || !text || text === item.text) {
+        stopEditing();
+        return;
+    }
+    try {
+        // Solo el texto: si estaba marcado, sigue marcado
+        const updated = await apiFetch(`/api/tasks/${cardState.taskId}/checklist/${itemId}`, {
+            method: 'PATCH',
+            json: { text },
+        });
+        Object.assign(item, updated);
+        cardState.dirty = true;
+    } catch (error) {
+        console.error('Error al editar el checklist:', error);
+    }
+    stopEditing();
+}
+
+async function saveCommentBody(commentId, value) {
+    const comment = (cardState.comments || []).find(c => c.id === commentId);
+    const body = value.trim();
+    if (!comment || !body || body === comment.body) {
+        stopEditing();
+        return;
+    }
+    try {
+        const updated = await apiFetch(`/api/tasks/${cardState.taskId}/comments/${commentId}`, {
+            method: 'PATCH',
+            json: { body },
+        });
+        Object.assign(comment, updated);
+        cardState.dirty = true;
+    } catch (error) {
+        console.error('Error al editar el comentario:', error);
+    }
+    stopEditing();
+}
+
+// Enter guarda y Escape cancela. stopPropagation: el Escape de document
+// cerraría la tarjeta entera.
+cardChecklistEl.addEventListener('keydown', (event) => {
+    const input = event.target.closest('.card-inline-edit');
+    if (!input) return;
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        input.dataset.done = '1';
+        saveChecklistText(cardState.editing.id, input.value);
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        input.dataset.done = '1';
+        stopEditing();
+    }
+});
+
+// Salir del campo también guarda (salvo que ya lo hayan hecho Enter o Escape)
+cardChecklistEl.addEventListener('focusout', (event) => {
+    const input = event.target.closest('.card-inline-edit');
+    if (!input || input.dataset.done || !cardState.editing) return;
+    saveChecklistText(cardState.editing.id, input.value);
+});
+
+cardCommentsEl.addEventListener('submit', (event) => {
+    const form = event.target.closest('.card-comment-edit-form');
+    if (!form) return;
+    event.preventDefault();
+    saveCommentBody(cardState.editing.id, form.querySelector('textarea').value);
+});
+
+cardCommentsEl.addEventListener('keydown', (event) => {
+    const textarea = event.target.closest('.card-comment-edit-form textarea');
+    if (!textarea) return;
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        saveCommentBody(cardState.editing.id, textarea.value);
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        stopEditing();
+    }
+});
+
 cardChecklistEl.addEventListener('click', async (event) => {
+    const editBtn = event.target.closest('.card-check-edit');
+    if (editBtn) {
+        startEditing('check', Number(editBtn.closest('.card-check-row').dataset.itemId));
+        return;
+    }
     const remove = event.target.closest('.card-check-delete');
     if (!remove) return;
     const itemId = Number(remove.closest('.card-check-row').dataset.itemId);
@@ -1335,6 +1502,14 @@ cardCommentForm.addEventListener('submit', async (event) => {
 });
 
 cardCommentsEl.addEventListener('click', async (event) => {
+    if (event.target.closest('.card-comment-edit')) {
+        startEditing('comment', Number(event.target.closest('.card-comment').dataset.commentId));
+        return;
+    }
+    if (event.target.closest('.card-comment-cancel')) {
+        stopEditing();
+        return;
+    }
     const remove = event.target.closest('.card-comment-delete');
     if (!remove) return;
     const commentId = Number(remove.closest('.card-comment').dataset.commentId);

@@ -20,7 +20,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 13 | P3 | Duraciones del pomodoro fijas en el código | pendiente |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
-| 20 | P4 | Editar comentarios y elementos del checklist | pendiente |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 22 | P4 | Sesión de tiempo duplicada si el navegador se cae al guardarla | diagnosticado |
 
@@ -322,23 +321,6 @@ catálogo de plantillas de la fase 1.
 
 **Orden.** Reportes (1.12.0) y los colores de hábitos en el backend ya están. Antes de
 esta épica conviene la entrada 5 (pruebas en el repo), porque esta cambia el esquema.
-
----
-
-## 20 · P4 · Editar comentarios y elementos del checklist
-
-**Síntoma.** Un comentario o un elemento del checklist con una errata solo se puede
-borrar y escribir de nuevo.
-
-**Causa.** La API ya edita los dos (`PATCH /api/tasks/{id}/comments/{cid}` guarda
-`edited_at`; `PATCH /api/tasks/{id}/checklist/{iid}` acepta `text`), pero el detalle de la
-tarjeta solo ofrece borrar.
-
-**Arreglo.** Doble clic (o un ✎) para editar en el sitio; Enter guarda, Escape cancela.
-Los comentarios ya muestran "· editado" cuando `edited_at` existe.
-
-**Aceptación.** Editar un comentario propio y ver "· editado" tras recargar; editar un
-elemento del checklist sin perder si estaba marcado.
 
 ---
 
