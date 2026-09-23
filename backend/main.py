@@ -120,7 +120,9 @@ def api_version():
     return build_api_info()
 
 
-@app.get("/health")
+# Under /api for the same reason as /api/version: a bare /health never gets
+# past the reverse proxy, so an uptime monitor would see a permanent 404.
+@app.get("/api/health")
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint for uptime monitors"""
     return {"status": "healthy"}

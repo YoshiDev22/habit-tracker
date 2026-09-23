@@ -207,7 +207,9 @@ Lo que no se deduce leyendo los modelos:
 Un router por módulo en `backend/routers/` (`auth`, `habits`, `projects`, `tasks`,
 `pomodoro`), montados con prefijo `/api/<módulo>` en `main.py`. Para la lista completa con
 sus esquemas, levantar el server y abrir **`/api/docs`** (Swagger) — no `/docs`. Todo
-requiere `Authorization: Bearer` salvo `/api/auth/*`, `/api` y `/health`.
+requiere `Authorization: Bearer` salvo `/api/auth/*`, `/api`, `/api/version` y `/api/health`.
+En producción Caddy solo reenvía rutas con un segmento después de `/api`: una ruta pública
+nueva va bajo `/api/<algo>`, nunca en la raíz (`/health` daba 404 por eso).
 
 Lo que no se ve en Swagger:
 

@@ -124,7 +124,7 @@ Los endpoints se agrupan por módulo, todos con prefijo `/api`:
 | `/api/tags` | Etiquetas y tiempo por etiqueta |
 | `/api/pomodoro` | Registro y estadísticas de sesiones |
 
-Todos requieren `Authorization: Bearer <token>` salvo `/api/auth/*`, `/api` y `/health`.
+Todos requieren `Authorization: Bearer <token>` salvo `/api/auth/*`, `/api`, `/api/version` y `/api/health`.
 
 ### Ejemplo
 
