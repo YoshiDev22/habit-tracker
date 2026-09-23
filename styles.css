@@ -3553,3 +3553,56 @@ body.board-wide .board-column {
     color: var(--text-primary);
     font-weight: 600;
 }
+
+.report-heat {
+    display: grid;
+    grid-template-columns: 18px repeat(24, minmax(0, 1fr));
+    gap: 2px;
+    align-items: center;
+}
+
+.heat-hour {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    text-align: left;
+    white-space: nowrap;
+    overflow: visible;
+    height: 14px;
+}
+
+.heat-day {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.heat-cell {
+    --level: 0;
+    aspect-ratio: 1;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--accent) calc(var(--level) * 100%), var(--bg-surface-3));
+}
+
+.report-stack {
+    display: flex;
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--bg-surface-3);
+}
+
+.report-stack-part {
+    height: 100%;
+}
+
+.src-timer {
+    background: var(--accent);
+}
+
+.src-stopwatch {
+    background: var(--warning-solid);
+}
+
+.src-manual {
+    background: var(--neutral-solid);
+}

@@ -233,12 +233,15 @@ function reportCard(title, ...children) {
 }
 
 function renderReports(data) {
-    reportsBody.replaceChildren(
+    // Una sección sin nada que mostrar devuelve null y se omite
+    reportsBody.replaceChildren(...[
         renderSummary(data),
         renderByDay(data),
         renderByProject(data),
         renderByTag(data),
-    );
+        renderByHour(data),
+        renderBySource(data),
+    ].filter(Boolean));
 }
 
 // ============================================
@@ -508,6 +511,114 @@ function renderByTag({ tagSummary }) {
             + 'Elige varias para ver su total sin contar doble.');
     }
     return reportCard('Por etiqueta', list, footer);
+}
+
+// ============================================
+// ¿A qué hora rindes más?
+// ============================================
+
+const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+
+// grid[día][hora] en segundos, lunes = 0, con la hora LOCAL del navegador.
+// Una sesión que cruza de una hora a otra reparte su tiempo entre las dos; el
+// total que se reparte es duration_seconds (lo medido), no fin − inicio.
+function hourGrid(sessions) {
+    const grid = Array.from({ length: 7 }, () => new Array(24).fill(0));
+    sessions.forEach(s => {
+        const start = parseUtcIso(s.started_at).getTime();
+        const end = parseUtcIso(s.ended_at).getTime();
+        const span = end - start;
+        if (!(span > 0)) return;
+        const scale = s.duration_seconds / (span / 1000);
+        let t = start;
+        while (t < end) {
+            const at = new Date(t);
+            const hourEnd = new Date(at.getFullYear(), at.getMonth(), at.getDate(), at.getHours() + 1).getTime();
+            const sliceEnd = Math.min(end, hourEnd);
+            grid[(at.getDay() + 6) % 7][at.getHours()] += ((sliceEnd - t) / 1000) * scale;
+            t = sliceEnd;
+        }
+    });
+    return grid;
+}
+
+function pad2(n) {
+    return String(n).padStart(2, '0');
+}
+
+function renderByHour({ sessions }) {
+    if (sessions.length === 0) {
+        return reportCard('¿A qué hora rindes más?', reportsMessage('Sin tiempo registrado en este periodo.'));
+    }
+    const grid = hourGrid(sessions);
+    const max = Math.max(...grid.flat());
+
+    const heat = el('div', 'report-heat');
+    heat.setAttribute('role', 'img');
+    heat.setAttribute('aria-label', 'Tiempo por día de la semana y hora');
+    heat.appendChild(el('span', 'heat-corner'));
+    for (let h = 0; h < 24; h++) {
+        heat.appendChild(el('span', 'heat-hour', h % 3 === 0 ? String(h) : ''));
+    }
+    grid.forEach((hours, day) => {
+        heat.appendChild(el('span', 'heat-day', WEEKDAY_INITIALS[(day + 1) % 7]));
+        hours.forEach((secs, h) => {
+            const cell = el('span', 'heat-cell');
+            if (secs > 0) {
+                // Raíz: con escala lineal, un solo día largo deja todo lo demás en blanco
+                cell.style.setProperty('--level', String(Math.max(0.12, Math.sqrt(secs / max))));
+                cell.title = `${WEEKDAY_NAMES[day]}, ${pad2(h)}:00–${pad2(h + 1)}:00: ${formatDuration(Math.round(secs))}`;
+            }
+            heat.appendChild(cell);
+        });
+    });
+
+    const byHour = new Array(24).fill(0);
+    const byDay = new Array(7).fill(0);
+    grid.forEach((hours, day) => hours.forEach((secs, h) => { byHour[h] += secs; byDay[day] += secs; }));
+    // La mejor franja de dos horas seguidas: una sola hora es demasiado ruidosa
+    let bestStart = 0;
+    for (let h = 0; h < 23; h++) {
+        if (byHour[h] + byHour[h + 1] > byHour[bestStart] + byHour[bestStart + 1]) bestStart = h;
+    }
+    const bestDay = byDay.indexOf(Math.max(...byDay));
+    const insight = el('p', 'report-note strong',
+        `Tu mejor franja: de ${pad2(bestStart)}:00 a ${pad2(bestStart + 2)}:00. El día que más rindes: el ${WEEKDAY_NAMES[bestDay]}.`);
+    const note = el('p', 'report-note', 'Horas según el huso horario de este dispositivo.');
+    return reportCard('¿A qué hora rindes más?', heat, insight, note);
+}
+
+// ============================================
+// Cómo se registró el tiempo
+// ============================================
+
+const SOURCE_KINDS = [
+    { key: 'timer', label: 'Pomodoro', className: 'src-timer' },
+    { key: 'stopwatch', label: 'Cronómetro', className: 'src-stopwatch' },
+    { key: 'manual', label: 'Registrado a mano', className: 'src-manual' },
+];
+
+function renderBySource({ sessions }) {
+    const total = sumSeconds(sessions);
+    if (total === 0) return null;
+    const bySource = {};
+    sessions.forEach(s => { bySource[s.source] = (bySource[s.source] || 0) + s.duration_seconds; });
+
+    const bar = el('div', 'report-stack');
+    const legend = el('div', 'report-legend');
+    SOURCE_KINDS.forEach(kind => {
+        const secs = bySource[kind.key] || 0;
+        if (secs === 0) return;
+        const part = el('span', `report-stack-part ${kind.className}`);
+        part.style.width = `${(secs / total) * 100}%`;
+        part.title = `${kind.label}: ${formatDuration(secs)}`;
+        bar.appendChild(part);
+        const item = el('span', 'legend-item');
+        item.append(el('i', `legend-swatch ${kind.className}`),
+            document.createTextNode(`${kind.label} · ${formatDuration(secs)} (${Math.round((secs / total) * 100)}%)`));
+        legend.appendChild(item);
+    });
+    return reportCard('Cómo se registró', bar, legend);
 }
 
 // ============================================
