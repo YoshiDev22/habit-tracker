@@ -3953,3 +3953,37 @@ button.day-log-date:focus-visible {
     background: var(--bg-surface);
     color: var(--text-secondary);
 }
+
+/* Tope del cronómetro: cuánto se trabajó (pomodoro.js, askStopwatchCap) */
+.idle-check-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 8px 0 4px;
+}
+
+.idle-check-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.idle-check-field input {
+    width: 64px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: center;
+}
+
+.idle-check-form .submit-btn {
+    width: auto;
+    padding: 8px 18px;
+}

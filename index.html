@@ -688,18 +688,28 @@
         </div>
     </div>
 
-    <!-- Cronómetro olvidado (pomodoro.js, askIdleStopwatch): al llegar al tope
-         de 8 h sin actividad reciente, pregunta en vez de guardar 8 h. -->
+    <!-- Tope del cronómetro (pomodoro.js, askStopwatchCap): al llegar a 8 h se
+         detiene y el usuario dice cuánto trabajó. La última actividad en la app
+         es solo una pista. -->
     <div id="idleCheckModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal" style="max-width: 420px;" role="alertdialog" aria-modal="true" aria-labelledby="idleCheckTitle">
-            <h2 class="modal-title" id="idleCheckTitle">¿Seguiste trabajando?</h2>
+            <h2 class="modal-title" id="idleCheckTitle">El cronómetro llegó a 8 h</h2>
             <p id="idleCheckMessage" class="setup-subtitle"></p>
-            <div class="habit-action-options">
-                <button type="button" id="idleCheckSaveBtn" class="submit-btn"></button>
-                <button type="button" id="idleCheckKeepBtn" class="submit-btn btn-neutral">Guardar las 8 h</button>
-            </div>
-            <p class="form-hint">Después puedes corregirlo tocando «Hoy».</p>
+            <form id="idleCheckForm" class="idle-check-form">
+                <label class="idle-check-field">
+                    <input type="number" id="idleCheckHours" min="0" max="8" step="1" inputmode="numeric" aria-label="Horas"> h
+                </label>
+                <label class="idle-check-field">
+                    <input type="number" id="idleCheckMinutes" min="0" max="59" step="1" inputmode="numeric" aria-label="Minutos"> min
+                </label>
+                <button type="submit" id="idleCheckSaveBtn" class="submit-btn">Guardar</button>
+            </form>
+            <p class="form-hint" id="idleCheckHint">
+                Tu última actividad en la app fue a las <span id="idleCheckLast"></span>.
+                <button type="button" id="idleCheckUseLast" class="link-btn">Usar esa hora</button>
+            </p>
+            <div class="form-error hidden" id="idleCheckError" role="alert"></div>
         </div>
     </div>
 
