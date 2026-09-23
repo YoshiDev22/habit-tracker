@@ -1115,6 +1115,12 @@ body.has-pomodoro-bar {
     z-index: 1050;
 }
 
+/* La pregunta del cronómetro olvidado puede salir sobre cualquier modal
+   abierto; solo el confirm va por encima */
+#idleCheckModal {
+    z-index: 1090;
+}
+
 .modal.hidden {
     display: none;
 }

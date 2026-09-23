@@ -685,6 +685,21 @@
         </div>
     </div>
 
+    <!-- Cronómetro olvidado (pomodoro.js, askIdleStopwatch): tras 2 h sin
+         actividad en la app pregunta en vez de seguir sumando en silencio. -->
+    <div id="idleCheckModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal" style="max-width: 420px;" role="alertdialog" aria-modal="true" aria-labelledby="idleCheckTitle">
+            <h2 class="modal-title" id="idleCheckTitle">¿Seguiste trabajando?</h2>
+            <p id="idleCheckMessage" class="setup-subtitle"></p>
+            <div class="habit-action-options">
+                <button type="button" id="idleCheckSaveBtn" class="submit-btn"></button>
+                <button type="button" id="idleCheckKeepBtn" class="submit-btn btn-neutral">Sí, sigo trabajando</button>
+            </div>
+            <p class="form-hint">Después puedes corregirlo tocando «Hoy».</p>
+        </div>
+    </div>
+
     <!-- Confirm genérico (sí/no), reutilizado por confirmDialog() en script.js.
          Es de propósito general, con mensaje y botones dinámicos. -->
     <div id="confirmModal" class="modal hidden">

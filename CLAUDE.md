@@ -370,7 +370,8 @@ Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 ### Estado en localStorage
 
 Claves: `access_token`, `theme`, `habitsData`, `user_habits`, `habit_colors`,
-`pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`, `projects_view` (tablero o lista,
+`pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`, `pomodoro_activity` (último clic o
+tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista,
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión) y
 `last_view` (última pestaña: `projects.js` la aplica al cargar, antes del primer pintado,
 y se borra al cerrar sesión).
@@ -406,7 +407,14 @@ solo se inician desde ahí (`startBreak`). "Hoy" y el botón de sonido viven en 
 tablero. **Tocar "Hoy"** abre `#dayLogModal` (`openDayLog()` en `pomodoro.js`): todos los
 registros de un día, de todas las tareas, con ‹ › entre días, ✎ y ×. Marca con ⚠ los
 cronómetros que se cerraron solos a las 8 h (nota `POMO_AUTOCLOSE_NOTE`), y al corregir la
-duración de uno esa nota se quita. Las filas salen de `buildSessionRow()` (`projects.js`),
+duración de uno esa nota se quita.
+
+**Cronómetro olvidado.** Con el cronómetro corriendo y 2 h sin clics ni teclas en la app
+(`POMO_IDLE_ASK_MS`, medido con `pomodoro_activity`), el tick abre `#idleCheckModal` en vez
+de seguir sumando: "Guardar hasta las HH:MM" (la última actividad, vía
+`finishStopwatch({ endAtEpochMs })`) o "Sí, sigo trabajando". Pasado el tope de 8 h solo se
+cierra solo si hubo actividad reciente; si no, pregunta. Contestar la pregunta no cuenta
+como actividad. Las filas salen de `buildSessionRow()` (`projects.js`),
 la misma del historial de la tarjeta.
 
 ## Reglas duras
