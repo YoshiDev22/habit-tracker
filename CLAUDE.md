@@ -381,6 +381,15 @@ El pomodoro es **offline-first**: si el POST de una sesión falla, `queuePending
 la guarda en `pomodoro_pending` y `flushPendingSessions()` la reintenta al iniciar. No
 romper esa cola.
 
+**Varias pestañas abiertas comparten `pomodoro_state`, pero cada una lleva su copia en
+memoria.** Antes de guardar una sesión (terminar, detener, rehidratar), el camino que la
+envía la **reclama** con `claimPomoState()`: dentro de un lock de Web Locks comprueba que
+siga en `localStorage` y la borra; si otra pestaña ya lo hizo, no la envía. Sin eso, un
+pomodoro que terminaba con dos pestañas abiertas se guardaba dos veces. Igual con la cola:
+`flushPendingSessions()` corre de a uno (promesa compartida + lock) y al terminar relee la
+cola y quita solo lo enviado, para no perder lo que se encoló mientras tanto. El logout no
+reclama: su POST debe salir antes del primer `await` (ver hooks).
+
 ### Timer
 
 No hay tarjeta de reloj: el tiempo se inicia desde una tarea (▶ de la tarjeta o de la

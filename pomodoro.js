@@ -59,13 +59,43 @@ const pomodoroBarActions = document.getElementById('pomodoroBarActions');
 // Persistencia (localStorage)
 // ============================================
 
+// false si localStorage no deja escribir: entonces no hay estado compartido
+// entre pestañas que reclamar (ver claimPomoState).
+let pomoStorageWorks = true;
+
 function savePomoState() {
     try {
         localStorage.setItem(POMO_STORAGE_KEY, JSON.stringify(pomoState));
+        pomoStorageWorks = true;
     } catch (e) {
         // localStorage puede lanzar en navegación privada; el timer sigue
         // funcionando en memoria, solo no sobrevive a un refresh.
+        pomoStorageWorks = false;
     }
+}
+
+// Lock entre pestañas del mismo navegador (Web Locks). Sin la API (navegador
+// viejo, o http que no sea localhost) corre sin lock.
+function withPomoLock(name, fn) {
+    if (navigator.locks && navigator.locks.request) {
+        return navigator.locks.request(name, fn);
+    }
+    return Promise.resolve().then(fn);
+}
+
+// Cada pestaña abierta lleva su copia del timer en memoria, así que al
+// terminar o detener, dos pestañas guardarían la misma sesión (pasaba con una
+// pestaña restaurada al reabrir el navegador más otra nueva). La guarda solo
+// la que la reclama: la sigue encontrando en pomodoro_state y la borra, dentro
+// del lock. La otra la encuentra ya borrada y no la envía.
+async function claimPomoState(state) {
+    if (!pomoStorageWorks) return true;
+    return withPomoLock('habit-tracker-pomodoro-state', () => {
+        const stored = loadPomoStateFromStorage();
+        if (!stored || stored.startedEpochMs !== state.startedEpochMs) return false;
+        clearPomoState();
+        return true;
+    });
 }
 
 function clearPomoState() {
@@ -112,32 +142,58 @@ function queuePendingSession(payload) {
     } catch (e) {}
 }
 
-async function flushPendingSessions() {
+function readPendingSessions() {
+    try {
+        return JSON.parse(localStorage.getItem(POMO_PENDING_KEY) || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+// Al arrancar se llama dos veces (appDataHooks y el final de initPomodoro), y
+// cada pestaña abierta la llama también: dos vaciados a la vez enviaban dos
+// veces la misma sesión. Uno a la vez: en esta pestaña se comparte la promesa
+// en curso, y entre pestañas lo ordena el lock.
+let pendingFlush = null;
+
+function flushPendingSessions() {
+    if (!pendingFlush) {
+        pendingFlush = withPomoLock('habit-tracker-pomodoro-pending', flushPendingNow)
+            .finally(() => { pendingFlush = null; });
+    }
+    return pendingFlush;
+}
+
+async function flushPendingNow() {
     // Sin sesión no hay a quién atribuir las sesiones y el POST daría 401. Se
     // quedan en la cola de localStorage hasta el próximo login, que es
     // justamente para lo que existe la cola.
     if (!getToken()) return;
 
-    let pending;
-    try {
-        pending = JSON.parse(localStorage.getItem(POMO_PENDING_KEY) || '[]');
-    } catch (e) {
-        pending = [];
-    }
+    const pending = readPendingSessions();
     if (!pending.length) return;
 
-    const stillPending = [];
+    const sent = [];
     for (const payload of pending) {
         try {
             await apiFetch('/api/pomodoro', { method: 'POST', json: payload });
+            sent.push(JSON.stringify(payload));
         } catch (error) {
-            stillPending.push(payload);
+            // se queda en la cola
         }
     }
 
+    // Se relee la cola en vez de sobrescribirla: lo que se encoló mientras se
+    // enviaba (otro POST que falló) se perdía.
+    const remaining = readPendingSessions().filter(payload => {
+        const index = sent.indexOf(JSON.stringify(payload));
+        if (index === -1) return true;
+        sent.splice(index, 1);
+        return false;
+    });
     try {
-        if (stillPending.length) {
-            localStorage.setItem(POMO_PENDING_KEY, JSON.stringify(stillPending));
+        if (remaining.length) {
+            localStorage.setItem(POMO_PENDING_KEY, JSON.stringify(remaining));
         } else {
             localStorage.removeItem(POMO_PENDING_KEY);
         }
@@ -402,15 +458,17 @@ async function stopTimer({ skipConfirm = false } = {}) {
     const remainingMs = getRemainingMs(finishedState);
     const elapsedSeconds = Math.max(0, Math.round((finishedState.plannedSeconds * 1000 - remainingMs) / 1000));
 
-    // Limpiar y volver a "idle" ANTES del await: la UI responde al instante
+    // Reclamar y volver a "idle" ANTES del POST: la UI responde al instante
     // y localStorage queda libre sin esperar la respuesta de red.
-    clearPomoState();
+    const claimed = await claimPomoState(finishedState);
     pomoState = createIdlePomoState(finishedState.mode);
     renderPomoUI();
 
     const wasFocus = finishedState.mode === 'focus';
 
-    if (wasFocus && elapsedSeconds >= POMO_MIN_LOG_SECONDS) {
+    if (!claimed) {
+        showBarMessage('Esta sesión ya se guardó desde otra pestaña.');
+    } else if (wasFocus && elapsedSeconds >= POMO_MIN_LOG_SECONDS) {
         const payload = buildPayload(finishedState, finishedState.startedEpochMs, now, elapsedSeconds, false);
         await postSession(payload);
         await refreshTodaySeconds();
@@ -438,9 +496,14 @@ async function finishStopwatch({ announce }) {
         + (finishedState.pausedAccumMs || 0)
         + durationSeconds * 1000;
 
-    clearPomoState();
+    const claimed = await claimPomoState(finishedState);
     pomoState = createIdlePomoState(finishedState.mode);
     renderPomoUI();
+
+    if (!claimed) {
+        showBarMessage('Este tiempo ya se guardó desde otra pestaña.');
+        return;
+    }
 
     if (durationSeconds >= POMO_MIN_LOG_SECONDS) {
         const payload = buildPayload(
@@ -516,9 +579,11 @@ async function finishPomodoro(endedEpochMs, announce) {
     stopTicking();
 
     const finishedState = pomoState;
-    clearPomoState(); // primero: evita que otra pestaña reprocese la misma sesión
+    // Primero reclamarla: con dos pestañas abiertas, las dos llegan aquí
+    const claimed = await claimPomoState(finishedState);
     pomoState = createIdlePomoState(finishedState.mode);
     renderPomoUI();
+    if (!claimed) return;
 
     const wasFocus = finishedState.mode === 'focus';
 
