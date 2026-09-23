@@ -322,6 +322,53 @@ function sessionOrigin(session) {
     return originBySource[session.source] || { icon: '⏱', title: 'Medido con un pomodoro' };
 }
 
+// Una fila de registro de tiempo con ✎ y × (data-action="edit" / "delete"),
+// para el historial de la tarjeta y el tiempo del día. `detail` es la segunda
+// línea: de qué tarea es, su nota…
+function buildSessionRow(session, detail) {
+    const row = document.createElement('div');
+    row.className = 'session-row';
+    row.dataset.sessionId = String(session.id);
+
+    const originInfo = sessionOrigin(session);
+    const origin = document.createElement('span');
+    origin.className = 'session-origin';
+    origin.textContent = originInfo.icon;
+    origin.title = originInfo.title;
+
+    const body = document.createElement('div');
+    body.className = 'session-body';
+    const when = document.createElement('span');
+    when.className = 'session-when';
+    when.textContent = `${formatShortDate(session.session_date)} · ${formatClockRange(session)} · ${formatDuration(session.duration_seconds)}`;
+    body.appendChild(when);
+    if (detail) {
+        const detailEl = document.createElement('span');
+        detailEl.className = 'session-detail';
+        detailEl.textContent = detail;
+        body.appendChild(detailEl);
+    }
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'session-edit';
+    editBtn.dataset.action = 'edit';
+    editBtn.title = 'Editar registro';
+    editBtn.setAttribute('aria-label', 'Editar registro');
+    editBtn.textContent = '✎';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'session-delete';
+    deleteBtn.dataset.action = 'delete';
+    deleteBtn.title = 'Eliminar registro';
+    deleteBtn.setAttribute('aria-label', 'Eliminar registro');
+    deleteBtn.textContent = '×';
+
+    row.append(origin, body, editBtn, deleteBtn);
+    return row;
+}
+
 async function loadSessions(projectId) {
     try {
         const data = await apiFetch(`/api/pomodoro?project_id=${projectId}`);

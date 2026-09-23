@@ -183,7 +183,7 @@
                         <!-- Lo que quedó de la tarjeta del reloj: el tiempo se inicia
                              desde cada tarjeta y corre en la barra flotante (pomodoro.js). -->
                         <div class="timer-meta">
-                            <span class="timer-today" id="pomoToday" title="Tiempo registrado hoy">Hoy: 0m</span>
+                            <button type="button" class="timer-today" id="pomoToday" title="Ver el tiempo registrado, registro por registro">Hoy: 0m</button>
                             <button type="button" id="pomoSoundBtn" class="timer-sound-btn" aria-label="Sonido activado" title="Sonido activado">🔊</button>
                         </div>
                         <div class="view-toggle" role="group" aria-label="Cómo ver los proyectos">
@@ -451,6 +451,25 @@
                 <div id="logTimeError" class="form-error hidden"></div>
                 <button type="submit" class="submit-btn" id="logTimeSubmitBtn">Guardar</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Tiempo registrado en un día, registro por registro: se abre tocando
+         "Hoy" en la barra del tablero (pomodoro.js). ✎ abre #logTimeModal encima. -->
+    <div id="dayLogModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content day-log-modal" role="dialog" aria-modal="true" aria-labelledby="dayLogTitle">
+            <button class="modal-close" type="button" id="closeDayLogBtn" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="dayLogTitle">Tiempo registrado</h2>
+            <div class="day-log-nav">
+                <button type="button" class="nav-btn" id="dayLogPrev" aria-label="Día anterior">&lt;</button>
+                <div class="day-log-day">
+                    <span id="dayLogDate" class="day-log-date"></span>
+                    <span id="dayLogTotal" class="day-log-total"></span>
+                </div>
+                <button type="button" class="nav-btn" id="dayLogNext" aria-label="Día siguiente">&gt;</button>
+            </div>
+            <div id="dayLogList" class="day-log-list" aria-live="polite"></div>
         </div>
     </div>
 

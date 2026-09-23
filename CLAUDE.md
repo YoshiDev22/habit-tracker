@@ -399,7 +399,11 @@ que acaba en `startPomodoro(projectId, taskId, title)`. Mientras corre, se contr
 timer, esa barra tiene un **modo mensaje** (`showBarMessage(text, actions, ms)`) para los
 avisos ("Sesión guardada") y la oferta de descanso al terminar un pomodoro: los descansos
 solo se inician desde ahí (`startBreak`). "Hoy" y el botón de sonido viven en la barra del
-tablero.
+tablero. **Tocar "Hoy"** abre `#dayLogModal` (`openDayLog()` en `pomodoro.js`): todos los
+registros de un día, de todas las tareas, con ‹ › entre días, ✎ y ×. Marca con ⚠ los
+cronómetros que se cerraron solos a las 8 h (nota `POMO_AUTOCLOSE_NOTE`), y al corregir la
+duración de uno esa nota se quita. Las filas salen de `buildSessionRow()` (`projects.js`),
+la misma del historial de la tarjeta.
 
 ## Reglas duras
 

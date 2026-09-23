@@ -876,6 +876,165 @@ async function refreshTodaySeconds() {
 }
 
 // ============================================
+// Tiempo registrado por día (tocando "Hoy")
+// ============================================
+//
+// Todos los registros de un día, de todas las tareas: para ver de dónde sale
+// el "Hoy" y corregirlo (p. ej. un cronómetro olvidado que se cerró solo).
+
+const dayLogModal = document.getElementById('dayLogModal');
+const dayLogDateEl = document.getElementById('dayLogDate');
+const dayLogTotalEl = document.getElementById('dayLogTotal');
+const dayLogListEl = document.getElementById('dayLogList');
+const dayLogPrevBtn = document.getElementById('dayLogPrev');
+const dayLogNextBtn = document.getElementById('dayLogNext');
+const DAY_LOG_WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+const dayLogState = {
+    date: null,        // Date local, a medianoche
+    sessions: [],
+    requestId: 0,      // descarta respuestas de un día que ya no se ve
+};
+
+function localMidnight(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function dayLogLabel(date) {
+    const today = localMidnight(new Date());
+    const diff = Math.round((today - date) / 86400000);
+    const day = formatShortDate(getDateKey(date));
+    if (diff === 0) return `Hoy, ${day}`;
+    if (diff === 1) return `Ayer, ${day}`;
+    return `${DAY_LOG_WEEKDAYS[date.getDay()]} ${day}`;
+}
+
+function isDayLogOpen() {
+    return !dayLogModal.classList.contains('hidden');
+}
+
+function openDayLog() {
+    dayLogState.date = localMidnight(new Date());
+    showModal(dayLogModal);
+    loadDayLog();
+}
+
+function closeDayLog() {
+    dayLogState.requestId++;
+    hideModal(dayLogModal);
+}
+
+function shiftDayLog(days) {
+    const d = dayLogState.date;
+    dayLogState.date = new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+    loadDayLog();
+}
+
+async function loadDayLog() {
+    const date = dayLogState.date;
+    const key = getDateKey(date);
+    dayLogDateEl.textContent = dayLogLabel(date);
+    dayLogNextBtn.disabled = date >= localMidnight(new Date());
+    const requestId = ++dayLogState.requestId;
+
+    try {
+        const [sessionsData, tasksData, projectsData] = await Promise.all([
+            apiFetch(`/api/pomodoro?date_from=${key}&date_to=${key}`),
+            apiFetch('/api/tasks'),
+            // Con los archivados: sus registros también suman en el día
+            apiFetch('/api/projects?include_inactive=true'),
+        ]);
+        if (requestId !== dayLogState.requestId) return;
+        // Solo foco, como el "Hoy"; y en el orden en que pasó el día
+        dayLogState.sessions = sessionsData.sessions
+            .filter(s => s.mode === 'focus')
+            .sort((a, b) => a.started_at.localeCompare(b.started_at));
+        renderDayLog(tasksData.tasks, projectsData.projects);
+    } catch (error) {
+        if (requestId !== dayLogState.requestId) return;
+        console.error('Error al cargar el tiempo del día:', error);
+        dayLogListEl.innerHTML = '<p class="card-empty">No se pudo cargar. Intenta de nuevo.</p>';
+    }
+}
+
+function renderDayLog(tasks, projects) {
+    const sessions = dayLogState.sessions;
+    const total = sessions.reduce((sum, s) => sum + s.duration_seconds, 0);
+    dayLogTotalEl.textContent = sessions.length
+        ? `${formatDuration(total)} · ${sessions.length} ${sessions.length === 1 ? 'registro' : 'registros'}`
+        : '';
+    dayLogListEl.replaceChildren();
+
+    if (sessions.length === 0) {
+        dayLogListEl.innerHTML = '<p class="card-empty">Sin tiempo registrado este día.</p>';
+        return;
+    }
+
+    const taskById = new Map(tasks.map(t => [t.id, t]));
+    const projectById = new Map(projects.map(p => [p.id, p]));
+    sessions.forEach(session => {
+        const task = taskById.get(session.task_id);
+        const project = projectById.get(session.project_id);
+        const parts = [task ? task.title : 'Sin tarea'];
+        if (project && !project.is_system) parts.push(project.name);
+        if (session.note) parts.push(session.note);
+        const row = buildSessionRow(session, parts.join(' · '));
+        // El cronómetro olvidado que se cerró solo a las 8 h: lo que más se
+        // corrige, así que se señala
+        if (session.note === POMO_AUTOCLOSE_NOTE) {
+            row.classList.add('session-flag');
+            row.querySelector('.session-origin').textContent = '⚠';
+            row.querySelector('.session-origin').title = POMO_AUTOCLOSE_NOTE;
+        }
+        dayLogListEl.appendChild(row);
+    });
+}
+
+dayLogListEl.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-action]');
+    if (!button) return;
+    const sessionId = Number(button.closest('.session-row').dataset.sessionId);
+    const session = dayLogState.sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    if (button.dataset.action === 'edit') {
+        // Se abre encima (z-index 1050); al guardar, loadProjects() dispara
+        // projectsChangedHooks y este listado se vuelve a pedir
+        openLogTimeModal(session.project_id, session);
+        return;
+    }
+
+    const summary = `${formatShortDate(session.session_date)} · ${formatClockRange(session)} · ${formatDuration(session.duration_seconds)}`;
+    const ok = await confirmDialog(`${summary}. Se descuenta del tiempo de su tarea y de su proyecto.`, {
+        title: '¿Eliminar este registro?', confirmLabel: 'Eliminar', danger: true,
+    });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/pomodoro/${sessionId}`, { method: 'DELETE' });
+        projectsState.tasksByProject = {};
+        await loadProjects();
+    } catch (error) {
+        console.error('Error al eliminar el registro:', error);
+    }
+});
+
+pomoTodayEl.addEventListener('click', openDayLog);
+dayLogPrevBtn.addEventListener('click', () => shiftDayLog(-1));
+dayLogNextBtn.addEventListener('click', () => shiftDayLog(1));
+document.getElementById('closeDayLogBtn').addEventListener('click', closeDayLog);
+dayLogModal.querySelector('.modal-overlay').addEventListener('click', closeDayLog);
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.defaultPrevented || !isDayLogOpen()) return;
+    // Con el confirm o el registro abiertos encima, Escape es de ellos
+    if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
+    if (!logTimeModal.classList.contains('hidden')) return;
+    closeDayLog();
+});
+window.projectsChangedHooks.push(() => {
+    if (isDayLogOpen()) loadDayLog();
+});
+
+// ============================================
 // Eventos
 // ============================================
 
@@ -1133,11 +1292,13 @@ function ensureLogTimeTaskOption(taskId, title) {
 // task: {id, title} para abrirlo ya apuntando a esa tarea (desde el tablero).
 async function openLogTimeModal(projectId, session = null, task = null) {
     const project = projectsState.projects.find(p => p.id === projectId);
-    if (!project) return;
+    // Registrar pide un proyecto activo; editar no: un registro de un proyecto
+    // archivado (visto desde el tiempo del día) también se corrige.
+    if (!project && !session) return;
 
     logTimeProjectId = projectId;
     logTimeSessionId = session ? session.id : null;
-    logTimeProjectEl.textContent = project.name;
+    logTimeProjectEl.textContent = project ? project.name : 'Proyecto archivado';
     logTimeTitleEl.textContent = session ? 'Editar registro' : 'Registrar tiempo';
     logTimeSubmitBtn.textContent = session ? 'Guardar cambios' : 'Guardar';
 
@@ -1203,7 +1364,12 @@ async function submitLogTime(event) {
 
     const startedEpochMs = localEpochMs(dateKey, parseClockValue(logTimeStartEl.value));
     const taskId = logTimeTaskEl.value ? Number(logTimeTaskEl.value) : null;
-    const note = logTimeNoteEl.value.trim();
+    let note = logTimeNoteEl.value.trim();
+    // Corregir un cronómetro que se cerró solo: la nota automática ya no es
+    // cierta y lo seguiría señalando con ⚠ en el tiempo del día
+    if (logTimeSessionId && note === POMO_AUTOCLOSE_NOTE && duration !== POMO_STOPWATCH_MAX_SECONDS) {
+        note = '';
+    }
 
     // Al corregir, la duración es siempre el rango de horas que se ve en el
     // formulario: si no, un registro editado podría mostrar unas horas y

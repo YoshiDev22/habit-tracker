@@ -913,45 +913,9 @@ function renderCardHistory() {
     // Vienen del más reciente al más antiguo
     const visible = cardState.historyExpanded ? sessions : sessions.slice(0, CARD_HISTORY_PREVIEW);
     visible.forEach(session => {
-        const row = document.createElement('div');
-        row.className = 'session-row';
-        row.dataset.sessionId = String(session.id);
-
-        const originInfo = sessionOrigin(session);
-        const origin = document.createElement('span');
-        origin.className = 'session-origin';
-        origin.textContent = originInfo.icon;
-        origin.title = originInfo.title;
-
-        const body = document.createElement('div');
-        body.className = 'session-body';
-        const when = document.createElement('span');
-        when.className = 'session-when';
-        when.textContent = `${formatShortDate(session.session_date)} · ${formatClockRange(session)} · ${formatDuration(session.duration_seconds)}`;
-        body.appendChild(when);
-        const detail = document.createElement('span');
-        detail.className = 'session-detail';
-        detail.textContent = session.note ? `${originInfo.title} — ${session.note}` : originInfo.title;
-        body.appendChild(detail);
-
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'session-edit';
-        editBtn.dataset.action = 'edit';
-        editBtn.title = 'Editar registro';
-        editBtn.setAttribute('aria-label', 'Editar registro');
-        editBtn.textContent = '✎';
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'session-delete';
-        deleteBtn.dataset.action = 'delete';
-        deleteBtn.title = 'Eliminar registro';
-        deleteBtn.setAttribute('aria-label', 'Eliminar registro');
-        deleteBtn.textContent = '×';
-
-        row.append(origin, body, editBtn, deleteBtn);
-        cardHistoryEl.appendChild(row);
+        const originTitle = sessionOrigin(session).title;
+        const detail = session.note ? `${originTitle} — ${session.note}` : originTitle;
+        cardHistoryEl.appendChild(buildSessionRow(session, detail));
     });
 
     if (sessions.length > visible.length) {
@@ -1431,9 +1395,12 @@ document.addEventListener('keydown', (event) => {
     // Con el confirm abierto encima, Escape es de él
     if (event.key !== 'Escape') return;
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
-    // Con el registro de tiempo abierto sobre la tarjeta, Escape cierra ese
+    // Con el registro de tiempo abierto sobre la tarjeta (o sobre el tiempo
+    // del día), Escape cierra ese. preventDefault: el listener del tiempo del
+    // día (pomodoro.js) corre después y no debe cerrar también el suyo.
     if (!document.getElementById('logTimeModal').classList.contains('hidden')) {
         hideModal(document.getElementById('logTimeModal'));
+        event.preventDefault();
         return;
     }
     if (!cardModal.classList.contains('hidden') && isTagPickerOpen()) closeTagPicker();

@@ -3735,3 +3735,79 @@ body.board-wide .board-column {
 .card-history-more:hover {
     background: var(--bg-hover);
 }
+
+/* "Hoy" en la barra del tablero: un botón discreto que abre el tiempo del
+   día (pomodoro.js, openDayLog) */
+button.timer-today {
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    margin: -4px -6px;
+    border-radius: 6px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button.timer-today:hover,
+button.timer-today:focus-visible {
+    color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.day-log-modal {
+    max-width: 480px;
+}
+
+.day-log-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 4px 0 12px;
+}
+
+.day-log-nav .nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.day-log-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.day-log-date {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.day-log-date::first-letter {
+    text-transform: uppercase;
+}
+
+.day-log-total {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.day-log-list .session-row {
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 4px;
+}
+
+.day-log-list .session-row:last-child {
+    border-bottom: none;
+}
+
+/* Cronómetro que se cerró solo a las 8 h: casi siempre hay que corregirlo */
+.session-row.session-flag {
+    background: var(--danger-bg);
+    border-radius: 8px;
+}
+
+.session-row.session-flag .session-detail {
+    color: var(--danger-fg);
+}
