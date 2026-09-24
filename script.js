@@ -402,36 +402,19 @@ function showProfile() {
     document.getElementById('profileDisplayName').value = currentUser.display_name || '';
     document.getElementById('profileFirstName').value = currentUser.first_name || '';
     document.getElementById('profileLastName').value = currentUser.last_name || '';
-    PROFILE_POMODORO_FIELDS.forEach(({ id, field }) => {
-        const seconds = currentUser[field];
-        document.getElementById(id).value = seconds ? String(Math.round(seconds / 60)) : '';
-    });
-    profileInitialValues = readProfileForm();
-    showModal(profileModal);
-}
-
-// Duraciones del pomodoro en el perfil: minutos en el formulario, segundos en
-// la API. Vacío = null = el valor por defecto.
-const PROFILE_POMODORO_FIELDS = [
-    { id: 'profilePomoFocus', field: 'pomodoro_focus_seconds' },
-    { id: 'profilePomoShort', field: 'pomodoro_short_break_seconds' },
-    { id: 'profilePomoLong', field: 'pomodoro_long_break_seconds' },
-];
-
-function readProfileForm() {
-    const values = {
-        displayName: document.getElementById('profileDisplayName').value,
-        firstName: document.getElementById('profileFirstName').value,
-        lastName: document.getElementById('profileLastName').value,
+    profileInitialValues = {
+        displayName: currentUser.display_name || '',
+        firstName: currentUser.first_name || '',
+        lastName: currentUser.last_name || ''
     };
-    PROFILE_POMODORO_FIELDS.forEach(({ id }) => { values[id] = document.getElementById(id).value.trim(); });
-    return values;
+    showModal(profileModal);
 }
 
 function isProfileDirty() {
     if (!profileInitialValues) return false;
-    const now = readProfileForm();
-    return Object.keys(now).some(key => now[key] !== profileInitialValues[key]);
+    return document.getElementById('profileDisplayName').value !== profileInitialValues.displayName
+        || document.getElementById('profileFirstName').value !== profileInitialValues.firstName
+        || document.getElementById('profileLastName').value !== profileInitialValues.lastName;
 }
 
 // Llamada por handleModalDismiss en vez de hideModal directo: la X y el
@@ -460,28 +443,17 @@ async function handleProfileSave(event) {
         return;
     }
 
-    const payload = {
-        display_name: document.getElementById('profileDisplayName').value,
-        first_name: document.getElementById('profileFirstName').value,
-        last_name: document.getElementById('profileLastName').value
-    };
-    for (const { id, field } of PROFILE_POMODORO_FIELDS) {
-        const raw = document.getElementById(id).value.trim();
-        const minutes = Number(raw);
-        if (raw && (!Number.isInteger(minutes) || minutes < 1 || minutes > 240)) {
-            showError(profileError, 'Las duraciones del pomodoro van de 1 a 240 minutos.');
-            return;
-        }
-        payload[field] = raw ? minutes * 60 : null;
-    }
-
     const ok = await confirmDialog('¿Guardar estos cambios en tu perfil?', { confirmLabel: 'Guardar' });
     if (!ok) return;
 
     try {
         currentUser = await apiFetch('/api/auth/me', {
             method: 'PATCH',
-            json: payload
+            json: {
+                display_name: document.getElementById('profileDisplayName').value,
+                first_name: document.getElementById('profileFirstName').value,
+                last_name: document.getElementById('profileLastName').value
+            }
         });
 
         updateUserBar();

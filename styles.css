@@ -3989,33 +3989,98 @@ button.day-log-date:focus-visible {
     padding: 8px 18px;
 }
 
-/* Perfil: duraciones del pomodoro, en minutos (vacío = el valor por defecto) */
-.profile-pomodoro {
+/* Organizar › Pomodoro: dos páginas lado a lado que se deslizan (board.js) */
+.config-pages {
+    overflow: hidden;
+}
+
+.config-track {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px 14px;
-    margin: 4px 0 12px;
-    padding: 10px 12px 12px;
+    align-items: flex-start;
+    transition: transform 0.3s ease;
+}
+
+.config-track.no-anim {
+    transition: none;
+}
+
+.config-track.show-pomo {
+    transform: translateX(-100%);
+}
+
+.config-page {
+    flex: 0 0 100%;
+    min-width: 0;
+}
+
+.config-page.collapsed {
+    height: 0;
+    overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .config-track {
+        transition: none;
+    }
+}
+
+.config-pomo-open {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0 0 14px;
+    padding: 10px 14px;
     border: 1px solid var(--border-color);
     border-radius: 10px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
 }
 
-.profile-pomodoro legend {
-    padding: 0 6px;
+.config-pomo-open:hover {
+    border-color: var(--accent);
+}
+
+.config-pomo-open span:first-child {
+    flex: 1;
+}
+
+.config-pomo-status {
     font-size: 0.8rem;
-    color: var(--text-secondary);
+    color: var(--accent);
 }
 
-.profile-pomodoro label {
+.config-back {
+    border: none;
+    background: none;
+    padding: 4px 0;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.pomo-settings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 14px;
+    margin-top: 8px;
+}
+
+.pomo-settings label {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    flex: 1 1 90px;
-    font-size: 0.8rem;
+    flex: 1 1 110px;
+    font-size: 0.85rem;
     color: var(--text-secondary);
 }
 
-.profile-pomodoro input {
+.pomo-settings input {
     width: 100%;
     padding: 8px;
     border: 1px solid var(--border-color);
@@ -4023,6 +4088,16 @@ button.day-log-date:focus-visible {
     background: var(--bg-surface);
     color: var(--text-primary);
     font: inherit;
+}
+
+.pomo-settings .form-error {
+    flex-basis: 100%;
+}
+
+.pomo-settings-actions {
+    display: flex;
+    gap: 10px;
+    flex-basis: 100%;
 }
 
 /* Ajustar el cronómetro en marcha (pomodoro.js, openAdjustStart) */

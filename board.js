@@ -1582,6 +1582,7 @@ document.addEventListener('keydown', (event) => {
     }
     if (!cardModal.classList.contains('hidden') && isTagPickerOpen()) closeTagPicker();
     else if (!cardModal.classList.contains('hidden')) closeCardModal();
+    else if (!boardConfigModal.classList.contains('hidden') && isConfigPomoPage()) showConfigPage('main');
     else if (!boardConfigModal.classList.contains('hidden')) closeBoardConfig();
     else if (!boardOnboardingModal.classList.contains('hidden')) skipFirstBoard();
 });
@@ -1877,7 +1878,87 @@ async function configAction(action) {
     }
 }
 
+// ============================================
+// Organizar › Pomodoro (segunda página, deslizando)
+// ============================================
+//
+// Las duraciones del pomodoro son de la cuenta (users.pomodoro_*_seconds) pero
+// solo las usa el tiempo de las tarjetas, así que se configuran desde aquí.
+
+const configTrack = document.getElementById('configTrack');
+const configMainPage = document.getElementById('configMainPage');
+const configPomoPage = document.getElementById('configPomoPage');
+const configPomoForm = document.getElementById('configPomoForm');
+const configPomoError = document.getElementById('configPomoError');
+const configPomoStatus = document.getElementById('configPomoStatus');
+const CONFIG_POMO_FIELDS = [
+    { id: 'configPomoFocus', field: 'pomodoro_focus_seconds' },
+    { id: 'configPomoShort', field: 'pomodoro_short_break_seconds' },
+    { id: 'configPomoLong', field: 'pomodoro_long_break_seconds' },
+];
+let configPageTimer = null;
+
+function isConfigPomoPage() {
+    return configTrack.classList.contains('show-pomo');
+}
+
+// La página que no se ve se pliega al terminar el deslizamiento: si no, el
+// modal tomaría la altura de la más alta
+function showConfigPage(page, { animate = true } = {}) {
+    const toPomo = page === 'pomo';
+    clearTimeout(configPageTimer);
+    configMainPage.classList.remove('collapsed');
+    configPomoPage.classList.remove('collapsed');
+    configTrack.classList.toggle('no-anim', !animate);
+    configTrack.classList.toggle('show-pomo', toPomo);
+    boardConfigModal.querySelector('.modal-content').scrollTop = 0;
+    const finish = () => {
+        (toPomo ? configMainPage : configPomoPage).classList.add('collapsed');
+        if (toPomo) document.getElementById('configPomoFocus').focus();
+    };
+    if (animate) configPageTimer = setTimeout(finish, 320);
+    else finish();
+}
+
+function openConfigPomo() {
+    CONFIG_POMO_FIELDS.forEach(({ id, field }) => {
+        const seconds = currentUser ? currentUser[field] : null;
+        document.getElementById(id).value = seconds ? String(Math.round(seconds / 60)) : '';
+    });
+    configPomoError.classList.add('hidden');
+    showConfigPage('pomo');
+}
+
+configPomoForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = {};
+    for (const { id, field } of CONFIG_POMO_FIELDS) {
+        const raw = document.getElementById(id).value.trim();
+        const minutes = Number(raw);
+        if (raw && (!Number.isInteger(minutes) || minutes < 1 || minutes > 240)) {
+            showError(configPomoError, 'Las duraciones van de 1 a 240 minutos.');
+            return;
+        }
+        payload[field] = raw ? minutes * 60 : null;
+    }
+    try {
+        // currentUser es de script.js: pomoDuration() lo lee al arrancar un timer
+        currentUser = await apiFetch('/api/auth/me', { method: 'PATCH', json: payload });
+    } catch (error) {
+        showError(configPomoError, error.message || 'No se pudo guardar');
+        return;
+    }
+    showConfigPage('main');
+    configPomoStatus.textContent = 'Guardado ✓';
+    setTimeout(() => { configPomoStatus.textContent = ''; }, 2500);
+});
+
+document.getElementById('configPomoOpen').addEventListener('click', openConfigPomo);
+document.getElementById('configPomoBack').addEventListener('click', () => showConfigPage('main'));
+document.getElementById('configPomoCancel').addEventListener('click', () => showConfigPage('main'));
+
 async function openBoardConfig({ focusNewBoard = false } = {}) {
+    showConfigPage('main', { animate: false });
     configState.dirty = false;
     configState.columnsBoardId = boardState.boardId;
     boardConfigError.classList.add('hidden');

@@ -414,8 +414,10 @@ duración de uno esa nota se quita. Las filas salen de `buildSessionRow()` (`pro
 la misma del historial de la tarjeta.
 
 **Duraciones del pomodoro por usuario.** `users.pomodoro_focus_seconds`,
-`pomodoro_short_break_seconds` y `pomodoro_long_break_seconds` (NULL = 25 / 5 / 15 min), en el
-modal de perfil en minutos. `pomoDuration(mode)` las lee de `currentUser` solo al
+`pomodoro_short_break_seconds` y `pomodoro_long_break_seconds` (NULL = 25 / 5 / 15 min), en
+minutos en **Organizar › Configurar pomodoro** (segunda página del modal, que se desliza:
+`showConfigPage()` en `board.js`; la página que no se ve se pliega con `.collapsed`). No van
+en el perfil: solo las usa el tiempo de las tarjetas. `pomoDuration(mode)` las lee de `currentUser` solo al
 **arrancar** un timer: el que ya corre guarda su `plannedSeconds` y termina con esa
 duración aunque cambie el ajuste. La API acepta de 60 s a 4 h; `null` vuelve al valor por defecto.
 

@@ -337,13 +337,6 @@
                     <label for="profileLastName">Apellido</label>
                     <input type="text" id="profileLastName" name="lastName" placeholder="Tus apellidos" maxlength="60">
                 </div>
-                <!-- En minutos; vacío = el valor por defecto (el placeholder) -->
-                <fieldset class="profile-pomodoro">
-                    <legend>Pomodoro (minutos)</legend>
-                    <label>Enfoque <input type="number" id="profilePomoFocus" min="1" max="240" step="1" inputmode="numeric" placeholder="25"></label>
-                    <label>Descanso corto <input type="number" id="profilePomoShort" min="1" max="240" step="1" inputmode="numeric" placeholder="5"></label>
-                    <label>Descanso largo <input type="number" id="profilePomoLong" min="1" max="240" step="1" inputmode="numeric" placeholder="15"></label>
-                </fieldset>
                 <div id="profileError" class="form-error hidden"></div>
                 <button type="submit" class="submit-btn">Guardar</button>
             </form>
@@ -683,7 +676,17 @@
         <div class="modal-overlay"></div>
         <div class="modal-content config-modal" role="dialog" aria-modal="true" aria-labelledby="boardConfigTitle">
             <button class="modal-close" type="button" id="closeBoardConfigBtn" aria-label="Cerrar">&times;</button>
+            <!-- Dos páginas lado a lado: Organizar y, deslizando a la derecha, el
+                 pomodoro. Nada se abre ni se cierra al pasar de una a otra. -->
+            <div class="config-pages">
+            <div class="config-track" id="configTrack">
+            <div class="config-page" id="configMainPage">
             <h2 class="modal-title" id="boardConfigTitle">Organizar</h2>
+            <button type="button" class="config-pomo-open" id="configPomoOpen">
+                <span>⏱ Configurar pomodoro</span>
+                <span class="config-pomo-status" id="configPomoStatus"></span>
+                <span aria-hidden="true">›</span>
+            </button>
             <div id="boardConfigError" class="form-error hidden" role="alert"></div>
 
             <section class="config-section">
@@ -736,6 +739,25 @@
                     <button type="submit" aria-label="Crear etiqueta">+</button>
                 </form>
             </section>
+            </div>
+
+            <div class="config-page collapsed" id="configPomoPage" aria-labelledby="configPomoTitle">
+                <button type="button" class="config-back" id="configPomoBack">‹ Organizar</button>
+                <h2 class="modal-title" id="configPomoTitle">Pomodoro</h2>
+                <p class="config-hint">En minutos. Vacío = el valor por defecto. Un pomodoro que ya está corriendo termina con la duración con la que empezó.</p>
+                <form id="configPomoForm" class="pomo-settings">
+                    <label>Enfoque <input type="number" id="configPomoFocus" min="1" max="240" step="1" inputmode="numeric" placeholder="25"></label>
+                    <label>Descanso corto <input type="number" id="configPomoShort" min="1" max="240" step="1" inputmode="numeric" placeholder="5"></label>
+                    <label>Descanso largo <input type="number" id="configPomoLong" min="1" max="240" step="1" inputmode="numeric" placeholder="15"></label>
+                    <div id="configPomoError" class="form-error hidden" role="alert"></div>
+                    <div class="pomo-settings-actions">
+                        <button type="submit" class="submit-btn">Guardar</button>
+                        <button type="button" class="submit-btn btn-neutral" id="configPomoCancel">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+            </div>
+            </div>
         </div>
     </div>
 
