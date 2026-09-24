@@ -10,11 +10,22 @@ from sqlalchemy import JSON
 
 class UserCreate(SQLModel):
     """Esquema para crear usuario"""
-    email: str
-    password: str
+    # 254 es el largo máximo de un email; la contraseña, el mínimo del formulario
+    # y un tope holgado (bcrypt solo usa los primeros 72 bytes)
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=6, max_length=128)
     display_name: Optional[str] = Field(default=None, max_length=40)
     first_name: Optional[str] = Field(default=None, max_length=60)
     last_name: Optional[str] = Field(default=None, max_length=60)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        # Lo mismo que pide el input type="email", sin librerías: algo@algo
+        local, at, domain = v.partition("@")
+        if not local or not at or not domain or any(c.isspace() for c in v):
+            raise ValueError("El email no es válido")
+        return v
 
 
 class UserResponse(SQLModel):
@@ -83,10 +94,24 @@ class HabitData(SQLModel):
     pass
 
 
+MAX_HABITS_PER_DAY = 100
+
+
 class HabitEntryCreate(SQLModel):
     """Esquema para crear/actualizar entrada de hábitos"""
     date: date_type
-    habits: Dict = Field(default={})  # Dict[str, bool]
+    habits: Dict[str, bool] = Field(default={})
+
+    @field_validator("habits")
+    @classmethod
+    def validate_habits(cls, v: Dict[str, bool]) -> Dict[str, bool]:
+        # Las claves son las de los hábitos (máx. 40, como en HabitCreate). El
+        # tope de claves es holgado: un día guarda también hábitos ya archivados.
+        if len(v) > MAX_HABITS_PER_DAY:
+            raise ValueError(f"Un día admite como máximo {MAX_HABITS_PER_DAY} hábitos")
+        if any(not 1 <= len(k) <= 40 for k in v):
+            raise ValueError("La clave de un hábito debe tener entre 1 y 40 caracteres")
+        return v
 
 
 class HabitEntryResponse(SQLModel):
@@ -282,11 +307,18 @@ class BoardListResponse(SQLModel):
 
 class ProjectCreate(SQLModel):
     """Esquema para crear un proyecto"""
-    name: str
-    description: Optional[str] = None
+    # Los topes siguen a los formularios (maxlength); el del icono, como el de
+    # los hábitos, deja sitio a los emojis compuestos
+    name: str = Field(min_length=1, max_length=80)
+    description: Optional[str] = Field(default=None, max_length=200)
     color: Optional[str] = None
-    icon: Optional[str] = None
+    icon: Optional[str] = Field(default=None, max_length=16)
     order: Optional[int] = 0
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
 
 
 class ProjectUpdate(SQLModel):
@@ -294,12 +326,17 @@ class ProjectUpdate(SQLModel):
     Esquema para actualizar un proyecto existente.
     Todos los campos son opcionales (PATCH parcial).
     """
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    description: Optional[str] = Field(default=None, max_length=200)
     color: Optional[str] = None
-    icon: Optional[str] = None
+    icon: Optional[str] = Field(default=None, max_length=16)
     order: Optional[int] = None
     is_active: Optional[bool] = None  # False = archivar (conserva las tareas)
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
 
 
 class ProjectResponse(SQLModel):
@@ -351,11 +388,14 @@ class ProjectSummaryListResponse(SQLModel):
 
 # ==================== Task Schemas ====================
 
+TASK_NOTES_MAX = 5000
+
+
 class TaskCreate(SQLModel):
     """Esquema para crear una tarea"""
     project_id: Optional[int] = None  # sin él, "Sin asignar"
-    title: str
-    notes: Optional[str] = None
+    title: str = Field(min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=TASK_NOTES_MAX)
     order: Optional[int] = None       # sin él, al final de su columna
     column_id: Optional[int] = None   # columna exacta; manda sobre board_id
     board_id: Optional[int] = None    # sin column_id: la primera "todo" de este tablero
@@ -367,8 +407,8 @@ class TaskUpdate(SQLModel):
     Esquema para actualizar una tarea existente.
     Todos los campos son opcionales (PATCH parcial).
     """
-    title: Optional[str] = None
-    notes: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=TASK_NOTES_MAX)
     is_done: Optional[bool] = None
     order: Optional[int] = None
     project_id: Optional[int] = None  # cambiar el proyecto; null = "Sin asignar"
@@ -550,6 +590,9 @@ class CommentListResponse(SQLModel):
 
 # ==================== Pomodoro Schemas ====================
 
+POMODORO_MODES = ("focus", "short_break", "long_break")
+
+
 class PomodoroSessionCreate(SQLModel):
     """Esquema para registrar una sesión de pomodoro ya finalizada"""
     project_id: Optional[int] = None
@@ -561,8 +604,16 @@ class PomodoroSessionCreate(SQLModel):
     planned_seconds: Optional[int] = 1500
     mode: Optional[str] = "focus"
     was_completed: Optional[bool] = True
-    note: Optional[str] = None
+    note: Optional[str] = Field(default=None, max_length=200)
     source: Optional[str] = "timer"
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, v: Optional[str]) -> Optional[str]:
+        # El cronómetro se guarda como "focus": solo existen estos tres
+        if v is not None and v not in POMODORO_MODES:
+            raise ValueError(f"mode debe ser uno de: {', '.join(POMODORO_MODES)}")
+        return v
 
 
 class PomodoroSessionUpdate(SQLModel):
@@ -575,7 +626,7 @@ class PomodoroSessionUpdate(SQLModel):
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     duration_seconds: Optional[int] = None
-    note: Optional[str] = None
+    note: Optional[str] = Field(default=None, max_length=200)
 
 
 class PomodoroSessionResponse(SQLModel):

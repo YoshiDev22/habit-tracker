@@ -260,6 +260,11 @@ Lo que no se ve en Swagger:
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
   (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
   Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.
+- **Todo campo que se guarda lleva tope**: `max_length` en los textos (el mismo que el
+  `maxlength` de su formulario), un validador en los dicts y listas, y los valores de un
+  conjunto cerrado (`mode`, `category`, colores) validados. Un campo nuevo, también, con
+  su caso en `tests/test_limits.py`. Un 422 de validación llega a `apiFetch` como lista, y
+  este muestra el primer motivo.
 - Los 409 del tablero traen el motivo en español ("tiene 6 tareas", "es la única columna de
   su tipo") y la UI de Organizar lo enseña tal cual: mantener esos mensajes legibles.
 - El frontend se sirve desde `main.py` con un `@app.get` por archivo. No hay `StaticFiles`

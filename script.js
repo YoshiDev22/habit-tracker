@@ -130,6 +130,10 @@ async function apiFetch(path, options = {}) {
         try {
             const data = await response.json();
             detail = data.detail || detail;
+            // Un 422 de validación trae una lista: mostrar el primer motivo
+            if (Array.isArray(detail)) {
+                detail = String(detail[0]?.msg || 'Datos no válidos').replace(/^Value error, /, '');
+            }
         } catch (e) {
             // Respuesta sin cuerpo JSON, usar el mensaje genérico
         }
