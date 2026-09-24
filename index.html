@@ -278,10 +278,42 @@
         <div class="pomodoro-bar-content">
             <span class="pomodoro-bar-label" id="pomodoroBarLabel" aria-live="polite">Enfoque</span>
             <span class="pomodoro-bar-time" id="pomodoroBarTime">25:00</span>
+            <!-- Solo con el cronómetro: sumarle el tiempo de antes de darle ▶ -->
+            <button type="button" class="pomodoro-bar-btn hidden" id="pomodoroBarAdjustBtn" aria-label="Ajustar la hora de inicio" title="Ajustar la hora de inicio">✎</button>
             <button type="button" class="pomodoro-bar-btn" id="pomodoroBarPauseBtn" aria-label="Pausar">⏸</button>
             <button type="button" class="pomodoro-bar-btn" id="pomodoroBarStopBtn" aria-label="Detener">■</button>
             <!-- Modo mensaje (sin timer corriendo): avisos y la oferta de descanso -->
             <span class="pomodoro-bar-actions" id="pomodoroBarActions"></span>
+        </div>
+    </div>
+
+    <!-- Ajustar el cronómetro en marcha (pomodoro.js, openAdjustStart): si se
+         empezó a trabajar antes de darle ▶, se le suma ese tiempo moviendo la
+         hora de inicio. Sigue corriendo. -->
+    <div id="adjustStartModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal" style="max-width: 400px;" role="dialog" aria-modal="true" aria-labelledby="adjustStartTitle">
+            <button class="modal-close" type="button" id="closeAdjustStartBtn" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="adjustStartTitle">Ajustar el cronómetro</h2>
+            <p class="setup-subtitle">¿Empezaste antes de darle ▶, o estás en otra tarea? Corrígelo; el cronómetro sigue corriendo.</p>
+            <label class="adjust-start-task">Tarea
+                <select id="adjustStartTask"></select>
+            </label>
+            <div class="adjust-start-quick" id="adjustStartQuick">
+                <button type="button" data-add-minutes="5">+5 min</button>
+                <button type="button" data-add-minutes="15">+15 min</button>
+                <button type="button" data-add-minutes="30">+30 min</button>
+                <button type="button" data-add-minutes="60">+1 h</button>
+            </div>
+            <label class="adjust-start-field">Empecé a las
+                <input type="time" id="adjustStartTime">
+            </label>
+            <p class="adjust-start-preview" id="adjustStartPreview"></p>
+            <div class="form-error hidden" id="adjustStartError" role="alert"></div>
+            <div class="habit-action-options">
+                <button type="button" id="adjustStartApplyBtn" class="submit-btn">Aplicar</button>
+                <button type="button" id="adjustStartCancelBtn" class="submit-btn btn-neutral">Cancelar</button>
+            </div>
         </div>
     </div>
 

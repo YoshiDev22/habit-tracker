@@ -1111,7 +1111,8 @@ body.has-pomodoro-bar {
 
 /* El registro de tiempo se abre sobre el detalle de la tarjeta (1000) para
    editar su historial sin cerrarla; el confirm (1100) sigue encima de todo. */
-#logTimeModal {
+#logTimeModal,
+#adjustStartModal {
     z-index: 1050;
 }
 
@@ -4022,4 +4023,71 @@ button.day-log-date:focus-visible {
     background: var(--bg-surface);
     color: var(--text-primary);
     font: inherit;
+}
+
+/* Ajustar el cronómetro en marcha (pomodoro.js, openAdjustStart) */
+.adjust-start-task {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0 12px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.adjust-start-task select {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.adjust-start-quick {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 6px 0 14px;
+}
+
+.adjust-start-quick button {
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.adjust-start-quick button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.adjust-start-field {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.adjust-start-field input {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.adjust-start-preview {
+    margin: 12px 0 4px;
+    font-size: 0.85rem;
+    text-align: center;
+    color: var(--text-primary);
 }

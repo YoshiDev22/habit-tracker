@@ -70,6 +70,7 @@ const pomodoroBarTime = document.getElementById('pomodoroBarTime');
 const pomodoroBarPauseBtn = document.getElementById('pomodoroBarPauseBtn');
 const pomodoroBarStopBtn = document.getElementById('pomodoroBarStopBtn');
 const pomodoroBarActions = document.getElementById('pomodoroBarActions');
+const pomodoroBarAdjustBtn = document.getElementById('pomodoroBarAdjustBtn');
 
 // ============================================
 // Persistencia (localStorage)
@@ -90,6 +91,50 @@ function savePomoState() {
     }
 }
 
+// ============================================
+// Varias pestañas: el mismo reloj
+// ============================================
+//
+// Cada pestaña lleva el timer en memoria. Cuando otra lo cambia (ajustar el
+// inicio, pausar, detener), el evento storage trae el estado nuevo y esta
+// pestaña lo adopta, para que todas muestren y guarden lo mismo.
+
+// Antes de guardar: si en storage está la misma sesión con otros datos (otra
+// pestaña la ajustó o la pausó), se usan esos.
+function adoptStoredSession() {
+    if (pomoState.status === 'idle') return;
+    const stored = loadPomoStateFromStorage();
+    if (stored && isSameSession(stored, pomoState)) pomoState = stored;
+}
+
+window.addEventListener('storage', (event) => {
+    if (event.key !== POMO_STORAGE_KEY) return;
+    let incoming = null;
+    try {
+        incoming = event.newValue ? JSON.parse(event.newValue) : null;
+    } catch (e) {
+        return;
+    }
+
+    if (!incoming) {
+        // Otra pestaña la terminó y la guardó: aquí ya no hay nada corriendo
+        if (pomoState.status !== 'idle') {
+            stopTicking();
+            cancelScheduledBeep();
+            pomoState = createIdlePomoState(pomoState.mode);
+            if (!idleCheckModal.classList.contains('hidden')) closeIdleCheck();
+            renderPomoUI();
+        }
+        return;
+    }
+
+    const wasRunning = pomoState.status === 'running';
+    pomoState = incoming;
+    if (incoming.status === 'running' && !wasRunning) startTicking();
+    if (incoming.status !== 'running' && wasRunning) stopTicking();
+    renderPomoUI();
+});
+
 // Lock entre pestañas del mismo navegador (Web Locks). Sin la API (navegador
 // viejo, o http que no sea localhost) corre sin lock.
 function withPomoLock(name, fn) {
@@ -104,11 +149,18 @@ function withPomoLock(name, fn) {
 // pestaña restaurada al reabrir el navegador más otra nueva). La guarda solo
 // la que la reclama: la sigue encontrando en pomodoro_state y la borra, dentro
 // del lock. La otra la encuentra ya borrada y no la envía.
+// La misma sesión: por su id, o por la hora de inicio en las que se
+// empezaron antes de que existiera el id
+function isSameSession(a, b) {
+    if (a.sessionId || b.sessionId) return a.sessionId === b.sessionId;
+    return a.startedEpochMs === b.startedEpochMs;
+}
+
 async function claimPomoState(state) {
     if (!pomoStorageWorks) return true;
     return withPomoLock('habit-tracker-pomodoro-state', () => {
         const stored = loadPomoStateFromStorage();
-        if (!stored || stored.startedEpochMs !== state.startedEpochMs) return false;
+        if (!stored || !isSameSession(stored, state)) return false;
         clearPomoState();
         return true;
     });
@@ -472,6 +524,9 @@ function startPomodoro(projectId = null, taskId = null, taskTitle = null) {
         pausedAccumMs: 0,
         pausedAtEpochMs: null,
         startedEpochMs: now,
+        // Id propio de la sesión: la hora de inicio se puede ajustar (✎ del
+        // cronómetro), así que no sirve para reconocerla entre pestañas
+        sessionId: `${now}-${Math.random().toString(36).slice(2, 10)}`,
         projectId,
         taskId,
         taskTitle,
@@ -534,6 +589,7 @@ async function stopPomodoro() {
 }
 
 async function stopTimer({ skipConfirm = false } = {}) {
+    adoptStoredSession();
     if (pomoState.status !== 'running' && pomoState.status !== 'paused') return;
 
     // Detener el cronómetro es justamente guardar el tiempo, así que no hay
@@ -615,6 +671,7 @@ async function stopTimer({ skipConfirm = false } = {}) {
 // chosenByUser: lo contestó en la pregunta del tope, así que no lleva la nota
 // de cierre automático aunque sean 8 h.
 async function finishStopwatch({ announce, endAtEpochMs = Date.now(), chosenByUser = false }) {
+    adoptStoredSession();
     stopTicking();
     cancelScheduledBeep();
     if (!idleCheckModal.classList.contains('hidden')) closeIdleCheck();
@@ -709,6 +766,7 @@ function startBreak(mode) {
 // announce=false se usa al rehidratar una sesión que terminó hace rato,
 // para no sonar/mostrar el aviso de "completado" con horas de retraso.
 async function finishPomodoro(endedEpochMs, announce) {
+    adoptStoredSession();
     stopTicking();
 
     const finishedState = pomoState;
@@ -835,6 +893,7 @@ function renderPomoUI() {
     pomodoroBarTime.classList.toggle('hidden', !isActive);
     pomodoroBarPauseBtn.classList.toggle('hidden', !isActive);
     pomodoroBarStopBtn.classList.toggle('hidden', !isActive);
+    pomodoroBarAdjustBtn.classList.toggle('hidden', !(isActive && isStopwatch(pomoState)));
     renderBarActions();
 
     if (showMessage) {
@@ -1185,6 +1244,7 @@ document.getElementById('closeDayLogBtn').addEventListener('click', closeDayLog)
 dayLogModal.querySelector('.modal-overlay').addEventListener('click', closeDayLog);
 document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.defaultPrevented || !isDayLogOpen()) return;
+    if (!adjustStartModal.classList.contains('hidden')) return;
     // Con el confirm o el registro abiertos encima, Escape es de ellos
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
     if (!logTimeModal.classList.contains('hidden')) return;
@@ -1210,6 +1270,150 @@ pomoSoundBtn.addEventListener('click', () => {
         cancelScheduledBeep();
     }
     updateSoundBtn();
+});
+
+// ============================================
+// Ajustar el cronómetro en marcha
+// ============================================
+//
+// "Llegué apurado y olvidé darle ▶": se mueve la hora de inicio hacia atrás
+// (o se elige la hora exacta) y el cronómetro sigue corriendo con ese tiempo
+// sumado. Nunca más de 8 h en total: al tope, la pregunta de siempre.
+
+const adjustStartModal = document.getElementById('adjustStartModal');
+const adjustStartTime = document.getElementById('adjustStartTime');
+const adjustStartPreview = document.getElementById('adjustStartPreview');
+const adjustStartError = document.getElementById('adjustStartError');
+const adjustStartTask = document.getElementById('adjustStartTask');
+let adjustPendingStart = null;   // la hora de inicio que se aplicaría
+let adjustTasks = [];            // tareas elegibles, del último abrir
+
+// Lo que llevaría con esa hora de inicio (las pausas no cuentan)
+function elapsedFromStart(startEpochMs) {
+    return getElapsedMs({ ...pomoState, startedEpochMs: startEpochMs });
+}
+
+// Límites: no puede empezar en el futuro ni sumar más de 8 h
+function clampAdjustStart(startEpochMs) {
+    const until = pomoState.status === 'paused' ? pomoState.pausedAtEpochMs : Date.now();
+    const earliest = until - (pomoState.pausedAccumMs || 0) - POMO_STOPWATCH_MAX_SECONDS * 1000;
+    return Math.min(until, Math.max(earliest, startEpochMs));
+}
+
+function renderAdjustStart() {
+    const d = new Date(adjustPendingStart);
+    adjustStartTime.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const elapsed = Math.round(elapsedFromStart(adjustPendingStart) / 1000);
+    const added = Math.round((pomoState.startedEpochMs - adjustPendingStart) / 1000);
+    const day = d.toDateString() === new Date().toDateString() ? '' : ' (ayer)';
+    let text = `Empezaste a las ${clockLabel(adjustPendingStart)}${day}: llevarás ${formatStopwatch(elapsed)}`;
+    if (added > 59) text += ` (+${formatDuration(added)})`;
+    if (elapsed >= POMO_STOPWATCH_MAX_SECONDS) text += '. Es el tope de 8 h: se detendrá para preguntarte cuánto trabajaste.';
+    adjustStartPreview.textContent = text;
+}
+
+// La tarea también se corrige ("empecé con una y me pasé a otra"): todo el
+// tiempo del cronómetro, desde que arrancó, pasa a la elegida. Tareas sin
+// terminar, agrupadas por proyecto; la actual siempre está aunque esté hecha.
+async function fillAdjustTasks() {
+    adjustStartTask.innerHTML = '';
+    const current = document.createElement('option');
+    current.value = String(pomoState.taskId || '');
+    current.textContent = pomoState.taskTitle || 'Sin tarea';
+    adjustStartTask.appendChild(current);
+    try {
+        const data = await apiFetch('/api/tasks?include_done=false');
+        adjustTasks = data.tasks;
+    } catch (error) {
+        console.error('No se pudieron cargar las tareas:', error);
+        return;
+    }
+    const projects = new Map(projectsState.projects.map(p => [p.id, p]));
+    const groups = new Map();
+    adjustTasks.forEach(task => {
+        if (task.id === pomoState.taskId) return;
+        const project = projects.get(task.project_id);
+        const name = !project || project.is_system ? 'Sin asignar' : project.name;
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(task);
+    });
+    groups.forEach((tasks, name) => {
+        const group = document.createElement('optgroup');
+        group.label = name;
+        tasks.forEach(task => {
+            const option = document.createElement('option');
+            option.value = String(task.id);
+            option.textContent = task.title;
+            group.appendChild(option);
+        });
+        adjustStartTask.appendChild(group);
+    });
+    adjustStartTask.value = String(pomoState.taskId || '');
+}
+
+function openAdjustStart() {
+    if (!isStopwatch(pomoState) || pomoState.status === 'idle') return;
+    adjustPendingStart = pomoState.startedEpochMs;
+    adjustStartError.classList.add('hidden');
+    renderAdjustStart();
+    showModal(adjustStartModal);
+    fillAdjustTasks();
+}
+
+function closeAdjustStart() {
+    hideModal(adjustStartModal);
+    adjustPendingStart = null;
+}
+
+document.getElementById('adjustStartQuick').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-add-minutes]');
+    if (!button || adjustPendingStart === null) return;
+    adjustPendingStart = clampAdjustStart(adjustPendingStart - Number(button.dataset.addMinutes) * 60000);
+    renderAdjustStart();
+});
+
+adjustStartTime.addEventListener('change', () => {
+    if (!adjustStartTime.value || adjustPendingStart === null) return;
+    const [h, m] = adjustStartTime.value.split(':').map(Number);
+    const now = new Date();
+    let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
+    // Una hora "más tarde que ahora" es de ayer (se empezó antes de medianoche)
+    if (start > Date.now()) start -= 24 * 3600 * 1000;
+    adjustPendingStart = clampAdjustStart(start);
+    renderAdjustStart();
+});
+
+document.getElementById('adjustStartApplyBtn').addEventListener('click', () => {
+    if (adjustPendingStart === null) return;
+    if (!isStopwatch(pomoState) || pomoState.status === 'idle') {
+        closeAdjustStart();
+        return;
+    }
+    pomoState.startedEpochMs = adjustPendingStart;
+    const picked = adjustTasks.find(t => String(t.id) === adjustStartTask.value);
+    if (picked && picked.id !== pomoState.taskId) {
+        pomoState.taskId = picked.id;
+        pomoState.projectId = picked.project_id;
+        pomoState.taskTitle = picked.title;
+    }
+    savePomoState();
+    closeAdjustStart();
+    renderPomoUI();
+    // Si con esto llegó al tope, el tick se detiene y pregunta
+    if (pomoState.status === 'running') tickPomodoro();
+});
+
+document.getElementById('adjustStartCancelBtn').addEventListener('click', closeAdjustStart);
+document.getElementById('closeAdjustStartBtn').addEventListener('click', closeAdjustStart);
+adjustStartModal.querySelector('.modal-overlay').addEventListener('click', closeAdjustStart);
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || adjustStartModal.classList.contains('hidden')) return;
+    event.preventDefault();
+    closeAdjustStart();
+});
+pomodoroBarAdjustBtn.addEventListener('click', (event) => {
+    event.stopPropagation();   // el clic en la barra lleva a Tableros
+    openAdjustStart();
 });
 
 pomodoroBarPauseBtn.addEventListener('click', (event) => {

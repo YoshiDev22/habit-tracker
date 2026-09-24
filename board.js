@@ -1570,6 +1570,8 @@ document.addEventListener('keydown', (event) => {
     // Con el confirm abierto encima, Escape es de él
     if (event.key !== 'Escape') return;
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
+    // El ajuste del cronómetro (pomodoro.js) maneja su propio Escape
+    if (!document.getElementById('adjustStartModal').classList.contains('hidden')) return;
     // Con el registro de tiempo abierto sobre la tarjeta (o sobre el tiempo
     // del día), Escape cierra ese. preventDefault: el listener del tiempo del
     // día (pomodoro.js) corre después y no debe cerrar también el suyo.

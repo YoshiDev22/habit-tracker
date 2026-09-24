@@ -419,6 +419,14 @@ modal de perfil en minutos. `pomoDuration(mode)` las lee de `currentUser` solo a
 **arrancar** un timer: el que ya corre guarda su `plannedSeconds` y termina con esa
 duración aunque cambie el ajuste. La API acepta de 60 s a 4 h; `null` vuelve al valor por defecto.
 
+**Ajustar el cronómetro en marcha** (✎ de la barra, solo cronómetro; `openAdjustStart()`):
+mueve `startedEpochMs` hacia atrás (+5/+15/+30/+1 h o una hora exacta, tope 8 h en total) y
+puede cambiar la tarea (`taskId`/`projectId`/`taskTitle`): todo el tiempo desde el inicio
+pasa a la elegida. Sigue corriendo. Como la hora de inicio cambia, cada sesión lleva un
+`sessionId` fijo y `claimPomoState()` la reconoce por él (`isSameSession()`), no por la hora.
+Las pestañas se sincronizan con el evento `storage`: un ajuste, pausa o final en una se
+adopta en las demás, y antes de guardar se relee la sesión (`adoptStoredSession()`).
+
 **Tope del cronómetro.** Nada interrumpe mientras se trabaja, y la app no adivina cuánto se
 trabajó (Yoshio lo pidió así: es decisión del usuario). Al llegar a 8 h el cronómetro se
 detiene en 8:00:00 y `#idleCheckModal` (`askStopwatchCap()`) pregunta cuánto se trabajó,
