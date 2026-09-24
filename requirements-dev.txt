@@ -1,0 +1,5 @@
+# Solo para desarrollo y pruebas: NO se instala en producción.
+# pip install -r requirements.txt -r requirements-dev.txt
+pytest==8.3.3
+# El TestClient de FastAPI lo necesita. 0.28 quitó una API que usa esta versión de Starlette.
+httpx==0.27.2

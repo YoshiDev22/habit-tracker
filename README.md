@@ -104,6 +104,16 @@ al importar `backend/main.py`. No hay migraciones ni pasos extra. El archivo `ha
 queda en la **raíz del repo**, no en `backend/`, porque el `DATABASE_URL` por defecto
 (`sqlite:///./habits.db`) es relativo al directorio desde el que arrancas el server.
 
+## Pruebas
+
+```bash
+pip install -r requirements-dev.txt
+pytest            # API (rápidas, sin navegador)
+pytest -m ui      # navegador (necesita Edge o Chrome)
+```
+
+Usan una base temporal: no tocan la de desarrollo.
+
 ## API
 
 Documentación interactiva generada por FastAPI (con el server corriendo):

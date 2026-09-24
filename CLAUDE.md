@@ -37,7 +37,8 @@ Versiones confirmadas en `requirements.txt` (no hay `pyproject.toml` en el repo)
 - `python-dotenv==1.0.1` para cargar `backend/.env`
 - Frontend estático servido por la misma app (sin build step, sin dependencias JS)
 
-No hay tests, ni linter, ni CI, ni `requirements-dev.txt`.
+Pruebas con `pytest` (ver **Pruebas**); sus dependencias van en `requirements-dev.txt`
+(`pytest`, `httpx`), que **no** se instala en producción. No hay linter ni CI.
 
 ## Estructura
 
@@ -209,6 +210,28 @@ Lo que no se deduce leyendo los modelos:
 - **Comentarios**: `user_id` es el dueño de la tarea (lo que filtran las queries) y
   `author_id` quien escribió; hoy coinciden, pero están separados para compartir tableros
   sin migrar. Solo el autor edita o borra. `created_at` es UTC naive.
+
+## Pruebas
+
+```bash
+pip install -r requirements-dev.txt
+pytest            # pruebas de API: ~15 s, sin navegador ni servidor
+pytest -m ui      # pruebas de navegador (tests/ui): necesitan Edge o Chrome
+```
+
+- **Nunca tocan tu base ni tu `.env`**: `tests/conftest.py` fija `DATABASE_URL` (SQLite
+  temporal) y `SECRET_KEY` antes de importar la app. Cada prueba empieza con la base vacía.
+- `api.call(método, ruta, body, expect=...)` devuelve `(status, json)`. `seeded` da una
+  cuenta con datos típicos (proyecto con 5 tareas y 417 min, uno archivado, y otro usuario).
+- **Deploy**: `tests/fixtures/db_v1_9.sql` es una base de la 1.9 con datos inventados.
+  `test_deploy.py` comprueba que la app se niega a arrancar sin migrar, que `migrate.py` es
+  idempotente y que los datos viejos sobreviven. Una columna nueva en `migrate.py` se
+  prueba sola ahí.
+- **Aislamiento**: `test_isolation.py`. Un endpoint nuevo que lea o escriba por id
+  necesita su caso ahí (otro usuario → 404).
+- En las pruebas, bcrypt usa costo 4 y SQLite no espera al disco: solo por velocidad.
+- Fechas: relativas a `date.today()`, nunca fijas. Varias pruebas fallaban al cambiar
+  de día por suponer que los datos de ejemplo eran "de ayer".
 
 ## Endpoints
 

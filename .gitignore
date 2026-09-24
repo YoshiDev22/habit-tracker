@@ -30,3 +30,6 @@ Thumbs.db
 # Configuraciones de editores
 .vscode/
 .idea/
+
+# Pruebas
+.pytest_cache/
