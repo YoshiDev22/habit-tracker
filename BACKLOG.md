@@ -14,7 +14,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 5 | P3 | Sin tests ni CI | — |
+| 5 | P3 | Sin CI | — |
 | 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
@@ -23,41 +23,18 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 
 ---
 
-## 5 · P3 · Sin tests ni CI
+## 5 · P3 · Sin CI
 
-**Síntoma.** No hay forma de saber si un cambio rompió algo salvo probando a mano o con
-guiones sueltos.
+**Síntoma.** Las pruebas existen (`pytest` y `pytest -m ui`, ver "Pruebas" en CLAUDE.md),
+pero solo corren si alguien se acuerda de correrlas antes de desplegar.
 
-**Causa.** El repo no tiene tests, ni `requirements-dev.txt`, ni configuración de CI.
+**Arreglo.** Un workflow de GitHub Actions que corra `pytest` (las de API: sin navegador,
+~15 s) en cada push y pull request a `main`. Las de navegador se quedan fuera al
+principio: tardan más de 10 minutos y necesitan Edge o Chrome; si se agregan, en un job
+aparte con Chrome del runner (`HABIT_UI_BROWSER`).
 
-**Lo que ya se hizo fuera del repo.** La 1.10.0 se desarrolló con 17 baterías de prueba
-escritas a mano en una carpeta temporal, que no se versionaron:
-
-- **API**: un cliente `urllib` contra el server real sobre una copia de la base, que
-  simula el deploy completo (base con el código viejo → `migrate.py` → código nuevo) y
-  comprueba el relleno, el aislamiento entre usuarios y las reglas de cada endpoint.
-- **Navegador**: Edge headless controlado por el protocolo de DevTools con `websockets`
-  (ya instalado por `uvicorn[standard]`), sin Playwright ni Node. Probó el tablero, el
-  arrastre, el detalle, el reloj en vivo, la persistencia al cerrar el navegador o la
-  sesión, y el teléfono en 390 px.
-
-Encontraron bugs reales antes de salir: `Field(regex=...)` que no valida, el tiempo que
-no seguía a la tarea, el POST de despedida del logout sin token.
-
-**Arreglo.** Traer lo anterior al repo como punto de partida, sin dependencias nuevas en
-runtime:
-
-- `requirements-dev.txt` con `pytest` y `httpx`; el backend con el `TestClient` de FastAPI
-  y un fixture de SQLite en memoria que sobreescriba `get_session`.
-- Un test que reproduzca el deploy (base vieja → `migrate.py` → arranque) con la regla
-  de `check_pending_migrations()`.
-- Las pruebas de navegador, si se traen, en `tests/ui/`, opcionales y fuera de CI al
-  principio: dependen de tener Edge o Chrome.
-
-CI en GitHub Actions después, cuando haya algo que correr.
-
-**Aceptación.** `pytest` corre en verde desde la raíz del repo e incluye la simulación del
-deploy y el aislamiento entre usuarios de tableros, tareas y etiquetas.
+**Aceptación.** Un push a `main` muestra el resultado de `pytest` en GitHub, y un test
+roto a propósito lo pone en rojo.
 
 ---
 

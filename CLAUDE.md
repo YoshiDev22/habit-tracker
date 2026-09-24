@@ -233,6 +233,19 @@ pytest -m ui      # pruebas de navegador (tests/ui): necesitan Edge o Chrome
 - Fechas: relativas a `date.today()`, nunca fijas. Varias pruebas fallaban al cambiar
   de día por suponer que los datos de ejemplo eran "de ayer".
 
+**Navegador (`tests/ui/`, `pytest -m ui`).** Cada `ui_*.py` es una prueba. Su
+`conftest.py` levanta un uvicorn nuevo por prueba, en un puerto libre, sobre la base de
+la 1.9 migrada con las fechas corridas a **ayer**. El driver es `cdp.py`: Edge o Chrome
+headless por el protocolo de DevTools con `websockets`, sin Playwright ni Node. Busca el
+navegador solo; si no lo encuentra, `HABIT_UI_BROWSER=<ruta>`, y sin navegador las
+pruebas se saltan. Las capturas van a `%TEMP%/habit-ui-shots`.
+
+- Una prueba falla si algún `check()` falla, si hay errores en la consola del navegador
+  o si el servidor escribió un `Traceback`.
+- Lo que dependa de la semana, lo esperado se calcula con la API: un lunes, "ayer" cae en
+  la semana anterior (ver `ui_reports.py`).
+- Tardan más de 10 minutos. Para una sola: `pytest -m ui tests/ui/ui_board.py`.
+
 ## Endpoints
 
 Un router por módulo en `backend/routers/` (`auth`, `habits`, `projects`, `tasks`,

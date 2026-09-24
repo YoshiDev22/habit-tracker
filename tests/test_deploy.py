@@ -7,7 +7,9 @@ import sqlite3
 import subprocess
 import sys
 
-from conftest import DB_PATH, ROOT, TMP, load_sql_fixture, run_migrate
+# Todo lo de conftest se importa aquí arriba, al recolectar: dentro de una prueba,
+# `conftest` ya puede ser el de tests/ui (el nombre es el mismo).
+from conftest import DB_PATH, ROOT, TMP, Api, app, create_db_and_tables, engine, load_sql_fixture, run_migrate
 
 H = 3600
 
@@ -68,7 +70,6 @@ def test_old_data_survives_and_is_placed_on_a_board(old_db, api):
 
 def test_a_preexisting_sin_asignar_project_is_adopted():
     # Con el código viejo alguien pudo crear (y archivar) un proyecto llamado así
-    from conftest import engine, create_db_and_tables  # noqa: F401 (misma base que la app)
     engine.dispose()
     load_sql_fixture(DB_PATH, "db_v1_9")
     conn = sqlite3.connect(DB_PATH)
@@ -81,7 +82,6 @@ def test_a_preexisting_sin_asignar_project_is_adopted():
     create_db_and_tables()
 
     from fastapi.testclient import TestClient
-    from conftest import Api, app
     with TestClient(app) as c:
         other = Api(c).login("otro@test.com")
         _, pl = other.call("GET", "/api/projects?include_inactive=true", expect=200)
