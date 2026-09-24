@@ -1276,39 +1276,48 @@ pomoSoundBtn.addEventListener('click', () => {
 // Ajustar el cronómetro en marcha
 // ============================================
 //
-// "Llegué apurado y olvidé darle ▶": se mueve la hora de inicio hacia atrás
-// (o se elige la hora exacta) y el cronómetro sigue corriendo con ese tiempo
-// sumado. Nunca más de 8 h en total: al tope, la pregunta de siempre.
+// "Llegué apurado y olvidé darle ▶": se escribe cuánto se lleva trabajando
+// (h, min, s) y la hora de inicio sale sola; el cronómetro sigue corriendo
+// desde ahí. Nunca más de 8 h: al tope, la pregunta de siempre.
 
 const adjustStartModal = document.getElementById('adjustStartModal');
-const adjustStartTime = document.getElementById('adjustStartTime');
 const adjustStartPreview = document.getElementById('adjustStartPreview');
 const adjustStartError = document.getElementById('adjustStartError');
 const adjustStartTask = document.getElementById('adjustStartTask');
-let adjustPendingStart = null;   // la hora de inicio que se aplicaría
 let adjustTasks = [];            // tareas elegibles, del último abrir
 
-// Lo que llevaría con esa hora de inicio (las pausas no cuentan)
-function elapsedFromStart(startEpochMs) {
-    return getElapsedMs({ ...pomoState, startedEpochMs: startEpochMs });
+const adjustHours = document.getElementById('adjustHours');
+const adjustMinutes = document.getElementById('adjustMinutes');
+const adjustSeconds = document.getElementById('adjustSeconds');
+
+// Lo escrito en los campos, en segundos (null si algo no vale)
+function readAdjustElapsed() {
+    const h = Number(adjustHours.value || 0);
+    const m = Number(adjustMinutes.value || 0);
+    const sec = Number(adjustSeconds.value || 0);
+    if (![h, m, sec].every(Number.isInteger) || h < 0 || m < 0 || m > 59 || sec < 0 || sec > 59) return null;
+    const total = h * 3600 + m * 60 + sec;
+    return total <= POMO_STOPWATCH_MAX_SECONDS ? total : null;
 }
 
-// Límites: no puede empezar en el futuro ni sumar más de 8 h
-function clampAdjustStart(startEpochMs) {
+// La hora de inicio que da ese tiempo ahora mismo (las pausas no cuentan)
+function startForElapsed(seconds) {
     const until = pomoState.status === 'paused' ? pomoState.pausedAtEpochMs : Date.now();
-    const earliest = until - (pomoState.pausedAccumMs || 0) - POMO_STOPWATCH_MAX_SECONDS * 1000;
-    return Math.min(until, Math.max(earliest, startEpochMs));
+    return until - (pomoState.pausedAccumMs || 0) - seconds * 1000;
 }
 
-function renderAdjustStart() {
-    const d = new Date(adjustPendingStart);
-    adjustStartTime.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    const elapsed = Math.round(elapsedFromStart(adjustPendingStart) / 1000);
-    const added = Math.round((pomoState.startedEpochMs - adjustPendingStart) / 1000);
-    const day = d.toDateString() === new Date().toDateString() ? '' : ' (ayer)';
-    let text = `Empezaste a las ${clockLabel(adjustPendingStart)}${day}: llevarás ${formatStopwatch(elapsed)}`;
-    if (added > 59) text += ` (+${formatDuration(added)})`;
-    if (elapsed >= POMO_STOPWATCH_MAX_SECONDS) text += '. Es el tope de 8 h: se detendrá para preguntarte cuánto trabajaste.';
+function renderAdjustPreview() {
+    const seconds = readAdjustElapsed();
+    if (seconds === null) {
+        adjustStartPreview.textContent = '';
+        showError(adjustStartError, 'Entre 0 y 8 horas; minutos y segundos, de 0 a 59.');
+        return;
+    }
+    adjustStartError.classList.add('hidden');
+    const start = startForElapsed(seconds);
+    const day = new Date(start).toDateString() === new Date().toDateString() ? '' : ' de ayer';
+    let text = `Empezaste a las ${clockLabel(start)}${day}.`;
+    if (seconds >= POMO_STOPWATCH_MAX_SECONDS) text += ' Es el tope de 8 h: se detendrá para preguntarte cuánto trabajaste.';
     adjustStartPreview.textContent = text;
 }
 
@@ -1353,43 +1362,46 @@ async function fillAdjustTasks() {
 
 function openAdjustStart() {
     if (!isStopwatch(pomoState) || pomoState.status === 'idle') return;
-    adjustPendingStart = pomoState.startedEpochMs;
+    // Lo que lleva al abrir; se aplica lo que quede escrito
+    const seconds = Math.min(POMO_STOPWATCH_MAX_SECONDS, Math.floor(getElapsedMs(pomoState) / 1000));
+    adjustHours.value = String(Math.floor(seconds / 3600));
+    adjustMinutes.value = String(Math.floor((seconds % 3600) / 60));
+    adjustSeconds.value = String(seconds % 60);
     adjustStartError.classList.add('hidden');
-    renderAdjustStart();
+    renderAdjustPreview();
     showModal(adjustStartModal);
     fillAdjustTasks();
+    adjustMinutes.focus();
+    adjustMinutes.select();
 }
 
 function closeAdjustStart() {
     hideModal(adjustStartModal);
-    adjustPendingStart = null;
 }
 
-document.getElementById('adjustStartQuick').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-add-minutes]');
-    if (!button || adjustPendingStart === null) return;
-    adjustPendingStart = clampAdjustStart(adjustPendingStart - Number(button.dataset.addMinutes) * 60000);
-    renderAdjustStart();
-});
-
-adjustStartTime.addEventListener('change', () => {
-    if (!adjustStartTime.value || adjustPendingStart === null) return;
-    const [h, m] = adjustStartTime.value.split(':').map(Number);
-    const now = new Date();
-    let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
-    // Una hora "más tarde que ahora" es de ayer (se empezó antes de medianoche)
-    if (start > Date.now()) start -= 24 * 3600 * 1000;
-    adjustPendingStart = clampAdjustStart(start);
-    renderAdjustStart();
+[adjustHours, adjustMinutes, adjustSeconds].forEach(input => {
+    input.addEventListener('input', renderAdjustPreview);
+    // Enter aplica, como en cualquier formulario
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            document.getElementById('adjustStartApplyBtn').click();
+        }
+    });
 });
 
 document.getElementById('adjustStartApplyBtn').addEventListener('click', () => {
-    if (adjustPendingStart === null) return;
     if (!isStopwatch(pomoState) || pomoState.status === 'idle') {
         closeAdjustStart();
         return;
     }
-    pomoState.startedEpochMs = adjustPendingStart;
+    const seconds = readAdjustElapsed();
+    if (seconds === null) {
+        renderAdjustPreview();
+        return;
+    }
+    // Calculada al aplicar: el cronómetro sigue desde exactamente lo escrito
+    pomoState.startedEpochMs = startForElapsed(seconds);
     const picked = adjustTasks.find(t => String(t.id) === adjustStartTask.value);
     if (picked && picked.id !== pomoState.taskId) {
         pomoState.taskId = picked.id;

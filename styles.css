@@ -4123,45 +4123,38 @@ button.day-log-date:focus-visible {
     font: inherit;
 }
 
-.adjust-start-quick {
+.adjust-elapsed {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    margin: 6px 0 14px;
-}
-
-.adjust-start-quick button {
-    padding: 8px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 999px;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
-.adjust-start-quick button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-.adjust-start-field {
-    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px 12px;
+    margin: 4px 0 6px;
     font-size: 0.9rem;
     color: var(--text-secondary);
 }
 
-.adjust-start-field input {
-    padding: 8px 10px;
+.adjust-elapsed-label {
+    flex-basis: 100%;
+    text-align: center;
+}
+
+.adjust-elapsed label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.adjust-elapsed input {
+    width: 64px;
+    padding: 8px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     background: var(--bg-surface);
     color: var(--text-primary);
     font: inherit;
+    font-size: 1.1rem;
+    text-align: center;
 }
 
 .adjust-start-preview {

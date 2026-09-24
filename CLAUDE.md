@@ -423,8 +423,8 @@ en el perfil: solo las usa el tiempo de las tarjetas. `pomoDuration(mode)` las l
 duración aunque cambie el ajuste. La API acepta de 60 s a 4 h; `null` vuelve al valor por defecto.
 
 **Ajustar el cronómetro en marcha** (✎ de la barra, solo cronómetro; `openAdjustStart()`):
-mueve `startedEpochMs` hacia atrás (+5/+15/+30/+1 h o una hora exacta, tope 8 h en total) y
-puede cambiar la tarea (`taskId`/`projectId`/`taskTitle`): todo el tiempo desde el inicio
+se escribe cuánto se lleva trabajando (h / min / s, tope 8 h) y `startForElapsed()` calcula
+el `startedEpochMs` que da ese tiempo en el momento de aplicar; también puede cambiar la tarea (`taskId`/`projectId`/`taskTitle`): todo el tiempo desde el inicio
 pasa a la elegida. Sigue corriendo. Como la hora de inicio cambia, cada sesión lleva un
 `sessionId` fijo y `claimPomoState()` la reconoce por él (`isSameSession()`), no por la hora.
 Las pestañas se sincronizan con el evento `storage`: un ajuste, pausa o final en una se
