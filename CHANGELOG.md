@@ -7,6 +7,36 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.14.0] — 2026-09-24
+
+Corregir el cronómetro sin detenerlo, configurar tu pomodoro, editar checklist y
+comentarios, y usar la app como una aplicación instalada.
+
+### Nuevo
+- **Ajustar el cronómetro en marcha**: toca ✎ en la barra y escribe cuánto llevas
+  trabajando (horas, minutos y segundos); la hora de inicio se calcula sola y el
+  cronómetro sigue corriendo. Ahí mismo puedes cambiar la tarea: todo el tiempo pasa a la
+  nueva.
+- **Tu pomodoro**: en Organizar › Configurar pomodoro eliges cuánto duran el enfoque y los
+  descansos. Un pomodoro en marcha termina con la duración con la que empezó.
+- **Editar el checklist y los comentarios** sin borrarlos: ✎ en cada uno. Los comentarios
+  se pueden ocultar.
+- **Instalable**: agrégala a la pantalla de inicio del teléfono o instálala en la
+  computadora; se abre como una app, con su propio ícono.
+
+### Cambios
+- El cronómetro ya no te interrumpe: solo al llegar a 8 h se detiene y te pregunta cuánto
+  trabajaste, con tu última actividad en la app como pista.
+- Los colores de tus hábitos se guardan en tu cuenta y se ven igual en todos tus
+  dispositivos. Los que tenías en este navegador se suben solos la primera vez.
+- «Exportar CSV» es ahora un enlace pequeño bajo la fecha, en Reportes.
+- Con la app abierta en varias pestañas, el reloj se mantiene igual en todas.
+
+### Para actualizar
+Esta versión añade columnas a la base de datos: correr `python3 scripts/migrate.py`
+**antes** de reiniciar el servicio. Si se olvida, el servicio no arranca y el log dice qué
+falta. Si vienes de la 1.12.0, incluye también todo lo de la 1.13.0.
+
 ## [1.13.0] — 2026-09-23
 
 Ver de dónde sale el tiempo de cada día, corregirlo y exportarlo, y un cronómetro olvidado
@@ -232,6 +262,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.14.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.14.0
 [1.13.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.13.0
 [1.12.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.12.0
 [1.11.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.11.0
