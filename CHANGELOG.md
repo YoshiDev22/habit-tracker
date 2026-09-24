@@ -32,6 +32,11 @@ comentarios, y usar la app como una aplicación instalada.
 - «Exportar CSV» es ahora un enlace pequeño bajo la fecha, en Reportes.
 - Con la app abierta en varias pestañas, el reloj se mantiene igual en todas.
 
+### Correcciones
+- Al corregir un registro de tiempo desde «Hoy», solo aparecían las tareas de su proyecto.
+  Ahora aparecen todas, agrupadas por proyecto, y al pasar el registro a otra tarea su
+  tiempo cuenta en el proyecto de esa tarea.
+
 ### Para actualizar
 Esta versión añade columnas a la base de datos: correr `python3 scripts/migrate.py`
 **antes** de reiniciar el servicio. Si se olvida, el servicio no arranca y el log dice qué
