@@ -1029,9 +1029,39 @@ function formatCommentDate(value) {
     });
 }
 
+// Mostrar u ocultar los comentarios: preferencia de este dispositivo
+const cardCommentsToggle = document.getElementById('cardCommentsToggle');
+const cardCommentsBody = document.getElementById('cardCommentsBody');
+const cardCommentsCount = document.getElementById('cardCommentsCount');
+const COMMENTS_HIDDEN_KEY = 'card_comments_hidden';
+
+function commentsHidden() {
+    try {
+        return localStorage.getItem(COMMENTS_HIDDEN_KEY) === '1';
+    } catch (e) {
+        return false;
+    }
+}
+
+function applyCommentsVisibility() {
+    const hidden = commentsHidden();
+    cardCommentsBody.classList.toggle('hidden', hidden);
+    cardCommentsToggle.setAttribute('aria-expanded', String(!hidden));
+    cardCommentsToggle.classList.toggle('collapsed', hidden);
+}
+
+cardCommentsToggle.addEventListener('click', () => {
+    try {
+        localStorage.setItem(COMMENTS_HIDDEN_KEY, commentsHidden() ? '0' : '1');
+    } catch (e) {}
+    applyCommentsVisibility();
+});
+
 function renderCardComments() {
+    applyCommentsVisibility();
     cardCommentsEl.innerHTML = '';
     const comments = cardState.comments;
+    cardCommentsCount.textContent = comments && comments.length ? `· ${comments.length}` : '';
     if (comments === null) {
         cardCommentsEl.innerHTML = '<p class="card-empty">Cargando…</p>';
         return;
@@ -1059,15 +1089,20 @@ function renderCardComments() {
         // Solo el autor puede editarlo o borrarlo (el backend lo exige igual)
         const editing = isEditing('comment', comment.id);
         if (currentUser && comment.author_id === currentUser.id && !editing) {
+            // Los mismos iconos que el resto de la app: ✎ editar, × borrar
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
             editBtn.className = 'card-comment-edit';
-            editBtn.textContent = 'Editar';
+            editBtn.title = 'Editar comentario';
+            editBtn.setAttribute('aria-label', 'Editar comentario');
+            editBtn.textContent = '✎';
             meta.appendChild(editBtn);
             const remove = document.createElement('button');
             remove.type = 'button';
             remove.className = 'card-comment-delete';
-            remove.textContent = 'Eliminar';
+            remove.title = 'Eliminar comentario';
+            remove.setAttribute('aria-label', 'Eliminar comentario');
+            remove.textContent = '×';
             meta.appendChild(remove);
         }
         item.appendChild(meta);

@@ -374,7 +374,8 @@ Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 Claves: `access_token`, `theme`, `habitsData`, `user_habits`,
 `pomodoro_state`, `pomodoro_pending`, `pomodoro_sound`, `pomodoro_activity` (último clic o
 tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista,
-del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión) y
+del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión), `card_comments_hidden`
+(comentarios plegados en el detalle de tarjeta, de este dispositivo) y
 `last_view` (última pestaña: `projects.js` la aplica al cargar, antes del primer pintado,
 y se borra al cerrar sesión).
 

@@ -637,13 +637,21 @@
                 </form>
             </section>
 
-            <section class="card-section">
-                <h3 class="card-section-title">Comentarios</h3>
+            <!-- Los comentarios se pueden ocultar (se recuerda en este dispositivo) -->
+            <section class="card-section" id="cardCommentsSection">
+                <h3 class="card-section-title">
+                    <button type="button" class="card-section-toggle" id="cardCommentsToggle" aria-expanded="true" aria-controls="cardCommentsBody">
+                        <span class="card-section-chevron" aria-hidden="true">▾</span> Comentarios
+                        <span class="card-section-meta" id="cardCommentsCount"></span>
+                    </button>
+                </h3>
+                <div id="cardCommentsBody">
                 <div id="cardComments" class="card-comments"></div>
                 <form id="cardCommentForm" class="card-comment-form">
                     <textarea maxlength="2000" rows="2" placeholder="Escribe un comentario…" aria-label="Nuevo comentario"></textarea>
                     <button type="submit" class="submit-btn">Comentar</button>
                 </form>
+                </div>
             </section>
 
             <div class="card-footer">
