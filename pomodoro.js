@@ -1337,27 +1337,35 @@ async function fillAdjustTasks() {
         console.error('No se pudieron cargar las tareas:', error);
         return;
     }
+    appendTaskGroups(adjustStartTask, adjustTasks, { skipId: pomoState.taskId });
+    adjustStartTask.value = String(pomoState.taskId || '');
+}
+
+// Añade las tareas a un <select>, en un grupo por proyecto ("Sin asignar"
+// para las del proyecto de sistema). firstProjectId: ese grupo va primero.
+function appendTaskGroups(select, tasks, { skipId = null, firstProjectId = null } = {}) {
     const projects = new Map(projectsState.projects.map(p => [p.id, p]));
     const groups = new Map();
-    adjustTasks.forEach(task => {
-        if (task.id === pomoState.taskId) return;
+    const ordered = [...tasks].sort((a, b) =>
+        (b.project_id === firstProjectId) - (a.project_id === firstProjectId));
+    ordered.forEach(task => {
+        if (task.id === skipId) return;
         const project = projects.get(task.project_id);
         const name = !project || project.is_system ? 'Sin asignar' : project.name;
         if (!groups.has(name)) groups.set(name, []);
         groups.get(name).push(task);
     });
-    groups.forEach((tasks, name) => {
+    groups.forEach((groupTasks, name) => {
         const group = document.createElement('optgroup');
         group.label = name;
-        tasks.forEach(task => {
+        groupTasks.forEach(task => {
             const option = document.createElement('option');
             option.value = String(task.id);
             option.textContent = task.title;
             group.appendChild(option);
         });
-        adjustStartTask.appendChild(group);
+        select.appendChild(group);
     });
-    adjustStartTask.value = String(pomoState.taskId || '');
 }
 
 function openAdjustStart() {
@@ -1635,19 +1643,30 @@ function syncTypedDurationFields() {
     logTimeMinutesEl.value = String(Math.floor((seconds % 3600) / 60));
 }
 
+// Todas las tareas abiertas, no solo las del proyecto: desde "Hoy" se corrigen
+// registros de cualquier proyecto, y el tiempo se puede pasar a otra tarea.
+// Las del proyecto del registro van primero.
+let logTimeTasks = [];
+let logTimeBaseProjectId = null;   // el proyecto con el que se abrió (para "Sin tarea")
+
 async function fillLogTimeTasks(projectId) {
     logTimeTaskEl.innerHTML = '<option value="">Sin tarea</option>';
     try {
-        const data = await apiFetch(`/api/tasks?project_id=${projectId}&include_done=false`);
-        data.tasks.forEach(task => {
-            const option = document.createElement('option');
-            option.value = String(task.id);
-            option.textContent = task.title;
-            logTimeTaskEl.appendChild(option);
-        });
+        const data = await apiFetch('/api/tasks?include_done=false');
+        logTimeTasks = data.tasks;
+        appendTaskGroups(logTimeTaskEl, logTimeTasks, { firstProjectId: projectId });
     } catch (error) {
         console.warn('Could not load tasks for the time log:', error);
     }
+}
+
+// La cabecera dice el proyecto donde contará el tiempo: el de la tarea elegida
+function syncLogTimeProject() {
+    const task = logTimeTasks.find(t => String(t.id) === logTimeTaskEl.value);
+    const projectId = task ? task.project_id : logTimeBaseProjectId;
+    const project = projectsState.projects.find(p => p.id === projectId);
+    logTimeProjectId = projectId;
+    logTimeProjectEl.textContent = project ? (project.is_system ? 'Sin asignar' : project.name) : 'Proyecto archivado';
 }
 
 // fillLogTimeTasks() solo lista tareas pendientes, pero un registro puede ser
@@ -1672,6 +1691,8 @@ async function openLogTimeModal(projectId, session = null, task = null) {
     if (!project && !session) return;
 
     logTimeProjectId = projectId;
+    logTimeBaseProjectId = projectId;
+    logTimeTasks = [];
     logTimeSessionId = session ? session.id : null;
     logTimeProjectEl.textContent = project ? project.name : 'Proyecto archivado';
     logTimeTitleEl.textContent = session ? 'Editar registro' : 'Registrar tiempo';
@@ -1711,6 +1732,7 @@ async function openLogTimeModal(projectId, session = null, task = null) {
     } else if (task) {
         ensureLogTimeTaskOption(task.id, task.title);
     }
+    syncLogTimeProject();
 }
 
 // "2026-09-08" + segundos desde medianoche -> instante LOCAL, y de ahí a UTC
@@ -1800,6 +1822,7 @@ projectsList.addEventListener('click', (event) => {
 });
 
 logTimeForm.addEventListener('submit', submitLogTime);
+logTimeTaskEl.addEventListener('change', syncLogTimeProject);
 logTimeHoursEl.addEventListener('input', applyTypedDuration);
 logTimeMinutesEl.addEventListener('input', applyTypedDuration);
 logTimeStartEl.addEventListener('input', () => {

@@ -75,6 +75,7 @@ def create_pomodoro_session(
                 detail="Proyecto no encontrado"
             )
 
+    project_id = session_in.project_id
     if session_in.task_id is not None:
         task = session.exec(
             select(Task).where(
@@ -87,10 +88,13 @@ def create_pomodoro_session(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Tarea no encontrada"
             )
+        # El tiempo es de la tarea: cuenta en el proyecto de la tarea, sea cual
+        # sea el que mandó el cliente
+        project_id = task.project_id
 
     new_session = PomodoroSession(
         user_id=current_user.id,
-        project_id=session_in.project_id,
+        project_id=project_id,
         task_id=session_in.task_id,
         session_date=session_in.session_date,
         started_at=session_in.started_at,
@@ -202,7 +206,8 @@ def update_pomodoro_session(
 ):
     """
     Corrige una sesión ya registrada: tarea, fecha, horas, duración o nota.
-    El proyecto y el origen no se tocan.
+    El origen no se toca. El proyecto sigue a la tarea: pasar el registro a
+    una tarea de otro proyecto lo pasa también a ese proyecto.
     """
     pomodoro_session = session.exec(
         select(PomodoroSession).where(
@@ -231,6 +236,7 @@ def update_pomodoro_session(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Tarea no encontrada"
             )
+        pomodoro_session.project_id = task.project_id
 
     for field, value in update_data.items():
         setattr(pomodoro_session, field, value)

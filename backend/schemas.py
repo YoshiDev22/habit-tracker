@@ -568,8 +568,7 @@ class PomodoroSessionCreate(SQLModel):
 class PomodoroSessionUpdate(SQLModel):
     """
     Esquema para corregir una sesión ya registrada (PATCH parcial).
-    No se puede mover de proyecto ni cambiar el origen: para eso, borrar y
-    volver a crear.
+    El origen no se cambia. El proyecto no se manda: sigue a la tarea.
     """
     task_id: Optional[int] = None
     session_date: Optional[date_type] = None
