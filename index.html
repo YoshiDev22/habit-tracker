@@ -28,6 +28,11 @@
         var root = document.documentElement;
         root.setAttribute('data-theme', dark ? 'dark' : 'light');
         root.setAttribute('data-theme-pref', pref);
+        // Tamaño del texto de este dispositivo (Mi perfil), por lo mismo:
+        // aplicado después se vería saltar la página al cargar.
+        var size = null;
+        try { size = localStorage.getItem('text_size'); } catch (e) {}
+        if (size === 'large' || size === 'xlarge') root.setAttribute('data-text-size', size);
     })();
     </script>
     <link rel="stylesheet" href="styles.css">
@@ -338,6 +343,19 @@
                 <div id="profileError" class="form-error hidden"></div>
                 <button type="submit" class="submit-btn">Guardar</button>
             </form>
+            <!-- No es del perfil: se guarda en este dispositivo y se aplica al
+                 tocarlo, sin pasar por Guardar -->
+            <div class="device-settings">
+                <p class="device-settings-title">En este dispositivo</p>
+                <div class="device-setting-row">
+                    <span id="textSizeLabel">Tamaño del texto</span>
+                    <div class="view-toggle" id="textSizeToggle" role="group" aria-labelledby="textSizeLabel">
+                        <button type="button" class="view-toggle-btn" data-size="normal">Normal</button>
+                        <button type="button" class="view-toggle-btn" data-size="large">Grande</button>
+                        <button type="button" class="view-toggle-btn" data-size="xlarge">Muy grande</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

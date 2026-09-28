@@ -104,6 +104,16 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
+/* Tamaño del texto (Mi perfil › En este dispositivo). Todo lo que usa rem
+   crece con esto, así que los tamaños de texto nuevos van en rem, no en px. */
+html[data-text-size="large"] {
+    font-size: 112.5%;
+}
+
+html[data-text-size="xlarge"] {
+    font-size: 125%;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: var(--bg-color);
@@ -1314,7 +1324,7 @@ body.has-pomodoro-bar {
 .no-habits-message {
     text-align: center;
     padding: 10px;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--text-secondary);
 }
 
@@ -1878,6 +1888,31 @@ body.has-pomodoro-bar {
     background: var(--bg-surface);
     color: var(--text-primary);
     box-shadow: var(--shadow-sm);
+}
+
+.device-settings {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.device-settings-title {
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.device-setting-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
 }
 
 .board-filters {

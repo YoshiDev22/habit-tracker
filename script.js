@@ -1940,6 +1940,49 @@ function initTheme() {
 
 window.appInitHooks.push(initTheme);
 
+// Tamaño del texto: preferencia de este dispositivo, como el tema. El script
+// inline del <head> la aplica antes del primer paint; esto la cambia y marca
+// el botón elegido. Sobrevive al cierre de sesión a propósito.
+const TEXT_SIZES = ['normal', 'large', 'xlarge'];
+const textSizeToggle = document.getElementById('textSizeToggle');
+
+function getTextSize() {
+    try {
+        const size = localStorage.getItem('text_size');
+        return TEXT_SIZES.includes(size) ? size : 'normal';
+    } catch (e) {
+        return 'normal';
+    }
+}
+
+function applyTextSize(size) {
+    if (size === 'normal') {
+        document.documentElement.removeAttribute('data-text-size');
+    } else {
+        document.documentElement.setAttribute('data-text-size', size);
+    }
+    textSizeToggle.querySelectorAll('[data-size]').forEach(btn => {
+        btn.setAttribute('aria-pressed', btn.dataset.size === size ? 'true' : 'false');
+    });
+}
+
+function initTextSize() {
+    applyTextSize(getTextSize());
+    textSizeToggle.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-size]');
+        if (!btn) return;
+        try {
+            if (btn.dataset.size === 'normal') localStorage.removeItem('text_size');
+            else localStorage.setItem('text_size', btn.dataset.size);
+        } catch (e) {
+            // Sin localStorage se aplica igual, solo no persiste al recargar.
+        }
+        applyTextSize(btn.dataset.size);
+    });
+}
+
+window.appInitHooks.push(initTextSize);
+
 // El campo de texto y el color están siempre activos; el + se habilita en
 // cuanto hay algo escrito.
 addCustomHabitBtn.disabled = true;

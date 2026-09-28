@@ -421,7 +421,10 @@ tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión), `card_comments_hidden`
 (comentarios plegados en el detalle de tarjeta, de este dispositivo) y
 `last_view` (última pestaña: `projects.js` la aplica al cargar, antes del primer pintado,
-y se borra al cerrar sesión).
+y se borra al cerrar sesión) y `text_size` (`large` | `xlarge`, en **Mi perfil › En este
+dispositivo**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
+los tamaños de texto nuevos van en `rem`, no en `px`—; el script inline del `<head>` lo
+aplica junto con el tema, y sobrevive al cierre de sesión).
 
 **Nombre, emoji y color de cada hábito viven en el backend** (`habits.label`, `icon`,
 `color`) y se leen de `HABIT_LABELS`, `HABIT_ICONS` y `HABIT_COLORS` (`habitColor(key)`),
