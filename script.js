@@ -52,6 +52,9 @@ let currentUser = null;
 // Racha tal como la calcula el backend (calculate_streak). La pantalla no la
 // recalcula: una segunda regla en el navegador ignoraba los días de descanso.
 let currentStreak = null;
+// Protectores, días cubiertos y "ayer quedó vacío", también del backend
+// (_walk_streak). Los guarda setStreakInfo().
+let streakInfo = null;
 
 // ============================================
 // Elementos del DOM - Auth
@@ -485,6 +488,7 @@ function handleLogout() {
     removeToken();
     currentUser = null;
     currentStreak = null;
+    streakInfo = null;
     habitsData = {};
     // La lista del modal se repinta desde el backend cada vez que se abre, así
     // que no hay nada que limpiar acá.
@@ -515,6 +519,8 @@ function handleModalDismiss(modalEl) {
         closeProfileModal();
     } else if (modalEl.id === 'habitsSetupModal') {
         closeHabitsSetup();
+    } else if (modalEl.id === 'missedDayModal') {
+        hideModal(modalEl);
     } else {
         hideAllModals();
     }
@@ -1278,7 +1284,7 @@ async function loadHabitsFromAPI() {
             const dateKey = entry.date;
             habitsData[dateKey] = entry.habits_data || {};
         });
-        currentStreak = data.streak;
+        setStreakInfo(data);
 
         renderCalendar();
     } catch (error) {
@@ -1343,11 +1349,30 @@ async function saveHabitToAPI(dateKey, habits) {
     }
 }
 
+function setStreakInfo(data) {
+    currentStreak = data.streak;
+    streakInfo = {
+        shields: data.streak_shields || 0,
+        nextIn: data.shield_next_in ?? null,
+        protectedDays: new Set(data.protected_days || []),
+        missedYesterday: data.missed_yesterday || null,
+    };
+}
+
+function shieldsText(info) {
+    const days = n => `${n} ${n === 1 ? 'día' : 'días'}`;
+    if (info.shields >= 2) return '🛡️🛡️ 2 protectores (el máximo)';
+    if (info.shields === 1) return `🛡️ 1 protector · otro en ${days(info.nextIn)}`;
+    return info.nextIn ? `🛡️ Protector en ${days(info.nextIn)} de racha` : '';
+}
+
 async function refreshStreakFromAPI() {
     try {
         const data = await apiFetch(`/api/habits/streak?today=${getDateKey(new Date())}`);
-        currentStreak = data.streak;
-        renderMetrics();
+        setStreakInfo(data);
+        // Anotar un día perdido puede devolver su protector: el calendario
+        // también cambia, no solo el número.
+        renderCalendar();
     } catch (error) {
         console.error('Error actualizando la racha:', error);
     }
@@ -1475,6 +1500,7 @@ function renderMetrics() {
     const streak = currentStreak ?? 0;
     const streakCount = document.getElementById('streakCount');
     streakCount.textContent = streak;
+    document.getElementById('streakShields').textContent = streakInfo ? shieldsText(streakInfo) : '';
     
     // Actualizar stats por hábito
     const stats = calculateHabitStats();
@@ -1564,6 +1590,14 @@ function renderCalendar() {
         const hasAnyHabit = Object.values(dayData).some(v => Boolean(v));
         if (restDays.includes(pyWeekday) && !hasAnyHabit) {
             dayCell.classList.add('rest-day');
+        }
+        if (streakInfo && streakInfo.protectedDays.has(dateKey)) {
+            dayCell.classList.add('protected');
+            dayCell.title = 'Un protector cuidó la racha este día';
+            const shield = document.createElement('span');
+            shield.className = 'day-shield';
+            shield.textContent = '🛡️';
+            dayCell.appendChild(shield);
         }
         
         // Número del día
@@ -1982,6 +2016,78 @@ function initTextSize() {
 }
 
 window.appInitHooks.push(initTextSize);
+
+// ============================================
+// "¿Olvidaste anotar?" — ayer quedó sin hábitos
+// ============================================
+// El backend dice si ayer quedó vacío sin ser de descanso y con racha en juego
+// (missed_yesterday). Se pregunta una vez por día perdido en cada dispositivo:
+// se conteste o se cierre, ese día ya no se vuelve a preguntar.
+const MISSED_ASKED_KEY = 'missed_day_asked';
+const missedDayModal = document.getElementById('missedDayModal');
+const missedDayHabits = document.getElementById('missedDayHabits');
+const missedDayError = document.getElementById('missedDayError');
+let missedDayDate = null;
+
+function askMissedYesterday() {
+    const missed = streakInfo && streakInfo.missedYesterday;
+    if (!missed || !currentUser || HABITS.length === 0) return;
+    // Otro modal a la vista (bienvenida, tope del cronómetro…): no encimarse
+    if (document.querySelector('.modal:not(.hidden)')) return;
+    const askedFor = `${currentUser.id}:${missed.date}`;
+    try {
+        if (localStorage.getItem(MISSED_ASKED_KEY) === askedFor) return;
+        localStorage.setItem(MISSED_ASKED_KEY, askedFor);
+    } catch (e) {
+        // Sin localStorage se pregunta en cada carga: molesto, pero no rompe nada.
+    }
+
+    missedDayDate = missed.date;
+    const days = `${missed.streak} ${missed.streak === 1 ? 'día' : 'días'}`;
+    document.getElementById('missedDayText').textContent = missed.shielded
+        ? `Ayer no anotaste ningún hábito y un protector 🛡️ cuidó tu racha de ${days}. Si sí lo hiciste, márcalo y recuperas el protector.`
+        : `Ayer no anotaste ningún hábito y tu racha de ${days} se cortó. Si sí lo hiciste, márcalo y la recuperas.`;
+
+    missedDayHabits.innerHTML = '';
+    HABITS.forEach(key => {
+        const row = document.createElement('label');
+        row.className = 'habit-option';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = key;
+        const check = document.createElement('span');
+        check.className = 'habit-check';
+        const name = document.createElement('span');
+        name.className = 'habit-label';
+        name.textContent = habitDisplayName(HABIT_ICONS[key], HABIT_LABELS[key] || key);
+        row.append(input, check, name);
+        missedDayHabits.appendChild(row);
+    });
+    showModal(missedDayModal);
+}
+
+async function saveMissedYesterday() {
+    const checked = [...missedDayHabits.querySelectorAll('input:checked')].map(input => input.value);
+    if (checked.length === 0) {
+        showError(missedDayError, 'Marca lo que hiciste, o elige «No, no lo hice».');
+        return;
+    }
+    const habits = { ...(habitsData[missedDayDate] || {}) };
+    checked.forEach(key => { habits[key] = true; });
+    try {
+        await apiFetch('/api/habits', { method: 'POST', json: { date: missedDayDate, habits } });
+    } catch (error) {
+        showError(missedDayError, error.message);
+        return;
+    }
+    habitsData[missedDayDate] = habits;
+    hideModal(missedDayModal);
+    await refreshStreakFromAPI();
+}
+
+document.getElementById('missedDaySaveBtn').addEventListener('click', saveMissedYesterday);
+document.getElementById('missedDaySkipBtn').addEventListener('click', () => hideModal(missedDayModal));
+window.appDataHooks.push(askMissedYesterday);
 
 // El campo de texto y el color están siempre activos; el + se habilita en
 // cuanto hay algo escrito.

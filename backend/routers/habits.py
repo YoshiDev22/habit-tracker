@@ -1,5 +1,6 @@
+from dataclasses import dataclass, field
 from datetime import date as date_type, timedelta
-from typing import Optional, Dict, Set
+from typing import Optional, Dict, List, Set
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -17,6 +18,7 @@ from backend.schemas import (
     HabitListResponse,
     HabitReportItem,
     HabitReportResponse,
+    StreakResponse,
 )
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
@@ -58,8 +60,8 @@ def get_habits(
     # Calcular estadísticas del mes actual
     stats = calculate_stats(current_user.id, month, year, session)
     
-    # Calcular racha
-    streak = calculate_streak(current_user.id, session, current_user, resolve_client_today(today))
+    # Racha y protectores
+    walk = calculate_streak(current_user.id, session, current_user, resolve_client_today(today))
     
     # Convertir a formato de respuesta
     entries_response = [
@@ -74,7 +76,7 @@ def get_habits(
     return UserHabitsResponse(
         entries=entries_response,
         stats=stats,
-        streak=streak
+        **_streak_payload(walk)
     )
 
 
@@ -172,11 +174,11 @@ def get_streak(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Obtiene la racha actual de días consecutivos.
+    Obtiene la racha actual de días consecutivos, con sus protectores.
     `today` es la fecha LOCAL del cliente (ver backend/dates.py).
     """
-    streak = calculate_streak(current_user.id, session, current_user, resolve_client_today(today))
-    return {"streak": streak}
+    walk = calculate_streak(current_user.id, session, current_user, resolve_client_today(today))
+    return StreakResponse(**_streak_payload(walk))
 
 
 @router.get("/report", response_model=HabitReportResponse)
@@ -227,26 +229,28 @@ def get_habit_report(
         select(Habit).where(Habit.user_id == current_user.id, Habit.is_active == True)
         .order_by(Habit.order, Habit.id)
     ).all()
-    cutoff = today - timedelta(days=400)
     items = []
     for habit in habits:
         done = done_by_key.get(habit.key, set())
+        walk = _walk_streak(done, rest_days, today)
         items.append(HabitReportItem(
             key=habit.key,
             label=habit.label,
             icon=habit.icon,
             color=habit.color,
             days_done=in_range(done),
-            current_streak=_current_streak(done, rest_days, today, cutoff),
-            best_streak=_best_streak(done, rest_days, today),
+            current_streak=walk.current,
+            best_streak=walk.best,
         ))
 
+    overall = _walk_streak(any_done, rest_days, today)
     return HabitReportResponse(
         days_elapsed=days_elapsed,
         rest_days_elapsed=rest_elapsed,
         active_days=in_range(any_done),
-        streak=_current_streak(any_done, rest_days, today, cutoff),
-        best_streak=_best_streak(any_done, rest_days, today),
+        streak=overall.current,
+        best_streak=overall.best,
+        streak_shields=overall.shields,
         habits=items,
     )
 
@@ -418,20 +422,11 @@ def calculate_streak(
     session: Session,
     user: Optional[User] = None,
     today: Optional[date_type] = None,
-) -> int:
+) -> "StreakWalk":
     """
-    Calcula la racha actual de días consecutivos con al menos un hábito completado.
-
-    Regla de corte:
-    1. Se consultan las entradas de los últimos 400 días en una sola query.
-    2. Se recorren los días hacia atrás comenzando desde hoy:
-       - Si el día tiene al menos un hábito en True: racha += 1, continúa al día anterior.
-       - Si es HOY y no tiene ningún hábito completado: no corta la racha (el día aún
-         está en curso), continúa revisando ayer.
-       - Si el día no tiene hábitos pero su día de la semana (check_date.weekday())
-         está configurado en los días de descanso del usuario (user.rest_days):
-         la racha se congela (no suma y no corta), continúa revisando el día anterior.
-       - En cualquier otro caso: la racha se corta inmediatamente.
+    La racha general: días con al menos un hábito completado, con la regla de
+    _walk_streak (hoy no corta, los días de descanso congelan y los protectores
+    cubren los días perdidos).
 
     `today` debe ser la fecha LOCAL del usuario (ver backend/dates.py): el servidor
     corre en UTC y, de noche, su "hoy" ya es mañana para el usuario. Sin ella se
@@ -443,12 +438,11 @@ def calculate_streak(
 
     if today is None:
         today = date_type.today()
-    cutoff_date = today - timedelta(days=400)
 
+    # Todo el historial: los protectores se ganan desde el principio de la racha
     entries = session.exec(
         select(HabitEntry).where(
             HabitEntry.user_id == user_id,
-            HabitEntry.entry_date >= cutoff_date,
             HabitEntry.entry_date <= today
         )
     ).all()
@@ -457,44 +451,75 @@ def calculate_streak(
         entry.entry_date for entry in entries
         if entry.habits_data and any(v for v in entry.habits_data.values() if v)
     }
-    return _current_streak(done_dates, rest_days, today, cutoff_date)
+    return _walk_streak(done_dates, rest_days, today)
 
 
-def _current_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type,
-                    cutoff_date: date_type) -> int:
-    """La regla de calculate_streak sobre un conjunto de días hechos, para
-    usarla igual con todos los hábitos juntos o con uno solo."""
-    streak = 0
-    check_date = today
-
-    while check_date >= cutoff_date:
-        if check_date in done_dates:
-            streak += 1
-        elif check_date == today:
-            # Hoy no tiene hábitos completados pero sigue en curso; no corta la racha
-            pass
-        elif check_date.weekday() in rest_days:
-            # Día de descanso semanal sin hábitos: congela la racha (no suma y no corta)
-            pass
-        else:
-            # Día sin hábitos completados: se corta la racha
-            break
-        check_date -= timedelta(days=1)
-
-    return streak
+# Protectores de racha: cada SHIELD_EVERY días hechos de la racha se gana uno,
+# y se guardan hasta SHIELD_MAX. No se almacenan: salen de recorrer el historial,
+# así que marcar tarde un día olvidado devuelve el protector que se había gastado.
+SHIELD_EVERY = 7
+SHIELD_MAX = 2
 
 
-def _best_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type) -> int:
-    """La racha más larga del historial, con la misma regla que la actual."""
+@dataclass
+class StreakWalk:
+    current: int = 0                  # racha hasta hoy
+    best: int = 0                     # la más larga del historial
+    shields: int = 0                  # protectores guardados ahora
+    progress: int = 0                 # días hechos hacia el próximo (0..SHIELD_EVERY-1)
+    protected: List[date_type] = field(default_factory=list)   # días cubiertos
+    # Ayer no se hizo nada, no era de descanso y había racha: lo que el cliente
+    # pregunta al abrir ("¿olvidaste anotar?"). None si no aplica.
+    missed_yesterday: Optional[dict] = None
+
+
+def _walk_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type) -> StreakWalk:
+    """
+    La regla de la racha, en un solo lugar, recorriendo los días hacia adelante:
+    - Día con algo hecho: la racha suma 1 y avanza hacia el próximo protector.
+    - Hoy sin nada: no corta (el día sigue en curso).
+    - Día de descanso sin nada: congela (no suma y no corta).
+    - Cualquier otro día sin nada: si hay racha y queda un protector, se gasta y
+      la racha sigue sin sumar; si no, la racha se corta.
+    Vale igual para todos los hábitos juntos o para uno solo.
+    """
+    walk = StreakWalk()
     if not done_dates:
-        return 0
-    best = current = 0
+        return walk
+    yesterday = today - timedelta(days=1)
+    run = 0
     day = min(done_dates)
     while day <= today:
         if day in done_dates:
-            current += 1
-            best = max(best, current)
-        elif day != today and day.weekday() not in rest_days:
-            current = 0
+            run += 1
+            walk.best = max(walk.best, run)
+            walk.progress += 1
+            if walk.progress == SHIELD_EVERY:
+                walk.progress = 0
+                walk.shields = min(SHIELD_MAX, walk.shields + 1)
+        elif day == today or day.weekday() in rest_days:
+            pass
+        elif run > 0 and walk.shields > 0:
+            walk.shields -= 1
+            walk.protected.append(day)
+            if day == yesterday:
+                walk.missed_yesterday = {"date": day, "streak": run, "shielded": True}
+        else:
+            if day == yesterday and run > 0:
+                walk.missed_yesterday = {"date": day, "streak": run, "shielded": False}
+            run = 0
+            walk.progress = 0
         day += timedelta(days=1)
-    return best
+    walk.current = run
+    return walk
+
+
+def _streak_payload(walk: StreakWalk) -> dict:
+    """Los campos de racha que comparten GET /api/habits y GET /api/habits/streak."""
+    return {
+        "streak": walk.current,
+        "streak_shields": walk.shields,
+        "shield_next_in": SHIELD_EVERY - walk.progress if walk.shields < SHIELD_MAX else None,
+        "protected_days": [str(d) for d in walk.protected],
+        "missed_yesterday": walk.missed_yesterday,
+    }

@@ -167,11 +167,19 @@ Lo que no se deduce leyendo los modelos:
   `scripts/migrate.py` normaliza lo que ya estaba guardado así; es idempotente.
 - **La racha solo la calcula el backend** (`calculate_streak` en `routers/habits.py`). La
   pantalla muestra el `streak` de `GET /api/habits` y lo refresca con
-  `GET /api/habits/streak` después de marcar un día. La regla vive en `_current_streak()`
-  (y el récord en `_best_streak()`), que `GET /api/habits/report` aplica también a cada
-  hábito por separado: un cambio de regla se hace ahí, una sola vez. No volver a calcularla en el
-  navegador: hubo una copia de la regla en `script.js`, ignoraba los días de descanso y la
-  UI contradecía a la API.
+  `GET /api/habits/streak` después de marcar un día. La regla vive en `_walk_streak()`
+  (racha actual, récord y protectores en un solo recorrido), que `GET /api/habits/report`
+  aplica también a cada hábito por separado: un cambio de regla se hace ahí, una sola vez.
+  No volver a calcularla en el navegador: hubo una copia de la regla en `script.js`,
+  ignoraba los días de descanso y la UI contradecía a la API.
+- **Protectores de racha: no se guardan, se deducen del historial.** Cada 7 días hechos
+  se gana uno (máximo 2, `SHIELD_EVERY` / `SHIELD_MAX`) y un día perdido —ni hecho, ni
+  hoy, ni de descanso— gasta uno en vez de cortar. Como salen de recorrer los días desde
+  el principio, anotar tarde un día olvidado devuelve su protector sin más, y no hay
+  tabla ni migración. La API manda además `protected_days` (el calendario los marca con
+  🛡️) y `missed_yesterday`: si ayer quedó vacío y había racha, `script.js`
+  (`askMissedYesterday`) pregunta al abrir "¿Olvidaste anotar ayer?", una vez por día en
+  cada dispositivo.
 - `started_at` / `ended_at` son UTC naive (`datetime.utcnow()`). El cliente nunca los parsea
   para la lógica del timer — usa `Date.now()` + localStorage.
 - Archivar (`is_active=False`) conserva el historial. `DELETE /api/tasks/{id}` borra su
@@ -421,7 +429,8 @@ tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión), `card_comments_hidden`
 (comentarios plegados en el detalle de tarjeta, de este dispositivo) y
 `last_view` (última pestaña: `projects.js` la aplica al cargar, antes del primer pintado,
-y se borra al cerrar sesión) y `text_size` (`large` | `xlarge`, en **Mi perfil › En este
+y se borra al cerrar sesión), `missed_day_asked` (`<user_id>:<fecha>` del último día por
+el que se preguntó "¿Olvidaste anotar?") y `text_size` (`large` | `xlarge`, en **Mi perfil › En este
 dispositivo**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
 los tamaños de texto nuevos van en `rem`, no en `px`—; el script inline del `<head>` lo
 aplica junto con el tema, y sobrevive al cierre de sesión).

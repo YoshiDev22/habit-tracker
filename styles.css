@@ -943,6 +943,38 @@ body.has-pomodoro-bar {
     margin-top: 2px;
 }
 
+.streak-shields {
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.streak-shields:empty {
+    display: none;
+}
+
+/* Día perdido que cubrió un protector: cuenta como parte de la racha */
+.day-cell.protected {
+    background-color: var(--bg-surface-2);
+}
+
+.day-shield {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    font-size: 0.6rem;
+    line-height: 1;
+}
+
+.missed-day-modal {
+    max-width: 420px;
+    text-align: left;
+}
+
+.missed-day-modal .habits-options {
+    margin: 16px 0;
+}
+
 /* Habit Stats */
 .habit-stats {
     margin-top: 8px;

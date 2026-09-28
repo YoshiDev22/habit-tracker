@@ -181,6 +181,9 @@
                             <div class="streak-info">
                                 <span class="streak-count" id="streakCount">0</span>
                                 <span class="streak-label">días seguidos</span>
+                                <!-- Protectores de racha: los calcula el backend (_walk_streak) -->
+                                <span class="streak-shields" id="streakShields"
+                                      title="Cada 7 días de racha ganas un protector (máximo 2). Si un día no anotas nada y no es de descanso, se usa uno solo y la racha sigue."></span>
                             </div>
                         </div>
 
@@ -316,6 +319,24 @@
             <div class="habit-action-options">
                 <button type="button" id="adjustStartApplyBtn" class="submit-btn">Aplicar</button>
                 <button type="button" id="adjustStartCancelBtn" class="submit-btn btn-neutral">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- "¿Olvidaste anotar?" (script.js, askMissedYesterday): al abrir la app, si
+         ayer quedó sin hábitos, no era de descanso y había racha. Una vez por
+         día perdido en cada dispositivo. -->
+    <div id="missedDayModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content missed-day-modal" role="dialog" aria-modal="true" aria-labelledby="missedDayTitle">
+            <button class="modal-close" type="button" data-close-modal aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="missedDayTitle">¿Olvidaste anotar ayer?</h2>
+            <p class="setup-subtitle" id="missedDayText"></p>
+            <div class="habits-options" id="missedDayHabits"></div>
+            <div class="form-error hidden" id="missedDayError" role="alert"></div>
+            <div class="habit-action-options">
+                <button type="button" id="missedDaySaveBtn" class="submit-btn">Sí, anotarlo</button>
+                <button type="button" id="missedDaySkipBtn" class="submit-btn btn-neutral">No, no lo hice</button>
             </div>
         </div>
     </div>

@@ -321,7 +321,7 @@ function renderHabits({ habitReport }) {
         return reportCard('Hábitos', reportsMessage('Aún no tienes hábitos: configúralos desde el Calendario.'));
     }
 
-    // La racha es la del backend (calculate_streak), la misma del calendario
+    // La racha es la del backend (_walk_streak), la misma del calendario
     const streak = el('div', 'streak-container report-streak');
     const info = el('div', 'streak-info');
     info.append(el('span', 'streak-count', String(report.streak)),
@@ -329,6 +329,9 @@ function renderHabits({ habitReport }) {
     streak.append(el('div', 'streak-icon', '🔥'), info);
     const facts = el('div', 'report-streak-facts');
     facts.append(el('span', '', `Récord: ${daysText(report.best_streak)}`));
+    if (report.streak_shields > 0) {
+        facts.append(el('span', '', `🛡️ ${report.streak_shields} ${report.streak_shields === 1 ? 'protector' : 'protectores'}`));
+    }
     if (report.days_elapsed > 0) {
         facts.append(el('span', '', `Con algún hábito: ${report.active_days} de ${daysText(report.days_elapsed)}`));
     }

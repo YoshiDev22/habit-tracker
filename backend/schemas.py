@@ -128,11 +128,26 @@ class HabitStats(SQLModel):
     pass
 
 
-class UserHabitsResponse(SQLModel):
+class MissedDay(SQLModel):
+    """Ayer quedó sin hábitos (sin ser de descanso) y había racha."""
+    date: date_type
+    streak: int                       # la racha que había antes de ayer
+    shielded: bool                    # True: la cubrió un protector; False: se cortó
+
+
+class StreakResponse(SQLModel):
+    """La racha general con sus protectores (ver _walk_streak en routers/habits.py)."""
+    streak: int
+    streak_shields: int = 0           # protectores guardados (0..2)
+    shield_next_in: Optional[int] = None   # días hechos que faltan para el próximo; None si ya hay 2
+    protected_days: List[str] = []    # días que cubrió un protector (AAAA-MM-DD)
+    missed_yesterday: Optional[MissedDay] = None
+
+
+class UserHabitsResponse(StreakResponse):
     """Respuesta completa de hábitos del usuario"""
     entries: list
     stats: Dict = Field(default={})  # Dict[str, int]
-    streak: int
 
 
 # ==================== Habit Definition Schemas ====================
@@ -204,13 +219,15 @@ class HabitReportItem(SQLModel):
 class HabitReportResponse(SQLModel):
     """
     Hábitos en un rango de fechas locales. Las rachas siguen la regla de
-    calculate_streak (hoy no corta, los días de descanso congelan).
+    _walk_streak (hoy no corta, los días de descanso congelan, los protectores
+    cubren días perdidos; cada hábito gana los suyos).
     """
     days_elapsed: int                 # días del rango hasta hoy, incluido
     rest_days_elapsed: int            # de esos, cuántos son de descanso
     active_days: int                  # días del rango con algún hábito hecho
     streak: int                       # racha general (la del calendario)
     best_streak: int
+    streak_shields: int = 0           # protectores de la racha general
     habits: List[HabitReportItem]
 
 
