@@ -28,7 +28,12 @@ STATE = f"""(() => {{
         text: document.getElementById('missedDayText').textContent,
         habits: [...document.querySelectorAll('#missedDayHabits .habit-option')].map(r => r.textContent),
         streak: document.getElementById('streakCount').textContent,
-        shields: document.getElementById('streakShields').textContent,
+        shields: {{
+            slots: document.querySelectorAll('#streakShields .shield-slot').length,
+            filled: document.querySelectorAll('#streakShields .shield-slot:not(.spent)').length,
+            recharge: document.getElementById('shieldRecharge').textContent,
+            shown: !document.getElementById('streakShields').classList.contains('hidden'),
+        }},
         cellShown: !!cell,
         protectedCell: !!cell && cell.classList.contains('protected') && !!cell.querySelector('.day-shield'),
     }};
@@ -44,6 +49,7 @@ async def open_app(b, token):
 async def main():
     shielded = seed("shield@test.com", range(2, 9))    # 7 días y ayer vacío: un protector lo cubre
     broken = seed("broken@test.com", (2, 3))            # 2 días y ayer vacío: se corta
+    full = seed("full@test.com", range(0, 15))          # 15 días seguidos: los dos protectores
     b = Browser()
     await b.start()
     results = []
@@ -61,7 +67,8 @@ async def main():
         check("protector" in s["text"] and "7 días" in s["text"], f"says a shield kept the 7-day streak ({s['text']})")
         check(s["habits"] == ["🏋️ Gym"], f"offers the habits to mark ({s['habits']})")
         check(s["streak"] == "7", f"streak stays at 7 ({s['streak']})")
-        check(s["shields"] == "🛡️ Protector en 7 días de racha", f"no shield left, next in 7 ({s['shields']})")
+        check(s["shields"] == {"slots": 2, "filled": 0, "recharge": "Recarga en 7 días", "shown": True},
+              f"both shield slots shown empty, recharge in 7 days ({s['shields']})")
         if s["cellShown"]:
             check(s["protectedCell"], "yesterday's cell shows the shield")
         await b.shot("shields_asking", full=False)
@@ -77,7 +84,8 @@ async def main():
         s = await b.js(STATE)
         check(not s["asking"], "saving closes the question")
         check(s["streak"] == "8", f"streak goes on to 8 ({s['streak']})")
-        check(s["shields"] == "🛡️ 1 protector · otro en 6 días", f"the shield comes back ({s['shields']})")
+        check(s["shields"] == {"slots": 2, "filled": 1, "recharge": "Recarga en 6 días", "shown": True},
+              f"the shield comes back: one full, one empty, recharge in 6 days ({s['shields']})")
         if s["cellShown"]:
             check(not s["protectedCell"], "yesterday's cell no longer shows the shield")
         await b.shot("shields_saved", full=False)
@@ -99,6 +107,14 @@ async def main():
         s = await b.js(STATE)
         check(not s["asking"], "and it is not asked again for that day")
         check(s["streak"] == "0", "nothing was marked")
+
+        # --- Con los dos: ambos llenos y sin texto de recarga ---
+        await open_app(b, full)
+        s = await b.js(STATE)
+        check(not s["asking"], "nothing to ask when yesterday was done")
+        check(s["shields"] == {"slots": 2, "filled": 2, "recharge": "", "shown": True},
+              f"both shields full, no recharge text ({s['shields']})")
+        await b.shot("shields_full", full=False)
     finally:
         await b.close()
 

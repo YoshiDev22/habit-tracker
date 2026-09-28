@@ -181,9 +181,16 @@
                             <div class="streak-info">
                                 <span class="streak-count" id="streakCount">0</span>
                                 <span class="streak-label">días seguidos</span>
-                                <!-- Protectores de racha: los calcula el backend (_walk_streak) -->
-                                <span class="streak-shields" id="streakShields"
-                                      title="Cada 7 días de racha ganas un protector (máximo 2). Si un día no anotas nada y no es de descanso, se usa uno solo y la racha sigue."></span>
+                            </div>
+                            <!-- Protectores de racha: los calcula el backend (_walk_streak).
+                                 Siempre los dos lugares; el gastado se ve vacío. -->
+                            <div class="streak-shields hidden" id="streakShields" role="img"
+                                 title="Cada 7 días de racha ganas un protector (máximo 2). Si un día no anotas nada y no es de descanso, se usa uno solo y la racha sigue.">
+                                <div class="shield-slots" aria-hidden="true">
+                                    <span class="shield-slot">🛡️</span>
+                                    <span class="shield-slot">🛡️</span>
+                                </div>
+                                <span class="shield-recharge" id="shieldRecharge"></span>
                             </div>
                         </div>
 

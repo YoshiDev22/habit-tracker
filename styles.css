@@ -944,12 +944,33 @@ body.has-pomodoro-bar {
 }
 
 .streak-shields {
-    margin-top: 6px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    text-align: center;
 }
 
-.streak-shields:empty {
+.shield-slots {
+    display: flex;
+    gap: 4px;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+/* El protector gastado: el lugar sigue, vacío, hasta que se recarga */
+.shield-slot.spent {
+    filter: grayscale(1);
+    opacity: 0.25;
+}
+
+.shield-recharge {
+    font-size: 0.7rem;
+    color: var(--streak-label-color);
+}
+
+.shield-recharge:empty {
     display: none;
 }
 

@@ -1359,11 +1359,20 @@ function setStreakInfo(data) {
     };
 }
 
-function shieldsText(info) {
-    const days = n => `${n} ${n === 1 ? 'día' : 'días'}`;
-    if (info.shields >= 2) return '🛡️🛡️ 2 protectores (el máximo)';
-    if (info.shields === 1) return `🛡️ 1 protector · otro en ${days(info.nextIn)}`;
-    return info.nextIn ? `🛡️ Protector en ${days(info.nextIn)} de racha` : '';
+// Los dos lugares de protector: los que hay, llenos; los que faltan, vacíos, y
+// debajo cuánto falta para recargar el siguiente (días hechos de racha).
+function renderShields(info) {
+    const box = document.getElementById('streakShields');
+    box.classList.toggle('hidden', !info);
+    if (!info) return;
+    box.querySelectorAll('.shield-slot').forEach((slot, i) => {
+        slot.classList.toggle('spent', i >= info.shields);
+    });
+    const recharge = info.shields < 2 && info.nextIn
+        ? `Recarga en ${info.nextIn} ${info.nextIn === 1 ? 'día' : 'días'}`
+        : '';
+    document.getElementById('shieldRecharge').textContent = recharge;
+    box.setAttribute('aria-label', `${info.shields} de 2 protectores de racha` + (recharge ? `. ${recharge}` : ''));
 }
 
 async function refreshStreakFromAPI() {
@@ -1500,7 +1509,7 @@ function renderMetrics() {
     const streak = currentStreak ?? 0;
     const streakCount = document.getElementById('streakCount');
     streakCount.textContent = streak;
-    document.getElementById('streakShields').textContent = streakInfo ? shieldsText(streakInfo) : '';
+    renderShields(streakInfo);
     
     // Actualizar stats por hábito
     const stats = calculateHabitStats();
