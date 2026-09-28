@@ -33,7 +33,7 @@ const boardFilters = document.getElementById('boardFilters');
 const boardSummary = document.getElementById('boardSummary');
 const boardColumnTabs = document.getElementById('boardColumnTabs');
 const boardColumns = document.getElementById('boardColumns');
-const viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+const viewToggleBtns = document.querySelectorAll('[data-projects-view]');
 
 // Arrastrar solo con un puntero fino que además flota (mouse, trackpad). En
 // táctil, HTML5 drag & drop no funciona, y ahí está "Mover a…".
