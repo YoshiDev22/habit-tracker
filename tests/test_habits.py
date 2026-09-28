@@ -34,6 +34,31 @@ def test_mark_days_and_streak(api):
     assert api.call("GET", f"/api/habits/streak?today={today}", expect=200)[1]["streak"] == 3
 
 
+def test_mark_one_habit_keeps_the_rest_of_the_day(api):
+    api.login("mark@test.com")
+    today = date.today().isoformat()
+    for key in ("gym", "lectura", "musica"):
+        api.call("POST", "/api/habits/definitions", {"key": key, "label": key}, expect=201)
+    day = lambda: next((e["habits_data"] for e in api.call("GET", f"/api/habits?today={today}", expect=200)[1]["entries"]
+                        if e["date"] == today), None)
+    # Sin entrada todavía: la crea con ese solo hábito
+    _, r = api.call("PATCH", f"/api/habits/day/{today}", {"habit_key": "gym", "done": True}, expect=200)
+    assert r["habits_data"] == {"gym": True} and day() == {"gym": True}
+    api.call("PATCH", f"/api/habits/day/{today}", {"habit_key": "lectura", "done": True}, expect=200)
+    # Desmarcar uno deja los demás, aunque sea el último visible
+    api.call("PATCH", f"/api/habits/day/{today}", {"habit_key": "gym", "done": False}, expect=200)
+    assert day() == {"lectura": True}
+    # Un hábito oculto también se puede marcar (es suyo)
+    _, h = api.call("GET", "/api/habits/definitions", expect=200)
+    musica = next(x for x in h["habits"] if x["key"] == "musica")
+    api.call("PATCH", f"/api/habits/definitions/{musica['id']}", {"is_active": False}, expect=200)
+    api.call("PATCH", f"/api/habits/day/{today}", {"habit_key": "musica", "done": True}, expect=200)
+    assert day() == {"lectura": True, "musica": True}
+    # Un hábito que no existe: 404, y el día queda igual
+    assert api.call("PATCH", f"/api/habits/day/{today}", {"habit_key": "nada", "done": True})[0] == 404
+    assert day() == {"lectura": True, "musica": True}
+
+
 def reference_streak(done, rest, today, cutoff):
     """La regla escrita en calculate_streak, contada a mano día por día."""
     streak, day = 0, today

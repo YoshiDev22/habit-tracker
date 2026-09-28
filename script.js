@@ -1327,18 +1327,30 @@ async function loadHabitDefinitionsFromAPI() {
     }
 }
 
-async function saveHabitToAPI(dateKey, habits) {
+// Marca o desmarca UN hábito en un día. Nunca se manda el día completo: la
+// pantalla solo conoce los hábitos activos, y reescribir el día borraba los
+// registros de los ocultos (y lo que otro dispositivo guardó entretanto).
+// Devuelve el día tal como quedó en el backend.
+async function markHabitOnDay(dateKey, habitKey, done) {
+    const entry = await apiFetch(`/api/habits/day/${dateKey}`, {
+        method: 'PATCH',
+        json: { habit_key: habitKey, done }
+    });
+    const data = entry.habits_data || {};
+    if (Object.values(data).some(Boolean)) {
+        habitsData[dateKey] = data;
+    } else {
+        delete habitsData[dateKey];
+    }
+    return data;
+}
+
+async function saveHabitToAPI(dateKey, habitKey, done) {
     try {
         const token = getToken();
         if (!token) return;
 
-        await apiFetch('/api/habits', {
-            method: 'POST',
-            json: { date: dateKey, habits: habits }
-        });
-
-        // Actualizar datos locales
-        habitsData[dateKey] = habits;
+        await markHabitOnDay(dateKey, habitKey, done);
         renderCalendar();
 
         // Marcar o desmarcar un día puede cambiar la racha: pedirla al backend,
@@ -1346,6 +1358,8 @@ async function saveHabitToAPI(dateKey, habits) {
         await refreshStreakFromAPI();
     } catch (error) {
         console.error('Error guardando hábito:', error);
+        // Lo que se pintó por adelantado no se guardó: volver a lo del backend
+        await loadHabitsFromAPI();
     }
 }
 
@@ -1713,26 +1727,24 @@ function hideHabitPopover() {
 function toggleHabit(habit) {
     if (!selectedDate) return;
     
-    // Inicializar el objeto de hábitos para esta fecha si no existe
-    if (!habitsData[selectedDate]) {
-        habitsData[selectedDate] = {};
+    // Solo cambia este hábito: los demás del día (también los de hábitos
+    // ocultos, que la pantalla no muestra) quedan como estaban.
+    const dayData = { ...(habitsData[selectedDate] || {}) };
+    const done = !dayData[habit];
+    if (done) {
+        dayData[habit] = true;
+    } else {
+        delete dayData[habit];
     }
-    
-    // Alternar el hábito específico
-    const isCurrentlyActive = habitsData[selectedDate][habit];
-    habitsData[selectedDate][habit] = !isCurrentlyActive;
-    
-    // Limpiar si no hay hábitos marcados
-    const dayData = habitsData[selectedDate];
-    const hasAnyHabit = HABITS.some(h => dayData[h]);
-    
-    if (!hasAnyHabit) {
+    if (Object.values(dayData).some(Boolean)) {
+        habitsData[selectedDate] = dayData;
+    } else {
         delete habitsData[selectedDate];
     }
-    
+
     // Guardar en API si está autenticado
     if (isAuthenticated()) {
-        saveHabitToAPI(selectedDate, habitsData[selectedDate] || {});
+        saveHabitToAPI(selectedDate, habit, done);
     } else {
         saveData();
     }
@@ -2081,15 +2093,16 @@ async function saveMissedYesterday() {
         showError(missedDayError, 'Marca lo que hiciste, o elige «No, no lo hice».');
         return;
     }
-    const habits = { ...(habitsData[missedDayDate] || {}) };
-    checked.forEach(key => { habits[key] = true; });
     try {
-        await apiFetch('/api/habits', { method: 'POST', json: { date: missedDayDate, habits } });
+        // Uno por uno, como en el popover: nunca reescribir el día entero
+        for (const key of checked) {
+            await markHabitOnDay(missedDayDate, key, true);
+        }
     } catch (error) {
         showError(missedDayError, error.message);
+        renderCalendar();
         return;
     }
-    habitsData[missedDayDate] = habits;
     hideModal(missedDayModal);
     await refreshStreakFromAPI();
 }

@@ -180,6 +180,11 @@ Lo que no se deduce leyendo los modelos:
   🛡️) y `missed_yesterday`: si ayer quedó vacío y había racha, `script.js`
   (`askMissedYesterday`) pregunta al abrir "¿Olvidaste anotar ayer?", una vez por día en
   cada dispositivo.
+- **Marcar o desmarcar toca un solo par (hábito, día)**: `PATCH /api/habits/day/{fecha}`
+  con `{habit_key, done}`, que cambia esa clave sobre lo guardado (`markHabitOnDay()` en
+  `script.js`). `POST /api/habits` reemplaza el día entero y la pantalla ya no lo usa:
+  armando el día con los hábitos activos, borraba los registros de los ocultos y lo que
+  otro dispositivo había guardado ese día.
 - `started_at` / `ended_at` son UTC naive (`datetime.utcnow()`). El cliente nunca los parsea
   para la lógica del timer — usa `Date.now()` + localStorage.
 - Archivar (`is_active=False`) conserva el historial. `DELETE /api/tasks/{id}` borra su

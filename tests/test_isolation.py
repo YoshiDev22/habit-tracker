@@ -87,3 +87,5 @@ def test_time_and_habits(seeded):
     assert other.call("GET", "/api/habits/definitions", expect=200)[1]["habits"] == []
     assert other.call("PATCH", f"/api/habits/definitions/{m['habit']['id']}", {"label": "hack"})[0] == 404
     assert other.call("DELETE", f"/api/habits/definitions/{m['habit']['id']}")[0] == 404
+    # Marcar un día toca solo los registros propios: el hábito ajeno no existe para él
+    assert other.call("PATCH", "/api/habits/day/2026-01-05", {"habit_key": "gym", "done": True})[0] == 404

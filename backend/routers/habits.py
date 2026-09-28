@@ -7,8 +7,10 @@ from sqlmodel import Session, select
 from backend.database import get_session
 from backend.models import User, HabitEntry, Habit
 from backend.schemas import (
+    MAX_HABITS_PER_DAY,
     HabitEntryCreate,
     HabitEntryResponse,
+    HabitMark,
     HabitStats,
     UserHabitsResponse,
     HabitData,
@@ -152,6 +154,53 @@ def save_habits(
         "date": str(existing_entry.entry_date),
         "habits_data": existing_entry.habits_data or {}
     }
+
+
+@router.patch("/day/{entry_date}")
+def mark_habit(
+    entry_date: date_type,
+    mark: HabitMark,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Marca o desmarca UN hábito en un día, sin tocar los demás de ese día.
+    Es lo que usa la pantalla: mandar el día completo pisaba lo que ella no
+    mostraba (hábitos ocultos, o lo que otro dispositivo guardó entretanto).
+    El hábito puede estar oculto, pero tiene que ser del usuario.
+    """
+    habit = session.exec(
+        select(Habit).where(Habit.user_id == current_user.id, Habit.key == mark.habit_key)
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hábito no encontrado")
+
+    entry = session.exec(
+        select(HabitEntry).where(
+            HabitEntry.user_id == current_user.id,
+            HabitEntry.entry_date == entry_date
+        )
+    ).first()
+    data = dict(entry.habits_data or {}) if entry else {}
+    if mark.done:
+        data[mark.habit_key] = True
+    else:
+        data.pop(mark.habit_key, None)
+    if len(data) > MAX_HABITS_PER_DAY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Un día admite como máximo {MAX_HABITS_PER_DAY} hábitos"
+        )
+
+    if entry:
+        # Reasignar el dict completo: mutarlo in-place no lo detecta SQLAlchemy
+        entry.habits_data = data
+    else:
+        entry = HabitEntry(user_id=current_user.id, entry_date=entry_date, habits_data=data)
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return {"id": entry.id, "date": str(entry.entry_date), "habits_data": entry.habits_data or {}}
 
 
 @router.get("/stats", response_model=HabitStats)

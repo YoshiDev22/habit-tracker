@@ -114,6 +114,12 @@ class HabitEntryCreate(SQLModel):
         return v
 
 
+class HabitMark(SQLModel):
+    """Marcar o desmarcar UN hábito en un día (PATCH /api/habits/day/{fecha})."""
+    habit_key: str = Field(min_length=1, max_length=40)
+    done: bool
+
+
 class HabitEntryResponse(SQLModel):
     """Esquema para respuesta de entrada de hábitos"""
     id: int
