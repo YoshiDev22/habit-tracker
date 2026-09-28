@@ -137,8 +137,8 @@ async def main():
         check(left == 0, "rows stop being draggable after the drop")
         await b.shot("config_drag", full=False)
         await b.js("document.getElementById('closeBoardConfigBtn').click()")
-        await asyncio.sleep(1.5)
-        board_cols = await b.js("[...document.querySelectorAll('.board-column-name')].map(e => e.textContent)")
+        board_cols = await b.wait_for("[...document.querySelectorAll('.board-column-name')].map(e => e.textContent)",
+                                      lambda v: v == ["Hecho", "Por hacer", "Haciendo"])
         check(board_cols == ["Hecho", "Por hacer", "Haciendo"], f"the board follows the new column order ({board_cols})")
     finally:
         await b.close()

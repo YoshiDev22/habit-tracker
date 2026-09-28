@@ -122,8 +122,8 @@ async def main():
 
         # Board switch
         await b.js("const s = document.getElementById('boardSelect'); s.value = [...s.options].find(o => o.textContent === 'Escuela').value; s.dispatchEvent(new Event('change'))")
-        await asyncio.sleep(1.5)
-        cards = await b.js("[...document.querySelectorAll('.board-card-title')].map(e => e.textContent)")
+        cards = await b.wait_for("[...document.querySelectorAll('.board-card-title')].map(e => e.textContent)",
+                                 lambda v: v == ["Capítulo 3: funciones"])
         check(cards == ["Capítulo 3: funciones"], f"switching to Escuela shows its card ({cards})")
 
         # List view

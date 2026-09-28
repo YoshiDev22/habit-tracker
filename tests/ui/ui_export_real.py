@@ -1,9 +1,11 @@
 import asyncio
+import datetime as dt
 import glob
 import json
 import os
 import shutil
 
+from api import call
 from cdp import Browser
 from ui_board import seed, CLOSE_WELCOME, BASE
 
@@ -13,6 +15,17 @@ OUT = os.path.join(tempfile.gettempdir(), "habit-ui-downloads")
 
 async def main():
     token, _ = seed()
+    # Something to export in the current week: the fixture's sessions are from
+    # yesterday, which on a Monday is the previous week, and an empty range
+    # shows a message instead of downloading.
+    today = dt.date.today()
+    _, task = call("POST", "/api/tasks", {"title": "Sesión de esta semana"}, expect=201)
+    start = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) - dt.timedelta(minutes=30)
+    call("POST", "/api/pomodoro", {
+        "project_id": task["project_id"], "task_id": task["id"], "session_date": today.isoformat(),
+        "started_at": start.isoformat(), "ended_at": (start + dt.timedelta(minutes=25)).isoformat(),
+        "duration_seconds": 1500, "planned_seconds": 1500, "mode": "focus", "was_completed": True,
+        "source": "manual"}, expect=201)
     shutil.rmtree(OUT, ignore_errors=True)
     os.makedirs(OUT)
     b = Browser()

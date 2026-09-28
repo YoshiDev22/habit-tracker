@@ -251,7 +251,10 @@ pruebas se saltan. Las capturas van a `%TEMP%/habit-ui-shots`.
 - Una prueba falla si algún `check()` falla, si hay errores en la consola del navegador
   o si el servidor escribió un `Traceback`.
 - Lo que dependa de la semana, lo esperado se calcula con la API: un lunes, "ayer" cae en
-  la semana anterior (ver `ui_reports.py`).
+  la semana anterior (ver `ui_reports.py`). Si la prueba necesita datos en la semana
+  actual, que los cree ella (ver `ui_export.py`): los del fixture son de ayer.
+- Lo que aparece tras un fetch y un repintado se espera con `b.wait_for(expr, ok)`, no
+  con un `sleep` fijo: con la máquina ocupada, 1,5 s a veces no alcanzaban.
 - Tardan más de 10 minutos. Para una sola: `pytest -m ui tests/ui/ui_board.py`.
 
 ## Endpoints

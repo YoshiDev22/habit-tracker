@@ -80,13 +80,15 @@ async def main():
         check("Tesis 2026" in projects(), "rename a project from Organizar")
         await js("[...document.querySelectorAll('#configProjects .config-row')].find(r => r.querySelector('.config-name').value === 'Curso Python').querySelector('.config-archive-project').click()", wait=1.5)
         check(projects()["Curso Python"]["is_active"] is False, "Archivar archives it")
-        names = await b.js("[...document.querySelectorAll('#configProjects .config-name')].map(i => i.value)")
+        names = await b.wait_for("[...document.querySelectorAll('#configProjects .config-name')].map(i => i.value)",
+                                 lambda v: v == ["Habit Tracker", "Tesis 2026"])
         check(names == ["Habit Tracker", "Tesis 2026"], f"the archived one leaves the list ({names})")
         archived = await b.js("[...document.querySelectorAll('#configArchivedProjects .config-name')].map(e => e.textContent)")
         check(archived == ["Archivado", "Curso Python"], f"archived projects are listed under 'Archivados' ({archived})")
         await b.shot("newproject_archived", full=False)
-        await js("[...document.querySelectorAll('#configArchivedProjects .config-row')].find(r => r.textContent.includes('Curso Python')).querySelector('.config-restore-project').click()", wait=1.5)
-        names = await b.js("[...document.querySelectorAll('#configProjects .config-name')].map(i => i.value)")
+        await js("[...document.querySelectorAll('#configArchivedProjects .config-row')].find(r => r.textContent.includes('Curso Python')).querySelector('.config-restore-project').click()", wait=0)
+        names = await b.wait_for("[...document.querySelectorAll('#configProjects .config-name')].map(i => i.value)",
+                                 lambda v: v == ["Curso Python", "Habit Tracker", "Tesis 2026"])
         check(projects()["Curso Python"]["is_active"] and names == ["Curso Python", "Habit Tracker", "Tesis 2026"]
               and await b.js("[...document.querySelectorAll('#configArchivedProjects .config-name')].map(e => e.textContent)") == ["Archivado"],
               f"Restaurar brings it back to the active list ({names})")

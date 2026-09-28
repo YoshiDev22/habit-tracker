@@ -116,6 +116,17 @@ class Browser:
             raise RuntimeError(r["exceptionDetails"].get("exception", {}).get("description", r["exceptionDetails"]))
         return r["result"].get("value")
 
+    async def wait_for(self, expr, ok=bool, timeout=8.0):
+        """Evalúa `expr` hasta que `ok(valor)` se cumple o pasa `timeout`, y devuelve el
+        último valor. Para lo que depende de un fetch y un repintado: un sleep fijo
+        alcanzaba en una máquina tranquila y fallaba en una ocupada."""
+        deadline = time.monotonic() + timeout
+        while True:
+            value = await self.js(expr)
+            if ok(value) or time.monotonic() >= deadline:
+                return value
+            await asyncio.sleep(0.1)
+
     async def goto(self, url, wait=1.5):
         await self.send("Page.navigate", url=url)
         await asyncio.sleep(wait)

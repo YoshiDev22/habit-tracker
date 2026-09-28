@@ -22,8 +22,12 @@ async def main():
     token, _ = seed()
     today = dt.date.today()
     monday = today - dt.timedelta(days=today.weekday())
-    # A tricky task: formula-like title; a note with comma and quotes
-    _, evil = call("POST", "/api/tasks", {"title": "=HYPERLINK(\"x\")"}, expect=201)
+    # A tricky task: formula-like title; a note with comma and quotes. It carries
+    # a tag itself: the fixture's tagged sessions are from yesterday, which on a
+    # Monday falls in the previous week, outside the exported range.
+    _, tags = call("GET", "/api/tags", expect=200)
+    doc = next(t for t in tags["tags"] if t["name"] == "documentación")
+    _, evil = call("POST", "/api/tasks", {"title": "=HYPERLINK(\"x\")", "tag_ids": [doc["id"]]}, expect=201)
     start = dt.datetime.combine(monday, dt.time(9, 0)) - dt.timedelta(hours=LOCAL_OFFSET_H)
     call("POST", "/api/pomodoro", {
         "project_id": evil["project_id"], "task_id": evil["id"], "session_date": monday.isoformat(),
