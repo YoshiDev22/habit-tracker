@@ -46,6 +46,8 @@ avisar.
 | Colores | Al crear un hábito se preselecciona un color no usado de una paleta fija de ~8. Si el usuario elige uno repetido, se avisa pero se permite. La identidad la da la posición, no el color. |
 | Borrar | La confirmación muestra el impacto calculado: registros que se pierden y cómo cambian racha y récord. |
 | Guardar un día | Marcar o desmarcar toca **un solo par (hábito, día)**; nunca se reescribe el día completo. |
+| Día cumplido | Al menos 1 hábito marcado, activo u oculto (`MIN_HABITS_FOR_DONE_DAY = 1`). Es la regla que ya aplica la racha. |
+| Recarga de escudos | "Recarga en N días" **visible** bajo los escudos, también en la franja; no en un tooltip (en el teléfono no se vería). |
 | Constancia (%) | **Eliminada.** Había que explicar qué hábitos y qué días cuentan, y un porcentaje no dice nada concreto. Reportes ya da "N de M días" por hábito. |
 | Métrica acumulada ("47 días") | No existe en la app (venía del mockup); nada que quitar. |
 | Ubicación de métricas | Franja compacta arriba del calendario: `🔥 racha · 🛡️ escudos · récord`. "Este mes" se queda en Calendario. El historial va en "Reportes". |
@@ -53,9 +55,7 @@ avisar.
 
 ## Decisiones abiertas (preguntar antes de implementar)
 
-- [ ] **Día cumplido**: propuesta = al menos 1 hábito marcado (activo u oculto). Es la regla actual.
 - [ ] **Descanso suelto**: propuesta = no; los protectores cubren ese caso.
-- [ ] **Recarga de escudos**: en 1.15.0 "Recarga en N días" se ve debajo de los escudos. ¿Se queda visible en la franja o pasa a tooltip / al tocar?
 - [ ] **Límite de hábitos**: propuesta = una fila hasta 5; con 6 o más, dos filas. Hoy caben 4: para 5 hay que ajustar tamaño o separación de los puntos. Ojo: un mes puede sumar ocultos con registros a los activos.
 
 ## Definiciones de métricas
@@ -90,7 +90,7 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 ### Fase 3 — Franja y barra (un commit)
 - [ ] Quitar la tarjeta grande de racha de Métricas.
 - [ ] Franja entre navegador de mes y barra: `🔥 18 racha · 🛡️ 1 · récord 21` (valores de ejemplo). Números 600 + `tabular-nums`; etiquetas en gris; 🔥 en `#f2a33c`; wrap en móvil.
-- [ ] Recarga de protectores según la decisión abierta.
+- [ ] "Recarga en N días" visible bajo los escudos de la franja, en pequeño; sin texto cuando hay 2.
 - [ ] Barra del mes con etiqueta "MES". Si "Este mes" repite el dato, dejar solo uno.
 
 ### Fase 4 — Calendario y leyenda (un commit)
