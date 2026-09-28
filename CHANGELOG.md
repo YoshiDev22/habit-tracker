@@ -7,6 +7,42 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.15.0] — 2026-09-28
+
+Un día suelto ya no te borra la racha, la app te pregunta si olvidaste anotar ayer, y
+puedes agrandar el texto.
+
+### Nuevo
+- **Protectores de racha 🛡️**: cada 7 días de racha ganas un protector (puedes guardar
+  hasta 2). Si un día no anotas ningún hábito y no es de descanso, se usa uno solo y la
+  racha sigue. En Métricas, junto a tu racha, están tus dos escudos: el que gastaste se ve
+  vacío, con los días que faltan para recargarlo. En el calendario, los días que cubrió
+  uno llevan 🛡️.
+- **«¿Olvidaste anotar ayer?»**: si ayer quedó vacío y tenías racha, al abrir la app te lo
+  pregunta con tus hábitos para marcarlos. Si sí lo hiciste, lo anotas ahí y recuperas la
+  racha (o el protector que se había gastado). Los días de descanso no cuentan, y cada día
+  se pregunta una sola vez.
+- **Tamaño del texto**: en Mi perfil (toca tu nombre) › En este dispositivo, elige Normal,
+  Grande o Muy grande. Se aplica al momento y se queda en ese dispositivo, también en la
+  app instalada.
+
+### Cambios
+- Tu récord de racha se calcula con los protectores, así que puede subir si en el pasado
+  un solo día suelto la cortó.
+- Reportes muestra cuántos protectores tienes, junto al récord.
+
+### Correcciones
+- En una tablet o con el teléfono acostado, deslizar sobre las columnas del tablero
+  cambiaba a Reportes en vez de mostrar las demás columnas. Ahora las desplaza; desde la
+  última columna, deslizar sí cambia de pestaña.
+- En Reportes, elegir Semana, Mes o Personalizado cambiaba Proyectos a la vista Tablero si
+  la tenías en Lista.
+- Un texto demasiado largo (por ejemplo, una nota de más de 5000 caracteres) ahora se
+  rechaza con un mensaje claro, en vez de «[object Object]».
+
+### Para actualizar
+Sin cambios en la base de datos: basta con reiniciar el servicio.
+
 ## [1.14.0] — 2026-09-24
 
 Corregir el cronómetro sin detenerlo, configurar tu pomodoro, editar checklist y
@@ -267,6 +303,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.15.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.0
 [1.14.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.14.0
 [1.13.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.13.0
 [1.12.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.12.0
