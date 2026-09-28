@@ -399,6 +399,9 @@ Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 - **Pantalla angosta (< 700 px):** una columna a la vez con pestañas que saltan de línea.
   **Nada del tablero puede desplazarse en horizontal**: pelearía con el swipe entre vistas.
   En táctil se mueve con el `<select>` nativo "Mover a…" de cada tarjeta.
+- **De 700 px en adelante** las columnas que no caben se desplazan en horizontal (táctil
+  incluido: tablet, teléfono acostado). El swipe entre vistas les cede el gesto mientras
+  les quede recorrido (`canScrollX()` en `projects.js`); desde el borde, cambia de vista.
 
 ### Tema (claro/oscuro)
 

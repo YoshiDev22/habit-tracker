@@ -175,9 +175,24 @@ VIEW_TABS.forEach((tab, i) => {
 let swipeStartX = 0;
 let swipeStartY = 0;
 let swipeStartT = 0;
-let swipeAxis = null; // null | 'x' | 'y'
+let swipeAxis = null; // null | 'x' | 'y' | 'inner' (lo desplaza un hijo)
 let swipeDx = 0;
+let swipeTarget = null;
 let suppressNextClick = false;
+
+// Lo que se desplaza en horizontal dentro de una vista (las columnas del
+// tablero cuando no caben) se lleva el gesto mientras le quede recorrido en
+// esa dirección; solo desde su borde el swipe cambia de vista.
+function canScrollX(target, dx) {
+    for (let el = target; el && el !== viewsViewport; el = el.parentElement) {
+        const max = el.scrollWidth - el.clientWidth;
+        if (max <= 1) continue;
+        const overflowX = getComputedStyle(el).overflowX;
+        if (overflowX !== 'auto' && overflowX !== 'scroll') continue;
+        if (dx < 0 ? el.scrollLeft < max - 1 : el.scrollLeft > 1) return true;
+    }
+    return false;
+}
 
 function prefersReducedMotion() {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -191,6 +206,7 @@ viewsViewport.addEventListener('touchstart', (event) => {
     swipeStartT = Date.now();
     swipeAxis = null;
     swipeDx = 0;
+    swipeTarget = event.target;
 }, { passive: true });
 
 viewsViewport.addEventListener('touchmove', (event) => {
@@ -205,9 +221,10 @@ viewsViewport.addEventListener('touchmove', (event) => {
         // Sesgo 1.2x a favor de vertical: un falso positivo horizontal
         // mientras se hace scroll es más molesto que un swipe fallido.
         swipeAxis = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
+        if (swipeAxis === 'x' && canScrollX(swipeTarget, dx)) swipeAxis = 'inner';
     }
 
-    if (swipeAxis !== 'x') return; // deja el scroll vertical nativo intacto
+    if (swipeAxis !== 'x') return; // deja el scroll nativo (vertical o interno) intacto
 
     event.preventDefault();
     swipeDx = dx;
@@ -224,6 +241,7 @@ viewsViewport.addEventListener('touchmove', (event) => {
 function endSwipe() {
     if (swipeAxis !== 'x') {
         swipeAxis = null;
+        swipeTarget = null;
         return;
     }
 
@@ -244,6 +262,7 @@ function endSwipe() {
     goToView(targetIndex, { animate: !prefersReducedMotion() });
     swipeAxis = null;
     swipeDx = 0;
+    swipeTarget = null;
 }
 
 viewsViewport.addEventListener('touchend', endSwipe, { passive: true });
