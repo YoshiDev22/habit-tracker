@@ -64,6 +64,7 @@ habit-tracker/
 │       ├── boards.py      # /api/boards/*      (+ /{id}/columns)
 │       ├── tags.py        # /api/tags/*
 │       └── pomodoro.py    # /api/pomodoro/*
+├── docs/specs/            # Specs de producto por fases (p. ej. calendario-v2.md)
 ├── scripts/
 │   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
 ├── index.html             # Única página. Contiene todos los modales y ambas vistas
@@ -501,6 +502,26 @@ empezando en 8 h. La última actividad en la app (`pomodoro_activity`) sale solo
 con "Usar esa hora". Lo elegido se guarda sin la nota de cierre automático
 (`finishStopwatch({ endAtEpochMs, chosenByUser })`), y nada se guarda hasta contestar,
 también si se recarga. Contestar la pregunta no cuenta como actividad.
+
+## Reglas del producto
+
+Decisiones de producto que no se reabren en cada cambio. El detalle y lo pendiente están en
+`docs/specs/calendario-v2.md`.
+
+- **Los registros de un hábito oculto nunca se pierden, y se ven donde tienen datos.**
+  Ocultar solo cambia `is_active`; ninguna acción de la UI borra un registro que el
+  usuario no tocó (marcar toca un solo par hábito-día, ver `markHabitOnDay()`). Cada mes
+  muestra los hábitos activos más los ocultos con algún registro en ese mes, en orden
+  `(order, id)`, así que ocultar no cambia cómo se ve un mes pasado. *(La parte visible
+  llega con la Fase 2 de la spec; en 1.15.0 los ocultos todavía no se pintan.)*
+- **La posición identifica al hábito, no el color.** El orden sale de `(order, id)`, el
+  mismo que usa restaurar para el lugar original, y es el mismo en puntos, leyenda,
+  "Este mes" y popover; un hábito nuevo va al final. Dos hábitos pueden compartir color:
+  al crear se preselecciona uno libre y, si el usuario repite, se avisa pero se permite.
+  Nunca usar el color para distinguir hábitos.
+- **Días de descanso y días protegidos congelan la racha**: no suman ni la rompen. Un día
+  de descanso con algún hábito marcado cuenta normal, y los hábitos ocultos también
+  cuentan. La regla vive solo en `_walk_streak()`.
 
 ## Reglas duras
 
