@@ -7,6 +7,21 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.15.1] — 2026-09-28
+
+Corrección importante: marcar un hábito podía borrar registros de otros.
+
+### Correcciones
+- Si un día tenía marcado un hábito que después ocultaste, y desmarcabas en ese día tu
+  último hábito visible, se perdía también el registro del hábito oculto. Ahora marcar o
+  desmarcar cambia solo ese hábito en ese día.
+- Con la app abierta en dos dispositivos, marcar un hábito en uno podía borrar lo que
+  habías marcado ese mismo día en el otro. Ya no pasa.
+
+### Para actualizar
+Sin cambios en la base de datos: basta con reiniciar el servicio. Los registros que ya se
+hubieran perdido no se pueden recuperar.
+
 ## [1.15.0] — 2026-09-28
 
 Un día suelto ya no te borra la racha, la app te pregunta si olvidaste anotar ayer, y
@@ -303,6 +318,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.15.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.1
 [1.15.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.0
 [1.14.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.14.0
 [1.13.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.13.0
