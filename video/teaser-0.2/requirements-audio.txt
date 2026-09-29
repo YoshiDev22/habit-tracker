@@ -1,0 +1,3 @@
+numpy>=2
+# optional, only for --music (your own track):
+librosa>=0.11

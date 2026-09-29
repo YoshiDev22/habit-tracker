@@ -1,0 +1,217 @@
+{
+ "duration": 31,
+ "fps": 60,
+ "bpm": 120,
+ "cues": [
+  {
+   "t": 0,
+   "kind": "beat",
+   "index": 1,
+   "text": "La app que te ayuda a crear hábitos"
+  },
+  {
+   "t": 0.4,
+   "kind": "zoom_start",
+   "shot": "01_calendar",
+   "z_from": 1.45,
+   "z_to": 2.3,
+   "until": 2.9
+  },
+  {
+   "t": 3,
+   "kind": "beat",
+   "index": 2,
+   "text": "Marca tu día en un toque"
+  },
+  {
+   "t": 3,
+   "kind": "cut",
+   "from": "01_calendar",
+   "to": "02_day_before"
+  },
+  {
+   "t": 3,
+   "kind": "zoom_start",
+   "shot": "02_day_before",
+   "z_from": 1.7,
+   "z_to": 2.2,
+   "until": 4.4
+  },
+  {
+   "t": 4.95,
+   "kind": "click",
+   "shot": "02_day_before"
+  },
+  {
+   "t": 5,
+   "kind": "milestone",
+   "from": "02_day_before",
+   "to": "03_day_after",
+   "label": "3 de 4 hoy -> 4 de 4 hoy"
+  },
+  {
+   "t": 7,
+   "kind": "beat",
+   "index": 3,
+   "text": "Tus hábitos, a tu manera"
+  },
+  {
+   "t": 7,
+   "kind": "cut",
+   "from": "03_day_after",
+   "to": "04_settings"
+  },
+  {
+   "t": 7,
+   "kind": "zoom_start",
+   "shot": "04_settings",
+   "z_from": 1.5,
+   "z_to": 2.1,
+   "until": 8.6
+  },
+  {
+   "t": 11,
+   "kind": "beat",
+   "index": 4,
+   "text": "¿Fin de semana? Tu racha descansa"
+  },
+  {
+   "t": 11,
+   "kind": "cut",
+   "from": "04_settings",
+   "to": "01_calendar"
+  },
+  {
+   "t": 11,
+   "kind": "zoom_start",
+   "shot": "01_calendar",
+   "z_from": 1.5,
+   "z_to": 2.6,
+   "until": 12.1
+  },
+  {
+   "t": 14,
+   "kind": "beat",
+   "index": 5,
+   "text": "¿Vacaciones? Pausa sin perder tu racha"
+  },
+  {
+   "t": 14,
+   "kind": "cut",
+   "from": "01_calendar",
+   "to": "05_vacations"
+  },
+  {
+   "t": 14,
+   "kind": "zoom_start",
+   "shot": "05_vacations",
+   "z_from": 1.6,
+   "z_to": 2.3,
+   "until": 15.5
+  },
+  {
+   "t": 16,
+   "kind": "wipe",
+   "from": "05_vacations",
+   "to": "06_rest_vacation"
+  },
+  {
+   "t": 16,
+   "kind": "zoom_start",
+   "shot": "06_rest_vacation",
+   "z_from": 2,
+   "z_to": 2.7,
+   "until": 17.3
+  },
+  {
+   "t": 18,
+   "kind": "beat",
+   "index": 6,
+   "text": "Gestiona tus proyectos"
+  },
+  {
+   "t": 18,
+   "kind": "cut",
+   "from": "06_rest_vacation",
+   "to": "07_board"
+  },
+  {
+   "t": 18,
+   "kind": "zoom_start",
+   "shot": "07_board",
+   "z_from": 1,
+   "z_to": 1.3,
+   "until": 19.4
+  },
+  {
+   "t": 20.75,
+   "kind": "click",
+   "shot": "07_board"
+  },
+  {
+   "t": 21,
+   "kind": "wipe",
+   "from": "07_board",
+   "to": "08_list"
+  },
+  {
+   "t": 22,
+   "kind": "beat",
+   "index": 7,
+   "text": "Ve cómo avanzas"
+  },
+  {
+   "t": 22,
+   "kind": "cut",
+   "from": "08_list",
+   "to": "09_reports"
+  },
+  {
+   "t": 22,
+   "kind": "zoom_start",
+   "shot": "09_reports",
+   "z_from": 1.2,
+   "z_to": 1.7,
+   "until": 23.4
+  },
+  {
+   "t": 26,
+   "kind": "beat",
+   "index": 8,
+   "text": "Descarga tus datos cuando quieras"
+  },
+  {
+   "t": 26,
+   "kind": "cut",
+   "from": "09_reports",
+   "to": "10_export"
+  },
+  {
+   "t": 26,
+   "kind": "zoom_start",
+   "shot": "10_export",
+   "z_from": 1.7,
+   "z_to": 2.6,
+   "until": 27
+  },
+  {
+   "t": 27.1,
+   "kind": "export_click",
+   "shot": "10_export"
+  },
+  {
+   "t": 27.3,
+   "kind": "toast",
+   "text": "habit-tracker-tiempo_2026-09-01_2026-09-30.csv"
+  },
+  {
+   "t": 28,
+   "kind": "outro",
+   "text": "¡Pruébala ya!"
+  },
+  {
+   "t": 31,
+   "kind": "end"
+  }
+ ]
+}

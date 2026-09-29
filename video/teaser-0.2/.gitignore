@@ -1,0 +1,11 @@
+# Versioned: final video, stems, contact sheet, waveform, checks, code and inputs
+out/*
+!out/teaser.mp4
+!out/contact.png
+!out/music.wav
+!out/sfx.wav
+!out/waveform.png
+!out/verify.json
+*.db
+*.log
+__pycache__/

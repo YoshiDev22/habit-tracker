@@ -1,0 +1,92 @@
+[
+ {
+  "t": 0.4,
+  "sfx": "whoosh",
+  "gain": 0.1,
+  "dur": 0.3
+ },
+ {
+  "t": 3,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 4.95,
+  "sfx": "click",
+  "gain": 0.2,
+  "dur": 0.03
+ },
+ {
+  "t": 5,
+  "sfx": "chime",
+  "gain": 0.16,
+  "dur": 0.9
+ },
+ {
+  "t": 7,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 11,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 14,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 16,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 18,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 20.75,
+  "sfx": "click",
+  "gain": 0.2,
+  "dur": 0.03
+ },
+ {
+  "t": 22,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 26,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ },
+ {
+  "t": 27.1,
+  "sfx": "pop",
+  "gain": 0.3,
+  "dur": 0.09
+ },
+ {
+  "t": 27.3,
+  "sfx": "ding",
+  "gain": 0.12,
+  "dur": 0.5
+ },
+ {
+  "t": 28,
+  "sfx": "whoosh",
+  "gain": 0.17,
+  "dur": 0.3
+ }
+]

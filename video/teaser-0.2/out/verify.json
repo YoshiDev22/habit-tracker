@@ -1,0 +1,151 @@
+{
+ "loudness": {
+  "integrated_lufs": -13.8,
+  "lra_lu": 3.6,
+  "true_peak_dbtp": -1.9
+ },
+ "durations": {
+  "video_s": 31.0,
+  "audio_s": 31.0,
+  "diff_frames": 0.0
+ },
+ "onsets_final_mix": {
+  "max_abs_offset_ms": 13.0,
+  "missing": 1,
+  "events": [
+   {
+    "t": 0.4,
+    "sfx": "whoosh",
+    "offset_ms": 13.0
+   },
+   {
+    "t": 3,
+    "sfx": "whoosh",
+    "offset_ms": -1.0
+   },
+   {
+    "t": 4.95,
+    "sfx": "click",
+    "offset_ms": -3.0
+   },
+   {
+    "t": 5,
+    "sfx": "chime",
+    "offset_ms": -1.0
+   },
+   {
+    "t": 7,
+    "sfx": "whoosh",
+    "offset_ms": 1.0
+   },
+   {
+    "t": 11,
+    "sfx": "whoosh",
+    "offset_ms": -1.0
+   },
+   {
+    "t": 14,
+    "sfx": "whoosh",
+    "offset_ms": 1.0
+   },
+   {
+    "t": 16,
+    "sfx": "whoosh",
+    "offset_ms": 1.0
+   },
+   {
+    "t": 18,
+    "sfx": "whoosh",
+    "offset_ms": null
+   },
+   {
+    "t": 20.75,
+    "sfx": "click",
+    "offset_ms": 3.0
+   },
+   {
+    "t": 22,
+    "sfx": "whoosh",
+    "offset_ms": 1.0
+   },
+   {
+    "t": 26,
+    "sfx": "whoosh",
+    "offset_ms": -1.0
+   },
+   {
+    "t": 27.1,
+    "sfx": "pop",
+    "offset_ms": 1.0
+   },
+   {
+    "t": 27.3,
+    "sfx": "ding",
+    "offset_ms": -1.0
+   },
+   {
+    "t": 28,
+    "sfx": "whoosh",
+    "offset_ms": -2.0
+   }
+  ]
+ },
+ "onsets_sfx_stem": {
+  "max_abs_offset_ms": 2.0,
+  "missing": 0
+ },
+ "video_cuts_vs_cues": [
+  {
+   "t": 3,
+   "video_s": 3.0,
+   "offset_ms": 0.0,
+   "contrast": 18.5
+  },
+  {
+   "t": 5,
+   "video_s": 5.0,
+   "offset_ms": 0.0,
+   "contrast": 2.1
+  },
+  {
+   "t": 7,
+   "video_s": 7.0,
+   "offset_ms": 0.0,
+   "contrast": 138.8
+  },
+  {
+   "t": 11,
+   "video_s": 11.0,
+   "offset_ms": 0.0,
+   "contrast": 100.4
+  },
+  {
+   "t": 14,
+   "video_s": 14.0,
+   "offset_ms": 0.0,
+   "contrast": 61.2
+  },
+  {
+   "t": 18,
+   "video_s": 18.0,
+   "offset_ms": 0.0,
+   "contrast": 11.0
+  },
+  {
+   "t": 22,
+   "video_s": 22.0,
+   "offset_ms": 0.0,
+   "contrast": 10.2
+  },
+  {
+   "t": 26,
+   "video_s": 26.0,
+   "offset_ms": 0.0,
+   "contrast": 23.8
+  }
+ ],
+ "mux_lag": {
+  "samples": 0,
+  "ms": 0.0
+ }
+}
