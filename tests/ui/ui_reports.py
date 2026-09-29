@@ -103,7 +103,7 @@ async def main():
           f"API report: {elapsed} days elapsed, {target} to do, active {hr['active_days']}")
     check(gym["days_done"] == target and gym["current_streak"] == 5 + target and gym["best_streak"] == 5 + target,
           f"API: gym streak runs over the weekend rest ({gym})")
-    check(lec["days_done"] == 1 and lec["best_streak"] == 1 and lec["current_streak"] == (1 if today == monday else 0),
+    check(lec["days_done"] == 1 and lec["best_streak"] == 1 and lec["current_streak"] == (1 if today.weekday() <= 1 else 0),
           f"API: lectura ({lec})")
     check(hr["streak"] == st_api["streak"], f"API: report streak equals /streak ({hr['streak']} / {st_api['streak']})")
     check(call("GET", f"/api/habits/report?date_from={today}&date_to={monday - dt.timedelta(days=1)}")[0] == 422, "API: reversed range -> 422")
