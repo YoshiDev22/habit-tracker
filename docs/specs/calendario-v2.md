@@ -53,10 +53,13 @@ avisar.
 | Ubicación de métricas | Franja compacta arriba del calendario: `🔥 racha · 🛡️ escudos · récord`. "Este mes" se queda en Calendario. El historial va en "Reportes". |
 | Leyenda | Justo debajo del calendario, con la misma geometría que los puntos. |
 | Puntos por fila | Una fila hasta 5 (activos + ocultos con registros en el mes); con 6 o más, dos filas parejas. |
+| Descanso suelto | **No** desde el popover: para un día pasado ya están los escudos y "¿Olvidaste anotar?". Las vacaciones se cubren con la pausa (fila siguiente). |
+| Vacaciones | **Pausa programada**, gratis y para cualquier racha (no solo las largas): se elige desde qué día y hasta cuál, empezando hoy o después, nunca hacia atrás; hasta 30 días por pausa. Esos días congelan la racha como un día de descanso. Fundamento en [`docs/referencias.md`](../referencias.md). |
+| Escudos de pago | **No.** Cobrar por salvar la racha aprovecha el miedo a perderla, y la app no tiene pagos. Un escudo especial que se gane con hitos (30, 100, 365 días) queda en el BACKLOG. |
 
 ## Decisiones abiertas (preguntar antes de implementar)
 
-- [ ] **Descanso suelto**: propuesta = no; los protectores cubren ese caso.
+Ninguna por ahora.
 
 ## Definiciones de métricas
 
@@ -105,7 +108,14 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [ ] Pie: "N de M hoy".
 - [ ] Orden idéntico al de los puntos.
 
-### Fase 6 — Reportes (después, spec aparte)
+### Fase 6 — Pausa por vacaciones (un commit)
+- [ ] Tabla nueva `streak_pauses` (`user_id`, `start_date`, `end_date`): `create_all()` la crea sola, sin migración. Toda query filtra por el usuario.
+- [ ] API para crear, listar y cancelar pausas: inicio hoy o después, fin ≥ inicio, hasta 30 días, sin solaparse con otra. Una pausa ya empezada se puede terminar antes, no mover hacia atrás.
+- [ ] `_walk_streak()` trata un día en pausa sin hábitos como uno de descanso (congela); con un hábito marcado cuenta normal.
+- [ ] En ⚙️, junto a los días de descanso: programar, ver y cancelar la pausa. En el calendario, los días en pausa se distinguen del descanso semanal y del escudo.
+- [ ] Tests: congela sin gastar escudos, un hábito marcado en pausa suma, no se puede crear hacia atrás ni de más de 30 días, aislamiento entre usuarios, límites en `test_limits.py`.
+
+### Fase 7 — Reportes (después, spec aparte)
 Récords históricos por hábito, comparativa entre meses, uso de protectores.
 
 ## Criterios de aceptación

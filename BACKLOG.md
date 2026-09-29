@@ -20,6 +20,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 22 | P4 | Sesión de tiempo duplicada si el navegador se cae al guardarla | diagnosticado |
+| 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
 
 ---
 
@@ -268,3 +269,20 @@ existente en vez de crear otra. **Cambio de esquema** (columna nueva en
 `pomodoro_sessions` → `scripts/migrate.py`): avisar el impacto antes.
 
 **Aceptación.** Enviar dos veces el mismo POST (mismo id) crea una sola sesión.
+
+---
+
+## 23 · P4 · Escudo especial que se gana con hitos de racha
+
+**Esto es una épica.** Un escudo aparte de los dos normales que se **gana** al llegar a
+un hito (30, 100 o 365 días de racha), se guarda hasta que haga falta y cubre hasta 3 días
+seguidos. Premia la constancia larga sin cobrar: se decidió no vender escudos (ver
+"Escudos de pago" en [docs/specs/calendario-v2.md](docs/specs/calendario-v2.md) y el
+fundamento en [docs/referencias.md](docs/referencias.md)).
+
+**Lo que obliga a decidir.** Si se gasta solo (como los normales) o lo activa el usuario;
+si hay uno por hito o se acumulan; cómo se ve junto a los dos escudos de la franja. Como
+los normales, puede salir de recorrer el historial en `_walk_streak()`, sin tabla nueva.
+
+**Orden.** Después de la pausa por vacaciones (Fase 6 de Calendario v2): ver primero si,
+con pausa y escudos, todavía hace falta.
