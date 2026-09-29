@@ -1,0 +1,65 @@
+{
+  "01_calendar": {
+    "label": "racha",
+    "x": 465,
+    "y": 740,
+    "w": 74,
+    "h": 28
+  },
+  "02_day_panel": {
+    "label": "hábito a marcar",
+    "x": 559,
+    "y": 598,
+    "w": 156,
+    "h": 32,
+    "cell": {
+      "x": 559,
+      "y": 496,
+      "w": 79,
+      "h": 79
+    }
+  },
+  "03_board": {
+    "label": "tarjeta en Haciendo",
+    "x": 640,
+    "y": 539,
+    "w": 367,
+    "h": 98,
+    "list_toggle": {
+      "x": 1204,
+      "y": 222,
+      "w": 53,
+      "h": 27
+    }
+  },
+  "04_list": {
+    "label": "proyecto",
+    "x": 640,
+    "y": 331,
+    "w": 600,
+    "h": 61
+  },
+  "05_reports": {
+    "label": "resumen del mes",
+    "x": 640,
+    "y": 390,
+    "w": 600,
+    "h": 169
+  },
+  "06_export": {
+    "label": "Exportar CSV",
+    "x": 640,
+    "y": 277,
+    "w": 91,
+    "h": 14
+  },
+  "meta": {
+    "viewport": [
+      1280,
+      800
+    ],
+    "scale": 2,
+    "streak": 42,
+    "csv_name": "habit-tracker-tiempo_2026-09-01_2026-09-30.csv"
+  }
+}
