@@ -1622,50 +1622,8 @@ function renderMetrics() {
     streakCount.textContent = streak;
     document.getElementById('bestStreak').textContent = streakInfo ? streakInfo.best : 0;
     renderShields(streakInfo);
-    
-    // Actualizar stats por hábito
-    const stats = calculateHabitStats();
-    const statsGrid = document.getElementById('statsGrid');
-    statsGrid.innerHTML = '';
-    const monthHabits = habitsForMonth(currentDate.getFullYear(), currentDate.getMonth());
-    statsGrid.style.setProperty('--dots-per-row', dotsPerRow(monthHabits.length));
-    
-    monthHabits.forEach(habit => {
-        const statCard = document.createElement('div');
-        statCard.className = 'stat-card';
-        if (isHiddenHabit(habit)) {
-            statCard.classList.add('is-hidden');
-            statCard.title = 'Oculto: se ve en los meses donde lo registraste';
-        }
-        
-        const dot = document.createElement('div');
-        dot.className = `stat-dot ${habit}`;
-        dot.style.backgroundColor = habitColor(habit);
-        
-        const value = document.createElement('span');
-        value.className = 'stat-value';
-        value.textContent = stats[habit];
-        
-        const label = document.createElement('span');
-        label.className = 'stat-label';
-        label.textContent = habitDisplayName(HABIT_ICONS[habit], HABIT_LABELS[habit] || habit);
-        
-        statCard.appendChild(dot);
-        statCard.appendChild(value);
-        statCard.appendChild(label);
-
-        // Su racha propia, si sigue viva (la calcula el backend)
-        const ownStreak = streakInfo ? (streakInfo.habitStreaks[habit] || 0) : 0;
-        if (ownStreak > 0) {
-            const streakTag = document.createElement('span');
-            streakTag.className = 'stat-streak';
-            streakTag.textContent = `🔥${ownStreak}`;
-            streakTag.title = `Racha de este hábito: ${ownStreak} ${ownStreak === 1 ? 'día' : 'días'}`;
-            statCard.appendChild(streakTag);
-        }
-        
-        statsGrid.appendChild(statCard);
-    });
+    // Días de cada hábito y su racha propia viven en la leyenda (renderLegend),
+    // que se repinta con el calendario
 }
 
 // ============================================
@@ -1792,29 +1750,50 @@ function renderCalendar() {
     renderMetrics();
 }
 
-// Qué es cada punto: punto + nombre, en los mismos lugares que los puntos del mes
+// Qué es cada punto, en los mismos lugares que los puntos del mes: punto y
+// nombre, y debajo los días hechos este mes y la racha propia del hábito
 function renderLegend(monthHabits) {
     const legend = document.getElementById('habitLegend');
     legend.innerHTML = '';
     legend.style.setProperty('--dots-per-row', dotsPerRow(monthHabits.length));
-    legend.hidden = monthHabits.length === 0;
+    document.getElementById('legendBlock').hidden = monthHabits.length === 0;
+    const stats = calculateHabitStats();
+    const dayWord = n => (n === 1 ? 'día' : 'días');
     monthHabits.forEach(habit => {
         const item = document.createElement('span');
         item.className = 'legend-item';
+        item.dataset.habit = habit;
         const name = habitDisplayName(HABIT_ICONS[habit], HABIT_LABELS[habit] || habit);
+        const done = stats[habit] || 0;
+        const ownStreak = streakInfo ? (streakInfo.habitStreaks[habit] || 0) : 0;
+
+        let tip = `${name}: ${done} ${dayWord(done)} este mes`;
+        if (ownStreak > 0) tip += ` · racha de ${ownStreak} ${dayWord(ownStreak)}`;
         if (isHiddenHabit(habit)) {
             item.classList.add('is-hidden');
-            item.title = `${name} (oculto)`;
-        } else {
-            item.title = name;
+            tip += ' (oculto)';
         }
+        item.title = tip;
+
         const dot = document.createElement('span');
         dot.className = 'legend-dot';
         dot.style.backgroundColor = habitColor(habit);
         const label = document.createElement('span');
         label.className = 'legend-name';
         label.textContent = name;
-        item.append(dot, label);
+        const meta = document.createElement('span');
+        meta.className = 'legend-meta';
+        const count = document.createElement('span');
+        count.className = 'legend-count';
+        count.textContent = done;
+        meta.appendChild(count);
+        if (ownStreak > 0) {
+            const streakTag = document.createElement('span');
+            streakTag.className = 'legend-streak';
+            streakTag.textContent = `🔥${ownStreak}`;
+            meta.appendChild(streakTag);
+        }
+        item.append(dot, label, meta);
         legend.appendChild(item);
     });
 }

@@ -63,9 +63,9 @@ async def main():
         d = await b.wait_for(f"{DAY}('{LAST_MONTH_DAY}')", lambda v: v is not None and v["dots"] == 4)
         check(d is not None and d["dots"] == 4 and d["active"] == [False, True, False, True],
               f"last month: 4 places, Lectura second and Dieta fourth marked ({d})")
-        cards = await b.js("[...document.querySelectorAll('#statsGrid .stat-card')].map(c => [c.querySelector('.stat-label').textContent, c.querySelector('.stat-value').textContent, c.classList.contains('is-hidden')])")
+        cards = await b.js("[...document.querySelectorAll('#habitLegend .legend-item')].map(c => [c.querySelector('.legend-name').textContent, c.querySelector('.legend-count').textContent, c.classList.contains('is-hidden')])")
         check(cards == [["Gym", "0", False], ["Lectura", "1", True], ["Musica", "0", False], ["Dieta", "1", False]],
-              f"'Este mes' follows the same places, the hidden one dimmed ({cards})")
+              f"the legend (with this month's days) follows the same places, the hidden one dimmed ({cards})")
 
         await b.js(f"document.querySelector('.day-cell[data-date=\"{LAST_MONTH_DAY}\"]').click()")
         await asyncio.sleep(0.3)

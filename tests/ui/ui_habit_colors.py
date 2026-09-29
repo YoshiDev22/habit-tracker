@@ -20,7 +20,7 @@ def colors():
     return {h["key"]: h["color"] for h in d["habits"]}
 
 
-STAT_DOT = "getComputedStyle(document.querySelector('.stat-dot.gym')).backgroundColor"
+STAT_DOT = "getComputedStyle(document.querySelector('.legend-item[data-habit=gym] .legend-dot')).backgroundColor"
 
 
 async def main():

@@ -519,12 +519,12 @@ una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudo
   muestra los hábitos activos más los ocultos con algún registro en ese mes, en orden
   `(order, id)` (`GET /api/habits/month-habits`, que `habitsForMonth()` guarda por mes en
   `script.js`), así que ocultar no cambia cómo se ve un mes pasado. Puntos, popover y
-  "Este mes" salen de esa lista; nunca de `HABITS`, que son solo los activos. Antes de
+  leyenda (que lleva los días del mes de cada hábito) salen de esa lista; nunca de `HABITS`, que son solo los activos. Antes de
   borrar, `GET /api/habits/definitions/{id}/delete-impact` dice cuánto bajarían racha y
   récord, y la confirmación lo muestra.
 - **La posición identifica al hábito, no el color.** El orden sale de `(order, id)`, el
-  mismo que usa restaurar para el lugar original, y es el mismo en puntos, leyenda,
-  "Este mes" y popover; un hábito nuevo va al final (`_next_habit_order()`). Dos hábitos pueden compartir color:
+  mismo que usa restaurar para el lugar original, y es el mismo en puntos, leyenda
+  y popover; un hábito nuevo va al final (`_next_habit_order()`). Dos hábitos pueden compartir color:
   al crear se preselecciona uno libre de `HABIT_PALETTE` (`pickFreeColor()`) y, si el
   usuario repite, se avisa pero se permite.
   Nunca usar el color para distinguir hábitos.

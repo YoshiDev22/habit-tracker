@@ -199,22 +199,15 @@
                         </div>
                         <div id="daysGrid" class="days-grid"></div>
                         <!-- Leyenda: los mismos lugares que los puntos del mes, en la
-                             misma geometría (script.js, renderLegend) -->
-                        <div id="habitLegend" class="habit-legend" aria-label="Qué es cada punto"></div>
+                             misma geometría, con los días hechos este mes y la racha
+                             de cada hábito (script.js, renderLegend) -->
+                        <div class="legend-block" id="legendBlock">
+                            <p class="legend-title">Este mes · días hechos</p>
+                            <div id="habitLegend" class="habit-legend" aria-label="Qué es cada punto"></div>
+                        </div>
                     </div>
 
-                    <!-- Métricas Section -->
-                    <section class="metrics-section">
-                        <div class="metrics-header">
-                            <h2 class="metrics-title">Métricas</h2>
-                        </div>
-
-<div class="habit-stats">
-                            <h3 class="stats-title">Este mes</h3>
-                            <div class="stats-grid" id="statsGrid"></div>
-                        </div>
-                    </section>
-                </section>
+</section>
 
                 <section id="viewProjects" class="view" role="tabpanel" aria-labelledby="tabProjects">
                     <!-- Tablero o lista: board.js alterna entre las dos y recuerda

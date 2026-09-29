@@ -105,7 +105,7 @@
    usuario) no se pierdan sobre una superficie oscura. No se toca el color
    elegido, solo se le da un borde de contraste. */
 [data-theme="dark"] .habit-dot.active,
-[data-theme="dark"] .stat-dot {
+[data-theme="dark"] .legend-dot {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
@@ -957,37 +957,6 @@ body.has-pomodoro-bar {
         min-width: 160px;
         padding: 10px;
     }
-
-    /* Métricas responsive */
-    .metrics-section {
-        padding: 12px;
-    }
-
-    .stats-grid {
-        gap: 6px;
-    }
-}
-
-/* ============================================
-/* Métricas Section
-/* ============================================ */
-
-.metrics-section {
-    margin-top: 24px;
-    background-color: var(--bg-surface);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: var(--shadow-sm);
-}
-
-.metrics-header {
-    margin-bottom: 16px;
-}
-
-.metrics-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-color);
 }
 
 /* Streak */
@@ -1070,25 +1039,53 @@ body.has-pomodoro-bar {
 }
 
 /* Leyenda: mismas columnas que los puntos del mes */
-.habit-legend {
-    display: grid;
-    grid-template-columns: repeat(var(--dots-per-row, 5), minmax(0, 1fr));
-    gap: 6px 8px;
+.legend-block {
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--border-color);
 }
 
-.legend-item {
-    display: flex;
+.legend-title {
+    margin-bottom: 6px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.habit-legend {
+    display: grid;
+    grid-template-columns: repeat(var(--dots-per-row, 5), minmax(0, 1fr));
+    gap: 8px;
+}
+
+/* Punto y nombre en la primera línea; días del mes y racha, debajo. Acotado a
+   .habit-legend: Reportes tiene su propio .legend-item. */
+.habit-legend .legend-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 5px;
+    column-gap: 5px;
+    row-gap: 1px;
     min-width: 0;
     font-size: 0.656rem;   /* 10.5 px con el texto normal */
     color: var(--text-muted);
 }
 
-.legend-item.is-hidden {
+.legend-meta {
+    grid-column: 2;
+    display: flex;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.legend-count {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.habit-legend .legend-item.is-hidden {
     opacity: 0.6;
 }
 
@@ -1103,13 +1100,6 @@ body.has-pomodoro-bar {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-}
-
-.stat-streak {
-    margin-top: 4px;
-    font-size: 0.7rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
 }
 
 .day-shield {
@@ -1129,38 +1119,7 @@ body.has-pomodoro-bar {
     margin: 16px 0;
 }
 
-/* Habit Stats */
-.habit-stats {
-    margin-top: 8px;
-}
-
-.stats-title {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(var(--dots-per-row, 5), minmax(0, 1fr));
-    gap: 8px;
-}
-
-.stat-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 8px;
-    border-radius: 10px;
-    background-color: var(--bg-color);
-    transition: transform 0.15s ease;
-}
-
 /* Un hábito oculto que se ve porque tiene registros en este mes */
-.stat-card.is-hidden,
 .habit-btn.is-hidden {
     opacity: 0.6;
 }
@@ -1175,34 +1134,6 @@ body.has-pomodoro-bar {
     margin-bottom: 8px;
     font-size: 0.8rem;
     color: var(--text-secondary);
-}
-
-.stat-card:hover {
-    transform: translateY(-2px);
-}
-
-.stat-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-bottom: 8px;
-}
-
-.stat-value {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-color);
-}
-
-.stat-label {
-    max-width: 100%;
-    font-size: 0.625rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-    text-align: center;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
 }
 
 /* ============================================

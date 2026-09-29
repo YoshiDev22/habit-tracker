@@ -50,7 +50,7 @@ avisar.
 | Recarga de escudos | "Recarga en N días" **visible** bajo los escudos, también en la franja; no en un tooltip (en el teléfono no se vería). |
 | Constancia (%) | **Eliminada.** Había que explicar qué hábitos y qué días cuentan, y un porcentaje no dice nada concreto. Reportes ya da "N de M días" por hábito. |
 | Métrica acumulada ("47 días") | No existe en la app (venía del mockup); nada que quitar. |
-| Ubicación de métricas | Franja compacta arriba del calendario: `🔥 racha · 🛡️ escudos · récord`. "Este mes" se queda en Calendario. El historial va en "Reportes". |
+| Ubicación de métricas | Franja compacta arriba del calendario: `🔥 racha · 🛡️ escudos · récord`. "Este mes" (días de cada hábito y su racha) va **dentro de la leyenda**, bajo el calendario: la tarjeta "Métricas" se quitó porque repetía los hábitos. El historial va en "Reportes". |
 | Leyenda | Justo debajo del calendario, con la misma geometría que los puntos. |
 | Puntos por fila | Una fila hasta 5 (activos + ocultos con registros en el mes); con 6 o más, dos filas parejas. |
 | Descanso suelto | **No** desde el popover: para un día pasado ya están los escudos y "¿Olvidaste anotar?". Las vacaciones se cubren con la pausa (fila siguiente). |
@@ -101,6 +101,7 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [x] Días futuros: puntos con `opacity: .16`.
 - [x] Leyenda debajo del calendario (`#habitLegend`, `renderLegend()`) con la misma geometría que los puntos (`dotsPerRow()`): punto + nombre, 10.5px, gris, `text-overflow: ellipsis`; los ocultos del mes, atenuados.
 - [x] Tarjetas "Este mes" en el mismo orden y columnas que los puntos, con racha propia (🔥n) si es > 0: `habit_streaks` en `GET /api/habits` y `/streak`, con la regla de `_walk_streak()` por hábito.
+- [x] Después de la Fase 5: la tarjeta "Métricas" se quitó porque repetía los hábitos de la leyenda. La leyenda, titulada "Este mes · días hechos", muestra bajo cada nombre sus días del mes y su 🔥.
 - [x] Descanso y protegido ya no se ven igual: el descanso sigue atenuado; el protegido lleva fondo y borde del color de acento (`--protected-bg`, `--protected-border`), además del 🛡️.
 
 ### Fase 5 — Popover del día ✅

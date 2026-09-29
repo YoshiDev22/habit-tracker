@@ -79,13 +79,17 @@ async def main():
         now = await b.js(f"{cell_style}('{TODAY}')")
         check(float(now["dotOpacity"]) == 1, "today's dots are not faded")
 
-        cards = await b.js("""[...document.querySelectorAll('#statsGrid .stat-card')].map(c => [
-            c.querySelector('.stat-label').textContent, (c.querySelector('.stat-streak') || {}).textContent || ''])""")
+        cards = await b.js("""[...document.querySelectorAll('#habitLegend .legend-item')].map(c => [
+            c.querySelector('.legend-name').textContent, c.querySelector('.legend-count').textContent,
+            (c.querySelector('.legend-streak') || {}).textContent || ''])""")
         exp_gym = st["habit_streaks"].get("gym", 0)
-        check(cards[0] == ["Gimnasio", f"🔥{exp_gym}"] and cards[1][1] == "" and cards[2][1] == "",
-              f"'Este mes' shows each habit's own streak when alive ({cards}; API gym {exp_gym})")
-        cols = await b.js("getComputedStyle(document.getElementById('statsGrid')).gridTemplateColumns.split(' ').length")
-        check(cols == 3, f"'Este mes' uses the same columns as the dots ({cols})")
+        gym_this_month = sum(1 for i in range(2, 9) if (TODAY - timedelta(days=i)).month == TODAY.month)
+        check(cards[0] == ["Gimnasio", str(gym_this_month), f"🔥{exp_gym}"] and cards[1][2] == "" and cards[2][2] == "",
+              f"the legend shows this month's days and each habit's own streak when alive ({cards}; API gym {exp_gym})")
+        title = await b.js("document.querySelector('.legend-title').textContent")
+        check(title == "Este mes · días hechos", f"the legend's numbers are labelled ({title})")
+        check(not await b.js("!!document.querySelector('.metrics-section, #statsGrid')"),
+              "the separate Métricas card is gone")
         # Ayer lo cubrió un escudo, así que la app pregunta: se contesta para ver el calendario
         await b.js("document.getElementById('missedDaySkipBtn').click()")
         await asyncio.sleep(0.3)
