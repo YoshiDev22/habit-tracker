@@ -62,7 +62,7 @@ async def main():
 
         # --- Un protector cubrió ayer ---
         await open_app(b, shielded)
-        s = await b.js(STATE)
+        s = await b.wait_for(STATE, lambda v: v["asking"] and v["shields"]["shown"])
         check(s["asking"], "asks about yesterday on opening the app")
         check("protector" in s["text"] and "7 días" in s["text"], f"says a shield kept the 7-day streak ({s['text']})")
         check(s["habits"] == ["🏋️ Gym"], f"offers the habits to mark ({s['habits']})")
@@ -96,7 +96,7 @@ async def main():
 
         # --- La racha se cortó ayer; "No, no lo hice" ---
         await open_app(b, broken)
-        s = await b.js(STATE)
+        s = await b.wait_for(STATE, lambda v: v["asking"])
         check(s["asking"] and "se cortó" in s["text"] and "2 días" in s["text"], f"says the 2-day streak broke ({s['text']})")
         check(s["streak"] == "0", f"streak is 0 ({s['streak']})")
         await b.js("document.getElementById('missedDaySkipBtn').click()")
@@ -110,7 +110,7 @@ async def main():
 
         # --- Con los dos: ambos llenos y sin texto de recarga ---
         await open_app(b, full)
-        s = await b.js(STATE)
+        s = await b.wait_for(STATE, lambda v: v["shields"]["shown"])
         check(not s["asking"], "nothing to ask when yesterday was done")
         check(s["shields"] == {"slots": 2, "filled": 2, "recharge": "", "shown": True},
               f"both shields full, no recharge text ({s['shields']})")

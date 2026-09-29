@@ -36,6 +36,10 @@ async def main():
         }})()""")
 
     async def row_click(container, match, cls, confirm=False):
+        # La fila puede tardar en pintarse tras un cambio (archivar, restaurar)
+        await b.wait_for(f"""[...document.querySelectorAll('#{container} .config-row')].some(r => {{
+            const n = r.querySelector('.config-name'); return (n.value || n.textContent) === {json.dumps(match)};
+        }})""", bool)
         await js(f"""(() => {{
             const row = [...document.querySelectorAll('#{container} .config-row')].find(r => {{
                 const n = r.querySelector('.config-name'); return (n.value || n.textContent) === {json.dumps(match)};
