@@ -876,14 +876,42 @@ body.has-pomodoro-bar {
     background-color: var(--hover-color);
 }
 
+/* Cada fila en el color de su hábito: sin marcar, solo el aro (tenue);
+   marcado, relleno con un halo. El color llega como --habit-color. */
 .habit-btn .habit-dot {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     flex-shrink: 0;
+    box-sizing: border-box;
+    border: 2px solid var(--habit-color, var(--dot-inactive));
+    background-color: transparent;
+    opacity: 0.55;
 }
 
 .habit-btn.completed .habit-dot {
-    box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px currentColor;
+    background-color: var(--habit-color, var(--dot-inactive));
+    opacity: 1;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--habit-color, var(--dot-inactive)) 30%, transparent);
+}
+
+.popover-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 8px 4px 0;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.popover-count {
+    font-variant-numeric: tabular-nums;
+}
+
+.popover-footer:has(span:empty + span:empty) {
+    display: none;
 }
 
 .habit-label {

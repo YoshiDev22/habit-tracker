@@ -1835,17 +1835,15 @@ function showHabitPopover(dateKey, targetCell) {
     const dayData = habitsData[dateKey] || {};
     const buttons = habitsList.querySelectorAll('.habit-btn');
     
+    let doneCount = 0;
     buttons.forEach(btn => {
         const habit = btn.dataset.habit;
         const isCompleted = !!dayData[habit];
         btn.classList.toggle('completed', isCompleted);
-        
-        // También actualizar el color del dot según el estado
-        const dot = btn.querySelector('.habit-dot');
-        if (dot) {
-            dot.style.backgroundColor = isCompleted ? habitColor(habit) : '';
-        }
+        btn.setAttribute('aria-pressed', String(isCompleted));
+        if (isCompleted) doneCount++;
     });
+    renderPopoverFooter(dateKey, doneCount, buttons.length);
     
     // Posicionar popover
     const rect = targetCell.getBoundingClientRect();
@@ -1984,6 +1982,24 @@ function getActiveHabits() {
     return HABITS;
 }
 
+// Pie del popover: "N de M hoy" y, si el día no cuenta como fallado, por qué
+function renderPopoverFooter(dateKey, doneCount, total) {
+    const isToday = dateKey === getDateKey(new Date());
+    document.getElementById('popoverCount').textContent =
+        total > 0 ? `${doneCount} de ${total}${isToday ? ' hoy' : ''}` : '';
+
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const weekday = (new Date(year, month - 1, day).getDay() + 6) % 7;
+    const restDays = (currentUser && Array.isArray(currentUser.rest_days)) ? currentUser.rest_days : [];
+    let state = '';
+    if (streakInfo && streakInfo.protectedDays.has(dateKey)) {
+        state = '🛡️ Lo cubrió un escudo';
+    } else if (restDays.includes(weekday) && doneCount === 0) {
+        state = 'Día de descanso';
+    }
+    document.getElementById('popoverState').textContent = state;
+}
+
 // ============================================
 // Hábitos de cada mes
 // ============================================
@@ -2075,12 +2091,12 @@ function renderHabitPopoverButtons(dateKey) {
         btn.className = 'habit-btn';
         btn.dataset.habit = habit;
         
+        // El color va como variable: sin marcar se pinta el aro, marcado el
+        // relleno con halo (styles.css, .habit-btn .habit-dot)
+        btn.style.setProperty('--habit-color', habitColor(habit));
         const dot = document.createElement('span');
         dot.className = `habit-dot ${habit}`;
-        
-        const color = habitColor(habit);
-        dot.style.backgroundColor = color;
-        
+
         const label = document.createElement('span');
         label.className = 'habit-label';
         label.textContent = habitDisplayName(HABIT_ICONS[habit], HABIT_LABELS[habit] || habit);

@@ -103,10 +103,10 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [x] Tarjetas "Este mes" en el mismo orden y columnas que los puntos, con racha propia (🔥n) si es > 0: `habit_streaks` en `GET /api/habits` y `/streak`, con la regla de `_walk_streak()` por hábito.
 - [x] Descanso y protegido ya no se ven igual: el descanso sigue atenuado; el protegido lleva fondo y borde del color de acento (`--protected-bg`, `--protected-border`), además del 🛡️.
 
-### Fase 5 — Popover del día (un commit)
-- [ ] Círculo en el color del hábito: contorno (`opacity .55`) sin marcar; relleno + halo marcado.
-- [ ] Pie: "N de M hoy".
-- [ ] Orden idéntico al de los puntos.
+### Fase 5 — Popover del día ✅
+- [x] Círculo en el color del hábito (`--habit-color` por botón): contorno (`opacity .55`) sin marcar; relleno + halo marcado.
+- [x] Pie: "N de M hoy" ("N de M" en otro día) y, a la derecha, el estado del día si lo tiene: "Día de descanso" o "🛡️ Lo cubrió un escudo". Sin acción de descanso: el descanso suelto se decidió que no.
+- [x] Orden idéntico al de los puntos (los dos salen de `habitsForMonth()`).
 
 ### Fase 6 — Pausa por vacaciones (un commit)
 - [ ] Tabla nueva `streak_pauses` (`user_id`, `start_date`, `end_date`): `create_all()` la crea sola, sin migración. Toda query filtra por el usuario.

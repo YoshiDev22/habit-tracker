@@ -58,7 +58,8 @@ async def main():
         await b.goto(BASE + "/", wait=3.0)
         await b.js(CLOSE_WELCOME)
         dot = await b.js(STAT_DOT)
-        pop = await b.js("getComputedStyle(document.querySelector('#habitsList .habit-dot.gym')).backgroundColor")
+        # Sin marcar, el popover pinta el aro del hábito en su color
+        pop = await b.js("getComputedStyle(document.querySelector('#habitsList .habit-dot.gym')).borderTopColor")
         check(dot == "rgb(231, 76, 60)" and pop == "rgb(231, 76, 60)", f"a clean browser gets the color from the account ({dot}, {pop})")
 
         # 3. Change it in the habits setup: saved to the backend, nothing local
