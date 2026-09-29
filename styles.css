@@ -27,6 +27,9 @@
     --accent: #667eea;
     --accent-hover: #5568d3;
     --accent-soft: rgba(102, 126, 234, 0.4);
+    /* Día que cubrió un escudo: distinto del descanso, que va atenuado */
+    --protected-bg: rgba(102, 126, 234, 0.10);
+    --protected-border: rgba(102, 126, 234, 0.45);
 
     --danger-bg: #fee2e2;
     --danger-fg: #dc2626;
@@ -77,6 +80,8 @@
     --accent: #7c83f5;
     --accent-hover: #8f95f7;
     --accent-soft: rgba(124, 131, 245, 0.35);
+    --protected-bg: rgba(124, 131, 245, 0.14);
+    --protected-border: rgba(124, 131, 245, 0.5);
 
     --danger-bg: #3f1d1d;
     --danger-fg: #f87171;
@@ -931,7 +936,7 @@ body.has-pomodoro-bar {
     }
 
     .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
     }
 }
 
@@ -1027,7 +1032,56 @@ body.has-pomodoro-bar {
 
 /* Día perdido que cubrió un protector: cuenta como parte de la racha */
 .day-cell.protected {
-    background-color: var(--bg-surface-2);
+    background-color: var(--protected-bg);
+    box-shadow: inset 0 0 0 1px var(--protected-border);
+}
+
+/* Días que aún no pasan: sus puntos casi no se ven */
+.day-cell.future .habit-dot {
+    opacity: 0.16;
+}
+
+/* Leyenda: mismas columnas que los puntos del mes */
+.habit-legend {
+    display: grid;
+    grid-template-columns: repeat(var(--dots-per-row, 5), minmax(0, 1fr));
+    gap: 6px 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    font-size: 0.656rem;   /* 10.5 px con el texto normal */
+    color: var(--text-muted);
+}
+
+.legend-item.is-hidden {
+    opacity: 0.6;
+}
+
+.legend-dot {
+    flex: 0 0 auto;
+    width: var(--dot-size);
+    height: var(--dot-size);
+    border-radius: 50%;
+}
+
+.legend-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.stat-streak {
+    margin-top: 4px;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
 }
 
 .day-shield {
@@ -1063,7 +1117,7 @@ body.has-pomodoro-bar {
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(var(--dots-per-row, 5), minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -1113,10 +1167,14 @@ body.has-pomodoro-bar {
 }
 
 .stat-label {
+    max-width: 100%;
     font-size: 0.625rem;
     color: var(--text-muted);
     margin-top: 2px;
     text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 /* ============================================

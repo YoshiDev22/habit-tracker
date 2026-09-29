@@ -97,11 +97,11 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [x] "Recarga en N días" visible bajo los escudos de la franja, en pequeño; sin texto cuando hay 2.
 - [x] Barra del mes con etiqueta "MES", contando los mismos hábitos del mes que los puntos. "Este mes" no repite su dato (cuenta días por hábito), así que se quedan los dos.
 
-### Fase 4 — Calendario y leyenda (un commit)
-- [ ] Días futuros: puntos con `opacity: .16`.
-- [ ] Leyenda debajo del calendario con la misma geometría que los puntos: punto + nombre, 10.5px, gris, `text-overflow: ellipsis`.
-- [ ] Tarjetas "Este mes" en el mismo orden y columnas que los puntos, con racha propia (🔥n) si es > 0.
-- [ ] Distinguir día de descanso de día protegido además del ícono.
+### Fase 4 — Calendario y leyenda ✅
+- [x] Días futuros: puntos con `opacity: .16`.
+- [x] Leyenda debajo del calendario (`#habitLegend`, `renderLegend()`) con la misma geometría que los puntos (`dotsPerRow()`): punto + nombre, 10.5px, gris, `text-overflow: ellipsis`; los ocultos del mes, atenuados.
+- [x] Tarjetas "Este mes" en el mismo orden y columnas que los puntos, con racha propia (🔥n) si es > 0: `habit_streaks` en `GET /api/habits` y `/streak`, con la regla de `_walk_streak()` por hábito.
+- [x] Descanso y protegido ya no se ven igual: el descanso sigue atenuado; el protegido lleva fondo y borde del color de acento (`--protected-bg`, `--protected-border`), además del 🛡️.
 
 ### Fase 5 — Popover del día (un commit)
 - [ ] Círculo en el color del hábito: contorno (`opacity .55`) sin marcar; relleno + halo marcado.

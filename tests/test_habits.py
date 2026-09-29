@@ -307,6 +307,19 @@ def test_delete_impact(api):
     assert api.call("GET", f"/api/habits/streak?today={today}", expect=200)[1]["streak"] == imp["streak_after"]
 
 
+def test_each_habit_carries_its_own_streak(api):
+    api.login("per-habit@test.com")
+    today = date.today()
+    for key in ("gym", "lectura", "musica"):
+        api.call("POST", "/api/habits/definitions", {"key": key, "label": key}, expect=201)
+    for i, key in ((3, "gym"), (2, "gym"), (1, "gym"), (1, "lectura"), (10, "musica")):
+        api.call("PATCH", f"/api/habits/day/{today - timedelta(days=i)}", {"habit_key": key, "done": True}, expect=200)
+    _, st = api.call("GET", f"/api/habits/streak?today={today}", expect=200)
+    # Música se cortó hace días: no aparece; cada uno con la regla de siempre
+    assert st["habit_streaks"] == {"gym": 3, "lectura": 1}
+    assert api.call("GET", f"/api/habits?today={today}", expect=200)[1]["habit_streaks"] == st["habit_streaks"]
+
+
 def test_habit_report(api):
     api.login("report@test.com")
     today = date.today()

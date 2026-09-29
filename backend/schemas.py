@@ -149,6 +149,7 @@ class StreakResponse(SQLModel):
     shield_next_in: Optional[int] = None   # días hechos que faltan para el próximo; None si ya hay 2
     protected_days: List[str] = []    # días que cubrió un protector (AAAA-MM-DD)
     missed_yesterday: Optional[MissedDay] = None
+    habit_streaks: Dict[str, int] = {}   # racha actual de cada hábito, solo las > 0
 
 
 class UserHabitsResponse(StreakResponse):

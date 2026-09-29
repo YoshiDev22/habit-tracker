@@ -617,6 +617,10 @@ sin que Yoshio lo pida explícitamente.
 ## Cómo quiero que trabajes
 
 - Antes de una feature que toque varios archivos: plan primero, código después.
+- Antes de decidir una mecánica de hábitos (racha, escudos, pausas, perdón), investigar en
+  fuentes con revisión por pares y guardar lo que sostiene la decisión en
+  `docs/referencias.md` (autor, año, revista, DOI, qué encontró, qué decisión sostiene).
+  Verificar volumen, páginas y citas textuales antes de escribirlos.
 - Cambios acotados. Un commit por unidad lógica, no refactors masivos no pedidos.
 - Si un cambio afecta el esquema de la base o la autenticación, avisar del impacto
   en producción antes de escribir código.

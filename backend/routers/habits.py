@@ -577,7 +577,20 @@ def calculate_streak(
     ).all()
 
     done_dates = {entry.entry_date for entry in entries if _is_done_day(entry.habits_data)}
-    return _walk_streak(done_dates, rest_days, today)
+    walk = _walk_streak(done_dates, rest_days, today)
+
+    # La racha de cada hábito por separado, con la misma regla (cada uno gana sus
+    # propios escudos, como en el reporte). Solo las que siguen vivas.
+    done_by_key: Dict[str, Set[date_type]] = {}
+    for entry in entries:
+        for key, value in (entry.habits_data or {}).items():
+            if value:
+                done_by_key.setdefault(key, set()).add(entry.entry_date)
+    for key, dates in done_by_key.items():
+        current = _walk_streak(dates, rest_days, today).current
+        if current > 0:
+            walk.habit_streaks[key] = current
+    return walk
 
 
 # Un día cuenta como cumplido con al menos este número de hábitos marcados
@@ -606,6 +619,8 @@ class StreakWalk:
     # Ayer no se hizo nada, no era de descanso y había racha: lo que el cliente
     # pregunta al abrir ("¿olvidaste anotar?"). None si no aplica.
     missed_yesterday: Optional[dict] = None
+    # Racha actual de cada hábito (solo > 0); la llena calculate_streak
+    habit_streaks: Dict[str, int] = field(default_factory=dict)
 
 
 def _walk_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type) -> StreakWalk:
@@ -658,4 +673,5 @@ def _streak_payload(walk: StreakWalk) -> dict:
         "shield_next_in": SHIELD_EVERY - walk.progress if walk.shields < SHIELD_MAX else None,
         "protected_days": [str(d) for d in walk.protected],
         "missed_yesterday": walk.missed_yesterday,
+        "habit_streaks": walk.habit_streaks,
     }

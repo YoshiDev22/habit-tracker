@@ -1464,6 +1464,7 @@ function setStreakInfo(data) {
         nextIn: data.shield_next_in ?? null,
         protectedDays: new Set(data.protected_days || []),
         missedYesterday: data.missed_yesterday || null,
+        habitStreaks: data.habit_streaks || {},
     };
 }
 
@@ -1626,8 +1627,10 @@ function renderMetrics() {
     const stats = calculateHabitStats();
     const statsGrid = document.getElementById('statsGrid');
     statsGrid.innerHTML = '';
+    const monthHabits = habitsForMonth(currentDate.getFullYear(), currentDate.getMonth());
+    statsGrid.style.setProperty('--dots-per-row', dotsPerRow(monthHabits.length));
     
-    habitsForMonth(currentDate.getFullYear(), currentDate.getMonth()).forEach(habit => {
+    monthHabits.forEach(habit => {
         const statCard = document.createElement('div');
         statCard.className = 'stat-card';
         if (isHiddenHabit(habit)) {
@@ -1650,6 +1653,16 @@ function renderMetrics() {
         statCard.appendChild(dot);
         statCard.appendChild(value);
         statCard.appendChild(label);
+
+        // Su racha propia, si sigue viva (la calcula el backend)
+        const ownStreak = streakInfo ? (streakInfo.habitStreaks[habit] || 0) : 0;
+        if (ownStreak > 0) {
+            const streakTag = document.createElement('span');
+            streakTag.className = 'stat-streak';
+            streakTag.textContent = `🔥${ownStreak}`;
+            streakTag.title = `Racha de este hábito: ${ownStreak} ${ownStreak === 1 ? 'día' : 'días'}`;
+            statCard.appendChild(streakTag);
+        }
         
         statsGrid.appendChild(statCard);
     });
@@ -1709,6 +1722,10 @@ function renderCalendar() {
         if (dateKey === todayKey) {
             dayCell.classList.add('today');
         }
+        // Lo que aún no pasa, distinto de lo que pasó sin cumplirse
+        if (dateKey > todayKey) {
+            dayCell.classList.add('future');
+        }
 
         // Estilo atenuado para días de descanso sin hábitos
         const jsDay = date.getDay();
@@ -1717,6 +1734,7 @@ function renderCalendar() {
         const hasAnyHabit = Object.values(dayData).some(v => Boolean(v));
         if (restDays.includes(pyWeekday) && !hasAnyHabit) {
             dayCell.classList.add('rest-day');
+            dayCell.title = 'Día de descanso: no suma ni corta la racha';
         }
         if (streakInfo && streakInfo.protectedDays.has(dateKey)) {
             dayCell.classList.add('protected');
@@ -1737,8 +1755,7 @@ function renderCalendar() {
         const dotsContainer = document.createElement('div');
         dotsContainer.className = 'habit-dots';
         // Una fila hasta 5; con más, dos filas parejas (3+3, 4+3…)
-        dotsContainer.style.setProperty('--dots-per-row',
-            monthHabits.length <= 5 ? Math.max(monthHabits.length, 1) : Math.ceil(monthHabits.length / 2));
+        dotsContainer.style.setProperty('--dots-per-row', dotsPerRow(monthHabits.length));
 
         monthHabits.forEach(habit => {
             const dot = document.createElement('span');
@@ -1770,8 +1787,36 @@ function renderCalendar() {
         daysGrid.appendChild(dayCell);
     }
     
+    renderLegend(monthHabits);
     updateProgress();
     renderMetrics();
+}
+
+// Qué es cada punto: punto + nombre, en los mismos lugares que los puntos del mes
+function renderLegend(monthHabits) {
+    const legend = document.getElementById('habitLegend');
+    legend.innerHTML = '';
+    legend.style.setProperty('--dots-per-row', dotsPerRow(monthHabits.length));
+    legend.hidden = monthHabits.length === 0;
+    monthHabits.forEach(habit => {
+        const item = document.createElement('span');
+        item.className = 'legend-item';
+        const name = habitDisplayName(HABIT_ICONS[habit], HABIT_LABELS[habit] || habit);
+        if (isHiddenHabit(habit)) {
+            item.classList.add('is-hidden');
+            item.title = `${name} (oculto)`;
+        } else {
+            item.title = name;
+        }
+        const dot = document.createElement('span');
+        dot.className = 'legend-dot';
+        dot.style.backgroundColor = habitColor(habit);
+        const label = document.createElement('span');
+        label.className = 'legend-name';
+        label.textContent = name;
+        item.append(dot, label);
+        legend.appendChild(item);
+    });
 }
 
 function showHabitPopover(dateKey, targetCell) {
@@ -1958,6 +2003,12 @@ function monthKeyOf(year, month) {
 function habitsForMonth(year, month) {
     const cached = monthHabitsCache[monthKeyOf(year, month)];
     return cached ? cached.map(h => h.key) : HABITS;
+}
+
+// Puntos, leyenda y "Este mes" comparten geometría: una fila hasta 5, y con
+// más, dos filas parejas (3+3, 4+3…)
+function dotsPerRow(count) {
+    return count <= 5 ? Math.max(count, 1) : Math.ceil(count / 2);
 }
 
 function habitsForDate(dateKey) {
