@@ -7,6 +7,48 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.16.0] — 2026-09-29
+
+Un calendario nuevo que se entiende de un vistazo, vacaciones que no rompen tu racha, y tus
+hábitos ocultos siguen en su lugar.
+
+### Nuevo
+- **Franja de racha** arriba del calendario: `🔥 racha · 🛡️🛡️ escudos · récord`. Tu racha,
+  tus dos escudos (el gastado se ve vacío, con los días que faltan para recargarlo) y tu
+  racha más larga.
+- **Leyenda bajo el calendario** ("Este mes · días hechos"): qué hábito es cada punto, en el
+  mismo orden, con los días que lo hiciste este mes y su racha propia (🔥) si la tiene.
+- **Vacaciones**: en ⚙️, bajo los días de descanso, programa una pausa de hasta 30 días,
+  desde hoy o más adelante. Mientras dura, los días sin hábitos no cortan tu racha ni
+  gastan escudos; si marcas algo, cuenta normal. Se ven rayados en el calendario. Una en
+  curso se puede terminar antes y una que no ha empezado, cancelar.
+- **Panel del día renovado**: cada hábito con un círculo de su color (vacío si no lo
+  hiciste, relleno si sí), cuántos llevas ("2 de 3 hoy") y, si el día no cuenta como
+  fallado, por qué: descanso, escudo o vacaciones.
+- **Borrar un hábito te dice qué cuesta**: cuántos registros se pierden y cuánto bajarían
+  tu racha y tu récord, antes de confirmar.
+
+### Cambios
+- **Tus hábitos ocultos no desaparecen del pasado**: en los meses donde los hiciste siguen
+  en su lugar (atenuados en la leyenda y en el panel), y esos días siguen contando para tu
+  racha. Antes se borraban de todos los meses y los demás se corrían de lugar.
+- Un hábito nuevo va siempre al final: ya no mueve el lugar de los demás.
+- Al añadir un hábito, viene con un color que ningún otro usa. Puedes repetir uno: la app
+  avisa, pero lo guarda.
+- Los días que aún no llegan tienen los puntos casi transparentes, y un día cubierto por un
+  escudo ya no se ve igual que uno de descanso.
+- Hasta 5 hábitos, los puntos de cada día van en una fila; con más, en dos.
+- La barra del mes lleva la etiqueta "MES" y cuenta los mismos hábitos que los puntos.
+- La tarjeta "Métricas" se quitó: lo que mostraba ahora está en la franja y en la leyenda.
+- Reportes no cuenta los días de vacaciones entre los que tocaban.
+
+### Correcciones
+- En el teléfono, el día "Dom" de los días de descanso se salía de la pantalla en ⚙️.
+
+### Para actualizar
+Esta versión crea una tabla nueva (las pausas por vacaciones), que la app crea sola al
+arrancar: no hace falta `migrate.py`, basta con reiniciar el servicio.
+
 ## [1.15.1] — 2026-09-28
 
 Corrección importante: marcar un hábito podía borrar registros de otros.
@@ -318,6 +360,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.16.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.0
 [1.15.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.1
 [1.15.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.0
 [1.14.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.14.0
