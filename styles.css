@@ -114,12 +114,13 @@
 
 /* Tamaño del texto (Mi perfil › En este dispositivo). Todo lo que usa rem
    crece con esto, así que los tamaños de texto nuevos van en rem, no en px. */
+/* Grande = 19 px y Muy grande = 22 px (antes 18 y 20: apenas se notaban) */
 html[data-text-size="large"] {
-    font-size: 112.5%;
+    font-size: 118.75%;
 }
 
 html[data-text-size="xlarge"] {
-    font-size: 125%;
+    font-size: 137.5%;
 }
 
 body {
