@@ -64,7 +64,9 @@ habit-tracker/
 │       ├── boards.py      # /api/boards/*      (+ /{id}/columns)
 │       ├── tags.py        # /api/tags/*
 │       └── pomodoro.py    # /api/pomodoro/*
-├── docs/specs/            # Specs de producto por fases (p. ej. calendario-v2.md)
+├── docs/
+│   ├── specs/             # Specs de producto por fases (p. ej. calendario-v2.md)
+│   └── referencias.md     # Investigación que sostiene las reglas de la racha (citable)
 ├── scripts/
 │   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
 ├── index.html             # Única página. Contiene todos los modales y ambas vistas
@@ -506,7 +508,10 @@ también si se recarga. Contestar la pregunta no cuenta como actividad.
 ## Reglas del producto
 
 Decisiones de producto que no se reabren en cada cambio. El detalle y lo pendiente están en
-`docs/specs/calendario-v2.md`.
+`docs/specs/calendario-v2.md`. La app busca que el usuario forme hábitos, no que abra la app
+por miedo a perder la racha: las reglas de la racha se apoyan en la investigación de
+`docs/referencias.md` (citada en el README). Un cambio a esas reglas se contrasta ahí, y
+una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudos.
 
 - **Los registros de un hábito oculto nunca se pierden, y se ven donde tienen datos.**
   Ocultar solo cambia `is_active`; ninguna acción de la UI borra un registro que el

@@ -14,6 +14,16 @@ sin build step ni dependencias) servido por la misma app.
 
 Producción: <https://habits.yoshidev22.com>
 
+## Por qué la racha funciona así
+
+La app busca que formes hábitos y alcances lo que te propones, no que la abras por miedo a
+perder un número. Por eso un día suelto no borra tu racha: faltar una vez no afecta de
+forma importante la formación de un hábito (Lally et al., 2010), y las metas con un margen
+de emergencia se sostienen más que las que no lo tienen (Sharif y Shu, 2017, 2019). Una
+racha rota, en cambio, sí empuja a abandonar (Silverman y Barasch, 2023): de ahí los
+escudos, los días de descanso y la pregunta "¿Olvidaste anotar ayer?". Las fuentes
+completas y qué decisión sostiene cada una están en [docs/referencias.md](docs/referencias.md).
+
 Este README cubre la instalación y la API. Para usar la web —marcar hábitos, registrar
 tiempo, corregir un registro— está la [guía de uso](GUIA-DE-USO.md).
 
