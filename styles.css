@@ -1987,6 +1987,9 @@ body.has-pomodoro-bar {
 }
 
 .day-checkbox-label {
+    /* Los siete a partes iguales: con su ancho natural, "Dom" se salía en un teléfono */
+    flex: 1 1 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
