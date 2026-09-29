@@ -12,6 +12,7 @@ Producción: https://habits.yoshidev22.com
 - [Entrar por primera vez](#entrar-por-primera-vez)
 - [Tu perfil y el alias](#tu-perfil-y-el-alias)
 - [Calendario de hábitos](#calendario-de-hábitos)
+- [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones)
 - [Proyectos y tareas](#proyectos-y-tareas)
 - [Pomodoro y cronómetro](#pomodoro-y-cronómetro)
 - [Registrar tiempo a mano](#registrar-tiempo-a-mano)
@@ -48,16 +49,33 @@ modal de perfil.
 Guardar pregunta antes de aplicar el cambio, y si cierras el modal con algo editado sin
 guardar, también te pregunta si quieres salir de todos modos.
 
+Al final de *Mi perfil*, **En este dispositivo › Tamaño del texto** agranda toda la app
+(Normal, Grande o Muy grande). Se aplica al momento y se queda en ese dispositivo, también
+en la app instalada y aunque cierres sesión.
+
 ## Calendario de hábitos
 
 La pestaña **Calendario** es la vista de inicio.
 
 - **Flechas `<` y `>`**: cambiar de mes.
-- **Clic en un día**: se abre un panel con tus hábitos; púlsalos para marcar o desmarcar
-  lo que hiciste ese día.
-- **Barra de progreso**: porcentaje de cumplimiento del mes que estás viendo.
-- **🔥 Días seguidos**: tu racha actual.
-- **Métricas → Este mes**: cuántas veces cumpliste cada hábito.
+- **La franja bajo el mes**: `🔥 racha · 🛡️🛡️ escudos · récord`. Tu racha actual, tus dos
+  escudos (el gastado se ve vacío, con "Recarga en N días" debajo) y tu racha más larga.
+  Ver [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones).
+- **Barra MES**: porcentaje de los hábitos que tocaban este mes (hasta hoy) que marcaste.
+- **Los puntos de cada día**: uno por hábito, siempre en el mismo lugar; con color si lo
+  hiciste, en gris si no. Los días que aún no llegan tienen los puntos casi transparentes.
+- **La leyenda, bajo el calendario** ("Este mes · días hechos"): qué hábito es cada punto,
+  en el mismo orden, con cuántos días lo hiciste este mes y su racha propia (🔥) si la
+  tiene. Con 5 hábitos o menos, los puntos van en una fila; con más, en dos.
+- **Clic en un día**: se abre un panel con tus hábitos, cada uno con un círculo de su color
+  (vacío si no lo hiciste, relleno si sí). Tócalos para marcar o desmarcar; solo cambia el
+  que tocas. Abajo dice cuántos llevas ("2 de 3 hoy") y, si el día no cuenta como fallado,
+  por qué: descanso, escudo o vacaciones.
+- **Cómo se ve cada tipo de día**: descanso, atenuado; cubierto por un escudo, con fondo
+  azulado y 🛡️ en la esquina; de vacaciones, rayado.
+- **"¿Olvidaste anotar ayer?"**: si ayer quedó vacío y tenías racha, al abrir la app te lo
+  pregunta con tus hábitos para marcarlos. Si sí lo hiciste, lo anotas ahí y recuperas la
+  racha (o el escudo que se gastó). Se pregunta una sola vez por día.
 
 Para elegir qué hábitos sigues, sus colores y sus emojis, usa el **⚙️** de la barra
 superior.
@@ -68,26 +86,58 @@ ellos: lo que no sigues no ocupa sitio ahí.
 - **Añadir un hábito**: en "Añadir un hábito" tienes los sugeridos (Lectura, Gym, Dieta,
   Estudio, No fumar) como etiquetas; toca una y sube a tu lista. Para uno propio, escribe
   su nombre en *Otro*, elige emoji y color, y pulsa **+**. En los dos casos se crea al
-  pulsar "Guardar Hábitos". Un sugerido deja de ofrecerse cuando ya lo tienes.
+  pulsar "Guardar Hábitos". Un sugerido deja de ofrecerse cuando ya lo tienes. Un hábito
+  nuevo va siempre al final, así que no mueve el lugar de los demás.
+- **Colores**: al añadir un hábito ya viene con un color que ningún otro usa. Puedes
+  repetir uno: la app te avisa, pero lo guarda igual, porque lo que identifica a cada
+  hábito en el calendario es su lugar, no su color.
 - **Cambiar el emoji**: cada hábito tiene su emoji en un botón, a la izquierda del nombre.
   Púlsalo y se abre un panel con emojis agrupados (salud y deporte, estudio y trabajo,
   comida, casa y dinero, ánimo y aficiones); toca el que quieras. No hace falta buscarlo
   fuera ni pegarlo. El que ya tenías aparece recuadrado. Con **Sin emoji** el hábito se
   queda solo con su nombre, y cerrando el panel sin elegir no se cambia nada. Como todo
   en este modal, se aplica al pulsar "Guardar Hábitos", y el emoji nuevo se ve en el panel
-  del día y en Métricas.
+  del día y en la leyenda.
 - **Dejar de seguir uno**: desmarca su casilla y pulsa "Guardar Hábitos". **No se borra
   nada**: se archiva con todo su historial intacto y baja a la lista **"Anteriores u
-  ocultos"** del final.
+  ocultos"** del final. En los meses donde lo hiciste sigue apareciendo en su lugar
+  (atenuado en la leyenda y en el panel del día), y esos días siguen contando para tu
+  racha.
 - **Recuperar uno archivado**: despliega "Anteriores u ocultos" y pulsa **Restaurar**.
   Vuelve a la lista de arriba y sus marcas antiguas reaparecen en el calendario.
 - **Borrar uno para siempre**: solo desde esa misma lista, con el 🗑️ de su fila. Pide
-  confirmación y borra el hábito y todo su registro histórico; no se puede deshacer. Está
+  confirmación y borra el hábito y todo su registro histórico; no se puede deshacer. La
+  confirmación te dice cuántos registros se pierden y cuánto bajarían tu racha y tu
+  récord, porque los días en que ese hábito fue lo único que hiciste pasan a fallados. Está
   ahí a propósito: para borrar algo hay que archivarlo primero, así que nada de la lista
   que usas a diario puede destruir tu historial de un clic.
 - **Días de descanso semanal**: puedes elegir los días de la semana en los que descansas (ej. fines de semana). En un día de descanso:
   - La racha **se congela**: si no marcas hábitos, no se corta ni suma. Si marcas alguno, sí suma a la racha.
   - En el calendario, los días de descanso sin hábitos aparecen con un estilo atenuado.
+- **Vacaciones**: debajo de los días de descanso. Ver la sección siguiente.
+
+## Racha, escudos y vacaciones
+
+La app busca que formes el hábito, no que tengas miedo de perder un número. Por eso un día
+suelto no borra tu racha. Por qué funciona así, con las investigaciones en que se basa,
+está en [docs/referencias.md](docs/referencias.md).
+
+- **Racha**: días seguidos con al menos un hábito marcado. Hoy sin marcar no la corta (el
+  día aún no termina). Los días de descanso, los cubiertos por un escudo y los de
+  vacaciones la **congelan**: no suman ni la cortan.
+- **Récord**: tu racha más larga.
+- **Escudos 🛡️**: cada 7 días de racha ganas uno, y puedes tener 2. Si un día no anotas
+  nada (y no es de descanso ni de vacaciones), se gasta uno solo y la racha sigue. Si
+  después anotas ese día, el escudo vuelve. Sin escudos, un día vacío corta la racha.
+- **Vacaciones**: en ⚙️, bajo los días de descanso, elige **Desde** y **Hasta** y pulsa
+  **Programar pausa**. Se guarda al momento.
+  - Empieza hoy o después, nunca en días pasados (para un día que ya pasó están los
+    escudos y "¿Olvidaste anotar ayer?").
+  - Dura hasta 30 días y no puede cruzarse con otra.
+  - Mientras dura, los días sin hábitos congelan la racha. Si marcas algo, cuenta normal.
+  - Una que aún no empieza se **cancela**; una en curso se **termina** (queda hasta ayer).
+    Las que ya terminaron quedan en tu historial y no se pueden borrar.
+  - En Reportes, los días de vacaciones no cuentan entre los que tocaban.
 
 ## Proyectos y tareas
 
@@ -216,5 +266,11 @@ Porque parte del tiempo se registró sin elegir tarea. Ese resto aparece en la l
 Debería cambiar al instante al guardar. Si no, recarga con `Ctrl + F5`.
 
 **¿Se puede usar desde el móvil?**
-Sí, el diseño se adapta y se cambia de pestaña deslizando el dedo. Todavía no es una app
-instalable (ver entrada 9 del [BACKLOG.md](BACKLOG.md)).
+Sí, el diseño se adapta y se cambia de pestaña deslizando el dedo. También se puede
+instalar: desde el navegador, "Agregar a la pantalla de inicio" (o "Instalar app" en la
+computadora), y se abre como una aplicación. Si el texto se ve pequeño, agrándalo en
+*Mi perfil › En este dispositivo › Tamaño del texto*.
+
+**Me fui de vacaciones y no lo programé. ¿Perdí la racha?**
+Si fueron uno o dos días, tus escudos la cubrieron (si los tenías). Para días más largos,
+la pausa se programa antes de irte: no se puede poner hacia atrás.

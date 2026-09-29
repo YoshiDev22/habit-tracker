@@ -2,7 +2,8 @@
 
 App personal de productividad, con tres módulos sobre una misma cuenta:
 
-- **Hábitos** — calendario mensual, marcado por día, rachas y estadísticas.
+- **Hábitos** — calendario mensual, marcado por día, racha con escudos, días de descanso
+  y pausa por vacaciones.
 - **Proyectos y tareas** — tableros kanban con columnas configurables. Cada tarjeta es una
   tarea con proyecto, etiquetas, descripción, checklist y comentarios. También hay vista Lista.
 - **Pomodoro** — cronómetro, pomodoro o registro manual, con tiempo por proyecto, tarea y etiqueta.
@@ -21,7 +22,8 @@ perder un número. Por eso un día suelto no borra tu racha: faltar una vez no a
 forma importante la formación de un hábito (Lally et al., 2010), y las metas con un margen
 de emergencia se sostienen más que las que no lo tienen (Sharif y Shu, 2017, 2019). Una
 racha rota, en cambio, sí empuja a abandonar (Silverman y Barasch, 2023): de ahí los
-escudos, los días de descanso y la pregunta "¿Olvidaste anotar ayer?". Las fuentes
+escudos, los días de descanso, la pausa por vacaciones y la pregunta "¿Olvidaste anotar
+ayer?". Las fuentes
 completas y qué decisión sostiene cada una están en [docs/referencias.md](docs/referencias.md).
 
 Este README cubre la instalación y la API. Para usar la web —marcar hábitos, registrar
@@ -139,7 +141,7 @@ Los endpoints se agrupan por módulo, todos con prefijo `/api`:
 | Prefijo | Qué cubre |
 |---|---|
 | `/api/auth` | Registro y login |
-| `/api/habits` | Entradas diarias, estadísticas, racha y definiciones de hábitos |
+| `/api/habits` | Marcar un hábito por día, racha con escudos, pausas por vacaciones, hábitos de cada mes, reporte y definiciones |
 | `/api/projects` | CRUD de proyectos (etiquetas de las tareas) y resumen de progreso |
 | `/api/boards` | Tableros y sus columnas |
 | `/api/tasks` | Tareas (tarjetas), con su checklist y sus comentarios |
@@ -193,6 +195,7 @@ habit-tracker/
 │   ├── boards.py          # "Sin asignar" y columnas de las tareas de cada usuario
 │   ├── .env.example       # Plantilla del .env (el .env real no se versiona)
 │   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro
+├── docs/                  # Specs por fases y referencias de la racha
 ├── scripts/migrate.py     # Columnas nuevas en tablas existentes (correr antes de reiniciar)
 ├── index.html             # Única página: ambas vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]
