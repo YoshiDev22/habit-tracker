@@ -271,6 +271,12 @@ instalar: desde el navegador, "Agregar a la pantalla de inicio" (o "Instalar app
 computadora), y se abre como una aplicación. Si el texto se ve pequeño, agrándalo en
 *Mi perfil › En este dispositivo › Tamaño del texto*.
 
+**En el teléfono todo se ve diminuto, como si fuera la versión de computadora.**
+El navegador está en modo **"Sitio para ordenador"** (o "Versión de escritorio"): dibuja la
+app como si la pantalla midiera unos 980 px y la encoge. En Chrome: menú ⋮ → desmarca
+"Sitio para ordenador" y recarga. Si la tienes instalada y sigue igual, reinstálala desde
+el navegador ya sin ese modo.
+
 **Me fui de vacaciones y no lo programé. ¿Perdí la racha?**
 Si fueron uno o dos días, tus escudos la cubrieron (si los tenías). Para días más largos,
 la pausa se programa antes de irte: no se puede poner hacia atrás.
