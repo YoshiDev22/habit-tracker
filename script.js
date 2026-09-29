@@ -583,6 +583,53 @@ const DEFAULT_HABITS = [
     { key: 'nofumar', label: 'No fumar', icon: '🚭', color: '#f39c12' }
 ];
 
+// Paleta fija para hábitos nuevos: al añadir uno se preselecciona el primer color
+// que ningún hábito (oculto incluido) use. Repetir se permite, con aviso: lo que
+// identifica al hábito es su lugar en el día, no el color.
+const HABIT_PALETTE = ['#3498db', '#e74c3c', '#27ae60', '#9b59b6', '#f39c12', '#1abc9c', '#e84393', '#8d6e63'];
+
+// Todos los hábitos del usuario (ocultos incluidos) tal como los trajo el modal
+// de configuración, para saber qué colores están tomados.
+let setupAllHabits = [];
+
+function usedHabitColors() {
+    const used = new Set(setupAllHabits.filter(h => !h.is_active).map(h => (h.color || '').toLowerCase()));
+    habitsOptions.querySelectorAll('.habit-option input[type="color"]').forEach(input => {
+        used.add(input.value.toLowerCase());
+    });
+    return used;
+}
+
+function pickFreeColor(preferred) {
+    const used = usedHabitColors();
+    if (preferred && !used.has(preferred.toLowerCase())) return preferred;
+    return HABIT_PALETTE.find(color => !used.has(color)) || preferred || HABIT_PALETTE[0];
+}
+
+// Aviso suave, nunca bloquea: dos hábitos con el mismo color se distinguen por
+// su lugar en el día.
+function updateColorWarning() {
+    const warning = document.getElementById('setupColorWarning');
+    const byColor = {};
+    habitsOptions.querySelectorAll('.habit-option').forEach(row => {
+        if (!row.querySelector('input[type="checkbox"]').checked) return;
+        const color = row.querySelector('input[type="color"]').value.toLowerCase();
+        (byColor[color] = byColor[color] || []).push(row.dataset.habitLabel);
+    });
+    const repeated = Object.values(byColor).filter(names => names.length > 1);
+    const customColor = customHabitColor.value.toLowerCase();
+    const customTwin = customHabitInput.value.trim() && byColor[customColor] ? byColor[customColor][0] : null;
+
+    let text = '';
+    if (repeated.length) {
+        text = `${repeated.map(names => names.join(' y ')).join('; ')} tienen el mismo color. Se puede, pero en el calendario solo los distinguirá su lugar.`;
+    } else if (customTwin) {
+        text = `Ese color ya lo usa ${customTwin}. Se puede, pero en el calendario solo los distinguirá su lugar.`;
+    }
+    warning.textContent = text;
+    warning.classList.toggle('hidden', !text);
+}
+
 // El nombre tal como se lee en pantalla. Un único sitio que compone emoji +
 // nombre: cuando esto estaba repetido por el archivo, un `label` que ya traía
 // el emoji dentro salía con el emoji dos veces.
@@ -816,6 +863,7 @@ async function showHabitsSetup() {
         try {
             const data = await apiFetch('/api/habits/definitions?include_inactive=true');
             const all = data.habits || [];
+            setupAllHabits = all;
 
             renderHabitRows(all.filter(h => h.is_active));
             renderArchivedHabits(all.filter(h => !h.is_active));
@@ -824,6 +872,9 @@ async function showHabitsSetup() {
             console.error('Error cargando hábitos para setup:', error);
         }
     }
+
+    customHabitColor.value = pickFreeColor(HABIT_PALETTE[0]);
+    updateColorWarning();
 
     // Siempre al final: openHabitsSetup() toma la foto del dirty-check, así que
     // tiene que ver la lista ya pintada.
@@ -898,8 +949,37 @@ async function restoreHabit(habitId) {
 
 // Borra el historial y la definición. Es lo único irreversible de este modal,
 // de ahí la confirmación. Devuelve si se llegó a borrar.
-async function deleteHabitForever(habitKey, habitName) {
-    const ok = await confirmDialog(`¿Seguro que quieres eliminar el hábito "${habitName || habitKey}"? Se borrará todo su historial y no se puede deshacer.`, {
+// Lo que la confirmación dice que pasará: cuántos registros se van y cómo quedan
+// la racha y el récord (los días en que fue lo único hecho pasan a fallados).
+function deleteImpactText(impact) {
+    const days = n => `${n} ${n === 1 ? 'día' : 'días'}`;
+    const lost = impact.records === 0 ? 'No tiene registros que borrar, pero no se puede deshacer.'
+        : impact.records === 1 ? 'Se borrará su único registro y no se puede deshacer.'
+        : `Se borrarán sus ${impact.records} registros y no se puede deshacer.`;
+    const lines = [lost];
+    const changes = [];
+    if (impact.streak_after !== impact.streak_before) {
+        changes.push(`tu racha pasaría de ${days(impact.streak_before)} a ${days(impact.streak_after)}`);
+    }
+    if (impact.best_after !== impact.best_before) {
+        changes.push(`tu récord, de ${days(impact.best_before)} a ${days(impact.best_after)}`);
+    }
+    lines.push(changes.length
+        ? `${changes.join(' y ')}.`.replace(/^t/, 'T')
+        : 'Tu racha y tu récord no cambian.');
+    return lines.join(' ');
+}
+
+async function deleteHabitForever(habitKey, habitName, habitId) {
+    let detail = 'Se borrará todo su historial y no se puede deshacer.';
+    try {
+        const impact = await apiFetch(`/api/habits/definitions/${habitId}/delete-impact?today=${getDateKey(new Date())}`);
+        detail = deleteImpactText(impact);
+    } catch (error) {
+        // Sin el cálculo se pregunta igual, con el aviso de siempre
+        console.error('No se pudo calcular el impacto de borrar:', error);
+    }
+    const ok = await confirmDialog(`¿Seguro que quieres eliminar el hábito "${habitName || habitKey}"? ${detail}`, {
         title: '¿Eliminar hábito?',
         confirmLabel: '🗑️ Eliminar',
         cancelLabel: 'Cancelar',
@@ -938,7 +1018,7 @@ archivedHabitsList.addEventListener('click', async (event) => {
     }
 
     if (event.target.closest('.archived-delete')) {
-        const deleted = await deleteHabitForever(row.dataset.habitKey, row.dataset.habitName);
+        const deleted = await deleteHabitForever(row.dataset.habitKey, row.dataset.habitName, Number(row.dataset.habitId));
         if (deleted) await showHabitsSetup();
     }
 });
@@ -1143,7 +1223,13 @@ async function handleSaveHabits() {
 // El + se habilita en cuanto hay algo escrito. Antes había que marcar una
 // casilla para que el campo se dejara escribir; con el catálogo fuera de la
 // lista esa puerta ya no tenía sentido.
+// Cambiar un color o marcar/desmarcar un hábito puede crear o deshacer una repetición
+habitsOptions.addEventListener('input', updateColorWarning);
+habitsOptions.addEventListener('change', updateColorWarning);
+customHabitColor.addEventListener('input', updateColorWarning);
+
 customHabitInput.addEventListener('input', () => {
+    updateColorWarning();
     addCustomHabitBtn.disabled = customHabitInput.value.trim() === '';
     document.getElementById('setupError').classList.add('hidden');
 });
@@ -1191,9 +1277,11 @@ habitSuggestions.addEventListener('click', (event) => {
     const def = DEFAULT_HABITS.find(d => d.key === chip.dataset.habitKey);
     if (!def) return;
 
-    habitsOptions.appendChild(buildHabitRow({ ...def, checked: true }));
+    habitsOptions.appendChild(buildHabitRow({ ...def, color: pickFreeColor(def.color), checked: true }));
     habitsEmpty.classList.add('hidden');
     chip.remove();
+    customHabitColor.value = pickFreeColor(customHabitColor.value);
+    updateColorWarning();
     habitSuggestions.hidden = habitSuggestions.children.length === 0;
 });
 
@@ -1239,7 +1327,8 @@ function addDynamicHabit() {
 
     setEmojiButton(customHabitIconBtn, '🎯');
     customHabitInput.value = '';
-    customHabitColor.value = '#95a5a6';
+    customHabitColor.value = pickFreeColor(HABIT_PALETTE[0]);
+    updateColorWarning();
     addCustomHabitBtn.disabled = true;
     setupError.classList.add('hidden');
 }
@@ -1306,6 +1395,7 @@ async function loadHabitDefinitionsFromAPI() {
         await uploadLocalHabitColors(data.habits || []);
 
         HABITS.length = 0;
+        resetMonthHabits();
         Object.keys(HABIT_LABELS).forEach(key => delete HABIT_LABELS[key]);
         Object.keys(HABIT_ICONS).forEach(key => delete HABIT_ICONS[key]);
         Object.keys(HABIT_COLORS).forEach(key => delete HABIT_COLORS[key]);
@@ -1352,6 +1442,8 @@ async function saveHabitToAPI(dateKey, habitKey, done) {
         if (!token) return;
 
         await markHabitOnDay(dateKey, habitKey, done);
+        // Desmarcar el último registro de un oculto lo saca de la lista del mes
+        if (isHiddenHabit(habitKey)) resetMonthHabits(dateKey);
         renderCalendar();
 
         // Marcar o desmarcar un día puede cambiar la racha: pedirla al backend,
@@ -1488,9 +1580,10 @@ function calculateHabitStats() {
     const month = currentDate.getMonth();
     
     const stats = {};
-    
+    const monthHabits = habitsForMonth(year, month);
+
     // Inicializar contadores
-    HABITS.forEach(habit => {
+    monthHabits.forEach(habit => {
         stats[habit] = 0;
     });
     
@@ -1507,7 +1600,7 @@ function calculateHabitStats() {
             const dayData = habitsData[dateKey];
             
             if (dayData) {
-                HABITS.forEach(habit => {
+                monthHabits.forEach(habit => {
                     if (dayData[habit]) {
                         stats[habit]++;
                     }
@@ -1515,7 +1608,7 @@ function calculateHabitStats() {
             }
         }
     }
-    
+
     return stats;
 }
 
@@ -1531,9 +1624,13 @@ function renderMetrics() {
     const statsGrid = document.getElementById('statsGrid');
     statsGrid.innerHTML = '';
     
-    HABITS.forEach(habit => {
+    habitsForMonth(currentDate.getFullYear(), currentDate.getMonth()).forEach(habit => {
         const statCard = document.createElement('div');
         statCard.className = 'stat-card';
+        if (isHiddenHabit(habit)) {
+            statCard.classList.add('is-hidden');
+            statCard.title = 'Oculto: se ve en los meses donde lo registraste';
+        }
         
         const dot = document.createElement('div');
         dot.className = `stat-dot ${habit}`;
@@ -1574,6 +1671,9 @@ function renderCalendar() {
     
     // Actualizar título
     monthTitle.textContent = `${getMonthName(month)} ${year}`;
+
+    const monthHabits = habitsForMonth(year, month);
+    loadMonthHabits(year, month);
     
     // Limpiar grid
     daysGrid.innerHTML = '';
@@ -1630,13 +1730,14 @@ function renderCalendar() {
         dayNumber.textContent = day;
         dayCell.appendChild(dayNumber);
         
-        // Puntos de hábitos (solo hábitos activos, no ocultos)
+        // Puntos: un lugar por hábito del mes (activos + ocultos con registros)
         const dotsContainer = document.createElement('div');
         dotsContainer.className = 'habit-dots';
-        
-        const activeHabits = getActiveHabits();
-        
-        activeHabits.forEach(habit => {
+        // Una fila hasta 5; con más, dos filas parejas (3+3, 4+3…)
+        dotsContainer.style.setProperty('--dots-per-row',
+            monthHabits.length <= 5 ? Math.max(monthHabits.length, 1) : Math.ceil(monthHabits.length / 2));
+
+        monthHabits.forEach(habit => {
             const dot = document.createElement('span');
             dot.className = `habit-dot ${habit}`;
             
@@ -1679,10 +1780,8 @@ function showHabitPopover(dateKey, targetCell) {
     const options = { weekday: 'long', day: 'numeric', month: 'short' };
     popoverDate.textContent = date.toLocaleDateString('es-ES', options);
     
-    // Solo renderizar botones si no existen
-    if (habitsList.children.length === 0) {
-        renderHabitPopoverButtons();
-    }
+    // Los hábitos del mes de ese día: cambia con el mes y con los ocultos
+    renderHabitPopoverButtons(dateKey);
     
     // Actualizar estado de botones según los datos actuales
     const dayData = habitsData[dateKey] || {};
@@ -1837,13 +1936,81 @@ function getActiveHabits() {
     return HABITS;
 }
 
+// ============================================
+// Hábitos de cada mes
+// ============================================
+// Un mes muestra los hábitos activos más los ocultos con algún registro en ese
+// mes, en orden (order, id): GET /api/habits/month-habits. Puntos, popover y
+// "Este mes" salen de esa lista, así que ocultar un hábito no cambia cómo se ve
+// un mes en el que lo hiciste. Caché por "AAAA-MM"; se vacía cuando cambian
+// las definiciones. Mientras llega, se usan los activos.
+const monthHabitsCache = {};
+const monthHabitsLoading = new Set();
+let monthHabitsGeneration = 0;
+
+function monthKeyOf(year, month) {
+    return `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+function habitsForMonth(year, month) {
+    const cached = monthHabitsCache[monthKeyOf(year, month)];
+    return cached ? cached.map(h => h.key) : HABITS;
+}
+
+function habitsForDate(dateKey) {
+    const [year, month] = dateKey.split('-').map(Number);
+    return habitsForMonth(year, month - 1);
+}
+
+function isHiddenHabit(key) {
+    return !HABITS.includes(key);
+}
+
+// Sin argumentos vacía todo; con una fecha "AAAA-MM-DD", solo su mes
+function resetMonthHabits(dateKey) {
+    if (dateKey) {
+        delete monthHabitsCache[dateKey.slice(0, 7)];
+        return;
+    }
+    Object.keys(monthHabitsCache).forEach(key => delete monthHabitsCache[key]);
+    monthHabitsGeneration++;
+}
+
+async function loadMonthHabits(year, month) {
+    const key = monthKeyOf(year, month);
+    if (monthHabitsCache[key] || monthHabitsLoading.has(key) || !getToken()) return;
+    monthHabitsLoading.add(key);
+    const generation = monthHabitsGeneration;
+    try {
+        const data = await apiFetch(`/api/habits/month-habits?year=${year}&month=${month + 1}`);
+        if (generation !== monthHabitsGeneration) return;   // las definiciones cambiaron entretanto
+        const habits = data.habits || [];
+        // Los ocultos no están en HABIT_LABELS/ICONS/COLORS, que llena
+        // loadHabitDefinitionsFromAPI solo con los activos
+        habits.forEach(h => {
+            if (h.key in HABIT_LABELS) return;
+            HABIT_LABELS[h.key] = h.label;
+            HABIT_ICONS[h.key] = h.icon || '';
+            if (h.color) HABIT_COLORS[h.key] = h.color;
+        });
+        monthHabitsCache[key] = habits;
+        if (currentDate.getFullYear() === year && currentDate.getMonth() === month) {
+            renderCalendar();
+        }
+    } catch (error) {
+        console.error('Error cargando los hábitos del mes:', error);
+    } finally {
+        monthHabitsLoading.delete(key);
+    }
+}
+
 // Función para renderizar los botones del popover dinámicamente
-function renderHabitPopoverButtons() {
+function renderHabitPopoverButtons(dateKey) {
     const habitsList = document.getElementById('habitsList');
-    const activeHabits = getActiveHabits();
-    
+    const activeHabits = dateKey ? habitsForDate(dateKey) : getActiveHabits();
+
     habitsList.innerHTML = '';
-    
+
     if (activeHabits.length === 0) {
         habitsList.innerHTML = '<p class="no-habits-message">No hay hábitos configurados. <button class="link-btn" onclick="showHabitsSetup()">Configurar hábitos</button></p>';
         return;
@@ -1863,10 +2030,17 @@ function renderHabitPopoverButtons() {
         const label = document.createElement('span');
         label.className = 'habit-label';
         label.textContent = habitDisplayName(HABIT_ICONS[habit], HABIT_LABELS[habit] || habit);
-        
+
         btn.appendChild(dot);
         btn.appendChild(label);
-        
+        if (isHiddenHabit(habit)) {
+            btn.classList.add('is-hidden');
+            const tag = document.createElement('span');
+            tag.className = 'habit-hidden-tag';
+            tag.textContent = 'oculto';
+            btn.appendChild(tag);
+        }
+
         // Evento click
         btn.addEventListener('click', () => toggleHabit(habit));
         

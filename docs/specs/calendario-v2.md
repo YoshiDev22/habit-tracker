@@ -52,11 +52,11 @@ avisar.
 | Métrica acumulada ("47 días") | No existe en la app (venía del mockup); nada que quitar. |
 | Ubicación de métricas | Franja compacta arriba del calendario: `🔥 racha · 🛡️ escudos · récord`. "Este mes" se queda en Calendario. El historial va en "Reportes". |
 | Leyenda | Justo debajo del calendario, con la misma geometría que los puntos. |
+| Puntos por fila | Una fila hasta 5 (activos + ocultos con registros en el mes); con 6 o más, dos filas parejas. |
 
 ## Decisiones abiertas (preguntar antes de implementar)
 
 - [ ] **Descanso suelto**: propuesta = no; los protectores cubren ese caso.
-- [ ] **Límite de hábitos**: propuesta = una fila hasta 5; con 6 o más, dos filas. Hoy caben 4: para 5 hay que ajustar tamaño o separación de los puntos. Ojo: un mes puede sumar ocultos con registros a los activos.
 
 ## Definiciones de métricas
 
@@ -82,10 +82,11 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [x] `GET /api/habits/definitions/{id}/delete-impact`: registros que se pierden, racha y récord antes y después. Solo calcula.
 - [x] Tests: racha normal, cruce de fin de semana, cruce de día protegido, descanso con hábito marcado, hoy sin marcar, récord ≠ racha actual, día con solo un hábito oculto, lista por mes con ocultos, orden de un hábito nuevo, impacto de borrar.
 
-### Fase 2 — Ocultos y borrar en la UI (un commit)
-- [ ] Calendario, leyenda, popover y "Este mes" usan la lista por mes de la Fase 1. Un oculto se ve en los meses donde tiene registros, con un estilo atenuado en leyenda y popover.
-- [ ] Confirmación de borrar con el impacto: "Se borrarán N registros. Tu racha pasa de X a Y y tu récord de A a B."
-- [ ] Selector de color: paleta fija, preselecciona uno no usado, aviso suave si se repite.
+### Fase 2 — Ocultos y borrar en la UI ✅
+- [x] Puntos del calendario, popover y "Este mes" usan la lista por mes de la Fase 1 (`habitsForMonth()` en `script.js`, con caché por mes). Un oculto se ve en los meses donde tiene registros, en su lugar; atenuado en popover ("oculto") y en "Este mes". La leyenda la usará igual cuando exista (Fase 4).
+- [x] Puntos: una fila hasta 5; con 6 o más, dos filas parejas (`--dots-per-row`).
+- [x] Confirmación de borrar con el impacto: "Se borrarán sus N registros… Tu racha pasaría de X a Y días y tu récord, de A a B."
+- [x] Color: paleta fija de 8 (`HABIT_PALETTE`); al añadir un hábito se preselecciona uno libre (ocultos incluidos) y, si se repite, un aviso que no bloquea.
 
 ### Fase 3 — Franja y barra (un commit)
 - [ ] Quitar la tarjeta grande de racha de Métricas.

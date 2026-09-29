@@ -761,12 +761,14 @@ body.has-pomodoro-bar {
     background-color: var(--hover-color);
 }
 
+/* Una fila hasta 5 puntos; con 6 o más, dos filas parejas. script.js pone
+   --dots-per-row según los hábitos del mes. */
 .habit-dots {
     display: flex;
     gap: var(--dot-gap);
     flex-wrap: wrap;
     justify-content: center;
-    max-width: 40px;
+    max-width: calc(var(--dots-per-row, 5) * var(--dot-size) + (var(--dots-per-row, 5) - 1) * var(--dot-gap));
 }
 
 .habit-dot {
@@ -1024,6 +1026,24 @@ body.has-pomodoro-bar {
     border-radius: 10px;
     background-color: var(--bg-color);
     transition: transform 0.15s ease;
+}
+
+/* Un hábito oculto que se ve porque tiene registros en este mes */
+.stat-card.is-hidden,
+.habit-btn.is-hidden {
+    opacity: 0.6;
+}
+
+.habit-hidden-tag {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.setup-warning {
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
 }
 
 .stat-card:hover {
