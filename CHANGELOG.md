@@ -7,6 +7,23 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.16.1] — 2026-09-29
+
+Letra un poco más grande cuando la pides.
+
+### Cambios
+- **Tamaño del texto**: Grande y Muy grande crecen un poco más (19 y 22 px, antes 18 y 20),
+  para que la diferencia se note en el teléfono. Se cambia en Mi perfil › En este
+  dispositivo.
+
+### Si la app se ve diminuta en el teléfono
+Revisa que el navegador no esté en modo **"Sitio para ordenador"** (o "Versión de
+escritorio"): en ese modo el teléfono dibuja la app como si fuera una computadora y todo se
+ve pequeño. En Chrome: menú ⋮ → desmarca "Sitio para ordenador".
+
+### Para actualizar
+Sin cambios en la base de datos: basta con reiniciar el servicio.
+
 ## [1.16.0] — 2026-09-29
 
 Un calendario nuevo que se entiende de un vistazo, vacaciones que no rompen tu racha, y tus
@@ -360,6 +377,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.16.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.1
 [1.16.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.0
 [1.15.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.1
 [1.15.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.0
