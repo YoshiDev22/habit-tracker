@@ -4,6 +4,7 @@ usuario no puede leer, usar ni tocar tableros, columnas, tareas, etiquetas,
 checklist, comentarios, registros de tiempo ni hábitos ajenos (404, no 403: ni
 siquiera se entera de que existen).
 """
+from datetime import date
 
 
 def mine(seeded):
@@ -87,5 +88,9 @@ def test_time_and_habits(seeded):
     assert other.call("GET", "/api/habits/definitions", expect=200)[1]["habits"] == []
     assert other.call("PATCH", f"/api/habits/definitions/{m['habit']['id']}", {"label": "hack"})[0] == 404
     assert other.call("DELETE", f"/api/habits/definitions/{m['habit']['id']}")[0] == 404
+    assert other.call("GET", f"/api/habits/definitions/{m['habit']['id']}/delete-impact")[0] == 404
+    today = date.today()
+    _, mh = other.call("GET", f"/api/habits/month-habits?year={today.year}&month={today.month}", expect=200)
+    assert all(h["id"] != m["habit"]["id"] for h in mh["habits"])
     # Marcar un día toca solo los registros propios: el hábito ajeno no existe para él
     assert other.call("PATCH", "/api/habits/day/2026-01-05", {"habit_key": "gym", "done": True})[0] == 404

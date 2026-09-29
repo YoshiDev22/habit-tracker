@@ -74,13 +74,13 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [x] Fix: `PATCH /api/habits/day/{fecha}` con `{habit_key, done}` opera sobre **un par (hábito, día)**. El backend solo cambia esa clave.
 - [x] Revisados los otros lugares: el único otro que guardaba el día completo era "¿Olvidaste anotar ayer?"; ahora también marca uno por uno. `POST /api/habits` queda por compatibilidad y la pantalla no lo usa.
 
-### Fase 1 — Backend de métricas y ocultos (un commit)
-- [ ] `MIN_HABITS_FOR_DONE_DAY = 1` en un solo helper que usen la racha y el reporte (hoy la condición está repetida).
-- [ ] `best_streak` también en `GET /api/habits` y `/streak`: la franja lo necesita.
-- [ ] Endpoint o campo que devuelva, por mes, la lista de hábitos a mostrar (activos + ocultos con registros en ese mes), en orden `(order, id)`.
-- [ ] Un hábito nuevo va al final (`order = máximo + 1`); la pantalla deja de mandar `order: 0`. Los existentes (todos en 0) se desempatan por id: no hace falta tocar datos.
-- [ ] Función de "impacto de borrar": registros afectados, racha y récord antes y después.
-- [ ] Tests: racha normal, cruce de fin de semana, cruce de día protegido, descanso con hábito marcado, hoy sin marcar, récord ≠ racha actual, día con solo un hábito oculto, lista por mes con ocultos, orden de un hábito nuevo, impacto de borrar.
+### Fase 1 — Backend de métricas y ocultos ✅
+- [x] `MIN_HABITS_FOR_DONE_DAY = 1` en un solo helper (`_is_done_day()`) que usan la racha, el reporte y el impacto de borrar.
+- [x] `best_streak` también en `GET /api/habits` y `/streak`: la franja lo necesita.
+- [x] `GET /api/habits/month-habits?year=&month=`: los hábitos a mostrar en un mes (activos + ocultos con registros en ese mes), en orden `(order, id)`, con nombre, emoji, color e `is_active`.
+- [x] Un hábito nuevo va al final (`order = máximo + 1`, ocultos incluidos); la pantalla ya no manda `order: 0`. Los existentes (todos en 0) se desempatan por id: no hace falta tocar datos.
+- [x] `GET /api/habits/definitions/{id}/delete-impact`: registros que se pierden, racha y récord antes y después. Solo calcula.
+- [x] Tests: racha normal, cruce de fin de semana, cruce de día protegido, descanso con hábito marcado, hoy sin marcar, récord ≠ racha actual, día con solo un hábito oculto, lista por mes con ocultos, orden de un hábito nuevo, impacto de borrar.
 
 ### Fase 2 — Ocultos y borrar en la UI (un commit)
 - [ ] Calendario, leyenda, popover y "Este mes" usan la lista por mes de la Fase 1. Un oculto se ve en los meses donde tiene registros, con un estilo atenuado en leyenda y popover.

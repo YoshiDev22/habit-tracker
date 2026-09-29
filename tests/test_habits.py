@@ -2,7 +2,7 @@
 import random
 from datetime import date, timedelta
 
-from backend.routers.habits import SHIELD_EVERY, _walk_streak
+from backend.routers.habits import MIN_HABITS_FOR_DONE_DAY, SHIELD_EVERY, _is_done_day, _walk_streak
 
 
 def test_definitions_are_validated(api):
@@ -198,6 +198,113 @@ def test_streak_endpoints_carry_the_shields(api):
     assert st["shield_next_in"] == SHIELD_EVERY - 1
     _, hr = api.call("GET", f"/api/habits/report?date_from={today}&date_to={today}&today={today}", expect=200)
     assert hr["streak_shields"] == 1
+
+
+def test_done_day_needs_one_habit_hidden_or_not():
+    assert MIN_HABITS_FOR_DONE_DAY == 1
+    assert _is_done_day({"gym": True})
+    assert _is_done_day({"gym": False, "oculto": True})
+    assert not _is_done_day({"gym": False})
+    assert not _is_done_day({}) and not _is_done_day(None)
+
+
+def test_rest_day_with_a_habit_counts_normally():
+    today = date(2026, 9, 23)                                # miércoles; hace 2 = lunes
+    rest = {0}
+    done = days(today, 1, 3)
+    assert _walk_streak(done, rest, today).current == 2     # lunes vacío: congela
+    assert _walk_streak(done | days(today, 2), rest, today).current == 3   # lunes hecho: suma
+
+
+def test_today_unmarked_does_not_break_the_streak():
+    today = date(2026, 9, 23)
+    w = _walk_streak(days(today, 1, 2, 3), set(), today)
+    assert w.current == 3 and not w.protected and w.missed_yesterday is None
+
+
+def test_best_streak_differs_from_the_current_one():
+    today = date(2026, 9, 23)
+    done = days(today, *range(20, 25)) | days(today, 1, 2)   # 5 seguidos hace tiempo, luego 2
+    w = _walk_streak(done, set(), today)
+    assert (w.current, w.best) == (2, 5)
+
+
+def test_a_day_with_only_a_hidden_habit_keeps_the_streak(api):
+    api.login("hidden-streak@test.com")
+    today = date.today()
+    api.call("POST", "/api/habits/definitions", {"key": "gym", "label": "Gym"}, expect=201)
+    _, lectura = api.call("POST", "/api/habits/definitions", {"key": "lectura", "label": "Lectura"}, expect=201)
+    for i, key in ((3, "gym"), (2, "lectura"), (1, "gym")):
+        api.call("PATCH", f"/api/habits/day/{today - timedelta(days=i)}", {"habit_key": key, "done": True}, expect=200)
+    api.call("PATCH", f"/api/habits/definitions/{lectura['id']}", {"is_active": False}, expect=200)
+    _, st = api.call("GET", f"/api/habits/streak?today={today}", expect=200)
+    assert st["streak"] == 3 and st["best_streak"] == 3 and st["protected_days"] == []
+    _, h = api.call("GET", f"/api/habits?today={today}", expect=200)
+    assert h["best_streak"] == 3
+
+
+def test_new_habits_go_last_and_keep_everyone_in_place(api):
+    api.login("order@test.com")
+    url = "/api/habits/definitions"
+    _, a = api.call("POST", url, {"key": "a", "label": "A"}, expect=201)
+    _, b = api.call("POST", url, {"key": "b", "label": "B"}, expect=201)
+    api.call("PATCH", f"{url}/{a['id']}", {"is_active": False}, expect=200)
+    _, c = api.call("POST", url, {"key": "c", "label": "C"}, expect=201)
+    assert (a["order"], b["order"], c["order"]) == (0, 1, 2)   # c va detrás del oculto también
+    _, all_habits = api.call("GET", f"{url}?include_inactive=true", expect=200)
+    assert [h["key"] for h in all_habits["habits"]] == ["a", "b", "c"]
+    # Restaurar lo devuelve a su lugar
+    api.call("PATCH", f"{url}/{a['id']}", {"is_active": True}, expect=200)
+    assert [h["key"] for h in api.call("GET", url, expect=200)[1]["habits"]] == ["a", "b", "c"]
+    # Un order explícito se respeta
+    _, d = api.call("POST", url, {"key": "d", "label": "D", "order": 10}, expect=201)
+    assert d["order"] == 10
+
+
+def test_month_habits_include_hidden_ones_with_records(api):
+    api.login("month@test.com")
+    url = "/api/habits/definitions"
+    today = date.today()
+    this_month = today.replace(day=1)
+    last_month = (this_month - timedelta(days=1)).replace(day=1)
+    for key in ("gym", "lectura", "musica", "dieta"):
+        api.call("POST", url, {"key": key, "label": key.title()}, expect=201)
+    ids = {h["key"]: h["id"] for h in api.call("GET", url, expect=200)[1]["habits"]}
+    api.call("PATCH", f"/api/habits/day/{last_month}", {"habit_key": "lectura", "done": True}, expect=200)
+    api.call("PATCH", f"/api/habits/day/{last_month + timedelta(days=1)}", {"habit_key": "musica", "done": True}, expect=200)
+    api.call("PATCH", f"/api/habits/day/{last_month + timedelta(days=1)}", {"habit_key": "musica", "done": False}, expect=200)
+    for key in ("lectura", "musica"):
+        api.call("PATCH", f"{url}/{ids[key]}", {"is_active": False}, expect=200)
+
+    def shown(month_start):
+        _, r = api.call("GET", f"/api/habits/month-habits?year={month_start.year}&month={month_start.month}", expect=200)
+        return [(h["key"], h["is_active"]) for h in r["habits"]]
+
+    # El mes pasado: Lectura oculta sigue en su lugar; Música (desmarcada) no tiene registros
+    assert shown(last_month) == [("gym", True), ("lectura", False), ("dieta", True)]
+    # Este mes: solo los activos
+    assert shown(this_month) == [("gym", True), ("dieta", True)]
+    assert api.call("GET", "/api/habits/month-habits?year=2026&month=13")[0] == 422
+
+
+def test_delete_impact(api):
+    api.login("impact@test.com")
+    today = date.today()
+    url = "/api/habits/definitions"
+    api.call("POST", url, {"key": "gym", "label": "Gym"}, expect=201)
+    _, lectura = api.call("POST", url, {"key": "lectura", "label": "Lectura"}, expect=201)
+    for i, key in ((3, "gym"), (2, "lectura"), (1, "gym"), (1, "lectura")):
+        api.call("PATCH", f"/api/habits/day/{today - timedelta(days=i)}", {"habit_key": key, "done": True}, expect=200)
+    _, imp = api.call("GET", f"{url}/{lectura['id']}/delete-impact?today={today}", expect=200)
+    # Sin Lectura, hace 2 días queda vacío y corta la racha (aún no hay protectores)
+    assert imp == {"records": 2, "streak_before": 3, "streak_after": 1, "best_before": 3, "best_after": 1}
+    # Solo calcula: no borra nada
+    _, st = api.call("GET", f"/api/habits/streak?today={today}", expect=200)
+    assert st["streak"] == 3
+    # Después de borrar de verdad, la racha es la que anunció
+    api.call("DELETE", "/api/habits/delete-habit", {"habit_key": "lectura"}, expect=200)
+    api.call("DELETE", f"{url}/{lectura['id']}", expect=204)
+    assert api.call("GET", f"/api/habits/streak?today={today}", expect=200)[1]["streak"] == imp["streak_after"]
 
 
 def test_habit_report(api):

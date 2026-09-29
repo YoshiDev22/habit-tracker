@@ -1104,8 +1104,9 @@ async function handleSaveHabits() {
                         key: row.dataset.habitKey,
                         label: row.dataset.habitLabel,
                         icon: icon,
-                        color: row.querySelector('input[type="color"]').value,
-                        order: 0
+                        // Sin order: el backend lo pone al final, detrás de
+                        // todos (ocultos incluidos), y no mueve a ninguno
+                        color: row.querySelector('input[type="color"]').value
                     }
                 });
                 continue;

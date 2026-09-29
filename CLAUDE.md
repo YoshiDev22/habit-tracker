@@ -512,11 +512,12 @@ Decisiones de producto que no se reabren en cada cambio. El detalle y lo pendien
   Ocultar solo cambia `is_active`; ninguna acción de la UI borra un registro que el
   usuario no tocó (marcar toca un solo par hábito-día, ver `markHabitOnDay()`). Cada mes
   muestra los hábitos activos más los ocultos con algún registro en ese mes, en orden
-  `(order, id)`, así que ocultar no cambia cómo se ve un mes pasado. *(La parte visible
-  llega con la Fase 2 de la spec; en 1.15.0 los ocultos todavía no se pintan.)*
+  `(order, id)` (`GET /api/habits/month-habits`), así que ocultar no cambia cómo se ve un
+  mes pasado. *(La API ya lo da; la pantalla lo usa desde la Fase 2 de la spec.)* Antes de
+  borrar, `GET /api/habits/definitions/{id}/delete-impact` dice cuánto bajarían racha y récord.
 - **La posición identifica al hábito, no el color.** El orden sale de `(order, id)`, el
   mismo que usa restaurar para el lugar original, y es el mismo en puntos, leyenda,
-  "Este mes" y popover; un hábito nuevo va al final. Dos hábitos pueden compartir color:
+  "Este mes" y popover; un hábito nuevo va al final (`_next_habit_order()`). Dos hábitos pueden compartir color:
   al crear se preselecciona uno libre y, si el usuario repite, se avisa pero se permite.
   Nunca usar el color para distinguir hábitos.
 - **Días de descanso y días protegidos congelan la racha**: no suman ni la rompen. Un día

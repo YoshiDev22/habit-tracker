@@ -144,6 +144,7 @@ class MissedDay(SQLModel):
 class StreakResponse(SQLModel):
     """La racha general con sus protectores (ver _walk_streak en routers/habits.py)."""
     streak: int
+    best_streak: int = 0              # la racha más larga del historial, misma regla
     streak_shields: int = 0           # protectores guardados (0..2)
     shield_next_in: Optional[int] = None   # días hechos que faltan para el próximo; None si ya hay 2
     protected_days: List[str] = []    # días que cubrió un protector (AAAA-MM-DD)
@@ -169,7 +170,7 @@ class HabitCreate(SQLModel):
     label: str = Field(min_length=1, max_length=40)  # Nombre visible (ej: "Lectura")
     icon: Optional[str] = Field(default=None, max_length=16)  # Emoji (ej: "📚")
     color: Optional[str] = None       # Hex color (ej: "#3498db")
-    order: Optional[int] = 0         # Posición en la UI
+    order: Optional[int] = None       # Posición en la UI; sin ella, va al final
 
     @field_validator("color")
     @classmethod
@@ -235,6 +236,16 @@ class HabitReportResponse(SQLModel):
     best_streak: int
     streak_shields: int = 0           # protectores de la racha general
     habits: List[HabitReportItem]
+
+
+class DeleteImpact(SQLModel):
+    """Qué cambiaría al borrar un hábito: sus registros se van y, con ellos, los
+    días en que fue lo único hecho."""
+    records: int                      # días en que estaba marcado
+    streak_before: int
+    streak_after: int
+    best_before: int
+    best_after: int
 
 
 class HabitListResponse(SQLModel):

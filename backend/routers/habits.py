@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import date as date_type, timedelta
 from typing import Optional, Dict, List, Set
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
 
 from backend.database import get_session
@@ -21,6 +21,7 @@ from backend.schemas import (
     HabitReportItem,
     HabitReportResponse,
     StreakResponse,
+    DeleteImpact,
 )
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
@@ -264,7 +265,8 @@ def get_habit_report(
         for key, value in (entry.habits_data or {}).items():
             if value:
                 done_by_key.setdefault(key, set()).add(entry.entry_date)
-                any_done.add(entry.entry_date)
+        if _is_done_day(entry.habits_data):
+            any_done.add(entry.entry_date)
 
     last_day = min(date_to, today)
     days_elapsed = (last_day - date_from).days + 1 if last_day >= date_from else 0
@@ -330,6 +332,36 @@ def get_habit_definitions(
     )
 
 
+@router.get("/month-habits", response_model=HabitListResponse)
+def get_month_habits(
+    year: int = Query(ge=2000, le=2100),
+    month: int = Query(ge=1, le=12),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Los hábitos que se muestran en un mes: los activos más los ocultos con algún
+    registro en ese mes, en orden (order, id). Es la fuente de los puntos, la
+    leyenda, "Este mes" y el popover: ocultar un hábito no cambia cómo se ve un mes
+    en el que lo hiciste.
+    """
+    start = date_type(year, month, 1)
+    end = date_type(year + 1, 1, 1) if month == 12 else date_type(year, month + 1, 1)
+    entries = session.exec(
+        select(HabitEntry).where(
+            HabitEntry.user_id == current_user.id,
+            HabitEntry.entry_date >= start,
+            HabitEntry.entry_date < end
+        )
+    ).all()
+    with_records = {k for e in entries for k, v in (e.habits_data or {}).items() if v}
+    habits = session.exec(
+        select(Habit).where(Habit.user_id == current_user.id).order_by(Habit.order, Habit.id)
+    ).all()
+    shown = [HabitResponse.model_validate(h) for h in habits if h.is_active or h.key in with_records]
+    return HabitListResponse(habits=shown, total=len(shown))
+
+
 @router.post("/definitions", response_model=HabitResponse, status_code=status.HTTP_201_CREATED)
 def create_habit_definition(
     habit_in: HabitCreate,
@@ -361,7 +393,7 @@ def create_habit_definition(
         label=habit_in.label,
         icon=habit_in.icon,
         color=habit_in.color,
-        order=habit_in.order or 0,
+        order=habit_in.order if habit_in.order is not None else _next_habit_order(session, current_user.id),
         is_active=True,
     )
     session.add(new_habit)
@@ -369,6 +401,54 @@ def create_habit_definition(
     session.refresh(new_habit)
 
     return HabitResponse.model_validate(new_habit)
+
+
+def _next_habit_order(session: Session, user_id: int) -> int:
+    """Un hábito nuevo va detrás de todos, ocultos incluidos: así no mueve el lugar
+    de ninguno. Los de antes tienen order 0 y se desempatan por id, que es su orden
+    de creación."""
+    orders = session.exec(select(Habit.order).where(Habit.user_id == user_id)).all()
+    return max(orders, default=-1) + 1
+
+
+@router.get("/definitions/{habit_id}/delete-impact", response_model=DeleteImpact)
+def get_delete_impact(
+    habit_id: int,
+    today: Optional[date_type] = None,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cómo cambiarían la racha y el récord si se borrara este hábito: borrar quita
+    su clave de todos los días, y un día en que fue lo único hecho pasa a fallado.
+    `today` es la fecha LOCAL del cliente (ver backend/dates.py).
+    """
+    habit = session.exec(
+        select(Habit).where(Habit.id == habit_id, Habit.user_id == current_user.id)
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hábito no encontrado")
+
+    today = resolve_client_today(today)
+    rest_days = set(current_user.rest_days or [])
+    entries = session.exec(
+        select(HabitEntry).where(HabitEntry.user_id == current_user.id, HabitEntry.entry_date <= today)
+    ).all()
+    records = sum(1 for e in entries if (e.habits_data or {}).get(habit.key))
+    before = {e.entry_date for e in entries if _is_done_day(e.habits_data)}
+    after = {
+        e.entry_date for e in entries
+        if _is_done_day({k: v for k, v in (e.habits_data or {}).items() if k != habit.key})
+    }
+    walk_before = _walk_streak(before, rest_days, today)
+    walk_after = _walk_streak(after, rest_days, today)
+    return DeleteImpact(
+        records=records,
+        streak_before=walk_before.current,
+        streak_after=walk_after.current,
+        best_before=walk_before.best,
+        best_after=walk_after.best,
+    )
 
 
 @router.patch("/definitions/{habit_id}", response_model=HabitResponse)
@@ -496,11 +576,17 @@ def calculate_streak(
         )
     ).all()
 
-    done_dates = {
-        entry.entry_date for entry in entries
-        if entry.habits_data and any(v for v in entry.habits_data.values() if v)
-    }
+    done_dates = {entry.entry_date for entry in entries if _is_done_day(entry.habits_data)}
     return _walk_streak(done_dates, rest_days, today)
+
+
+# Un día cuenta como cumplido con al menos este número de hábitos marcados
+# (activos u ocultos). Es la base de la racha, el récord y los protectores.
+MIN_HABITS_FOR_DONE_DAY = 1
+
+
+def _is_done_day(habits_data: Optional[dict]) -> bool:
+    return sum(1 for value in (habits_data or {}).values() if value) >= MIN_HABITS_FOR_DONE_DAY
 
 
 # Protectores de racha: cada SHIELD_EVERY días hechos de la racha se gana uno,
@@ -567,6 +653,7 @@ def _streak_payload(walk: StreakWalk) -> dict:
     """Los campos de racha que comparten GET /api/habits y GET /api/habits/streak."""
     return {
         "streak": walk.current,
+        "best_streak": walk.best,
         "streak_shields": walk.shields,
         "shield_next_in": SHIELD_EVERY - walk.progress if walk.shields < SHIELD_MAX else None,
         "protected_days": [str(d) for d in walk.protected],
