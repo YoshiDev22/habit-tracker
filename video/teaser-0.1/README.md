@@ -1,42 +1,52 @@
-# Teaser 0 (prueba de flujo)
+# Teaser 0.1 (v1.16.0)
 
-Teaser de ~20 s (1920x1080, 60 fps, H.264 yuv420p, CRF 18, sin audio) hecho en código con
-capturas reales de la app corriendo en local. Resultado: `out/teaser.mp4` y `out/contact.png`
-(2 fps).
+Teaser de ~31 s (1920x1080, 60 fps, H.264 yuv420p, CRF 18, sin audio) hecho en código con
+capturas reales de la app 1.16.0 corriendo en local. Resultado: `out/teaser.mp4` y
+`out/contact.png` (2 fps).
 
 ## Regenerar
 
-Desde la raíz del repo, con las dependencias de `requirements.txt` + `requirements-dev.txt`
-y `ffmpeg` en el PATH:
+Desde la raíz del repo, con `requirements.txt` + `requirements-dev.txt` en un venv y `ffmpeg`
+en el PATH:
 
 ```bash
-python video/teaser-0/demo.py     # base 1.9 migrada + datos de demo -> assets/*.png y clicks.json
-python video/teaser-0/render.py   # index.html cuadro a cuadro -> out/teaser.mp4 + out/contact.png
+python video/teaser-0.1/demo.py     # datos de demo -> assets/*.png (10) y clicks.json
+python video/teaser-0.1/render.py   # index.html cuadro a cuadro -> out/teaser.mp4 + out/contact.png
 ```
 
-- `demo.py` reutiliza `tests/ui` (`conftest._prepare_db`, `ui_board.seed()`, `cdp.py`), levanta
-  uvicorn en un puerto libre sobre una SQLite temporal y siembra 5 hábitos (6 semanas, racha 42),
-  el proyecto "Tesis" en las tres columnas y ~30 días de sesiones. Nada toca producción ni tu `.env`.
-  `--serve` deja el servidor arriba para mirarlo a mano.
-- `index.html` es el montaje: todo sale de `window.seek(t)` (sin timers, transiciones CSS ni azar).
-  Para ver un cuadro: servir la carpeta y abrir `index.html#t=4.5`. `render.py --frames 4.5,15.6`
-  saca cuadros sueltos a `out/`.
-- `clicks.json` tiene, en px CSS del viewport 1280x800, el centro del elemento clave de cada captura
-  (lo usan la cámara y el cursor), más el nombre real del CSV exportado.
+`render.py --frames 4.9,12.5` saca cuadros sueltos a `out/` para revisar sin renderizar todo;
+`demo.py --serve` deja el servidor de demo arriba para mirarlo a mano.
 
-## Lo más difícil o frágil
+## Qué cambió respecto a teaser-0
 
-- **Entorno Linux como root:** `cdp.py` lanza Chromium sin `--no-sandbox` y como root se niega a
-  arrancar; `chromium.sh` lo añade sin tocar el driver. Además el `cryptography` del sistema
-  (Debian) hace pánico al importar `python-jose`: hubo que usar un venv limpio.
-- **Las capturas dependen del día.** Las fechas son relativas a hoy (la racha, "Septiembre 2026",
-  el día marcado); regenerar otro día cambia el contenido, y a principio de mes el calendario y el
-  reporte mensual se ven casi vacíos.
-- **800 px de alto no alcanzan** para calendario + racha: `demo.py` hace scroll antes de las capturas
-  1 y 2, y el popover del día depende de la celda de hoy (en la última fila cae fuera sin ese scroll).
-- **Las coordenadas son frágiles:** cámara, cursor y el punto de color de "marcar hábito" se apoyan
-  en `clicks.json`. Si cambia el layout de la app, hay que regenerar las capturas y revisar los
-  offsets a mano (el punto del hábito se dibuja encima de la captura, no es la app real).
-- **Nitidez:** el botón "Exportar CSV" mide 91x14 px; con zoom 2.7x pixelaba. Las capturas son del
-  viewport 1280x800 pero a `deviceScaleFactor` 2 (PNG de 2560x1600).
-- La fuente Inter (OFL) va en `assets/fonts/` para que el render no dependa de la red.
+- **App 1.16.0 y sus funciones nuevas.** Diez capturas en vez de seis: franja
+  `🔥 racha · 🛡️ escudos · récord` con la leyenda, panel del día antes y después, ⚙️ con la
+  lista de hábitos, días de descanso y Vacaciones, y el mes siguiente con los días rayados.
+  Selectores y scrolls revisados: ya no existe la tarjeta "Métricas".
+- **Datos de demo nuevos.** Nombre visible "Santi" (`PATCH /api/auth/me` después de
+  `seed()`, sin tocar `tests/`); `demo.py` falla si "Yoshio" o un correo aparecen en alguna
+  captura. 4 hábitos con ~4 meses de historia, descanso Sáb/Dom, un escudo gastado
+  (recarga en N días), una racha vieja más larga que la actual (el récord) y una pausa de
+  6 días que empieza mañana. Hoy queda con 3 de 4 hábitos.
+- **Nada dibujado encima.** En teaser-0 el hábito marcado era un punto pintado sobre la
+  captura. Ahora son dos capturas reales: `02_day_before` ("3 de 4 hoy") y `03_day_after`
+  ("4 de 4 hoy"). La app cierra el panel al registrar, así que después del clic real en
+  Meditar se reabre el panel con otro clic real en hoy, **con el mismo scroll**: por eso el
+  corte en el momento del clic no salta.
+- **Montaje por datos.** `index.html` describe la cámara como segmentos (captura + keyframes
+  de zoom/foco), los barridos circulares y los clics del cursor como listas; `seek(t)` sigue
+  siendo puro. 9 beats: hábitos, marcar el día, configurar, fin de semana (zoom a las
+  columnas Sáb y Dom de septiembre), vacaciones (⚙️ → calendario rayado), proyectos,
+  reportes, exportar y cierre.
+- **Capas.** `#screen` usa `isolation: isolate`: en la primera versión, el `z-index` de las
+  capturas se salía de la ventana y la tapaba al cierre morado y al cursor.
+
+## Frágil
+
+- Todo depende del día en que se corre `demo.py`: hoy (29/09) cae a fin de mes, así que la
+  pausa se ve en octubre (`nextMonth`); otro día puede caer en el mes actual y cambiar el
+  encuadre. Las fechas de la pausa y los fines de semana se leen del DOM, no están fijas.
+- La cámara y el cursor se apoyan en `clicks.json`; si cambia el layout de la app hay que
+  regenerar las capturas y revisar los desplazamientos en `buildTimeline()`.
+- Entorno: igual que teaser-0 (`chromium.sh` con `--no-sandbox` como root, venv por el
+  `cryptography` de Debian).

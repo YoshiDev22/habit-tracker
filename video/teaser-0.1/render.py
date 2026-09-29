@@ -21,7 +21,7 @@ if not os.environ.get("HABIT_UI_BROWSER") and os.name == "posix" and os.path.exi
     os.environ["HABIT_UI_BROWSER"] = str(HERE / "chromium.sh")
 from cdp import Browser  # noqa: E402
 
-FPS, DURATION, W, H = 60, 20, 1920, 1080
+FPS, DURATION, W, H = 60, 31, 1920, 1080
 OUT = HERE / "out"
 
 
@@ -75,9 +75,9 @@ async def render(url, stills=None):
 
 
 def contact_sheet():
-    # 2 fps over 20 s = 40 thumbnails, 8 columns x 5 rows
+    # 2 fps over 20 s = 62 thumbnails, 8 columns x 8 rows
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(OUT / "teaser.mp4"), "-vf",
-                    "fps=2,scale=480:-1,drawtext=text='%{pts\\:hms}':x=8:y=8:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6,tile=8x5:padding=4",
+                    "fps=2,scale=480:-1,drawtext=text='%{pts\\:hms}':x=8:y=8:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6,tile=8x8:padding=4",
                     "-frames:v", "1", str(OUT / "contact.png")], check=True)
 
 

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Habit Tracker teaser 0</title>
+<title>Habit Tracker teaser 0.1</title>
 <!-- 1920x1080. Everything is a pure function of t: window.seek(t) paints the frame.
      No timers, no CSS transitions/animations, no Math.random. -->
 <style>
@@ -38,7 +38,7 @@ body { font-family: "Inter", "Liberation Sans", sans-serif; color: var(--ink); p
 #brand img { width: 52px; height: 52px; border-radius: 12px; }
 
 /* The "window" that holds the real screenshots */
-#screen { position: absolute; left: 680px; top: 150px; width: 1180px; height: 787px; border-radius: 18px;
+#screen { isolation: isolate; z-index: 1; position: absolute; left: 680px; top: 150px; width: 1180px; height: 787px; border-radius: 18px;
           background: var(--paper); box-shadow: 0 30px 80px rgba(40, 48, 110, .22), 0 0 0 1px rgba(40, 48, 110, .08);
           overflow: hidden; }
 #chrome { height: 50px; background: #f6f7fb; border-bottom: 1px solid #e3e5ef; display: flex; align-items: center;
@@ -49,16 +49,15 @@ body { font-family: "Inter", "Liberation Sans", sans-serif; color: var(--ink); p
 #viewport { position: absolute; left: 0; top: 50px; width: 1180px; height: 737px; overflow: hidden; background: #fafafa; }
 .shot { position: absolute; left: 0; top: 0; width: 1280px; height: 800px; transform-origin: 0 0; }
 #overlay { position: absolute; left: 0; top: 0; width: 1280px; height: 800px; transform-origin: 0 0; pointer-events: none; }
-#markDot { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #e74c3c; }
 #toast { position: absolute; left: 50%; bottom: 36px; display: flex; align-items: center; gap: 14px; padding: 16px 26px;
          border-radius: 14px; background: var(--ink); color: #fff; font-size: 22px; font-weight: 500; white-space: nowrap; }
 #toast b { color: #9fb0ff; font-weight: 800; }
 
-#cursor { position: absolute; left: 0; top: 0; width: 44px; height: 54px; transform-origin: 6px 4px; }
-#ring { position: absolute; border-radius: 50%; border: 5px solid var(--accent); }
+#cursor { z-index: 5; position: absolute; left: 0; top: 0; width: 44px; height: 54px; transform-origin: 6px 4px; }
+#ring { z-index: 5; position: absolute; border-radius: 50%; border: 5px solid var(--accent); }
 
 /* Closing card: an accent panel that slides over the stage from the left */
-#outro { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: var(--accent); overflow: hidden; }
+#outro { z-index: 10; position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: var(--accent); overflow: hidden; }
 #outro .grid { position: absolute; right: -120px; top: 120px; width: 900px; height: 900px; opacity: .14;
                background-image: radial-gradient(#fff 3px, transparent 3.5px); background-size: 48px 48px; }
 #outroTitle { position: absolute; left: 150px; top: 330px; font-size: 150px; line-height: 1; font-weight: 800;
@@ -82,12 +81,15 @@ body { font-family: "Inter", "Liberation Sans", sans-serif; color: var(--ink); p
   <div id="chrome"><i></i><i></i><i></i><span>habits.yoshidev22.com</span></div>
   <div id="viewport">
     <img class="shot" data-shot="01_calendar" src="assets/01_calendar.png" alt="">
-    <img class="shot" data-shot="02_day_panel" src="assets/02_day_panel.png" alt="">
-    <img class="shot" data-shot="03_board" src="assets/03_board.png" alt="">
-    <img class="shot" data-shot="04_list" src="assets/04_list.png" alt="">
-    <img class="shot" data-shot="05_reports" src="assets/05_reports.png" alt="">
-    <img class="shot" data-shot="06_export" src="assets/06_export.png" alt="">
-    <div id="overlay"><div id="markDot"></div></div>
+    <img class="shot" data-shot="02_day_before" src="assets/02_day_before.png" alt="">
+    <img class="shot" data-shot="03_day_after" src="assets/03_day_after.png" alt="">
+    <img class="shot" data-shot="04_settings" src="assets/04_settings.png" alt="">
+    <img class="shot" data-shot="05_vacations" src="assets/05_vacations.png" alt="">
+    <img class="shot" data-shot="06_rest_vacation" src="assets/06_rest_vacation.png" alt="">
+    <img class="shot" data-shot="07_board" src="assets/07_board.png" alt="">
+    <img class="shot" data-shot="08_list" src="assets/08_list.png" alt="">
+    <img class="shot" data-shot="09_reports" src="assets/09_reports.png" alt="">
+    <img class="shot" data-shot="10_export" src="assets/10_export.png" alt="">
     <div id="toast">⬇ <span>Descargado</span> <b id="toastName"></b></div>
   </div>
 </div>
@@ -101,11 +103,12 @@ body { font-family: "Inter", "Liberation Sans", sans-serif; color: var(--ink); p
   <div class="grid"></div>
   <div id="outroTitle"></div>
   <div id="outroUrl"><img src="assets/icon-192.png" alt=""><span>habits.yoshidev22.com</span></div>
-  <div id="outroNote">Hábitos · Proyectos · Tiempo · Reportes</div>
+  <div id="outroNote">Hábitos · Vacaciones · Proyectos · Reportes</div>
 </div>
 
 <script>
-const DURATION = 20;
+const DURATION = 31;
+const OUTRO_AT = 28;
 const $ = (id) => document.getElementById(id);
 
 // ---------- math ----------
@@ -116,35 +119,110 @@ const easeInOut = (k) => (k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) /
 const easeOut = (k) => 1 - Math.pow(1 - k, 3);
 const easeOutBack = (k) => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
 
-// Piecewise keyframes [{t, ...values}] -> values at t, eased between neighbours
+// Piecewise keyframes [{t, z, x, y}] -> values at t, eased between neighbours
 function keyed(frames, t) {
   if (t <= frames[0].t) return frames[0];
   for (let i = 1; i < frames.length; i++) {
     const a = frames[i - 1], b = frames[i];
     if (t <= b.t) {
       const k = easeInOut(prog(t, a.t, b.t));
-      const out = {};
-      for (const key in b) out[key] = typeof b[key] === 'number' ? lerp(a[key], b[key], k) : b[key];
-      return out;
+      return { z: lerp(a.z, b.z, k), x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k) };
     }
   }
   return frames[frames.length - 1];
 }
 
 // ---------- data from demo.py ----------
-let C = null;   // clicks.json: key points of each screenshot in its 1280x800 CSS pixels
+let C = null;   // clicks.json: key points of each screenshot, in its 1280x800 CSS pixels
 const P = (shot, sub) => { const r = sub ? C[shot][sub] : C[shot]; return { x: r.x, y: r.y }; };
 
-// ---------- beats ----------
+// ---------- beats (one line of copy each) ----------
 const BEATS = [
-  { from: 0,  to: 3,  kicker: '01 · Hábitos',   text: 'La app que te ayuda a crear [hábitos]' },
-  { from: 3,  to: 6,  kicker: '02 · Calendario', text: 'Tu calendario, [día a día]' },
-  { from: 6,  to: 10, kicker: '03 · Proyectos',  text: 'Gestiona tus [proyectos]' },
-  { from: 10, to: 14, kicker: '04 · Reportes',   text: 'Genera tus reportes y ve [cómo avanzas]' },
-  { from: 14, to: 17, kicker: '05 · Tus datos',  text: 'Descarga tus datos [cuando quieras]' },
+  { from: 0,  to: 3,  kicker: '01 · Hábitos',    text: 'La app que te ayuda a crear [hábitos]' },
+  { from: 3,  to: 7,  kicker: '02 · Tu día',     text: 'Marca tu día [en un toque]' },
+  { from: 7,  to: 11, kicker: '03 · Configura',  text: 'Tus hábitos, [a tu manera]' },
+  { from: 11, to: 14, kicker: '04 · Descanso',   text: '¿Fin de semana? Tu racha [descansa]' },
+  { from: 14, to: 18, kicker: '05 · Vacaciones', text: '¿Vacaciones? Pausa sin perder [tu racha]' },
+  { from: 18, to: 22, kicker: '06 · Proyectos',  text: 'Gestiona tus [proyectos]' },
+  { from: 22, to: 26, kicker: '07 · Reportes',   text: 'Ve [cómo avanzas]' },
+  { from: 26, to: 28, kicker: '08 · Tus datos',  text: 'Descarga tus datos [cuando quieras]' },
 ];
 
-// Headline DOM is rebuilt only when the beat changes (same result for any t)
+// ---------- camera: which screenshot, zoom and focus per time ----------
+// Built once the clicks are loaded. z = zoom over "fit to window"; (x, y) = focus point.
+let SEGMENTS = [];
+let WIPES = [];      // circular reveal from one screenshot into the next
+let MOVES = [];      // cursor moves and clicks
+function buildTimeline() {
+  const k = (t, z, p, dx = 0, dy = 0) => ({ t, z, x: p.x + dx, y: p.y + dy });
+  const at = (x, y) => ({ x, y });
+  const strip = P('01_calendar'), meditar = P('02_day_before');
+  const list = P('04_settings'), rest = P('04_settings', 'rest');
+  // Column centre from the header down to the last Saturday / Sunday of the month
+  const col = (head, last) => at(P('01_calendar', head).x, (P('01_calendar', head).y + P('01_calendar', last).y) / 2 - 20);
+  const satCol = col('head_sat', 'sat_last'), sunCol = col('head_sun', 'sun_last');
+  const pause = P('05_vacations');
+  const pFirst = P('06_rest_vacation', 'pause_first'), pLast = P('06_rest_vacation', 'pause_last');
+  const pauseMid = at((pLast.x + P('06_rest_vacation', 'weekend_sat').x) / 2, (pFirst.y + pLast.y) / 2);
+  const card = P('07_board'), tog = P('07_board', 'list_toggle'), proj = P('08_list');
+  const summary = P('09_reports'), habits = P('09_reports', 'habits'), exp = P('10_export');
+  const togView = k(0, 1.45, tog, -120, 120);
+
+  SEGMENTS = [
+    { from: 0, to: 3, shot: '01_calendar',
+      frames: [k(0, 1.45, at(640, 420)), k(0.4, 1.45, at(640, 420)), k(2.9, 2.3, strip, 0, 40)] },
+    // Same scroll in both captures: at the click the before/after cut is seamless
+    { from: 3, to: 5.2, shot: '02_day_before',
+      frames: [k(3, 1.7, at(560, 560)), k(4.4, 2.2, at(540, 690)), k(7, 2.3, at(540, 690))] },
+    { from: 5.2, to: 7, shot: '03_day_after',
+      frames: [k(3, 1.7, at(560, 560)), k(4.4, 2.2, at(540, 690)), k(7, 2.3, at(540, 690))] },
+    { from: 7, to: 11, shot: '04_settings',
+      frames: [k(7, 1.5, at(640, 330)), k(8.6, 2.1, list, 60, -20), k(10.9, 1.95, rest, 0, -40)] },
+    { from: 11, to: 14, shot: '01_calendar',
+      frames: [k(11, 1.5, at(640, 460)), k(12.1, 2.6, satCol), k(12.7, 2.6, satCol),
+               k(13.6, 2.6, sunCol), k(14, 2.65, sunCol)] },
+    { from: 14, to: 16, shot: '05_vacations',
+      frames: [k(14, 1.6, at(640, 480)), k(15.5, 2.3, pause, 0, 0), k(16, 2.35, pause, 0, 0)] },
+    { from: 16, to: 18, shot: '06_rest_vacation',
+      frames: [k(16, 2.0, pauseMid), k(17.3, 2.7, pauseMid), k(18, 2.75, pauseMid)] },
+    { from: 18, to: 20.9, shot: '07_board',
+      frames: [k(18, 1.0, at(640, 400)), k(19.4, 1.3, card, 0, -120), { ...togView, t: 20.3 }] },
+    // Starts on the board's last framing so the circular wipe lines up header to header
+    { from: 20.9, to: 22, shot: '08_list',
+      frames: [{ ...togView, t: 20.9 }, { ...togView, t: 21.4 }, k(22, 1.6, proj, 0, -20)] },
+    { from: 22, to: 26, shot: '09_reports',
+      frames: [k(22, 1.2, at(640, 420)), k(23.4, 1.7, summary), k(24.2, 1.7, summary),
+               k(25.6, 1.8, habits, 0, 30), k(26, 1.8, habits, 0, 30)] },
+    { from: 26, to: DURATION, shot: '10_export',
+      frames: [k(26, 1.7, at(640, 420)), k(27.0, 2.6, exp, 0, 30), k(28, 2.7, exp, 0, 30)] },
+  ];
+  WIPES = [
+    { from: 16, to: 16.45, shot: '06_rest_vacation', under: 14, center: pauseMid },
+    { from: 20.9, to: 21.35, shot: '08_list', under: 20.89, center: tog },
+  ];
+  MOVES = [
+    { a: 3.3, b: 4.8, from: at(900, 560), to: at(meditar.x - 44, meditar.y + 8), click: 5.15, end: 6.9 },
+    { a: 19.3, b: 20.5, from: at(1000, 560), to: at(tog.x + 6, tog.y + 4), click: 20.65, end: 20.9 },
+    { a: 26.2, b: 26.95, from: at(820, 420), to: at(exp.x + 34, exp.y + 9), click: 27.1, end: 27.9 },
+  ];
+}
+
+function segmentAt(t) {
+  return SEGMENTS.find((s) => t >= s.from && t < s.to) || SEGMENTS[SEGMENTS.length - 1];
+}
+
+const VW = 1180, VH = 737, FIT = VW / 1280;   // 1280x800 fitted to the window width
+function transformFor(cam) {
+  const s = FIT * cam.z;
+  const tx = clamp(VW / 2 - cam.x * s, VW - 1280 * s, 0);
+  const ty = clamp(VH / 2 - cam.y * s, VH - 800 * s, 0);
+  return { s, tx, ty };
+}
+const css = (tr) => `translate(${tr.tx}px, ${tr.ty}px) scale(${tr.s})`;
+// Screenshot px -> page px (for the cursor, which lives above the window)
+const toPage = (tr, p) => ({ x: 680 + tr.tx + p.x * tr.s, y: 150 + 50 + tr.ty + p.y * tr.s });
+
+// ---------- copy ----------
 let builtBeat = -1;
 function buildHeadline(i) {
   if (builtBeat === i) return;
@@ -152,13 +230,11 @@ function buildHeadline(i) {
   $('kicker').textContent = BEATS[i].kicker;
   const hd = $('headline');
   hd.innerHTML = '';
-  // Words wrap naturally; each word gets its own mask via the .line wrapper per word
-  const parts = BEATS[i].text.split(/(\[[^\]]+\])/).filter(Boolean);
   let idx = 0;
-  parts.forEach((part) => {
+  BEATS[i].text.split(/(\[[^\]]+\])/).filter(Boolean).forEach((part) => {
     const hl = part.startsWith('[');
     part.replace(/[\[\]]/g, '').split(' ').filter(Boolean).forEach((w) => {
-      const mask = document.createElement('span');
+      const mask = document.createElement('span');   // each word rises out of its own mask
       mask.className = 'line';
       mask.style.display = 'inline-block';
       mask.style.verticalAlign = 'top';
@@ -178,145 +254,74 @@ function paintCopy(t) {
   if (i < 0) i = BEATS.length - 1;
   const beat = BEATS[i];
   buildHeadline(i);
-  const local = t - beat.from;
-  const left = beat.to - t;
-  // Words rise out of their mask (staggered) and leave upward at the end of the beat
+  const local = t - beat.from, left = beat.to - t;
   document.querySelectorAll('#headline .word').forEach((w) => {
-    const d = Number(w.dataset.i) * 0.055;
+    const d = Number(w.dataset.i) * 0.05;
     const inK = easeOut(prog(local, 0.05 + d, 0.5 + d));
     const outK = easeInOut(prog(0.3 - left, 0, 0.3));
-    const y = (1 - inK) * 110 - outK * 110;
-    w.style.transform = `translateY(${y}%)`;
+    w.style.transform = `translateY(${(1 - inK) * 110 - outK * 110}%)`;
   });
-  const kIn = easeOut(prog(local, 0, 0.35));
-  const kOut = easeInOut(prog(0.3 - left, 0, 0.3));
+  const kIn = easeOut(prog(local, 0, 0.35)), kOut = easeInOut(prog(0.3 - left, 0, 0.3));
   $('kicker').style.transform = `translateX(${(1 - kIn) * -40 - kOut * 40}px)`;
   $('kicker').style.clipPath = `inset(0 ${(1 - kIn) * 100 + kOut * 100}% 0 0)`;
 }
 
-// ---------- camera: which shot, zoom and focus point, per time ----------
-// z = extra zoom over "fit to window"; (x, y) = focus in screenshot CSS px
-function camera(t) {
-  const c = (x, y) => ({ x, y });
-  if (t < 3) {
-    const s = P('01_calendar');
-    return { shot: '01_calendar', ...keyed([{ t: 0, z: 1.45, x: 640, y: 420 }, { t: 0.4, z: 1.45, x: 640, y: 420 },
-                                              { t: 2.9, z: 1.95, x: s.x + 60, y: s.y - 90 }], t) };
-  }
-  if (t < 6) {
-    const b = P('02_day_panel');
-    return { shot: '02_day_panel', ...keyed([{ t: 3, z: 1.6, x: 560, y: 470 }, { t: 4.3, z: 1.95, x: b.x - 20, y: b.y - 60 },
-                                               { t: 6, z: 2.05, x: b.x - 20, y: b.y - 60 }], t) };
-  }
-  if (t < 8.9) {
-    const card = P('03_board'), tog = P('03_board', 'list_toggle');
-    return { shot: '03_board', ...keyed([{ t: 6, z: 1.0, x: 640, y: 400 }, { t: 7.4, z: 1.3, x: card.x, y: card.y - 120 },
-                                           { t: 8.3, z: 1.45, x: tog.x - 120, y: tog.y + 120 }], t) };
-  }
-  if (t < 10) {
-    const p = P('04_list');
-    // Starts on the board's last framing so the circular wipe lines up header to header
-    const tog = P('03_board', 'list_toggle');
-    return { shot: '04_list', ...keyed([{ t: 8.9, z: 1.45, x: tog.x - 120, y: tog.y + 120 }, { t: 9.4, z: 1.45, x: tog.x - 120, y: tog.y + 120 },
-                                          { t: 10, z: 1.6, x: p.x, y: p.y - 20 }], t) };
-  }
-  if (t < 14) {
-    const s = P('05_reports');
-    return { shot: '05_reports', ...keyed([{ t: 10, z: 1.2, x: 640, y: 420 }, { t: 11.4, z: 1.7, x: s.x, y: s.y }, { t: 12.2, z: 1.7, x: s.x, y: s.y },
-                                               { t: 13.6, z: 1.8, x: s.x, y: 720 }, { t: 14, z: 1.8, x: s.x, y: 720 }], t) };
-  }
-  const e = P('06_export');
-  return { shot: '06_export', ...keyed([{ t: 14, z: 1.7, x: 640, y: 420 }, { t: 15.4, z: 2.6, x: e.x, y: e.y + 30 }, { t: 17, z: 2.7, x: e.x, y: e.y + 30 }], t) };
-}
-
-const VW = 1180, VH = 737, FIT = VW / 1280;   // 1280x800 fitted to the window width
-function transformFor(cam) {
-  const s = FIT * cam.z;
-  let tx = VW / 2 - cam.x * s, ty = VH / 2 - cam.y * s;
-  tx = clamp(tx, VW - 1280 * s, 0);
-  ty = clamp(ty, VH - 800 * s, 0);
-  return { s, tx, ty };
-}
-// Screenshot px -> page px (for the cursor, which lives above the window)
-const toPage = (tr, p) => ({ x: 680 + tr.tx + p.x * tr.s, y: 150 + 50 + tr.ty + p.y * tr.s });
-
+// ---------- screen ----------
 function paintScreen(t) {
-  const cam = camera(t);
-  const tr = transformFor(cam);
-  const css = `translate(${tr.tx}px, ${tr.ty}px) scale(${tr.s})`;
+  const seg = segmentAt(t);
+  const tr = transformFor(keyed(seg.frames, t));
   document.querySelectorAll('.shot').forEach((img) => {
-    const on = img.dataset.shot === cam.shot;
-    img.style.display = on ? 'block' : 'none';
-    img.style.transform = css;
+    img.style.display = img.dataset.shot === seg.shot ? 'block' : 'none';
+    img.style.transform = css(tr);
     img.style.clipPath = 'none';
+    img.style.zIndex = 1;
   });
-  // Board -> List: the list grows out of the click point as a circle (no cross-fade)
-  if (t >= 8.9 && t < 9.35) {
-    const board = document.querySelector('[data-shot="03_board"]');
-    const trB = transformFor(camera(8.89));
-    board.style.display = 'block';
-    board.style.transform = `translate(${trB.tx}px, ${trB.ty}px) scale(${trB.s})`;
-    const tog = P('03_board', 'list_toggle');
-    const list = document.querySelector('[data-shot="04_list"]');
-    list.style.zIndex = 2;
-    const r = easeInOut(prog(t, 8.9, 9.35)) * 1600;
-    list.style.clipPath = `circle(${r}px at ${tog.x}px ${tog.y}px)`;
+  // The outgoing screenshot stays frozen underneath while the new one grows as a circle
+  const wipe = WIPES.find((w) => t >= w.from && t < w.to);
+  if (wipe) {
+    const prev = segmentAt(wipe.from - 1e-3);
+    const under = document.querySelector(`[data-shot="${prev.shot}"]`);
+    under.style.display = 'block';
+    under.style.transform = css(transformFor(keyed(prev.frames, wipe.from - 1e-3)));
+    const top = document.querySelector(`[data-shot="${wipe.shot}"]`);
+    top.style.zIndex = 2;
+    top.style.clipPath = `circle(${easeInOut(prog(t, wipe.from, wipe.to)) * 1600}px at ${wipe.center.x}px ${wipe.center.y}px)`;
   }
-  $('overlay').style.transform = css;
-
-  // Beat 2: after the click, the habit's dot fills with its colour
-  const b = P('02_day_panel');
-  const dot = $('markDot');
-  const dotK = cam.shot === '02_day_panel' ? easeOutBack(prog(t, 4.55, 4.85)) : 0;
-  dot.style.display = dotK > 0 ? 'block' : 'none';
-  dot.style.left = `${b.x - C['02_day_panel'].w / 2 + 10}px`;
-  dot.style.top = `${b.y - 7}px`;
-  dot.style.transform = `scale(${dotK})`;
-
-  // Beat 5: download toast rises from the bottom of the window
-  const toastK = easeOut(prog(t, 15.85, 16.25));
+  // Download toast rises from the bottom of the window after the export click
+  const toastK = easeOut(prog(t, 27.3, 27.65));
   $('toast').style.display = toastK > 0 ? 'flex' : 'none';
   $('toast').style.transform = `translate(-50%, ${(1 - toastK) * 140}px)`;
   return tr;
 }
 
 // ---------- cursor ----------
-// Each move: {t0, t1, from, to, click} in screenshot coordinates of the current shot
-function cursorState(t, tr) {
-  const b = P('02_day_panel'), tog = P('03_board', 'list_toggle'), e = P('06_export');
-  const moves = [
-    { a: 3.2, b: 4.4, from: { x: 900, y: 760 }, to: { x: b.x - 58, y: b.y + 8 }, click: 4.5, end: 5.9 },
-    { a: 7.3, b: 8.5, from: { x: 1000, y: 560 }, to: { x: tog.x + 6, y: tog.y + 4 }, click: 8.65, end: 8.9 },
-    { a: 14.3, b: 15.4, from: { x: 820, y: 420 }, to: { x: e.x + 34, y: e.y + 9 }, click: 15.55, end: 16.9 },
-  ];
-  const m = moves.find((mv) => t >= mv.a - 0.25 && t < mv.end);
-  if (!m) return null;
+function paintCursor(t, tr) {
+  const m = t < OUTRO_AT ? MOVES.find((mv) => t >= mv.a - 0.25 && t < mv.end) : null;
+  const cur = $('cursor'), ring = $('ring');
+  cur.style.display = m ? 'block' : 'none';
+  ring.style.display = 'none';
+  if (!m) return;
   const k = easeInOut(prog(t, m.a, m.b));
   // Slight arc so it does not travel on a ruler
   const p = { x: lerp(m.from.x, m.to.x, k), y: lerp(m.from.y, m.to.y, k) - Math.sin(k * Math.PI) * 40 };
   const page = toPage(tr, p);
   const press = prog(t, m.click - 0.06, m.click) * (1 - prog(t, m.click + 0.06, m.click + 0.16));
-  const ring = prog(t, m.click, m.click + 0.45);
-  return { page, press, ring, appear: easeOut(prog(t, m.a - 0.25, m.a)) };
-}
-
-function paintCursor(t, tr) {
-  const st = t < 17 ? cursorState(t, tr) : null;
-  const cur = $('cursor'), ring = $('ring');
-  cur.style.display = st ? 'block' : 'none';
-  ring.style.display = st && st.ring > 0 && st.ring < 1 ? 'block' : 'none';
-  if (!st) return;
-  cur.style.transform = `translate(${st.page.x - 6}px, ${st.page.y - 4}px) scale(${(0.6 + 0.4 * st.appear) * (1 - 0.18 * st.press)})`;
-  const r = 14 + 46 * easeOut(st.ring);
-  ring.style.width = ring.style.height = `${r * 2}px`;
-  ring.style.transform = `translate(${st.page.x - r}px, ${st.page.y - r}px)`;
-  ring.style.borderWidth = `${5 * (1 - st.ring) + 0.5}px`;
+  const appear = easeOut(prog(t, m.a - 0.25, m.a));
+  cur.style.transform = `translate(${page.x - 6}px, ${page.y - 4}px) scale(${(0.6 + 0.4 * appear) * (1 - 0.18 * press)})`;
+  const r01 = prog(t, m.click, m.click + 0.45);
+  if (r01 > 0 && r01 < 1) {
+    const r = 14 + 46 * easeOut(r01);
+    ring.style.display = 'block';
+    ring.style.width = ring.style.height = `${r * 2}px`;
+    ring.style.transform = `translate(${page.x - r}px, ${page.y - r}px)`;
+    ring.style.borderWidth = `${5 * (1 - r01) + 0.5}px`;
+  }
 }
 
 // ---------- outro ----------
 function paintOutro(t) {
   const o = $('outro');
-  const k = easeInOut(prog(t, 16.85, 17.35));
+  const k = easeInOut(prog(t, OUTRO_AT - 0.15, OUTRO_AT + 0.35));
   o.style.display = k > 0 ? 'block' : 'none';
   o.style.clipPath = `inset(0 ${(1 - k) * 100}% 0 0)`;
   const title = $('outroTitle');
@@ -327,16 +332,18 @@ function paintOutro(t) {
       const s = document.createElement('span'); s.className = 'word'; s.textContent = w; m.appendChild(s); title.appendChild(m);
     });
   }
+  const o0 = OUTRO_AT;
   title.querySelectorAll('.word').forEach((w, i) => {
-    w.style.transform = `translateY(${(1 - easeOut(prog(t, 17.3 + i * 0.08, 17.8 + i * 0.08))) * 110}%)`;
+    w.style.transform = `translateY(${(1 - easeOut(prog(t, o0 + 0.3 + i * 0.08, o0 + 0.8 + i * 0.08))) * 110}%)`;
   });
-  const u = easeOutBack(prog(t, 17.75, 18.25));
+  const u = easeOutBack(prog(t, o0 + 0.75, o0 + 1.25));
   $('outroUrl').style.transform = `translateY(${(1 - u) * 60}px) scale(${0.9 + 0.1 * u})`;
-  $('outroUrl').style.clipPath = `inset(0 ${(1 - easeOut(prog(t, 17.75, 18.15))) * 100}% 0 0 round 60px)`;
-  $('outroNote').style.transform = `translateX(${(1 - easeOut(prog(t, 18.2, 18.7))) * -30}px)`;
-  $('outroNote').style.clipPath = `inset(0 ${(1 - easeOut(prog(t, 18.2, 18.7))) * 100}% 0 0)`;
+  $('outroUrl').style.clipPath = `inset(0 ${(1 - easeOut(prog(t, o0 + 0.75, o0 + 1.15))) * 100}% 0 0 round 60px)`;
+  const n = easeOut(prog(t, o0 + 1.2, o0 + 1.7));
+  $('outroNote').style.transform = `translateX(${(1 - n) * -30}px)`;
+  $('outroNote').style.clipPath = `inset(0 ${(1 - n) * 100}% 0 0)`;
   // Dot grid drifts slowly: something still moves during the hold
-  o.querySelector('.grid').style.transform = `translate(${-(t - 17) * 14}px, ${(t - 17) * 8}px)`;
+  o.querySelector('.grid').style.transform = `translate(${-(t - o0) * 14}px, ${(t - o0) * 8}px)`;
 }
 
 window.seek = function seek(t) {
@@ -351,6 +358,7 @@ window.seek = function seek(t) {
 // Ready when data, fonts and all images are in
 window.ready = (async () => {
   C = await (await fetch('clicks.json')).json();
+  buildTimeline();
   $('toastName').textContent = C.meta.csv_name;
   await document.fonts.load('800 80px Inter');
   await document.fonts.load('500 20px Inter');

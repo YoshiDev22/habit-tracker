@@ -134,6 +134,19 @@ CELL = "document.querySelector('.day-cell[data-date=\"%s\"]')"
 SCROLL_TO = "window.scrollTo(0, 0); window.scrollTo(0, (%s).getBoundingClientRect().%s + scrollY - %d)"
 
 
+def weekend_keys():
+    """The Sáb and Dom columns of the current month (rest days), for the weekend beat."""
+    first = TODAY.replace(day=1)
+    days = [first + timedelta(days=i) for i in range(31) if (first + timedelta(days=i)).month == first.month
+            and first + timedelta(days=i) < TODAY]
+    sats = [d for d in days if d.weekday() == 5]
+    suns = [d for d in days if d.weekday() == 6]
+    return {"sat_first": CELL % sats[0], "sat_last": CELL % sats[-1],
+            "sun_first": CELL % suns[0], "sun_last": CELL % suns[-1],
+            "head_sat": "[...document.querySelectorAll('.weekdays div')].find(d => d.textContent === 'Sáb')",
+            "head_sun": "[...document.querySelectorAll('.weekdays div')].find(d => d.textContent === 'Dom')"}
+
+
 async def capture(token, streak):
     ASSETS.mkdir(parents=True, exist_ok=True)
     b = Browser()
@@ -169,7 +182,8 @@ async def capture(token, streak):
         await b.js(SCROLL_TO % ("document.getElementById('legendBlock')", "bottom", 785))
         await shot("01_calendar", "document.getElementById('streakStrip')", "franja de racha",
                    legend="document.getElementById('legendBlock')",
-                   shields="document.getElementById('streakShields')")
+                   shields="document.getElementById('streakShields')",
+                   **weekend_keys())
 
         # 2. Panel de hoy ANTES: "3 de 4 hoy", Meditar con el círculo vacío
         today = CELL % TODAY.isoformat()
@@ -202,6 +216,8 @@ async def capture(token, streak):
         scroller = "document.querySelector('#habitsSetupModal .setup-scroll')"
         await b.js(f"{scroller}.scrollTop = 0")
         await shot("04_settings", "document.getElementById('habitsOptions')", "tus hábitos",
+                   first_color="document.querySelector('#habitsOptions input[type=color]')",
+                   last_row="document.querySelector('#habitsOptions').lastElementChild",
                    rest="document.getElementById('restDaysOptions')",
                    modal="document.querySelector('#habitsSetupModal .modal-content')")
 
