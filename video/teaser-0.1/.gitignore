@@ -1,0 +1,7 @@
+# Only the final video, the contact sheet, the montage code and its inputs are versioned
+out/*
+!out/teaser.mp4
+!out/contact.png
+*.db
+*.log
+__pycache__/
