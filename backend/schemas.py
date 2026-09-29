@@ -1,5 +1,5 @@
 from sqlmodel import Field, SQLModel
-from pydantic import ConfigDict, field_validator
+from pydantic import ConfigDict, field_validator, model_validator
 import re
 from typing import Optional, Dict, List
 from datetime import date as date_type, datetime
@@ -150,6 +150,7 @@ class StreakResponse(SQLModel):
     protected_days: List[str] = []    # días que cubrió un protector (AAAA-MM-DD)
     missed_yesterday: Optional[MissedDay] = None
     habit_streaks: Dict[str, int] = {}   # racha actual de cada hábito, solo las > 0
+    paused_days: List[str] = []       # días en pausa por vacaciones (AAAA-MM-DD), futuros incluidos
 
 
 class UserHabitsResponse(StreakResponse):
@@ -232,11 +233,42 @@ class HabitReportResponse(SQLModel):
     """
     days_elapsed: int                 # días del rango hasta hoy, incluido
     rest_days_elapsed: int            # de esos, cuántos son de descanso
+    paused_days_elapsed: int = 0      # y cuántos en pausa (sin contar los de descanso)
     active_days: int                  # días del rango con algún hábito hecho
     streak: int                       # racha general (la del calendario)
     best_streak: int
     streak_shields: int = 0           # protectores de la racha general
     habits: List[HabitReportItem]
+
+
+# Una pausa por vacaciones dura como mucho esto (Apple permite 90; aquí se decidió 30)
+MAX_PAUSE_DAYS = 30
+
+
+class PauseCreate(SQLModel):
+    """Programar una pausa por vacaciones: fechas LOCALES, las dos incluidas."""
+    start_date: date_type
+    end_date: date_type
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.end_date < self.start_date:
+            raise ValueError("La pausa no puede terminar antes de empezar")
+        if (self.end_date - self.start_date).days + 1 > MAX_PAUSE_DAYS:
+            raise ValueError(f"Una pausa dura como mucho {MAX_PAUSE_DAYS} días")
+        return self
+
+
+class PauseResponse(SQLModel):
+    id: int
+    start_date: date_type
+    end_date: date_type
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PauseListResponse(SQLModel):
+    pauses: List[PauseResponse]
 
 
 class DeleteImpact(SQLModel):

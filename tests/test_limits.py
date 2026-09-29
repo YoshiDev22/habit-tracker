@@ -75,3 +75,13 @@ def test_habit_day(api):
     assert api.call("PATCH", f"/api/habits/day/{day}", {"habit_key": "gym", "done": "x" * 5000})[0] == 422
     api.call("POST", "/api/habits/definitions", {"key": "nuevo", "label": "Nuevo"}, expect=201)
     assert api.call("PATCH", f"/api/habits/day/{day}", {"habit_key": "nuevo", "done": True})[0] == 422
+
+
+def test_pause_length(api):
+    api.login("pausas-tope@test.com")
+    today = date.today()
+    far = lambda n: str(today + timedelta(days=n))
+    url = f"/api/habits/pauses?today={today}"
+    assert api.call("POST", url, {"start_date": far(0), "end_date": far(365)})[0] == 422
+    assert api.call("POST", url, {"start_date": "x" * 5000, "end_date": far(1)})[0] == 422
+    api.call("POST", url, {"start_date": far(0), "end_date": far(29)}, expect=201)

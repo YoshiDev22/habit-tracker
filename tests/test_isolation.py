@@ -92,5 +92,10 @@ def test_time_and_habits(seeded):
     today = date.today()
     _, mh = other.call("GET", f"/api/habits/month-habits?year={today.year}&month={today.month}", expect=200)
     assert all(h["id"] != m["habit"]["id"] for h in mh["habits"])
+    # Las pausas de otro no se ven ni se cancelan
+    _, mine_pause = seeded["api"].call("POST", f"/api/habits/pauses?today={today}",
+                                       {"start_date": str(today), "end_date": str(today)}, expect=201)
+    assert other.call("GET", "/api/habits/pauses", expect=200)[1]["pauses"] == []
+    assert other.call("DELETE", f"/api/habits/pauses/{mine_pause['id']}?today={today}")[0] == 404
     # Marcar un día toca solo los registros propios: el hábito ajeno no existe para él
     assert other.call("PATCH", "/api/habits/day/2026-01-05", {"habit_key": "gym", "done": True})[0] == 404

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User, HabitEntry, Habit
+from backend.models import User, HabitEntry, Habit, StreakPause
 from backend.schemas import (
     MAX_HABITS_PER_DAY,
     HabitEntryCreate,
@@ -22,6 +22,9 @@ from backend.schemas import (
     HabitReportResponse,
     StreakResponse,
     DeleteImpact,
+    PauseCreate,
+    PauseResponse,
+    PauseListResponse,
 )
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
@@ -251,6 +254,7 @@ def get_habit_report(
         )
     today = resolve_client_today(today)
     rest_days = set(current_user.rest_days or [])
+    paused = _paused_days(session, current_user.id)
 
     # Todo el historial hasta hoy: el récord puede ser de hace meses
     entries = session.exec(
@@ -274,6 +278,12 @@ def get_habit_report(
         1 for i in range(days_elapsed)
         if (date_from + timedelta(days=i)).weekday() in rest_days
     )
+    # Los días en pausa tampoco tocaban (los que ya eran de descanso no se cuentan dos veces)
+    paused_elapsed = sum(
+        1 for i in range(days_elapsed)
+        if (date_from + timedelta(days=i)) in paused
+        and (date_from + timedelta(days=i)).weekday() not in rest_days
+    )
     in_range = lambda dates: sum(1 for d in dates if date_from <= d <= date_to)
 
     habits = session.exec(
@@ -283,7 +293,7 @@ def get_habit_report(
     items = []
     for habit in habits:
         done = done_by_key.get(habit.key, set())
-        walk = _walk_streak(done, rest_days, today)
+        walk = _walk_streak(done, rest_days, today, paused)
         items.append(HabitReportItem(
             key=habit.key,
             label=habit.label,
@@ -294,10 +304,11 @@ def get_habit_report(
             best_streak=walk.best,
         ))
 
-    overall = _walk_streak(any_done, rest_days, today)
+    overall = _walk_streak(any_done, rest_days, today, paused)
     return HabitReportResponse(
         days_elapsed=days_elapsed,
         rest_days_elapsed=rest_elapsed,
+        paused_days_elapsed=paused_elapsed,
         active_days=in_range(any_done),
         streak=overall.current,
         best_streak=overall.best,
@@ -330,6 +341,90 @@ def get_habit_definitions(
         habits=[HabitResponse.model_validate(h) for h in habits],
         total=len(habits)
     )
+
+
+# ==================== Pausa por vacaciones ====================
+# Fundamento en docs/referencias.md: una racha cortada por algo que no es culpa de
+# uno hace abandonar; las apps de hábitos dan la pausa gratis.
+
+@router.get("/pauses", response_model=PauseListResponse)
+def list_pauses(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Las pausas del usuario, de la más antigua a la más reciente."""
+    pauses = session.exec(
+        select(StreakPause).where(StreakPause.user_id == current_user.id).order_by(StreakPause.start_date)
+    ).all()
+    return PauseListResponse(pauses=[PauseResponse.model_validate(p) for p in pauses])
+
+
+@router.post("/pauses", response_model=PauseResponse, status_code=status.HTTP_201_CREATED)
+def create_pause(
+    pause_in: PauseCreate,
+    today: Optional[date_type] = None,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Programa una pausa: empieza hoy o después (para días pasados están los
+    escudos), dura hasta 30 días y no se cruza con otra. `today` es la fecha LOCAL
+    del cliente (ver backend/dates.py).
+    """
+    today = resolve_client_today(today)
+    if pause_in.start_date < today:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La pausa empieza hoy o después: para los días que ya pasaron están los escudos"
+        )
+    overlap = session.exec(
+        select(StreakPause).where(
+            StreakPause.user_id == current_user.id,
+            StreakPause.start_date <= pause_in.end_date,
+            StreakPause.end_date >= pause_in.start_date
+        )
+    ).first()
+    if overlap:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Se cruza con tu pausa del {overlap.start_date:%d/%m} al {overlap.end_date:%d/%m}"
+        )
+    pause = StreakPause(user_id=current_user.id, start_date=pause_in.start_date, end_date=pause_in.end_date)
+    session.add(pause)
+    session.commit()
+    session.refresh(pause)
+    return PauseResponse.model_validate(pause)
+
+
+@router.delete("/pauses/{pause_id}", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_pause(
+    pause_id: int,
+    today: Optional[date_type] = None,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cancela una pausa que aún no empieza, o termina antes una en curso (queda
+    hasta ayer). Una pausa ya terminada no se toca: es parte del historial y
+    borrarla convertiría esos días en fallados.
+    """
+    pause = session.exec(
+        select(StreakPause).where(StreakPause.id == pause_id, StreakPause.user_id == current_user.id)
+    ).first()
+    if not pause:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pausa no encontrada")
+    today = resolve_client_today(today)
+    if pause.end_date < today:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esa pausa ya terminó y queda en tu historial"
+        )
+    if pause.start_date >= today:
+        session.delete(pause)
+    else:
+        pause.end_date = today - timedelta(days=1)
+        session.add(pause)
+    session.commit()
 
 
 @router.get("/month-habits", response_model=HabitListResponse)
@@ -440,8 +535,9 @@ def get_delete_impact(
         e.entry_date for e in entries
         if _is_done_day({k: v for k, v in (e.habits_data or {}).items() if k != habit.key})
     }
-    walk_before = _walk_streak(before, rest_days, today)
-    walk_after = _walk_streak(after, rest_days, today)
+    paused = _paused_days(session, current_user.id)
+    walk_before = _walk_streak(before, rest_days, today, paused)
+    walk_after = _walk_streak(after, rest_days, today, paused)
     return DeleteImpact(
         records=records,
         streak_before=walk_before.current,
@@ -577,7 +673,9 @@ def calculate_streak(
     ).all()
 
     done_dates = {entry.entry_date for entry in entries if _is_done_day(entry.habits_data)}
-    walk = _walk_streak(done_dates, rest_days, today)
+    paused = _paused_days(session, user_id)
+    walk = _walk_streak(done_dates, rest_days, today, paused)
+    walk.paused = sorted(paused)
 
     # La racha de cada hábito por separado, con la misma regla (cada uno gana sus
     # propios escudos, como en el reporte). Solo las que siguen vivas.
@@ -587,10 +685,21 @@ def calculate_streak(
             if value:
                 done_by_key.setdefault(key, set()).add(entry.entry_date)
     for key, dates in done_by_key.items():
-        current = _walk_streak(dates, rest_days, today).current
+        current = _walk_streak(dates, rest_days, today, paused).current
         if current > 0:
             walk.habit_streaks[key] = current
     return walk
+
+
+def _paused_days(session: Session, user_id: int) -> Set[date_type]:
+    """Todos los días en pausa del usuario (cada pausa dura como mucho 30 días)."""
+    days: Set[date_type] = set()
+    for pause in session.exec(select(StreakPause).where(StreakPause.user_id == user_id)).all():
+        day = pause.start_date
+        while day <= pause.end_date:
+            days.add(day)
+            day += timedelta(days=1)
+    return days
 
 
 # Un día cuenta como cumplido con al menos este número de hábitos marcados
@@ -621,14 +730,17 @@ class StreakWalk:
     missed_yesterday: Optional[dict] = None
     # Racha actual de cada hábito (solo > 0); la llena calculate_streak
     habit_streaks: Dict[str, int] = field(default_factory=dict)
+    # Días en pausa por vacaciones (para el calendario); la llena calculate_streak
+    paused: List[date_type] = field(default_factory=list)
 
 
-def _walk_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type) -> StreakWalk:
+def _walk_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_type,
+                 paused: Set[date_type] = frozenset()) -> StreakWalk:
     """
     La regla de la racha, en un solo lugar, recorriendo los días hacia adelante:
     - Día con algo hecho: la racha suma 1 y avanza hacia el próximo protector.
     - Hoy sin nada: no corta (el día sigue en curso).
-    - Día de descanso sin nada: congela (no suma y no corta).
+    - Día de descanso o en pausa por vacaciones sin nada: congela (no suma y no corta).
     - Cualquier otro día sin nada: si hay racha y queda un protector, se gasta y
       la racha sigue sin sumar; si no, la racha se corta.
     Vale igual para todos los hábitos juntos o para uno solo.
@@ -647,7 +759,7 @@ def _walk_streak(done_dates: Set[date_type], rest_days: Set[int], today: date_ty
             if walk.progress == SHIELD_EVERY:
                 walk.progress = 0
                 walk.shields = min(SHIELD_MAX, walk.shields + 1)
-        elif day == today or day.weekday() in rest_days:
+        elif day == today or day.weekday() in rest_days or day in paused:
             pass
         elif run > 0 and walk.shields > 0:
             walk.shields -= 1
@@ -674,4 +786,5 @@ def _streak_payload(walk: StreakWalk) -> dict:
         "protected_days": [str(d) for d in walk.protected],
         "missed_yesterday": walk.missed_yesterday,
         "habit_streaks": walk.habit_streaks,
+        "paused_days": [str(d) for d in walk.paused],
     }

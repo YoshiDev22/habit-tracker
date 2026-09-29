@@ -471,6 +471,19 @@
                         </label>
                     </div>
                 </div>
+
+                <!-- Vacaciones (script.js, loadPauses): se guardan al momento, no con
+                     "Guardar Hábitos". Hoy o hacia adelante; hasta 30 días. -->
+                <div class="pause-section">
+                    <p class="setup-subtitle" style="margin-bottom: 6px; margin-top: 16px;">Vacaciones (pausan la racha, hasta 30 días):</p>
+                    <ul class="pause-list" id="pauseList"></ul>
+                    <div class="pause-form">
+                        <label>Desde <input type="date" id="pauseStart"></label>
+                        <label>Hasta <input type="date" id="pauseEnd"></label>
+                        <button type="button" id="pauseAddBtn" class="submit-btn btn-neutral pause-add">Programar pausa</button>
+                    </div>
+                    <p class="form-error hidden" id="pauseError" role="alert"></p>
+                </div>
             </div>
 
             <div class="setup-footer">

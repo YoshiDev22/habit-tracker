@@ -109,12 +109,12 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [x] Pie: "N de M hoy" ("N de M" en otro día) y, a la derecha, el estado del día si lo tiene: "Día de descanso" o "🛡️ Lo cubrió un escudo". Sin acción de descanso: el descanso suelto se decidió que no.
 - [x] Orden idéntico al de los puntos (los dos salen de `habitsForMonth()`).
 
-### Fase 6 — Pausa por vacaciones (un commit)
-- [ ] Tabla nueva `streak_pauses` (`user_id`, `start_date`, `end_date`): `create_all()` la crea sola, sin migración. Toda query filtra por el usuario.
-- [ ] API para crear, listar y cancelar pausas: inicio hoy o después, fin ≥ inicio, hasta 30 días, sin solaparse con otra. Una pausa ya empezada se puede terminar antes, no mover hacia atrás.
-- [ ] `_walk_streak()` trata un día en pausa sin hábitos como uno de descanso (congela); con un hábito marcado cuenta normal.
-- [ ] En ⚙️, junto a los días de descanso: programar, ver y cancelar la pausa. En el calendario, los días en pausa se distinguen del descanso semanal y del escudo.
-- [ ] Tests: congela sin gastar escudos, un hábito marcado en pausa suma, no se puede crear hacia atrás ni de más de 30 días, aislamiento entre usuarios, límites en `test_limits.py`.
+### Fase 6 — Pausa por vacaciones ✅
+- [x] Tabla nueva `streak_pauses` (`user_id`, `start_date`, `end_date`): `create_all()` la crea sola, sin migración. Toda query filtra por el usuario.
+- [x] API: `GET/POST /api/habits/pauses` y `DELETE /api/habits/pauses/{id}`. Inicio hoy o después (422, "para los días que ya pasaron están los escudos"), fin ≥ inicio, hasta 30 días (`MAX_PAUSE_DAYS`), sin cruzarse con otra (409). Cancelar una que no empieza la borra; una en curso queda hasta ayer; una terminada no se toca (409: es historial).
+- [x] `_walk_streak(..., paused)` trata un día en pausa sin hábitos como uno de descanso (congela); con un hábito marcado cuenta normal. La API manda `paused_days`, y Reportes descuenta `paused_days_elapsed` como los días de descanso.
+- [x] En ⚙️, bajo los días de descanso: programar, ver y terminar/cancelar la pausa (se guarda al momento). En el calendario, los días en pausa van rayados; el popover dice "🏖️ Vacaciones".
+- [x] Tests: `tests/test_pauses.py` (congela sin gastar escudos, un hábito en pausa suma, reglas al programar, terminar antes, reporte), aislamiento, `test_limits.py`, y `tests/ui/ui_vacation_pause.py`.
 
 ### Fase 7 — Reportes (después, spec aparte)
 Récords históricos por hábito, comparativa entre meses, uso de protectores.

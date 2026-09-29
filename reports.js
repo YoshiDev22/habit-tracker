@@ -338,7 +338,7 @@ function renderHabits({ habitReport }) {
     streak.appendChild(facts);
 
     // Los días de descanso no cuentan como días que tocaban
-    const target = Math.max(0, report.days_elapsed - report.rest_days_elapsed);
+    const target = Math.max(0, report.days_elapsed - report.rest_days_elapsed - (report.paused_days_elapsed || 0));
     const list = el('ul', 'report-bars');
     report.habits.forEach(habit => {
         const color = habit.color;
@@ -367,8 +367,11 @@ function renderHabits({ habitReport }) {
         list.appendChild(item);
     });
 
-    const note = report.rest_days_elapsed > 0
-        ? el('p', 'report-note', 'Los días de descanso no cuentan en el total de días.')
+    const skipped = report.rest_days_elapsed + (report.paused_days_elapsed || 0);
+    const note = skipped > 0
+        ? el('p', 'report-note', report.paused_days_elapsed > 0
+            ? 'Los días de descanso y de vacaciones no cuentan en el total de días.'
+            : 'Los días de descanso no cuentan en el total de días.')
         : null;
     return reportCard('Hábitos', streak, list, note);
 }

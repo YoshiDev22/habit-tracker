@@ -132,7 +132,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 
 ## Modelo de datos
 
-Tablas en `backend/models.py`: `User`, `HabitEntry`, `Habit`, `Project`, `Task`,
+Tablas en `backend/models.py`: `User`, `HabitEntry`, `Habit`, `StreakPause`, `Project`, `Task`,
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -528,9 +528,13 @@ una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudo
   al crear se preselecciona uno libre de `HABIT_PALETTE` (`pickFreeColor()`) y, si el
   usuario repite, se avisa pero se permite.
   Nunca usar el color para distinguir hábitos.
-- **Días de descanso y días protegidos congelan la racha**: no suman ni la rompen. Un día
-  de descanso con algún hábito marcado cuenta normal, y los hábitos ocultos también
-  cuentan. La regla vive solo en `_walk_streak()`.
+- **Días de descanso, días protegidos y días de vacaciones congelan la racha**: no suman ni
+  la rompen. Un día de descanso o de vacaciones con algún hábito marcado cuenta normal, y
+  los hábitos ocultos también cuentan. La regla vive solo en `_walk_streak()`.
+- **Las vacaciones se programan hoy o hacia adelante, nunca para días pasados** (para eso
+  están los escudos), hasta 30 días por pausa (`MAX_PAUSE_DAYS`), y son gratis: la tabla
+  `streak_pauses` guarda las fechas y `_paused_days()` las expande. Una pausa terminada no
+  se borra: convertiría esos días en fallados.
 
 ## Reglas duras
 

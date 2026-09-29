@@ -42,6 +42,21 @@ class HabitEntry(SQLModel, table=True):
     habits_data: Dict = Field(default={}, sa_type=JSON)
 
 
+class StreakPause(SQLModel, table=True):
+    """
+    Pausa por vacaciones: del start_date al end_date (fechas LOCALES, incluidas)
+    los días sin hábitos congelan la racha, como un día de descanso. Se programa
+    hoy o hacia adelante, nunca para días pasados (para eso están los escudos).
+    Tabla NUEVA: create_all() la crea sola, sin migración.
+    """
+    __tablename__ = "streak_pauses"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    start_date: date_type
+    end_date: date_type
+
+
 class Habit(SQLModel, table=True):
     """
     Definición de un hábito por usuario.

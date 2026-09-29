@@ -30,6 +30,8 @@
     /* Día que cubrió un escudo: distinto del descanso, que va atenuado */
     --protected-bg: rgba(102, 126, 234, 0.10);
     --protected-border: rgba(102, 126, 234, 0.45);
+    /* Día de vacaciones: rayado suave, distinto del descanso y del escudo */
+    --paused-stripe: rgba(26, 188, 156, 0.16);
 
     --danger-bg: #fee2e2;
     --danger-fg: #dc2626;
@@ -82,6 +84,7 @@
     --accent-soft: rgba(124, 131, 245, 0.35);
     --protected-bg: rgba(124, 131, 245, 0.14);
     --protected-border: rgba(124, 131, 245, 0.5);
+    --paused-stripe: rgba(26, 188, 156, 0.22);
 
     --danger-bg: #3f1d1d;
     --danger-fg: #f87171;
@@ -1031,6 +1034,60 @@ body.has-pomodoro-bar {
 .day-cell.protected {
     background-color: var(--protected-bg);
     box-shadow: inset 0 0 0 1px var(--protected-border);
+}
+
+.day-cell.paused {
+    background-image: repeating-linear-gradient(135deg, var(--paused-stripe) 0 4px, transparent 4px 8px);
+}
+
+.pause-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+}
+
+.pause-list:empty {
+    display: none;
+}
+
+.pause-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.pause-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.pause-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pause-form input[type="date"] {
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: var(--text-color);
+    font: inherit;
+}
+
+.pause-add {
+    width: auto;
+    padding: 8px 12px;
+    font-size: 0.8rem;
 }
 
 /* Días que aún no pasan: sus puntos casi no se ven */

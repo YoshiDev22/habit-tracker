@@ -180,12 +180,11 @@ function showModal(modal) {
 
 function hideModal(modal) {
     modal.classList.add('hidden');
-    // Limpiar errores
-    const errorDiv = modal.querySelector('.form-error');
-    if (errorDiv) {
+    // Limpiar errores (todos: un modal puede tener más de uno, como el de hábitos)
+    modal.querySelectorAll('.form-error').forEach(errorDiv => {
         errorDiv.classList.add('hidden');
         errorDiv.textContent = '';
-    }
+    });
     // Limpiar formularios
     const form = modal.querySelector('form');
     if (form) form.reset();
@@ -875,6 +874,7 @@ async function showHabitsSetup() {
 
     customHabitColor.value = pickFreeColor(HABIT_PALETTE[0]);
     updateColorWarning();
+    await loadPauses();
 
     // Siempre al final: openHabitsSetup() toma la foto del dirty-check, así que
     // tiene que ver la lista ya pintada.
@@ -1465,6 +1465,7 @@ function setStreakInfo(data) {
         protectedDays: new Set(data.protected_days || []),
         missedYesterday: data.missed_yesterday || null,
         habitStreaks: data.habit_streaks || {},
+        pausedDays: new Set(data.paused_days || []),
     };
 }
 
@@ -1693,6 +1694,9 @@ function renderCalendar() {
         if (restDays.includes(pyWeekday) && !hasAnyHabit) {
             dayCell.classList.add('rest-day');
             dayCell.title = 'Día de descanso: no suma ni corta la racha';
+        } else if (streakInfo && streakInfo.pausedDays.has(dateKey) && !hasAnyHabit) {
+            dayCell.classList.add('paused');
+            dayCell.title = 'Vacaciones: no suma ni corta la racha';
         }
         if (streakInfo && streakInfo.protectedDays.has(dateKey)) {
             dayCell.classList.add('protected');
@@ -1975,6 +1979,8 @@ function renderPopoverFooter(dateKey, doneCount, total) {
         state = '🛡️ Lo cubrió un escudo';
     } else if (restDays.includes(weekday) && doneCount === 0) {
         state = 'Día de descanso';
+    } else if (streakInfo && streakInfo.pausedDays.has(dateKey) && doneCount === 0) {
+        state = '🏖️ Vacaciones';
     }
     document.getElementById('popoverState').textContent = state;
 }
@@ -2261,6 +2267,91 @@ function initTextSize() {
 }
 
 window.appInitHooks.push(initTextSize);
+
+// ============================================
+// Vacaciones: pausas de la racha
+// ============================================
+// Se programan hoy o hacia adelante y duran hasta 30 días (lo valida el
+// backend). Se guardan al momento, aparte de "Guardar Hábitos". Una en curso
+// se puede terminar; una que no empieza, cancelar; las pasadas no se listan.
+const pauseList = document.getElementById('pauseList');
+const pauseStart = document.getElementById('pauseStart');
+const pauseEnd = document.getElementById('pauseEnd');
+const pauseError = document.getElementById('pauseError');
+
+function shortDate(dateKey) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
+
+async function loadPauses() {
+    const today = getDateKey(new Date());
+    pauseStart.min = today;
+    pauseEnd.min = today;
+    if (!pauseStart.value || pauseStart.value < today) pauseStart.value = today;
+    if (!pauseEnd.value || pauseEnd.value < pauseStart.value) pauseEnd.value = pauseStart.value;
+    pauseError.classList.add('hidden');
+    pauseList.innerHTML = '';
+    let pauses = [];
+    try {
+        pauses = (await apiFetch('/api/habits/pauses')).pauses || [];
+    } catch (error) {
+        console.error('Error cargando las pausas:', error);
+        return;
+    }
+    pauses.filter(p => p.end_date >= today).forEach(p => {
+        const item = document.createElement('li');
+        item.className = 'pause-item';
+        const started = p.start_date <= today;
+        const text = document.createElement('span');
+        text.textContent = `🏖️ ${started ? 'En pausa' : 'Pausa'} del ${shortDate(p.start_date)} al ${shortDate(p.end_date)}`;
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'link-btn';
+        cancel.dataset.pauseId = String(p.id);
+        cancel.textContent = started ? 'Terminar' : 'Cancelar';
+        item.append(text, cancel);
+        pauseList.appendChild(item);
+    });
+}
+
+// Tras programar o cancelar: la racha, el calendario y la lista cambian
+async function afterPauseChange() {
+    await loadHabitsFromAPI();
+    await loadPauses();
+}
+
+document.getElementById('pauseAddBtn').addEventListener('click', async () => {
+    pauseError.classList.add('hidden');
+    try {
+        await apiFetch(`/api/habits/pauses?today=${getDateKey(new Date())}`, {
+            method: 'POST',
+            json: { start_date: pauseStart.value, end_date: pauseEnd.value }
+        });
+    } catch (error) {
+        showError(pauseError, error.message);
+        return;
+    }
+    await afterPauseChange();
+});
+
+pauseList.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-pause-id]');
+    if (!button) return;
+    try {
+        await apiFetch(`/api/habits/pauses/${button.dataset.pauseId}?today=${getDateKey(new Date())}`, { method: 'DELETE' });
+    } catch (error) {
+        showError(pauseError, error.message);
+        return;
+    }
+    await afterPauseChange();
+});
+
+// El fin nunca antes del inicio
+pauseStart.addEventListener('change', () => {
+    pauseEnd.min = pauseStart.value;
+    if (pauseEnd.value < pauseStart.value) pauseEnd.value = pauseStart.value;
+});
 
 // ============================================
 // "¿Olvidaste anotar?" — ayer quedó sin hábitos
