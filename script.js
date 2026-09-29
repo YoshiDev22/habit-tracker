@@ -1459,6 +1459,7 @@ async function saveHabitToAPI(dateKey, habitKey, done) {
 function setStreakInfo(data) {
     currentStreak = data.streak;
     streakInfo = {
+        best: data.best_streak || 0,
         shields: data.streak_shields || 0,
         nextIn: data.shield_next_in ?? null,
         protectedDays: new Set(data.protected_days || []),
@@ -1519,13 +1520,14 @@ function getMonthData(year, month) {
     
     let completedHabits = 0;
     let totalPossible = 0;
+    const monthHabits = habitsForMonth(year, month);
     
     for (let day = 1; day <= daysInMonth; day++) {
         const dateKey = `${monthKey}-${String(day).padStart(2, '0')}`;
         const dayData = habitsData[dateKey];
         
         if (dayData) {
-            HABITS.forEach(habit => {
+            monthHabits.forEach(habit => {
                 if (dayData[habit]) {
                     completedHabits++;
                 }
@@ -1544,7 +1546,7 @@ function getMonthData(year, month) {
     // Contar días hasta hoy en el mes actual
     if (year === new Date().getFullYear() && month === new Date().getMonth()) {
         const today = new Date().getDate();
-        totalPossible = today * HABITS.length;
+        totalPossible = today * monthHabits.length;
     } else if (year > new Date().getFullYear() || 
                (year === new Date().getFullYear() && month > new Date().getMonth())) {
         totalPossible = 0;
@@ -1617,6 +1619,7 @@ function renderMetrics() {
     const streak = currentStreak ?? 0;
     const streakCount = document.getElementById('streakCount');
     streakCount.textContent = streak;
+    document.getElementById('bestStreak').textContent = streakInfo ? streakInfo.best : 0;
     renderShields(streakInfo);
     
     // Actualizar stats por hábito

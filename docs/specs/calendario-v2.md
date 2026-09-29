@@ -21,7 +21,7 @@ avisar.
 | Racha | Días con al menos un hábito marcado, **ocultos incluidos**. Hoy sin marcar no corta; descanso y día protegido congelan. Todo en `_walk_streak()` (`routers/habits.py`). |
 | Récord | Existe (`best_streak`), pero solo lo devuelve `GET /api/habits/report`; `GET /api/habits` y `/streak` no. |
 | Métricas derivadas | Racha, récord y protectores se recalculan desde cero en cada consulta; no se guardan. |
-| Métricas del Calendario | Tarjeta de racha (🔥 N días seguidos + los dos escudos con "Recarga en N días") y "Este mes". La barra del mes muestra un % sin etiqueta. No hay métrica acumulada tipo "47 días". |
+| Métricas del Calendario | Tarjeta de racha (🔥 N días seguidos + los dos escudos con "Recarga en N días") y "Este mes". La barra del mes muestra un % sin etiqueta. No hay métrica acumulada tipo "47 días". *(Desde la Fase 3: franja arriba y barra con etiqueta.)* |
 | Ocultar / restaurar | `is_active = false`. Conserva registros y siguen contando para la racha, pero sus puntos desaparecen de **todos** los meses y los hábitos que venían después se corren un lugar. Restaurar lo devuelve con su historial a su lugar `(order, id)`. |
 | Borrar | Solo desde "Anteriores u ocultos", con confirmación. Quita su clave de todos los días (para siempre) y borra la definición; racha, récord y protectores se recalculan sin avisar. |
 | Guardar un día | Desde la Fase 0, marcar o desmarcar cambia un solo par (hábito, día): `PATCH /api/habits/day/{fecha}`. |
@@ -88,11 +88,11 @@ Todas en backend, con constantes nombradas. Siguen siendo derivadas (recalculada
 - [x] Confirmación de borrar con el impacto: "Se borrarán sus N registros… Tu racha pasaría de X a Y días y tu récord, de A a B."
 - [x] Color: paleta fija de 8 (`HABIT_PALETTE`); al añadir un hábito se preselecciona uno libre (ocultos incluidos) y, si se repite, un aviso que no bloquea.
 
-### Fase 3 — Franja y barra (un commit)
-- [ ] Quitar la tarjeta grande de racha de Métricas.
-- [ ] Franja entre navegador de mes y barra: `🔥 18 racha · 🛡️ 1 · récord 21` (valores de ejemplo). Números 600 + `tabular-nums`; etiquetas en gris; 🔥 en `#f2a33c`; wrap en móvil.
-- [ ] "Recarga en N días" visible bajo los escudos de la franja, en pequeño; sin texto cuando hay 2.
-- [ ] Barra del mes con etiqueta "MES". Si "Este mes" repite el dato, dejar solo uno.
+### Fase 3 — Franja y barra ✅
+- [x] Quitar la tarjeta grande de racha de Métricas.
+- [x] Franja entre navegador de mes y barra (`#streakStrip`): `🔥 3 racha · 🛡️🛡️ escudos · récord 9`. Números 600 + `tabular-nums`; etiquetas en gris; wrap en móvil. Los escudos son los dos lugares de 1.15.0 (lleno / vacío) en vez de un número. El 🔥 queda como emoji: un emoji no se puede teñir de `#f2a33c`.
+- [x] "Recarga en N días" visible bajo los escudos de la franja, en pequeño; sin texto cuando hay 2.
+- [x] Barra del mes con etiqueta "MES", contando los mismos hábitos del mes que los puntos. "Este mes" no repite su dato (cuenta días por hábito), así que se quedan los dos.
 
 ### Fase 4 — Calendario y leyenda (un commit)
 - [ ] Días futuros: puntos con `opacity: .16`.

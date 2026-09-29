@@ -150,7 +150,37 @@
                         <button id="nextMonth" class="nav-btn">></button>
                     </header>
 
-                    <div class="progress-container">
+                    <!-- Franja de racha: todo número lleva la etiqueta de lo que mide.
+                         Racha, escudos y récord los calcula el backend (_walk_streak). -->
+                    <div class="streak-strip" id="streakStrip">
+                        <span class="strip-item">
+                            <span class="strip-flame" aria-hidden="true">🔥</span>
+                            <span class="strip-value" id="streakCount">0</span>
+                            <span class="strip-label">racha</span>
+                        </span>
+                        <span class="strip-sep" aria-hidden="true">·</span>
+                        <!-- Siempre los dos lugares; el gastado se ve vacío, y debajo
+                             cuánto falta para recargarlo -->
+                        <span class="strip-item streak-shields hidden" id="streakShields" role="img"
+                              title="Cada 7 días de racha ganas un protector (máximo 2). Si un día no anotas nada y no es de descanso, se usa uno solo y la racha sigue.">
+                            <span class="shield-row">
+                                <span class="shield-slots" aria-hidden="true">
+                                    <span class="shield-slot">🛡️</span>
+                                    <span class="shield-slot">🛡️</span>
+                                </span>
+                                <span class="strip-label">escudos</span>
+                            </span>
+                            <span class="shield-recharge" id="shieldRecharge"></span>
+                        </span>
+                        <span class="strip-sep" aria-hidden="true">·</span>
+                        <span class="strip-item">
+                            <span class="strip-label">récord</span>
+                            <span class="strip-value" id="bestStreak">0</span>
+                        </span>
+                    </div>
+
+                    <div class="progress-container" title="Hábitos marcados este mes, de los que tocaban hasta hoy">
+                        <span class="progress-label">Mes</span>
                         <div class="progress-bar">
                             <div id="progressFill" class="progress-fill"></div>
                         </div>
@@ -176,25 +206,7 @@
                             <h2 class="metrics-title">Métricas</h2>
                         </div>
 
-                        <div class="streak-container">
-                            <div class="streak-icon">🔥</div>
-                            <div class="streak-info">
-                                <span class="streak-count" id="streakCount">0</span>
-                                <span class="streak-label">días seguidos</span>
-                            </div>
-                            <!-- Protectores de racha: los calcula el backend (_walk_streak).
-                                 Siempre los dos lugares; el gastado se ve vacío. -->
-                            <div class="streak-shields hidden" id="streakShields" role="img"
-                                 title="Cada 7 días de racha ganas un protector (máximo 2). Si un día no anotas nada y no es de descanso, se usa uno solo y la racha sigue.">
-                                <div class="shield-slots" aria-hidden="true">
-                                    <span class="shield-slot">🛡️</span>
-                                    <span class="shield-slot">🛡️</span>
-                                </div>
-                                <span class="shield-recharge" id="shieldRecharge"></span>
-                            </div>
-                        </div>
-
-                        <div class="habit-stats">
+<div class="habit-stats">
                             <h3 class="stats-title">Este mes</h3>
                             <div class="stats-grid" id="statsGrid"></div>
                         </div>

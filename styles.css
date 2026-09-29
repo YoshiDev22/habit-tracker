@@ -656,6 +656,51 @@ body.has-pomodoro-bar {
     background-color: var(--hover-color);
 }
 
+/* Franja de racha: racha · escudos · récord, entre el mes y la barra */
+.streak-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 4px 10px;
+    margin: -12px 0 16px;
+    padding: 0 8px;
+    font-size: 0.9rem;
+}
+
+.strip-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.strip-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-color);
+}
+
+.strip-label {
+    color: var(--text-muted);
+}
+
+.strip-flame {
+    font-size: 1rem;
+}
+
+.strip-sep {
+    color: var(--text-muted);
+}
+
+/* Barra del mes, con su etiqueta */
+.progress-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
 /* Progress Bar */
 .progress-container {
     display: flex;
@@ -946,18 +991,22 @@ body.has-pomodoro-bar {
 }
 
 .streak-shields {
-    margin-left: auto;
-    display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: 1px;
     text-align: center;
+}
+
+.shield-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .shield-slots {
     display: flex;
-    gap: 4px;
-    font-size: 1.5rem;
+    gap: 2px;
+    font-size: 0.95rem;
     line-height: 1;
 }
 
@@ -969,7 +1018,7 @@ body.has-pomodoro-bar {
 
 .shield-recharge {
     font-size: 0.7rem;
-    color: var(--streak-label-color);
+    color: var(--text-muted);
 }
 
 .shield-recharge:empty {
