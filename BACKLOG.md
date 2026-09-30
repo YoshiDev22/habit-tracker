@@ -14,27 +14,11 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 5 | P3 | Sin CI | — |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 22 | P4 | Sesión de tiempo duplicada si el navegador se cae al guardarla | diagnosticado |
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
-
----
-
-## 5 · P3 · Sin CI
-
-**Síntoma.** Las pruebas existen (`pytest` y `pytest -m ui`, ver "Pruebas" en CLAUDE.md),
-pero solo corren si alguien se acuerda de correrlas antes de desplegar.
-
-**Arreglo.** Un workflow de GitHub Actions que corra `pytest` (las de API: sin navegador,
-~15 s) en cada push y pull request a `main`. Las de navegador se quedan fuera al
-principio: tardan más de 10 minutos y necesitan Edge o Chrome; si se agregan, en un job
-aparte con Chrome del runner (`HABIT_UI_BROWSER`).
-
-**Aceptación.** Un push a `main` muestra el resultado de `pytest` en GitHub, y un test
-roto a propósito lo pone en rojo.
 
 ---
 
