@@ -1,6 +1,7 @@
 from datetime import date as date_type, timedelta
 from typing import Optional, Dict
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.database import get_session
@@ -18,16 +19,39 @@ from backend.dates import resolve_client_today
 router = APIRouter(tags=["pomodoro"])
 
 
+def _session_by_key(session: Session, user_id: int, key: str) -> Optional[PomodoroSession]:
+    return session.exec(
+        select(PomodoroSession).where(
+            PomodoroSession.user_id == user_id,
+            PomodoroSession.idempotency_key == key,
+        )
+    ).first()
+
+
 @router.post("", response_model=PomodoroSessionResponse, status_code=status.HTTP_201_CREATED)
 def create_pomodoro_session(
     session_in: PomodoroSessionCreate,
+    response: Response,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Registra una sesión de pomodoro ya finalizada (el timer vive en el
     cliente; este endpoint solo persiste el resultado).
+
+    Con `idempotency_key`, reenviar la misma sesión no la duplica: responde
+    200 con la que ya estaba guardada (201 solo al crearla).
     """
+    key = session_in.idempotency_key
+    # Antes que cualquier validación: la sesión guardada ya pasó por ellas, y
+    # un reintento no debe fallar porque, por ejemplo, su tarea se borró
+    # después de guardarla.
+    if key:
+        existing = _session_by_key(session, current_user.id, key)
+        if existing:
+            response.status_code = status.HTTP_200_OK
+            return PomodoroSessionResponse.model_validate(existing)
+
     if session_in.duration_seconds <= 0 or session_in.duration_seconds > 86400:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -107,9 +131,20 @@ def create_pomodoro_session(
         was_completed=session_in.was_completed if session_in.was_completed is not None else True,
         note=session_in.note,
         source=source,
+        idempotency_key=key,
     )
     session.add(new_session)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Dos envíos de la misma sesión a la vez: los dos pasaron la búsqueda
+        # de arriba y el índice único frenó al segundo. Gana el primero.
+        session.rollback()
+        existing = _session_by_key(session, current_user.id, key) if key else None
+        if not existing:
+            raise
+        response.status_code = status.HTTP_200_OK
+        return PomodoroSessionResponse.model_validate(existing)
     session.refresh(new_session)
 
     return PomodoroSessionResponse.model_validate(new_session)

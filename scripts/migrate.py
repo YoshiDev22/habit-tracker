@@ -45,6 +45,18 @@ MIGRATIONS = [
     {"table": "users", "column": "pomodoro_focus_seconds", "type": "INTEGER"},
     {"table": "users", "column": "pomodoro_short_break_seconds", "type": "INTEGER"},
     {"table": "users", "column": "pomodoro_long_break_seconds", "type": "INTEGER"},
+    # El sessionId del timer, para que reenviar una sesión no la duplique.
+    # Nace NULL: las sesiones de antes no tienen clave y nunca chocan.
+    {"table": "pomodoro_sessions", "column": "idempotency_key", "type": "VARCHAR"},
+]
+
+# Índices que algún modelo declara en __table_args__ sobre una tabla que ya
+# existía. create_all() los crea con la tabla, pero no en una tabla que ya
+# está. Mismo nombre que en el modelo, para que una base nueva y una migrada
+# queden iguales. Van después de las columnas, porque pueden depender de ellas.
+INDEXES = [
+    {"name": "uq_pomodoro_sessions_user_key", "table": "pomodoro_sessions",
+     "columns": ["user_id", "idempotency_key"], "unique": True},
 ]
 
 # El icono que pone el modelo cuando nadie manda uno. Un `habits.icon` con este
@@ -100,6 +112,10 @@ def resolve_db_path():
 
 def existing_columns(connection, table):
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+
+
+def existing_indexes(connection, table):
+    return {row[1] for row in connection.execute(f"PRAGMA index_list({table})")}
 
 
 def split_leading_emoji(label):
@@ -184,6 +200,17 @@ def main():
 
             connection.execute(statement)
             applied.append(f"{table}.{column}")
+
+        for index in INDEXES:
+            if index["name"] in existing_indexes(connection, index["table"]):
+                continue
+            # Todo sale de las constantes de arriba, no de entrada externa
+            unique = "UNIQUE " if index.get("unique") else ""
+            connection.execute(
+                f"CREATE {unique}INDEX {index['name']} "
+                f"ON {index['table']} ({', '.join(index['columns'])})"
+            )
+            applied.append(f"index {index['name']}")
 
         # Después de las columnas: el esquema tiene que estar completo antes de
         # tocar filas.

@@ -60,6 +60,9 @@ def test_session_note_and_mode(seeded):
     assert api.call("POST", "/api/pomodoro", {**body, "mode": "x" * 5000})[0] == 422
     for mode in ("focus", "short_break", "long_break"):
         api.call("POST", "/api/pomodoro", {**body, "mode": mode}, expect=201)
+    # El sessionId de pomodoro.js mide ~22; el tope deja margen
+    assert api.call("POST", "/api/pomodoro", {**body, "idempotency_key": "x" * 65})[0] == 422
+    api.call("POST", "/api/pomodoro", {**body, "idempotency_key": "x" * 64}, expect=201)
 
 
 def test_habit_day(api):
