@@ -80,7 +80,7 @@ habit-tracker/
 │   └── referencias.md     # Investigación que sostiene las reglas de la racha (citable)
 ├── scripts/
 │   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
-├── index.html             # Única página. Contiene todos los modales y ambas vistas
+├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
 ├── projects.js            # Tabs con swipe, vista Lista (proyectos y tareas), menú y borrado de proyecto
@@ -280,7 +280,7 @@ pruebas se saltan. Las capturas van a `%TEMP%/habit-ui-shots`.
 ## Endpoints
 
 Un router por módulo en `backend/routers/` (`auth`, `habits`, `projects`, `tasks`,
-`pomodoro`), montados con prefijo `/api/<módulo>` en `main.py`. Para la lista completa con
+`pomodoro`, `boards`, `tags`), montados con prefijo `/api/<módulo>` en `main.py`. Para la lista completa con
 sus esquemas, levantar el server y abrir **`/api/docs`** (Swagger) — no `/docs`. Todo
 requiere `Authorization: Bearer` salvo `/api/auth/*`, `/api`, `/api/version` y `/api/health`.
 
@@ -373,9 +373,10 @@ Pone el `Authorization: Bearer` solo; `options.json` serializa el body y el `Con
 (no usar `body` a mano); en 401 hace `handleLogout()`; en 204 devuelve `null`. Los errores
 salen como `ApiError` con `.status`, para distinguir un 409 de un fallo genérico.
 
-**Deuda conocida:** quedan ~8 `fetch()` crudos en `script.js` (hábitos, login/register,
-`delete-habit`) que no manejan el 401. Migrarlos al tocar esa zona; no escribir `fetch()`
-crudo nuevo.
+Solo quedan tres `fetch()` crudos en `script.js`, y a propósito: `/api/version`,
+`register` y `login`, que corren sin token. En el login un 401 significa "contraseña
+equivocada", no "sesión vencida", así que el `handleLogout()` de `apiFetch` sobraría. No
+escribir `fetch()` crudo nuevo.
 
 ### Modales
 

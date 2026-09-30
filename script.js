@@ -885,9 +885,9 @@ async function showHabitsSetup() {
 // Hábitos archivados
 // ============================================
 
-// Construido con createElement y textContent, no con innerHTML: la entrada 16
-// del backlog es justamente un innerHTML que interpola el label de un hábito
-// sin escapar, y no tiene sentido añadir una segunda copia del problema.
+// Construido con createElement y textContent, no con innerHTML: un innerHTML
+// que interpolaba el label de un hábito sin escapar ya costó un arreglo, y no
+// tiene sentido añadir una segunda copia del problema.
 function renderArchivedHabits(archived) {
     archivedHabitsList.innerHTML = '';
     archivedCountEl.textContent = String(archived.length);

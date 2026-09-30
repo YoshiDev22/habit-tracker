@@ -141,8 +141,9 @@ está en [docs/referencias.md](docs/referencias.md).
 
 ## Proyectos y tareas
 
-Pestaña **Proyectos**. También se llega deslizando el dedo hacia la izquierda desde el
-calendario.
+Pestaña **Tableros**. También se llega deslizando el dedo hacia la izquierda desde el
+calendario. Arriba, **Tablero** muestra las tareas como tarjetas en columnas y **Lista**
+las agrupa por proyecto. Lo que sigue describe la **Lista**.
 
 **Crear un proyecto**: el botón **+** de la cabecera "Proyectos". Puedes darle nombre,
 descripción, un emoji y un color.
@@ -167,16 +168,19 @@ campo *Nueva tarea* para añadir más, y el historial de tiempo.
 
 ## Pomodoro y cronómetro
 
-Está arriba de la pestaña Proyectos.
+El tiempo siempre se mide **en una tarea**, y se arranca desde ella:
 
-1. Elige el modo: **Cronómetro**, **Enfoque** (25 min), **Descanso** (5 min) o
-   **Descanso largo** (15 min).
-2. Opcionalmente elige **proyecto** y **tarea**. Hazlo *antes* de darle a Iniciar: es en
-   ese momento cuando el timer se queda con esa elección.
-3. **Iniciar**. Puedes **Pausar** y retomar, o **Detener** para cortar antes de tiempo.
-   Detener un **Enfoque** pregunta antes, para que no lo cortes sin querer — salvo que
-   lleve menos de un minuto, porque ese tiempo no se guarda de todos modos. Los descansos
-   y el cronómetro no preguntan nunca.
+- En el **Tablero**, el **▶** de la tarjeta arranca el cronómetro. Si ya corre en esa
+  tarea, lo detiene.
+- En la **Lista**, el **▶** junto a cada tarea hace lo mismo.
+- Al abrir una tarjeta, elige **▶ Cronómetro** o **🍅 Pomodoro**. El detalle sigue
+  abierto mientras corre, y **■ Detener** lo para desde ahí.
+
+Si ya tenías otro timer en curso, te pregunta antes de cambiarlo.
+
+Mientras corre, una **barra flotante** abajo lo controla desde cualquier pestaña:
+**⏸** pausa y retoma, **■** detiene. El tiempo también aparece en el título de la
+ventana.
 
 ### Cronómetro
 
@@ -185,34 +189,44 @@ termina hasta que tú lo detengas. Es para cuando te concentras y no quieres que
 extra se quede sin registrar por no haber oído el aviso.
 
 - Detenerlo es lo que guarda el tiempo, así que no pregunta nada.
-- **Se cierra solo a las 8 horas** si se te olvida, y guarda el tiempo con la nota
-  "Cerrado automáticamente a las 8 h". Ese registro se corrige como cualquier otro, con
-  el **✎** del historial.
+- **¿Se te olvidó arrancarlo?** El **✎** de la barra te deja escribir cuánto llevas
+  trabajando (y cambiar de tarea, si lo arrancaste en otra). Sigue corriendo desde ahí.
+- **A las 8 horas se detiene y te pregunta cuánto trabajaste**, empezando en 8 h. Si la
+  app vio tu última actividad, te la sugiere con **Usar esa hora**. No se guarda nada
+  hasta que contestes, aunque recargues la página.
 - El tiempo que pasa en pausa no cuenta.
 - Si cierras la pestaña y vuelves, el cronómetro sigue contando: su tiempo se mide desde
   la hora en que arrancó, no desde que la pestaña está abierta.
 
-Detalles que conviene saber:
+### Pomodoro
 
-- **Solo se guardan las sesiones de Enfoque y de Cronómetro.** Los descansos no cuentan
-  como trabajo.
+- **Enfoque** dura 25 minutos, y los descansos 5 y 15. **Puedes cambiarlos** en
+  **⚙ Organizar › ⏱ Configurar pomodoro**. Un pomodoro que ya corre termina con la
+  duración con la que empezó.
+- Al terminar un enfoque, la barra te ofrece **descanso corto o largo**. Los descansos
+  solo se inician desde ahí y no cuentan como trabajo.
+- Detener un enfoque antes de tiempo pregunta antes, para que no lo cortes sin querer
+  (si lleva menos de un minuto no pregunta: ese tiempo no se guardaría de todos modos).
+
+### Detalles que conviene saber
+
+- **Solo se guarda el tiempo de trabajo** (enfoque y cronómetro), nunca los descansos.
 - Si detienes antes del **primer minuto**, la sesión se descarta en vez de guardarse.
-- El contador sigue corriendo aunque cambies de pestaña, y aparece en el título de la
-  ventana y en una barra inferior.
-- **Al terminar suena un aviso aunque estés en otra pestaña.** Son dos pitidos cortos.
-- La primera vez que le des a Iniciar, el navegador te pedirá permiso para
-  **notificaciones**. Si aceptas, además te avisa el sistema con el navegador de fondo,
-  que es lo útil para enterarte de que toca descansar.
-- El **🔊** silencia o reactiva el pitido.
-
-Las duraciones no se pueden cambiar todavía (ver entrada 13 del [BACKLOG.md](BACKLOG.md)).
+- **Al terminar suena un aviso aunque estés en otra pestaña.** Son dos pitidos cortos. El
+  **🔊** de la barra del tablero lo silencia o lo reactiva.
+- La primera vez que arranques un timer, el navegador te pedirá permiso para
+  **notificaciones**. Si aceptas, además te avisa el sistema con el navegador de fondo.
+- **"Hoy"**, en la barra del tablero, suma lo trabajado hoy. Tócalo para ver cada registro
+  del día, de todas las tareas, y moverte entre días con ‹ ›. Desde ahí también se
+  corrigen (✎) y se borran (×).
 
 ## Registrar tiempo a mano
 
 Para cuando trabajaste sin arrancar el timer. Es lo que convierte la app en una bitácora
 y no solo en un pomodoro.
 
-1. En la tarjeta del proyecto, pulsa **⏱**.
+1. En la **Lista**, pulsa el **⏱** del proyecto. En el **Tablero**, abre la tarjeta y
+   pulsa **✍️ Registrar a mano**.
 2. **Fecha**: por defecto hoy. No se pueden registrar fechas futuras.
 3. **Duración**: escribe las horas y los minutos, y **el inicio y el fin se rellenan
    solos** restando ese rato a la hora actual. Si prefieres, escribe las horas
