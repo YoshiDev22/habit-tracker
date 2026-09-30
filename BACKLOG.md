@@ -11,7 +11,7 @@ server local y fallaron de forma observable. Las marcadas *diagnosticado* salen 
 código y no se reprodujeron todavía.
 
 Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros) y el
-2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24 y 25 nuevas).
+2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
@@ -21,6 +21,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
 | 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
 | 25 | P3 | La guía de uso no cubre el Tablero ni Reportes | diagnosticado |
+| 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | pendiente de revisar |
 
 ---
 
@@ -300,3 +301,61 @@ Tableros, aclarando que lo que describe es la vista Lista.
 
 **Aceptación.** Cada pestaña y cada botón de la barra del tablero tiene su explicación
 en la guía, y el índice de la guía enlaza las secciones nuevas.
+
+---
+
+## 26 · P2 · Correo de confirmación al registrarse y recuperación de cuenta
+
+**Pendiente de revisar con Yoshio (anotado el 2026-09-30).** Todavía no hay decisión de
+cómo hacerlo; esto deja escrito qué falta y qué hay que decidir antes de escribir código.
+
+**Síntoma.**
+
+- **Nadie puede recuperar su cuenta.** No hay "olvidé mi contraseña": si alguien la
+  olvida, la única salida es cambiar `users.hashed_password` a mano en la base del VPS.
+- **Tampoco se puede cambiar la contraseña** estando dentro: `PATCH /api/auth/me` solo
+  toca el perfil (alias, nombre, días de descanso, duraciones).
+- **El correo no se verifica.** Un error al escribirlo deja la cuenta sin forma de
+  recuperarse, y cualquiera puede registrar el correo de otra persona y ocupárselo.
+- El registro responde "El email ya está registrado", así que deja saber qué correos
+  tienen cuenta.
+
+**Lo que obliga a decidir.**
+
+1. **Cómo se envían los correos.** Con un servicio transaccional por SMTP (el VPS no
+   debe mandarlos directo: sin SPF, DKIM y DMARC en `yoshidev22.com` caerían en spam).
+   `smtplib` es de la biblioteca estándar, así que no hace falta dependencia nueva. Las
+   credenciales van en `backend/.env`, nunca en el repo.
+2. **Cuentas sin verificar**: ¿pueden usar la app mientras tanto (con un aviso), o no
+   entran hasta confirmar? ¿Y las cuentas que ya existen: se dan por verificadas o se les
+   pide confirmar al entrar?
+3. **Sesiones abiertas tras un cambio de contraseña.** El JWT dura 7 días y no se puede
+   revocar: quien robó una sesión la conserva aunque se cambie la contraseña. Arreglarlo
+   pide una columna (`users.password_changed_at` o `token_version`) que
+   `get_current_user` compare con el token. **Toca la autenticación**: avisar el impacto.
+4. **Registro sin revelar cuentas**: con verificación, el registro puede responder siempre
+   igual ("te enviamos un correo") y, si el correo ya tenía cuenta, avisarle al dueño en
+   vez de decirlo en pantalla.
+
+**Propuesta de diseño (para revisar, no decidida).**
+
+- Tabla nueva `email_tokens` (`user_id`, `purpose` verify | reset, `token_hash`,
+  `expires_at`, `used_at`), que `create_all()` crea sola. El token es aleatorio
+  (`secrets.token_urlsafe(32)`), **se guarda solo su hash**, sirve una vez y caduca
+  (verificar: 48 h; recuperar: 1 h).
+- `users.email_verified_at` como columna nueva → **va en `scripts/migrate.py`**.
+- Endpoints: `POST /api/auth/verify-email`, `POST /api/auth/forgot-password` (responde
+  siempre lo mismo, exista o no la cuenta), `POST /api/auth/reset-password` (token +
+  contraseña nueva; invalida los demás tokens) y un cambio de contraseña con la actual.
+- Límite de intentos con `backend/ratelimit.py`: por IP y por correo, para que no sirva
+  para mandar correos en masa a un tercero.
+- El enlace abre la app con el token en la URL (`/?reset=...`). La app lo quita de la
+  barra con `history.replaceState` en cuanto lo lee, y la página manda
+  `Referrer-Policy: no-referrer`, para que el token no se filtre a otros sitios.
+
+**Orden.** Antes de abrir el registro a más gente o de anunciar los módulos (entrada 24).
+Mientras tanto, `ALLOW_REGISTRATION=false` permite cerrarlo.
+
+**Aceptación.** Alguien que olvidó su contraseña la recupera sin intervención de Yoshio;
+un correo mal escrito no deja una cuenta usable a nombre de otro; pedir recuperación con
+un correo sin cuenta responde lo mismo que con uno que sí tiene.
