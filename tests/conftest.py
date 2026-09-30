@@ -32,6 +32,7 @@ from sqlmodel import SQLModel  # noqa: E402
 
 from backend.database import create_db_and_tables, engine  # noqa: E402
 from backend.main import app  # noqa: E402
+from backend import ratelimit  # noqa: E402
 import bcrypt  # noqa: E402
 
 # Solo en las pruebas: bcrypt con costo 4 en vez de 12. Cada registro costaba
@@ -107,7 +108,10 @@ class Api:
 
 @pytest.fixture(autouse=True)
 def fresh_db():
-    """Base vacía para cada prueba."""
+    """Base vacía para cada prueba, y sin intentos de login ni registros
+    contados: el límite vive en memoria y todas las pruebas llegan desde la
+    misma "IP" del TestClient."""
+    ratelimit.reset_all()
     engine.dispose()
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
