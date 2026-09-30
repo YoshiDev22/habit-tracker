@@ -18,6 +18,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
+| 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
 
 ---
 
@@ -188,6 +189,10 @@ catálogo de plantillas de la fase 1.
 **Orden.** Reportes (1.12.0) y los colores de hábitos en el backend ya están. Antes de
 esta épica conviene la entrada 5 (pruebas en el repo), porque esta cambia el esquema.
 
+**Lugar en la app (decidido 2026-09-30).** Las metas son parte del módulo **Hábitos y
+metas**, activo por defecto (ver entrada 24). Es una ruta independiente del costeo de
+proyectos: se puede trabajar antes, después o en paralelo.
+
 ---
 
 ## 21 · P4 · Tableros compartidos entre usuarios
@@ -223,3 +228,46 @@ los normales, puede salir de recorrer el historial en `_walk_streak()`, sin tabl
 
 **Orden.** Después de la pausa por vacaciones (Fase 6 de Calendario v2): ver primero si,
 con pausa y escudos, todavía hace falta.
+
+---
+
+## 24 · P2 · Módulos por usuario y costeo de proyectos (freelance / maker)
+
+**Esto es una épica.** Plan completo, fases, esquema y referencias en
+[docs/specs/modulos-y-costeo.md](docs/specs/modulos-y-costeo.md). Planteado y decidido
+con Yoshio el 2026-09-30.
+
+**Idea.** Usar lo que la app ya registra (tareas, tiempo por proyecto, tarea y etiqueta)
+para lo que hacía la administración en un trabajo anterior con el kanban: sacar horas
+hombre, costear proyectos y cotizar los nuevos con el historial ("un proyecto así lleva
+unas X horas") más materiales y gastos. **No es un CRM**: nada de prospectos ni embudo.
+
+**Decidido.**
+
+- **Una app de organización hecha de módulos**, no tres apps. Núcleo (tableros, tiempo,
+  Reportes) para todos; **Hábitos y metas** activo por defecto (perfil estudiante o
+  personal: lo de hoy más la épica 17); **Costeo** apagado por defecto, para freelance y
+  makers. Apagar un módulo oculta su UI y no borra nada.
+- **Nada empresarial**: sin equipos, roles, facturación ni inventario.
+- **Dos rutas independientes**: esta y la 17 no dependen una de la otra; solo comparten
+  el interruptor de módulos.
+- **Nada cuesta.** Los módulos no son planes de pago; si algún día los hay, el
+  interruptor ya marca la frontera.
+
+**Fases** (cada una se despliega sola): 0 base sólida ✅ (lock, CI, sesiones
+idempotentes, límite de login) · 1 interruptor de módulos + ficha de proyecto solo lectura ·
+2 tarifa y presupuesto · 3 gastos y materiales, con importar CSV · 4 estimado contra real
+por tarea · 5 cotizador con historial (rangos P50/P80) · 6 hoja de Google publicada como
+CSV, solo lectura.
+
+**Esquema.** Tablas nuevas (`user_modules`, `project_finance`, `project_costs`), sin
+migración. La única columna en una tabla existente es `tasks.estimate_minutes` (Fase 4):
+**va en `scripts/migrate.py`**, y se avisa el impacto antes de escribirla.
+
+**Orden.** La Fase 1 es chica y útil aunque no se active Costeo: empezar por ahí. Antes
+de la Fase 2, cerrar las decisiones abiertas de la spec (moneda, cotización sin estados,
+dónde vive la ficha).
+
+**Aceptación (de la Fase 1, no de la épica).** Un usuario apaga "Hábitos y metas" en Mi
+perfil y deja de ver el Calendario sin perder nada al volver a encenderlo; al tocar un
+proyecto se abre su ficha con el mismo tiempo total que muestran la Lista y Reportes.
