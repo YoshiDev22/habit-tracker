@@ -7,6 +7,29 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.17.0] — 2026-10-01
+
+Usa solo la parte de la app que te sirve, y mira todo el tiempo de un proyecto de un
+vistazo.
+
+### Nuevo
+- **Módulos de tu cuenta**: en Mi perfil, la casilla **Hábitos y metas**. Si solo usas los
+  tableros y el tiempo, apágala: desaparecen la pestaña Calendario, el ⚙️ de hábitos y la
+  tarjeta de hábitos de Reportes. No se borra nada; al encenderla vuelve todo como estaba.
+  Se guarda en tu cuenta, así que vale en todos tus dispositivos.
+- **Ficha del proyecto**: toca un proyecto en la Lista (o el 📊 de cada proyecto en
+  Organizar) y ves su tiempo total, sus tareas hechas, y cuánto lleva cada tarea, cada
+  etiqueta y cada mes. Cuadra con la Lista y con Reportes. También para los archivados.
+
+### Cambios
+- Tocar un proyecto en la Lista abre su ficha; para editarlo, **✎ Editar** dentro de ella.
+
+### Para actualizar
+Esta versión crea una tabla nueva (los módulos de cada cuenta), que la app crea sola al
+arrancar: no hace falta `migrate.py` para ella. Si vienes de la 1.16.1, la 1.16.2 sí pide
+`python3 scripts/migrate.py` antes de reiniciar. Las dependencias se instalan con
+`pip install -r requirements.lock`.
+
 ## [1.16.2] — 2026-10-01
 
 Tu tiempo ya no se cuenta doble, y tu cuenta queda más protegida.
@@ -398,6 +421,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.17.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.17.0
 [1.16.2]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.2
 [1.16.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.1
 [1.16.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.0
