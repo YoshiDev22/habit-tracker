@@ -199,7 +199,8 @@ habit-tracker/
 ├── scripts/migrate.py     # Columnas nuevas en tablas existentes (correr antes de reiniciar)
 ├── index.html             # Única página: las tres vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]
-├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
+├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema
+├── habits.js              # Hábitos: calendario, racha, configuración, vacaciones
 ├── projects.js            # Tabs con swipe, vista Lista de proyectos
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar"
 ├── pomodoro.js            # Timer y envío de sesiones

@@ -82,7 +82,8 @@ habit-tracker/
 │   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
-├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
+├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema, getDateKey
+├── habits.js              # Hábitos: calendario, racha, configuración, vacaciones
 ├── projects.js            # Tabs con swipe, vista Lista (proyectos y tareas), menú y borrado de proyecto
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas)
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
@@ -176,7 +177,7 @@ Lo que no se deduce leyendo los modelos:
   resuelve con `resolve_client_today()` (`backend/dates.py`), que solo acepta ±1 día
   respecto a UTC. No usar `date.today()` para nada que el usuario vea como "hoy".
 - **`habits.label` es el nombre SIN emoji; el emoji vive en `habits.icon`.** La pantalla
-  compone los dos con `habitDisplayName()` en `script.js`. Nunca guardar "emoji + nombre"
+  compone los dos con `habitDisplayName()` en `habits.js`. Nunca guardar "emoji + nombre"
   en `label`: eso es exactamente lo que hacía el guardado viejo —leía el nombre del span
   que pintaba, y ese span era "emoji + nombre"— y el emoji terminaba dos veces en pantalla.
   `scripts/migrate.py` normaliza lo que ya estaba guardado así; es idempotente.
@@ -185,19 +186,19 @@ Lo que no se deduce leyendo los modelos:
   `GET /api/habits/streak` después de marcar un día. La regla vive en `_walk_streak()`
   (racha actual, récord y protectores en un solo recorrido), que `GET /api/habits/report`
   aplica también a cada hábito por separado: un cambio de regla se hace ahí, una sola vez.
-  No volver a calcularla en el navegador: hubo una copia de la regla en `script.js`,
+  No volver a calcularla en el navegador: hubo una copia de la regla en el navegador,
   ignoraba los días de descanso y la UI contradecía a la API.
 - **Protectores de racha: no se guardan, se deducen del historial.** Cada 7 días hechos
   se gana uno (máximo 2, `SHIELD_EVERY` / `SHIELD_MAX`) y un día perdido —ni hecho, ni
   hoy, ni de descanso— gasta uno en vez de cortar. Como salen de recorrer los días desde
   el principio, anotar tarde un día olvidado devuelve su protector sin más, y no hay
   tabla ni migración. La API manda además `protected_days` (el calendario los marca con
-  🛡️) y `missed_yesterday`: si ayer quedó vacío y había racha, `script.js`
+  🛡️) y `missed_yesterday`: si ayer quedó vacío y había racha, `habits.js`
   (`askMissedYesterday`) pregunta al abrir "¿Olvidaste anotar ayer?", una vez por día en
   cada dispositivo.
 - **Marcar o desmarcar toca un solo par (hábito, día)**: `PATCH /api/habits/day/{fecha}`
   con `{habit_key, done}`, que cambia esa clave sobre lo guardado (`markHabitOnDay()` en
-  `script.js`). `POST /api/habits` reemplaza el día entero y la pantalla ya no lo usa:
+  `habits.js`). `POST /api/habits` reemplaza el día entero y la pantalla ya no lo usa:
   armando el día con los hábitos activos, borraba los registros de los ocultos y lo que
   otro dispositivo había guardado ese día.
 - `started_at` / `ended_at` son UTC naive (`datetime.utcnow()`). El cliente nunca los parsea
@@ -311,22 +312,23 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los cinco scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los seis scripts en orden y **el
 orden importa**:
 
 ```html
 <script src="script.js"></script>   <!-- primero: define los hooks y apiFetch -->
+<script src="habits.js"></script>   <!-- sus hooks de datos van antes que los demás -->
 <script src="projects.js"></script> <!-- define projectsState y projectsChangedHooks -->
 <script src="board.js"></script>    <!-- usa los dos; su loadBoard corre antes que los selects del pomodoro -->
 <script src="pomodoro.js"></script>
-<script src="reports.js"></script>  <!-- solo lee: usa helpers de script.js y projects.js -->
+<script src="reports.js"></script>  <!-- solo lee: usa helpers de script.js, habits.js y projects.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
 
 ### Sistema de hooks — así se agrega un módulo nuevo
 
-`script.js` expone tres arrays. `projects.js` y `pomodoro.js` se enganchan a ellos y
+`script.js` expone tres arrays. `habits.js`, `projects.js` y `pomodoro.js` se enganchan a ellos y
 `script.js` no los conoce. **Un archivo nuevo debe seguir este patrón en vez de tocar
 `script.js`.**
 
@@ -544,7 +546,7 @@ una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudo
   usuario no tocó (marcar toca un solo par hábito-día, ver `markHabitOnDay()`). Cada mes
   muestra los hábitos activos más los ocultos con algún registro en ese mes, en orden
   `(order, id)` (`GET /api/habits/month-habits`, que `habitsForMonth()` guarda por mes en
-  `script.js`), así que ocultar no cambia cómo se ve un mes pasado. Puntos, popover y
+  `habits.js`), así que ocultar no cambia cómo se ve un mes pasado. Puntos, popover y
   leyenda (que lleva los días del mes de cada hábito) salen de esa lista; nunca de `HABITS`, que son solo los activos. Antes de
   borrar, `GET /api/habits/definitions/{id}/delete-impact` dice cuánto bajarían racha y
   récord, y la confirmación lo muestra.

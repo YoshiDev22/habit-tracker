@@ -77,6 +77,12 @@ def script_js():
     return FileResponse(get_frontend_path("script.js"))
 
 
+@app.get("/habits.js")
+def habits_js():
+    """Serve habits.js"""
+    return FileResponse(get_frontend_path("habits.js"))
+
+
 @app.get("/projects.js")
 def projects_js():
     """Serve projects.js"""

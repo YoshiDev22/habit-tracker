@@ -10,7 +10,7 @@ def test_public_routes(api):
 
 
 def test_frontend_files_are_served(client):
-    for path in ["/", "/index.html", "/styles.css", "/script.js", "/projects.js",
+    for path in ["/", "/index.html", "/styles.css", "/script.js", "/habits.js", "/projects.js",
                  "/board.js", "/pomodoro.js", "/reports.js", "/manifest.webmanifest",
                  "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
                  "/favicon.ico"]:
