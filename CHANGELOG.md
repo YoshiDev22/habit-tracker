@@ -7,6 +7,27 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.16.2] — 2026-10-01
+
+Tu tiempo ya no se cuenta doble, y tu cuenta queda más protegida.
+
+### Correcciones
+- **Tiempo duplicado**: si el navegador se cerraba justo al guardar una sesión, o se perdía
+  la conexión mientras se reenviaba una pendiente, ese tiempo podía guardarse dos veces.
+  Ahora cada sesión se guarda una sola vez, por más que se reenvíe.
+- **Límite de intentos al entrar**: después de 10 contraseñas equivocadas en 15 minutos
+  desde la misma conexión, la app pide esperar un rato antes de volver a intentar. Entrar
+  con la contraseña correcta no gasta intentos. También hay un límite de cuentas nuevas
+  por hora.
+
+### Para actualizar
+Esta versión añade una columna y un índice a la base de datos: correr
+`python3 scripts/migrate.py` **antes** de reiniciar el servicio. Si se olvida, el servicio
+no arranca y el log dice qué falta. Las dependencias se instalan ahora con
+`pip install -r requirements.lock`. Si Caddy no conecta a la app por `127.0.0.1`, añadir
+su IP a `--forwarded-allow-ips` del servicio; si no, todos los usuarios comparten un mismo
+límite de intentos.
+
 ## [1.16.1] — 2026-09-29
 
 Letra un poco más grande cuando la pides.
@@ -377,6 +398,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.16.2]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.2
 [1.16.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.1
 [1.16.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.0
 [1.15.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.15.1
