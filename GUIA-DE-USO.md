@@ -14,6 +14,7 @@ Producción: https://habits.yoshidev22.com
 - [Calendario de hábitos](#calendario-de-hábitos)
 - [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones)
 - [Proyectos y tareas](#proyectos-y-tareas)
+- [Costos (plan Maker)](#costos-plan-maker)
 - [Pomodoro y cronómetro](#pomodoro-y-cronómetro)
 - [Registrar tiempo a mano](#registrar-tiempo-a-mano)
 - [Corregir o borrar un registro](#corregir-o-borrar-un-registro)
@@ -187,6 +188,29 @@ campo *Nueva tarea* para añadir más, y el historial de tiempo.
   antes de cambiarlo. En las tareas ya hechas no aparece.
 - La línea **"Sin tarea"** recoge el tiempo registrado en el proyecto sin elegir tarea, de
   forma que la suma de todo cuadra con el total de la tarjeta.
+
+## Costos (plan Maker)
+
+Con el plan Maker encendido aparece una cuarta pestaña, **Costos**, para lo que un proyecto
+cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
+
+- **Arriba, el resumen**: costo total, mano de obra, gastos y lo presupuestado; una tabla
+  con cada proyecto y su **margen** (presupuesto − costo, en rojo si te pasas), y en qué
+  categorías se va el dinero. En el teléfono la tabla enseña solo costo y margen. Si tienes
+  proyectos en monedas distintas, cada moneda va aparte: la app nunca las suma ni convierte.
+- **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
+  en la lista). Se usa como una hoja de cálculo: escribe en las celdas y cada cambio se
+  guarda solo; **＋ Agregar fila** para uno nuevo, y Enter baja a la fila siguiente.
+- **Traer varios de una vez**: copia las filas en Excel o Google Sheets y pégalas en la hoja
+  (Ctrl+V). También puedes **importar un CSV**. Antes de guardar ves una vista previa: las
+  filas que no se entienden salen en rojo y se saltan, y si traen una categoría que no
+  tienes, puedes crearla. Las columnas pueden llevar encabezado (Fecha, Concepto,
+  Categoría, Cantidad, Costo unitario, Nota) o venir en ese orden.
+- **Categorías**: vienen cinco (material, licencia/software, servicio, IA y otro) y son
+  tuyas: en **Categorías**, al final de la pestaña, las renombras, les cambias el color, las
+  ordenas o creas más. Una categoría con gastos no se borra hasta pasar sus gastos a otra.
+- Para gastos que no son de un proyecto (una licencia que usas en todo), crea un proyecto
+  "Gastos generales". Borrar un proyecto borra sus gastos; archivarlo los conserva.
 
 ## Pomodoro y cronómetro
 

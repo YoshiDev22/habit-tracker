@@ -107,7 +107,7 @@ idempotentes y límite de intentos en login y registro.
 - Con presupuesto y sin tiempo, la etiqueta **Cotización**. "Sin asignar" no se costea.
 - La casilla **Maker** aparece en Mi perfil para las cuentas con acceso.
 
-### Fase 3 — Gastos y materiales
+### Fase 3 — Gastos y materiales ✅ (2026-10-01, sin publicar)
 
 **Decidido (2026-10-01):**
 
@@ -178,7 +178,7 @@ existen (esas van en `scripts/migrate.py` y tocan producción).
 |---|---|---|---|
 | 1 ✅ | `user_modules` (`user_id`, `module`, `enabled`, `allowed`), único por (usuario, módulo). Sin fila o NULL = valor por defecto del módulo | Tabla nueva | No |
 | 2 ✅ | `project_finance` (`project_id` único, `user_id`, `client_name`, `hourly_rate_cents`, `currency`, `budget_cents`, `budget_minutes`) | Tabla nueva, 1 a 1 con `projects` | No |
-| 3 | `cost_categories` (`user_id`, `name`, `color`, `order`), único por (usuario, nombre); y `project_costs` (`user_id`, `project_id`, `category_id`, `cost_date`, `concept`, `quantity`, `unit_cost_cents`, `note`) | Tablas nuevas | No |
+| 3 ✅ | `cost_categories` (`user_id`, `name`, `color`, `order`), único por (usuario, nombre); y `project_costs` (`user_id`, `project_id`, `category_id`, `cost_date`, `concept`, `quantity`, `unit_cost_cents`, `note`) | Tablas nuevas | No |
 | 4 | `tasks.estimate_minutes` (NULL = sin estimado) | Columna nueva | **Sí**: `migrate.py` + `test_deploy.py` |
 | 6 | `project_finance.sheet_csv_url` | Columna en la tabla de la Fase 2 | No, si la Fase 2 aún no salió; si ya salió, sí |
 

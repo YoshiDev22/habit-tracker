@@ -261,7 +261,7 @@ unas X horas") más materiales y gastos. **No es un CRM**: nada de prospectos ni
 
 **Fases** (cada una se despliega sola): 0 base sólida ✅ (lock, CI, sesiones
 idempotentes, límite de login) · 1 interruptor de módulos + ficha de proyecto solo lectura ✅ (1.17.0) ·
-2 tarifa y presupuesto ✅ (1.18.0) · 3 gastos y materiales, con importar CSV · 4 estimado contra real
+2 tarifa y presupuesto ✅ (1.18.0) · 3 gastos y materiales, pegar de una hoja e importar CSV ✅ · 4 estimado contra real
 por tarea · 5 cotizador con historial (rangos P50/P80) · 6 hoja de Google publicada como
 CSV, solo lectura.
 
@@ -269,15 +269,13 @@ CSV, solo lectura.
 migración. La única columna en una tabla existente es `tasks.estimate_minutes` (Fase 4):
 **va en `scripts/migrate.py`**, y se avisa el impacto antes de escribirla.
 
-**Orden.** Sigue la Fase 3 (gastos y materiales). Antes de empezarla, decidir qué pasa
-con los gastos al borrar un proyecto (lo natural: se borran con él, y la confirmación lo
-avisa) y las categorías definitivas. Sus endpoints, como los de la Fase 2, empiezan con
-`require_module(..., "maker")`.
+**Orden.** Sigue la Fase 4 (estimado contra real por tarea). Es la primera que agrega
+una **columna a una tabla existente** (`tasks.estimate_minutes`): va en
+`scripts/migrate.py`, con su caso en `test_deploy.py`, y se avisa el impacto antes.
 
-**Aceptación (de la Fase 3, no de la épica).** Con el plan maker, un proyecto guarda
-renglones de gasto (fecha, concepto, categoría, cantidad, costo unitario) a mano o desde
-un CSV con vista previa, y su ficha muestra costo = mano de obra + gastos y, con
-presupuesto, el margen.
+**Aceptación (de la Fase 4, no de la épica).** Una tarea puede llevar un estimado en
+minutos; su tarjeta muestra "2 h de 3 h", y la ficha y Costos dicen, por etiqueta, cuánto
+se desvía el usuario de lo que estima (real ÷ estimado).
 
 ---
 
