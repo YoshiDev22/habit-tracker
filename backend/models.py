@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field
 from typing import Optional, Dict, List
 from datetime import date as date_type, datetime, timezone
-from sqlalchemy import JSON, UniqueConstraint
+from sqlalchemy import JSON, Index, UniqueConstraint
 
 
 class User(SQLModel, table=True):
@@ -297,6 +297,13 @@ class PomodoroSession(SQLModel, table=True):
     Tabla NUEVA, aditiva — ver nota en Project.
     """
     __tablename__ = "pomodoro_sessions"
+    # Una misma clave de idempotencia no se repite dentro de un usuario. En una
+    # base nueva lo crea create_all(); en una existente, scripts/migrate.py
+    # (INDEXES), con el mismo nombre para que las dos queden iguales. SQLite
+    # no compara los NULL entre sí: las sesiones sin clave no chocan.
+    __table_args__ = (
+        Index("uq_pomodoro_sessions_user_key", "user_id", "idempotency_key", unique=True),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
@@ -327,5 +334,11 @@ class PomodoroSession(SQLModel, table=True):
     # scripts/migrate.py; las filas previas se rellenan con "timer", que es
     # la verdad para todo lo registrado hasta ahora.
     source: str = Field(default="timer", index=True)
+    # El sessionId que el cliente le puso al timer al arrancarlo. Si el mismo
+    # POST llega dos veces (el navegador se cerró tras enviarlo y antes de
+    # olvidarlo, o la respuesta se perdió y la cola lo reintentó), el segundo
+    # devuelve la sesión ya guardada en vez de duplicar el tiempo. NULL en las
+    # manuales y en todo lo anterior. Columna AÑADIDA: migrate.py.
+    idempotency_key: Optional[str] = Field(default=None)
 
     created_at: date_type = Field(default_factory=date_type.today)

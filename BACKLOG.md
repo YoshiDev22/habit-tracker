@@ -10,52 +10,18 @@ commit. Al terminar, borrar la entrada de este archivo en el mismo commit que la
 server local y fallaron de forma observable. Las marcadas *diagnosticado* salen de leer el
 código y no se reprodujeron todavía.
 
-Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros).
+Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros) y el
+2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
-| 5 | P3 | Sin CI | — |
-| 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
-| 22 | P4 | Sesión de tiempo duplicada si el navegador se cae al guardarla | diagnosticado |
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
-
----
-
-## 5 · P3 · Sin CI
-
-**Síntoma.** Las pruebas existen (`pytest` y `pytest -m ui`, ver "Pruebas" en CLAUDE.md),
-pero solo corren si alguien se acuerda de correrlas antes de desplegar.
-
-**Arreglo.** Un workflow de GitHub Actions que corra `pytest` (las de API: sin navegador,
-~15 s) en cada push y pull request a `main`. Las de navegador se quedan fuera al
-principio: tardan más de 10 minutos y necesitan Edge o Chrome; si se agregan, en un job
-aparte con Chrome del runner (`HABIT_UI_BROWSER`).
-
-**Aceptación.** Un push a `main` muestra el resultado de `pytest` en GitHub, y un test
-roto a propósito lo pone en rojo.
-
----
-
-## 6 · P3 · Dependencias transitivas sin fijar
-
-**Síntoma.** Dos instalaciones del mismo `requirements.txt` en fechas distintas producen
-entornos distintos. El venv local y el del VPS pueden divergir sin que nada lo indique.
-
-**Causa.** `requirements.txt` fija las 8 dependencias directas, pero ninguna transitiva.
-En la instalación del 2026-09-08, `pip` resolvió a lo último disponible ese día:
-`pydantic 2.13.5`, `SQLAlchemy 2.0.52`, `cryptography 50.0.1`, `starlette 0.35.1`, entre
-otras. Nada de eso está registrado.
-
-**Arreglo.** Congelar el árbol completo. Lo más simple sin agregar herramientas:
-`pip freeze > requirements.lock` y usar el lock en producción, dejando `requirements.txt`
-como declaración de intención. Alternativa más limpia si se acepta una herramienta nueva:
-`pip-tools` con `requirements.in` → `requirements.txt` compilado.
-
-**Aceptación.** Un `pip install` desde cero en dos máquinas produce las mismas versiones,
-verificable comparando `pip freeze`.
+| 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
+| 25 | P3 | La guía de uso no cubre el Tablero ni Reportes | diagnosticado |
+| 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | pendiente de revisar |
 
 ---
 
@@ -87,17 +53,17 @@ merece existir. Criterios propuestos para esa evaluación:
 4. **¿Cuánto backend nuevo pide?** Reutilizar endpoints existentes es la diferencia entre
    una tarde y una semana.
 
-**Estado actual — lo que hoy lo impide.** Las vistas están escritas a mano, no son datos:
+**Estado actual (revisado en v1.16.1).** La mitad del primer paso ya está: la navegación
+lee de un array. `VIEW_TABS` ([projects.js:61](projects.js#L61)) lista las tres pestañas,
+y `VIEW_COUNT` es su longitud, así que el swipe y el teclado ya no tienen números fijos.
+Lo que falta:
 
-- `VIEW_COUNT = 2` en [projects.js:55](projects.js#L55), usado por el swipe y por la
-  navegación con teclado.
-- `goToView()` recorre un array literal `[tabCalendar, tabProjects]`
-  ([projects.js:68](projects.js#L68)).
-- Cada vista es un `<section>` escrito en `index.html`, y cada tab un `<button>`.
+- Cada vista sigue siendo un `<section>` escrito en `index.html`, y cada tab un `<button>`.
+- El ancho de `.tab-indicator` es un `calc(100% / N)` fijo en `styles.css`.
 
-El primer paso real, y probablemente el único commit que se puede hacer solo, es
-**convertir esa lista en datos**: que las pestañas se construyan recorriendo un array, con
-el swipe y el teclado leyendo su longitud. Sin eso, cualquier plantilla es un parche.
+El siguiente paso es que tabs y secciones **se creen desde ese array**. El interruptor de
+módulos de la entrada 24 (ocultar el Calendario si se apaga Hábitos) es el primer caso
+real que lo necesita: conviene hacerlos juntos.
 
 **Modelo de datos, la decisión de fondo.** Hará falta al menos una tabla de pestañas del
 usuario (`user_id`, plantilla, título, icono, orden, activa) más el contenido de cada una.
@@ -106,9 +72,9 @@ Para el contenido hay dos caminos y conviene elegirlo a conciencia:
 - **Una tabla por plantilla.** Consultas claras, agregación fácil, migración por cada
   plantilla nueva.
 - **Una tabla genérica con una columna JSON.** Añadir plantillas no toca el esquema, pero
-  se pierde poder consultar el contenido. Y aquí hay cicatriz: la entrada 1 de este
-  backlog es exactamente un bug de mutar una columna JSON in-place sin `MutableDict`. Si
-  se va por JSON, declararlo `MutableDict.as_mutable(JSON)` desde el primer día.
+  se pierde poder consultar el contenido. Y aquí hay cicatriz: ya hubo un bug de mutar
+  una columna JSON in-place sin `MutableDict` (ver `habits_data` en CLAUDE.md). Si se va
+  por JSON, declararlo `MutableDict.as_mutable(JSON)` desde el primer día.
 
 **Nota sobre migraciones.** Las tablas *nuevas* las crea `create_all()` sola al arrancar,
 sin migración — igual que pasó con `projects`, `tasks` y `pomodoro_sessions`. Solo las
@@ -125,9 +91,9 @@ no es construir la primera plantilla, es mantener cinco. Empezar con **dos plant
 concretas y escritas a mano** sobre el sistema de pestañas dinámico, y no construir un
 motor genérico hasta que duela repetir código.
 
-**Aceptación (del primer paso, no de la épica).** Las pestañas se generan desde un array
-de configuración: añadir una entrada al array crea su tab y su vista, y el swipe, las
-flechas del teclado y `Home`/`End` funcionan sin tocar ninguna constante.
+**Aceptación (del primer paso, no de la épica).** Añadir una entrada a `VIEW_TABS` crea
+su tab, su vista y el ancho del indicador, sin tocar `index.html` ni `styles.css`; el
+swipe, las flechas del teclado y `Home`/`End` ya funcionan así.
 
 ---
 
@@ -223,8 +189,12 @@ siempre que se pueda ("12 de 30 días", "8 días sin fumar") y no solo como porc
 línea corta junto a cada hábito del Calendario, además de la sección de metas) y el
 catálogo de plantillas de la fase 1.
 
-**Orden.** Reportes (1.12.0) y los colores de hábitos en el backend ya están. Antes de
-esta épica conviene la entrada 5 (pruebas en el repo), porque esta cambia el esquema.
+**Orden.** Reportes (1.12.0), los colores de hábitos en el backend, las pruebas y la CI
+(antes entrada 5) ya están: nada bloquea empezar.
+
+**Lugar en la app (decidido 2026-09-30).** Las metas son parte del módulo **Hábitos y
+metas**, activo por defecto (ver entrada 24). Es una ruta independiente del costeo de
+proyectos: se puede trabajar antes, después o en paralelo.
 
 ---
 
@@ -247,31 +217,6 @@ grande de la app.
 
 ---
 
-## 22 · P4 · Sesión de tiempo duplicada si el navegador se cae al guardarla
-
-**Síntoma.** Muy raro: si el navegador se cierra de golpe justo después de enviar una
-sesión (un pomodoro que termina, un cronómetro que se detiene), al volver la app puede
-enviarla otra vez y el tiempo aparece dos veces.
-
-**Causa.** El cliente reclama la sesión (`claimPomoState()` en [pomodoro.js](pomodoro.js))
-borrándola de `localStorage` antes del POST, pero el navegador escribe `localStorage` a
-disco un momento después, y tampoco lo propaga al instante a otro proceso. Si muere en
-ese intervalo, o si la pestaña se recarga justo mientras guarda (pasa al reabrir el
-navegador con la pestaña restaurada: `ui_persist` lo reproduce ~1 de cada 7 corridas),
-la página nueva encuentra el estado viejo y lo rehidrata. Lo mismo con la cola `pomodoro_pending`: un POST que llegó al
-servidor pero cuya respuesta se perdió se reintenta. Las pestañas duplicadas del mismo
-navegador ya están resueltas (lock + reclamo); esto es lo que queda.
-
-**Arreglo.** Idempotencia en el servidor: el cliente genera un id (`crypto.randomUUID()`)
-al iniciar cada sesión, lo guarda en `pomodoro_state` y lo manda en el POST; el backend
-lo guarda con una restricción única por usuario y, si ya existe, devuelve la sesión
-existente en vez de crear otra. **Cambio de esquema** (columna nueva en
-`pomodoro_sessions` → `scripts/migrate.py`): avisar el impacto antes.
-
-**Aceptación.** Enviar dos veces el mismo POST (mismo id) crea una sola sesión.
-
----
-
 ## 23 · P4 · Escudo especial que se gana con hitos de racha
 
 **Esto es una épica.** Un escudo aparte de los dos normales que se **gana** al llegar a
@@ -286,3 +231,131 @@ los normales, puede salir de recorrer el historial en `_walk_streak()`, sin tabl
 
 **Orden.** Después de la pausa por vacaciones (Fase 6 de Calendario v2): ver primero si,
 con pausa y escudos, todavía hace falta.
+
+---
+
+## 24 · P2 · Módulos por usuario y costeo de proyectos (freelance / maker)
+
+**Esto es una épica.** Plan completo, fases, esquema y referencias en
+[docs/specs/modulos-y-costeo.md](docs/specs/modulos-y-costeo.md). Planteado y decidido
+con Yoshio el 2026-09-30.
+
+**Idea.** Usar lo que la app ya registra (tareas, tiempo por proyecto, tarea y etiqueta)
+para lo que hacía la administración en un trabajo anterior con el kanban: sacar horas
+hombre, costear proyectos y cotizar los nuevos con el historial ("un proyecto así lleva
+unas X horas") más materiales y gastos. **No es un CRM**: nada de prospectos ni embudo.
+
+**Decidido.**
+
+- **Una app de organización hecha de módulos**, no tres apps. Núcleo (tableros, tiempo,
+  Reportes) para todos; **Hábitos y metas** activo por defecto (perfil estudiante o
+  personal: lo de hoy más la épica 17); **Costeo** apagado por defecto, para freelance y
+  makers. Apagar un módulo oculta su UI y no borra nada.
+- **Nada empresarial**: sin equipos, roles, facturación ni inventario.
+- **Dos rutas independientes**: esta y la 17 no dependen una de la otra; solo comparten
+  el interruptor de módulos.
+- **Nada cuesta.** Los módulos no son planes de pago; si algún día los hay, el
+  interruptor ya marca la frontera.
+
+**Fases** (cada una se despliega sola): 0 base sólida ✅ (lock, CI, sesiones
+idempotentes, límite de login) · 1 interruptor de módulos + ficha de proyecto solo lectura ·
+2 tarifa y presupuesto · 3 gastos y materiales, con importar CSV · 4 estimado contra real
+por tarea · 5 cotizador con historial (rangos P50/P80) · 6 hoja de Google publicada como
+CSV, solo lectura.
+
+**Esquema.** Tablas nuevas (`user_modules`, `project_finance`, `project_costs`), sin
+migración. La única columna en una tabla existente es `tasks.estimate_minutes` (Fase 4):
+**va en `scripts/migrate.py`**, y se avisa el impacto antes de escribirla.
+
+**Orden.** La Fase 1 es chica y útil aunque no se active Costeo: empezar por ahí. Antes
+de la Fase 2, cerrar las decisiones abiertas de la spec (moneda, cotización sin estados,
+dónde vive la ficha).
+
+**Aceptación (de la Fase 1, no de la épica).** Un usuario apaga "Hábitos y metas" en Mi
+perfil y deja de ver el Calendario sin perder nada al volver a encenderlo; al tocar un
+proyecto se abre su ficha con el mismo tiempo total que muestran la Lista y Reportes.
+
+---
+
+## 25 · P3 · La guía de uso no cubre el Tablero ni Reportes
+
+**Síntoma.** [GUIA-DE-USO.md](GUIA-DE-USO.md) se escribió antes de los tableros (1.10) y
+de Reportes (1.12). Quien la lee no encuentra cómo usar la vista principal de la pestaña
+Tableros ni la pestaña Reportes.
+
+**Ya corregido (2026-09-30).** La sección del pomodoro describía la UI de antes
+(selectores de proyecto arriba, cierre automático a las 8 h, "las duraciones no se pueden
+cambiar"): se reescribió con lo de ahora. La pestaña se llamaba "Proyectos" y ahora dice
+Tableros, aclarando que lo que describe es la vista Lista.
+
+**Falta.** Secciones nuevas, con el tono del resto de la guía:
+
+- **Tablero**: columnas y sus marcas (📥 Entrada, ✓ Terminada), crear y mover tarjetas
+  (arrastrar en computadora, "Mover a…" en el teléfono), filtros.
+- **Detalle de la tarjeta**: proyecto, etiquetas, checklist, comentarios, historial de
+  tiempo.
+- **⚙ Organizar**: tableros, columnas (y por qué una columna con tareas no se borra),
+  proyectos, etiquetas, Configurar pomodoro.
+- **Reportes**: rangos, qué cuenta cada gráfica (solo tiempo de trabajo, igual que las
+  tarjetas) y Exportar CSV.
+
+**Aceptación.** Cada pestaña y cada botón de la barra del tablero tiene su explicación
+en la guía, y el índice de la guía enlaza las secciones nuevas.
+
+---
+
+## 26 · P2 · Correo de confirmación al registrarse y recuperación de cuenta
+
+**Pendiente de revisar con Yoshio (anotado el 2026-09-30).** Todavía no hay decisión de
+cómo hacerlo; esto deja escrito qué falta y qué hay que decidir antes de escribir código.
+
+**Síntoma.**
+
+- **Nadie puede recuperar su cuenta.** No hay "olvidé mi contraseña": si alguien la
+  olvida, la única salida es cambiar `users.hashed_password` a mano en la base del VPS.
+- **Tampoco se puede cambiar la contraseña** estando dentro: `PATCH /api/auth/me` solo
+  toca el perfil (alias, nombre, días de descanso, duraciones).
+- **El correo no se verifica.** Un error al escribirlo deja la cuenta sin forma de
+  recuperarse, y cualquiera puede registrar el correo de otra persona y ocupárselo.
+- El registro responde "El email ya está registrado", así que deja saber qué correos
+  tienen cuenta.
+
+**Lo que obliga a decidir.**
+
+1. **Cómo se envían los correos.** Con un servicio transaccional por SMTP (el VPS no
+   debe mandarlos directo: sin SPF, DKIM y DMARC en `yoshidev22.com` caerían en spam).
+   `smtplib` es de la biblioteca estándar, así que no hace falta dependencia nueva. Las
+   credenciales van en `backend/.env`, nunca en el repo.
+2. **Cuentas sin verificar**: ¿pueden usar la app mientras tanto (con un aviso), o no
+   entran hasta confirmar? ¿Y las cuentas que ya existen: se dan por verificadas o se les
+   pide confirmar al entrar?
+3. **Sesiones abiertas tras un cambio de contraseña.** El JWT dura 7 días y no se puede
+   revocar: quien robó una sesión la conserva aunque se cambie la contraseña. Arreglarlo
+   pide una columna (`users.password_changed_at` o `token_version`) que
+   `get_current_user` compare con el token. **Toca la autenticación**: avisar el impacto.
+4. **Registro sin revelar cuentas**: con verificación, el registro puede responder siempre
+   igual ("te enviamos un correo") y, si el correo ya tenía cuenta, avisarle al dueño en
+   vez de decirlo en pantalla.
+
+**Propuesta de diseño (para revisar, no decidida).**
+
+- Tabla nueva `email_tokens` (`user_id`, `purpose` verify | reset, `token_hash`,
+  `expires_at`, `used_at`), que `create_all()` crea sola. El token es aleatorio
+  (`secrets.token_urlsafe(32)`), **se guarda solo su hash**, sirve una vez y caduca
+  (verificar: 48 h; recuperar: 1 h).
+- `users.email_verified_at` como columna nueva → **va en `scripts/migrate.py`**.
+- Endpoints: `POST /api/auth/verify-email`, `POST /api/auth/forgot-password` (responde
+  siempre lo mismo, exista o no la cuenta), `POST /api/auth/reset-password` (token +
+  contraseña nueva; invalida los demás tokens) y un cambio de contraseña con la actual.
+- Límite de intentos con `backend/ratelimit.py`: por IP y por correo, para que no sirva
+  para mandar correos en masa a un tercero.
+- El enlace abre la app con el token en la URL (`/?reset=...`). La app lo quita de la
+  barra con `history.replaceState` en cuanto lo lee, y la página manda
+  `Referrer-Policy: no-referrer`, para que el token no se filtre a otros sitios.
+
+**Orden.** Antes de abrir el registro a más gente o de anunciar los módulos (entrada 24).
+Mientras tanto, `ALLOW_REGISTRATION=false` permite cerrarlo.
+
+**Aceptación.** Alguien que olvidó su contraseña la recupera sin intervención de Yoshio;
+un correo mal escrito no deja una cuenta usable a nombre de otro; pedir recuperación con
+un correo sin cuenta responde lo mismo que con uno que sí tiene.

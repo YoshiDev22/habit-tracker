@@ -26,12 +26,25 @@ def test_the_app_refuses_to_start_without_migrating():
     first = run_migrate(db)
     assert first.returncode == 0, first.stderr
     assert "tasks.column_id" in first.stdout and "users.pomodoro_focus_seconds" in first.stdout
+    assert "pomodoro_sessions.idempotency_key" in first.stdout
+    assert "index uq_pomodoro_sessions_user_key" in first.stdout
     again = run_migrate(db)
     assert again.returncode == 0 and "nothing, already up to date" in again.stdout
 
     started = subprocess.run([sys.executable, "-c", "import backend.main"], cwd=ROOT, env=env,
                              capture_output=True, text=True, encoding="utf-8")
     assert started.returncode == 0, started.stderr
+
+    # Un índice único que falta también la frena: sin él, una sesión de tiempo
+    # reenviada a la vez se guardaría dos veces
+    conn = sqlite3.connect(db)
+    conn.execute("DROP INDEX uq_pomodoro_sessions_user_key")
+    conn.commit()
+    conn.close()
+    started = subprocess.run([sys.executable, "-c", "import backend.main"], cwd=ROOT, env=env,
+                             capture_output=True, text=True, encoding="utf-8")
+    assert started.returncode != 0 and "uq_pomodoro_sessions_user_key" in started.stderr
+    assert run_migrate(db).returncode == 0
 
 
 def test_old_data_survives_and_is_placed_on_a_board(old_db, api):

@@ -1,5 +1,6 @@
+import os
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
@@ -13,6 +14,7 @@ from backend.auth import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
+from backend import ratelimit
 
 router = APIRouter(tags=["auth"])
 
@@ -24,11 +26,27 @@ def clean_optional(value):
     return value.strip() or None
 
 
+def registration_open() -> bool:
+    """ALLOW_REGISTRATION=false en backend/.env cierra el registro de cuentas
+    nuevas; las que ya existen siguen entrando. Se lee en cada request, así que
+    basta con reiniciar el servicio tras cambiarlo. Sin la variable, abierto."""
+    return os.getenv("ALLOW_REGISTRATION", "true").strip().lower() not in ("false", "0", "no")
+
+
 @router.post("/register", response_model=UserResponse)
-def register(user: UserCreate, session: Session = Depends(get_session)):
+def register(user: UserCreate, request: Request, session: Session = Depends(get_session)):
     """
     Registra un nuevo usuario
     """
+    if not registration_open():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El registro de cuentas nuevas está cerrado."
+        )
+
+    ip = ratelimit.client_ip(request)
+    ratelimit.ensure_allowed(ratelimit.registrations, ip, "Se crearon demasiadas cuentas desde esta conexión.")
+
     # Verificar si el email ya existe
     db_user = session.exec(select(User).where(User.email == user.email)).first()
     
@@ -51,22 +69,30 @@ def register(user: UserCreate, session: Session = Depends(get_session)):
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
+    # Solo cuentan las cuentas creadas: un email repetido no gasta intentos
+    ratelimit.registrations.hit(ip)
     
     return new_user
 
 
 @router.post("/login", response_model=Token)
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(), 
     session: Session = Depends(get_session)
 ):
     """
     Inicia sesión y retorna token JWT
     """
+    # Antes de tocar la base y bcrypt: una IP bloqueada no gasta ni CPU
+    ip = ratelimit.client_ip(request)
+    ratelimit.ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.")
+
     # Buscar usuario por email
     user = session.exec(select(User).where(User.email == form_data.username)).first()
     
     if not user or not verify_password(form_data.password, user.hashed_password):
+        ratelimit.failed_logins.hit(ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",

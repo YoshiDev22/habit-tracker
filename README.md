@@ -53,7 +53,7 @@ cd habit-tracker
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.lock
 ```
 
 **Windows (PowerShell):**
@@ -61,7 +61,7 @@ pip install -r requirements.txt
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements.lock
 ```
 
 Tres tropiezos habituales en Windows:
@@ -197,7 +197,7 @@ habit-tracker/
 │   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro
 ├── docs/                  # Specs por fases y referencias de la racha
 ├── scripts/migrate.py     # Columnas nuevas en tablas existentes (correr antes de reiniciar)
-├── index.html             # Única página: ambas vistas y todos los modales
+├── index.html             # Única página: las tres vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
 ├── projects.js            # Tabs con swipe, vista Lista de proyectos
@@ -207,7 +207,8 @@ habit-tracker/
 ├── manifest.webmanifest   # Instalable como app
 ├── icons/                 # Iconos y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
-└── requirements.txt
+├── requirements.txt       # Dependencias directas (qué usa la app)
+└── requirements.lock      # Árbol completo fijado: lo que se instala
 ```
 
 El frontend se sirve con un `@app.get` por archivo en `main.py` — no hay `StaticFiles`

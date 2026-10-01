@@ -85,6 +85,14 @@ def test_time_and_habits(seeded):
         "task_id": m["task"]["id"], "session_date": m["session"]["session_date"],
         "started_at": m["session"]["started_at"], "ended_at": m["session"]["ended_at"],
         "duration_seconds": 60, "mode": "focus"})[0] == 404
+    # La clave de idempotencia es de cada usuario: la misma clave en otra cuenta
+    # crea su propia sesión, no le devuelve la ajena
+    key_body = {"session_date": m["session"]["session_date"], "started_at": m["session"]["started_at"],
+                "ended_at": m["session"]["ended_at"], "duration_seconds": 60, "mode": "focus",
+                "idempotency_key": "misma-clave"}
+    _, own = seeded["api"].call("POST", "/api/pomodoro", key_body, expect=201)
+    _, theirs = other.call("POST", "/api/pomodoro", key_body, expect=201)
+    assert theirs["id"] != own["id"]
     assert other.call("GET", "/api/habits/definitions", expect=200)[1]["habits"] == []
     assert other.call("PATCH", f"/api/habits/definitions/{m['habit']['id']}", {"label": "hack"})[0] == 404
     assert other.call("DELETE", f"/api/habits/definitions/{m['habit']['id']}")[0] == 404

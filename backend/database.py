@@ -49,6 +49,14 @@ def check_pending_migrations():
         columns = {c["name"] for c in inspector.get_columns(entry["table"])}
         if entry["column"] not in columns:
             missing.append(f"{entry['table']}.{entry['column']}")
+    # Un índice único que falta no rompe ningún request, pero deja pasar lo
+    # que debía frenar (una sesión de tiempo guardada dos veces)
+    for index in migrate.INDEXES:
+        if index["table"] not in tables:
+            continue
+        names = {i["name"] for i in inspector.get_indexes(index["table"])}
+        if index["name"] not in names:
+            missing.append(f"index {index['name']}")
 
     if missing:
         raise RuntimeError(

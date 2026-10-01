@@ -74,3 +74,63 @@ def test_task_seconds_are_focus_only(seeded):
     log_time(api, seeded["project"]["id"], kanban["id"], 5 * 60, mode="short_break")
     _, tl = api.call("GET", "/api/tasks", expect=200)
     assert next(t for t in tl["tasks"] if t["id"] == kanban["id"])["seconds"] == 20 * 60
+
+
+def stopwatch_body(task, minutes=30, key="1727712345678-abcd1234"):
+    """Lo que manda buildPayload() de pomodoro.js al detener un cronómetro."""
+    start = utc_now() - timedelta(minutes=minutes)
+    return {"project_id": task["project_id"], "task_id": task["id"], "session_date": date.today().isoformat(),
+            "started_at": start.isoformat(), "ended_at": (start + timedelta(minutes=minutes)).isoformat(),
+            "duration_seconds": minutes * 60, "planned_seconds": 0, "mode": "focus",
+            "source": "stopwatch", "was_completed": True, "idempotency_key": key}
+
+
+def test_resending_a_session_does_not_duplicate_it(seeded):
+    # Backlog 22: el navegador muere justo después de enviar, o la cola reintenta
+    # un POST cuya respuesta se perdió. La misma clave es la misma sesión.
+    api = seeded["api"]
+    task = seeded["tasks"]["Revisión de idea para cambiar a kanban"]
+    body = stopwatch_body(task)
+    _, first = api.call("POST", "/api/pomodoro", body, expect=201)
+    _, again = api.call("POST", "/api/pomodoro", body, expect=200)
+    assert again["id"] == first["id"]
+    _, listed = api.call("GET", f"/api/pomodoro?task_id={task['id']}", expect=200)
+    assert [s["id"] for s in listed["sessions"]] == [first["id"]]
+
+    # El reintento no falla aunque la tarea se haya borrado entretanto
+    api.call("DELETE", f"/api/tasks/{task['id']}", expect=204)
+    _, late = api.call("POST", "/api/pomodoro", body, expect=200)
+    assert late["id"] == first["id"] and late["task_id"] is None
+
+    # Otra clave es otra sesión, y sin clave (registro a mano) no se deduplica
+    other_task = seeded["tasks"]["Corrección de Pomodoros"]
+    api.call("POST", "/api/pomodoro", stopwatch_body(other_task, key="otra"), expect=201)
+    no_key = stopwatch_body(other_task, key=None)
+    api.call("POST", "/api/pomodoro", no_key, expect=201)
+    api.call("POST", "/api/pomodoro", {**no_key, "idempotency_key": "  "}, expect=201)
+    _, listed = api.call("GET", f"/api/pomodoro?task_id={other_task['id']}", expect=200)
+    assert len(listed["sessions"]) == 4   # la del fixture + estas tres
+
+
+def test_two_simultaneous_resends_keep_one_session(seeded, monkeypatch):
+    # Los dos envíos pasan la búsqueda previa a la vez; el índice único frena al
+    # segundo y el endpoint le devuelve la sesión del primero.
+    import backend.routers.pomodoro as pomodoro_router
+
+    api = seeded["api"]
+    task = seeded["tasks"]["Revisión de idea para cambiar a kanban"]
+    body = stopwatch_body(task, key="carrera")
+    _, first = api.call("POST", "/api/pomodoro", body, expect=201)
+
+    real_lookup = pomodoro_router._session_by_key
+    calls = []
+
+    def racing_lookup(*args):
+        calls.append(args)
+        return None if len(calls) == 1 else real_lookup(*args)
+
+    monkeypatch.setattr(pomodoro_router, "_session_by_key", racing_lookup)
+    _, again = api.call("POST", "/api/pomodoro", body, expect=200)
+    assert again["id"] == first["id"] and len(calls) == 2
+    _, listed = api.call("GET", f"/api/pomodoro?task_id={task['id']}", expect=200)
+    assert len(listed["sessions"]) == 1

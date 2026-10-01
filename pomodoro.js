@@ -452,6 +452,11 @@ function buildPayload(state, startedEpochMs, endedEpochMs, durationSeconds, wasC
         source: isStopwatch(state) ? 'stopwatch' : 'timer',
         was_completed: wasCompleted,
         note,
+        // Si este mismo POST llega dos veces (el navegador murió justo después
+        // de enviarlo, o la cola reintenta uno cuya respuesta se perdió), el
+        // servidor reconoce la sesión por esta clave y no la duplica. Los
+        // estados guardados antes de que existiera sessionId van sin clave.
+        idempotency_key: state.sessionId || null,
     };
 }
 

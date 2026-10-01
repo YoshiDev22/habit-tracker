@@ -673,6 +673,9 @@ class PomodoroSessionCreate(SQLModel):
     was_completed: Optional[bool] = True
     note: Optional[str] = Field(default=None, max_length=200)
     source: Optional[str] = "timer"
+    # El sessionId del timer (pomodoro.js). Mismo usuario y misma clave = la
+    # misma sesión: el segundo POST devuelve la primera en vez de duplicarla.
+    idempotency_key: Optional[str] = Field(default=None, max_length=64)
 
     @field_validator("mode")
     @classmethod
@@ -681,6 +684,14 @@ class PomodoroSessionCreate(SQLModel):
         if v is not None and v not in POMODORO_MODES:
             raise ValueError(f"mode debe ser uno de: {', '.join(POMODORO_MODES)}")
         return v
+
+    @field_validator("idempotency_key")
+    @classmethod
+    def blank_key_is_none(cls, v: Optional[str]) -> Optional[str]:
+        # Una clave vacía no identifica nada: sin ella no se deduplica
+        if v is None:
+            return None
+        return v.strip() or None
 
 
 class PomodoroSessionUpdate(SQLModel):

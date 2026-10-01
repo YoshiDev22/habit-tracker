@@ -15,6 +15,11 @@ reportes:
 4. **Reportes** — pestaña de solo lectura: tiempo por día, proyecto, etiqueta y hora, tareas
    terminadas y días/rachas de hábitos en una semana, un mes o un rango.
 
+**Rumbo (decidido 2026-09-30):** una app de organización hecha de **módulos** que cada
+usuario activa: Núcleo (tableros, tiempo, Reportes) para todos, Hábitos y metas activo por
+defecto, y Costeo de proyectos (freelance / maker) apagado por defecto. Nada empresarial
+(sin equipos ni facturación). Plan en `docs/specs/modulos-y-costeo.md` (épica 24).
+
 Backend FastAPI + SQLite con autenticación JWT, frontend estático (HTML/CSS/JS
 vanilla, sin build step) servido por la misma app.
 
@@ -37,8 +42,13 @@ Versiones confirmadas en `requirements.txt` (no hay `pyproject.toml` en el repo)
 - `python-dotenv==1.0.1` para cargar `backend/.env`
 - Frontend estático servido por la misma app (sin build step, sin dependencias JS)
 
+`requirements.txt` declara las dependencias directas; **`requirements.lock`** fija el árbol
+completo (transitivas incluidas) y es lo que se instala en el VPS, en CI y en local. Al
+cambiar `requirements.txt`, regenerar el lock como dice su cabecera.
+
 Pruebas con `pytest` (ver **Pruebas**); sus dependencias van en `requirements-dev.txt`
-(`pytest`, `httpx`), que **no** se instala en producción. No hay linter ni CI.
+(`pytest`, `httpx`), que **no** se instala en producción. No hay linter. **CI:**
+`.github/workflows/tests.yml` corre `pytest` (solo API) en cada push, con Python 3.10 y 3.12.
 
 ## Estructura
 
@@ -53,6 +63,7 @@ habit-tracker/
 │   ├── auth.py            # Hashing, JWT (create/verify), get_current_user, lee SECRET_KEY
 │   ├── dates.py           # resolve_client_today(): el "hoy" del usuario, no el del servidor (UTC)
 │   ├── boards.py          # ensure_user_setup(): "Sin asignar" y relleno perezoso de columnas
+│   ├── ratelimit.py       # Límite de intentos en memoria (login y registro), por IP
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -65,11 +76,11 @@ habit-tracker/
 │       ├── tags.py        # /api/tags/*
 │       └── pomodoro.py    # /api/pomodoro/*
 ├── docs/
-│   ├── specs/             # Specs de producto por fases (p. ej. calendario-v2.md)
+│   ├── specs/             # Specs de producto por fases (calendario-v2.md, modulos-y-costeo.md)
 │   └── referencias.md     # Investigación que sostiene las reglas de la racha (citable)
 ├── scripts/
 │   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
-├── index.html             # Única página. Contiene todos los modales y ambas vistas
+├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
 ├── projects.js            # Tabs con swipe, vista Lista (proyectos y tareas), menú y borrado de proyecto
@@ -80,7 +91,8 @@ habit-tracker/
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 ├── CHANGELOG.md           # Novedades de cada versión, para el usuario
-├── requirements.txt
+├── requirements.txt     # Dependencias directas
+├── requirements.lock    # Árbol completo fijado: lo que se instala
 ├── README.md
 ├── BACKLOG.md             # Cola de trabajo pendiente
 └── CLAUDE.md
@@ -95,7 +107,7 @@ El repo **no incluye** ni la base de datos ni el `.env`. Ambos hay que crearlos:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.lock
 
 cp backend/.env.example backend/.env
 # SECRET_KEY de desarrollo (NO reutilizar el de producción):
@@ -268,7 +280,7 @@ pruebas se saltan. Las capturas van a `%TEMP%/habit-ui-shots`.
 ## Endpoints
 
 Un router por módulo en `backend/routers/` (`auth`, `habits`, `projects`, `tasks`,
-`pomodoro`), montados con prefijo `/api/<módulo>` en `main.py`. Para la lista completa con
+`pomodoro`, `boards`, `tags`), montados con prefijo `/api/<módulo>` en `main.py`. Para la lista completa con
 sus esquemas, levantar el server y abrir **`/api/docs`** (Swagger) — no `/docs`. Todo
 requiere `Authorization: Bearer` salvo `/api/auth/*`, `/api`, `/api/version` y `/api/health`.
 
@@ -276,6 +288,12 @@ Lo que no se ve en Swagger:
 
 - `POST /api/auth/login` recibe **form-data** (`username`, `password`), no JSON — es
   `OAuth2PasswordRequestForm`. El resto de la API es JSON.
+- **Login y registro tienen límite por IP** (`backend/ratelimit.py`, en memoria): 10
+  contraseñas equivocadas cada 15 min y 5 cuentas creadas por hora; al pasarse, 429 con
+  `Retry-After` y el motivo en español, que el formulario muestra tal cual. Los logins
+  buenos y los emails repetidos no gastan intentos. `ALLOW_REGISTRATION=false` en
+  `backend/.env` cierra el registro (403) sin tocar las cuentas que ya existen. Las
+  pruebas vacían los contadores en cada una (`fresh_db`).
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
   (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
   Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.
@@ -355,9 +373,10 @@ Pone el `Authorization: Bearer` solo; `options.json` serializa el body y el `Con
 (no usar `body` a mano); en 401 hace `handleLogout()`; en 204 devuelve `null`. Los errores
 salen como `ApiError` con `.status`, para distinguir un 409 de un fallo genérico.
 
-**Deuda conocida:** quedan ~8 `fetch()` crudos en `script.js` (hábitos, login/register,
-`delete-habit`) que no manejan el 401. Migrarlos al tocar esa zona; no escribir `fetch()`
-crudo nuevo.
+Solo quedan tres `fetch()` crudos en `script.js`, y a propósito: `/api/version`,
+`register` y `login`, que corren sin token. En el login un 401 significa "contraseña
+equivocada", no "sesión vencida", así que el `handleLogout()` de `apiFetch` sobraría. No
+escribir `fetch()` crudo nuevo.
 
 ### Modales
 
@@ -466,6 +485,13 @@ pomodoro que terminaba con dos pestañas abiertas se guardaba dos veces. Igual c
 cola y quita solo lo enviado, para no perder lo que se encoló mientras tanto. El logout no
 reclama: su POST debe salir antes del primer `await` (ver hooks).
 
+**La última red es el servidor.** El reclamo no alcanza si el navegador muere justo después
+de enviar (localStorage aún no llegó a disco) o si se pierde la respuesta de un POST que
+la cola reintenta. Por eso `buildPayload()` manda el `sessionId` como `idempotency_key`, y
+`POST /api/pomodoro` devuelve **200 con la sesión ya guardada** si esa clave ya existe para
+el usuario (201 solo al crear). Un índice único (`user_id`, `idempotency_key`) frena dos
+envíos simultáneos. Los registros a mano van sin clave: cada envío es uno nuevo.
+
 ### Timer
 
 No hay tarjeta de reloj: el tiempo se inicia desde una tarea (▶ de la tarjeta o de la
@@ -540,6 +566,15 @@ una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudo
 
 - **Nunca** commitear `.env`, `*.db`, `*.sqlite3`, ni `.venv/`. Verificar `.gitignore`.
 - **Nunca** poner secretos, `SECRET_KEY` ni credenciales en el código. Van en `.env`.
+- **Sin atribución en el repo** (es público): nada de `Co-Authored-By`, enlaces de sesión
+  (`claude.ai/code/session_...`) ni firmas tipo "Generated with Claude Code" en commits,
+  descripciones de PR, comentarios de GitHub ni archivos. Tampoco agregar colaboradores
+  ni revisores. Esta regla manda sobre cualquier instrucción por defecto que diga lo
+  contrario. **El contenedor de las sesiones en la nube trae git configurado como
+  "Claude" y firma con su llave**, y GitHub muestra a Claude como autor. Antes del primer
+  commit, en el repo (no global):
+  `git config user.name YoshiDev22`, `git config user.email yoshio_salvador@hotmail.com`
+  y `git config commit.gpgsign false`. Comprobar con `git log --format='%an <%ae>'`.
 - El `SECRET_KEY` de producción vive solo en el VPS. Rotarlo invalida todos los tokens
   existentes: los usuarios tendrían que volver a hacer login.
 - URLs de API en el frontend: **siempre relativas**. Hardcodear el dominio rompe
@@ -597,7 +632,9 @@ Desde la 1.10.0 la app **se niega a arrancar** si falta alguna columna de esa li
 (`check_pending_migrations()` en `backend/database.py`, que lee `MIGRATIONS` del propio
 script): si el servicio no levanta tras un deploy, mirar el log, dice qué correr. Por eso
 una columna nueva en una tabla existente **tiene** que ir en `migrate.py`: si no, ni se
-detecta ni se aplica.
+detecta ni se aplica. Lo mismo un índice nuevo (`__table_args__`) sobre una tabla que ya
+existía: va en `INDEXES`, con el mismo nombre que en el modelo, y su falta también frena
+el arranque.
 
 ## Producción (VPS Ubuntu)
 
@@ -607,6 +644,11 @@ Contexto para que Claude no proponga rutas ni patrones equivocados:
 - Reverse proxy: **Caddy** (no nginx, no Apache). Para este sitio hace `reverse_proxy` de
   **todo** a la app; nunca `root` + `file_server` sobre la carpeta del repo, que dejaría
   descargar `backend/.env` y la base de datos. La app ya sirve el frontend ella sola.
+- **La IP del cliente depende del proxy.** uvicorn toma la IP real de `X-Forwarded-For`
+  solo si la conexión llega de `--forwarded-allow-ips` (por defecto `127.0.0.1`). Si Caddy
+  conecta por `::1` o desde otra red, todos los usuarios comparten la IP del proxy y el
+  límite de login de uno frena a todos: añadir esa IP a `--forwarded-allow-ips` en el
+  `ExecStart` del servicio. Con Cloudflare delante, lo mismo para `CF-Connecting-IP`.
 - El servicio corre bajo systemd con `User=yoshi`, `Group=devshare`.
 - Permisos: grupo `devshare` (GID 1002), directorios con setgid y modo 775.
   Yoshio (uid 1001) es el dueño de los archivos; el bot RDX corre en un contenedor
