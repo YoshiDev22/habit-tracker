@@ -269,8 +269,8 @@ CSV, solo lectura.
 migración. La única columna en una tabla existente es `tasks.estimate_minutes` (Fase 4):
 **va en `scripts/migrate.py`**, y se avisa el impacto antes de escribirla.
 
-**Orden.** Sigue la Fase 2. Antes, cerrar las dos decisiones abiertas de la spec (moneda,
-y cotización sin estados de proyecto). La casilla "Maker" de Mi perfil llega con ella, y
+**Orden.** Sigue la Fase 2, con las decisiones ya cerradas (una moneda por proyecto, y
+cotización = presupuesto sin tiempo, sin estados de proyecto). La casilla "Maker" de Mi perfil llega con ella, y
 sus endpoints comprueban el acceso en el servidor (403), con su prueba.
 
 **Aceptación (de la Fase 2, no de la épica).** Con el plan maker encendido, un proyecto

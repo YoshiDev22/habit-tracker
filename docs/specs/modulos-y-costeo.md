@@ -169,13 +169,15 @@ existen (esas van en `scripts/migrate.py` y tocan producción).
 - Borrar un proyecto (`DELETE /api/projects/{id}`) tendrá que decidir qué pasa con sus
   gastos: lo natural es borrarlos con él, y avisarlo en la confirmación.
 
-## Decisiones abiertas (preguntar antes de implementar)
+## Decisiones
 
-1. **Monedas**: ¿solo MXN o una por proyecto? Una por proyecto es un campo; sumar entre
-   monedas (convertir) no se hace.
-2. **Cotización aceptada o no**: se quitaron los estados de proyecto por falta de uso.
-   Propuesta: no volver a ellos; un proyecto con presupuesto y sin tiempo registrado *es*
-   una cotización. Confirmar.
+Cerradas antes de la Fase 2 (2026-10-01):
+
+1. **Moneda: una por proyecto.** Es un campo del proyecto; no se convierte entre monedas,
+   así que un total que mezcle proyectos se da por moneda, nunca sumado.
+2. **Cotización sin estados de proyecto.** No se vuelve a los estados que se quitaron: un
+   proyecto con presupuesto y sin tiempo registrado *es* una cotización, y la ficha lo
+   dice.
 
 Cerradas en la Fase 1 (2026-10-01): la ficha es un **modal**; tocar un proyecto en la
 Lista abre la ficha y editar va dentro; apagar Hábitos oculta **la pestaña y la tarjeta**
