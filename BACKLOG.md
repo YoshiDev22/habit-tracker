@@ -278,7 +278,9 @@ una **columna a una tabla existente** (`tasks.estimate_minutes`): va en
 
 **Aceptación (de la Fase 4, no de la épica).** Una tarea puede llevar un estimado en
 minutos; su tarjeta muestra "2 h de 3 h", y la ficha y Costos dicen, por etiqueta, cuánto
-se desvía el usuario de lo que estima (real ÷ estimado).
+se desvía el usuario de lo que estima (real ÷ estimado). Decisiones cerradas el 2026-10-01 (estimado para
+todos y desvío solo con Maker, tope de 100 h, qué tareas cuentan, mínimo de 3): en
+`docs/specs/modulos-y-costeo.md`, "Decisiones de la Fase 4".
 
 ---
 

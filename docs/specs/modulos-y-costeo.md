@@ -137,7 +137,8 @@ idempotentes y límite de intentos en login y registro.
 
 > **Plan, sin código** (2026-10-01, sobre 1.18.0 más la Fase 3 sin publicar). Es la primera
 > fase que agrega una **columna a una tabla existente**: leer "Impacto en producción" antes
-> de empezar, y cerrar las preguntas del final.
+> de empezar. Las preguntas quedaron cerradas el 2026-10-01: ver "Decisiones de la Fase 4"
+> al final de esta fase.
 
 - Cada tarea puede llevar un estimado en minutos. La tarjeta muestra "2 h de 3 h".
 - La ficha y la pestaña **Costos** muestran, por etiqueta, **cuánto se desvía el usuario**
@@ -173,12 +174,12 @@ idempotentes y límite de intentos en login y registro.
 
 | Dónde | Hoy | Cambio |
 |---|---|---|
-| `TaskUpdate` | `title`, `notes`, `is_done`, `order`, `project_id`, `column_id`, `tag_ids` | `+ estimate_minutes: Optional[int]`, con `ge=1` y un tope (pregunta 2) |
+| `TaskUpdate` | `title`, `notes`, `is_done`, `order`, `project_id`, `column_id`, `tag_ids` | `+ estimate_minutes: Optional[int]`, con `ge=1` y `le=6000` (100 h; decisión 2) |
 | `PATCH /api/tasks/{id}` | `model_dump(exclude_unset=True)`; un `null` se ignora solo en `column_id` e `is_done` | Mandar `null` borra el estimado y no mandarlo lo deja igual. Nada más que tocar: el `setattr` del final ya aplica el campo |
 | `TaskResponse` | Sin estimado | `+ estimate_minutes: Optional[int] = None`. `_task_responses()` usa `model_validate(t)`, así que sale solo en `GET /api/tasks`, `POST` y `PATCH` |
-| `TaskCreate` | — | Sin cambio en esta fase: las tarjetas se crean solo con título (pregunta 8) |
+| `TaskCreate` | — | Sin cambio en esta fase: las tarjetas se crean solo con título (decisión 8) |
 | `OverviewTask` | `id`, `title`, `is_done`, `seconds` | `+ estimate_minutes` |
-| `ProjectOverview` | Tiempo por tarea, etiqueta y mes, `finance` con el plan | `+ estimates` (bloque de abajo), solo del proyecto |
+| `ProjectOverview` | Tiempo por tarea, etiqueta y mes, `finance` con el plan | `+ estimates` (bloque de abajo), solo del proyecto y solo con el plan encendido, como `finance` (decisión 1) |
 | `GET /api/costs/estimates` | No existe | **Nuevo**, en `routers/costs.py` tras `maker_user`: el mismo bloque con todos los proyectos. Ruta literal: declararla antes de las paramétricas (`/{cost_id}`) |
 
 El cálculo vive **en una sola función pura** (p. ej. `estimate_deviation()` en
@@ -193,10 +194,15 @@ estimates: {
 }
 ```
 
-**La regla del desvío (propuesta, ver preguntas 3 a 5):**
+**La regla del desvío (decisiones 3 a 5):**
 
-- Cuentan las tareas **terminadas**, **con estimado** y con tiempo registrado. Una abierta
-  todavía no tiene su tiempo real.
+- Cuentan las tareas **con estimado** y con tiempo registrado que sean:
+  - **terminadas**, con su tiempo final;
+  - o **abiertas que ya pasaron su estimado**, con el tiempo que llevan: ya se sabe que se
+    desviaron, y al terminar solo pueden desviarse más.
+- Una abierta que va por debajo de su estimado **no cuenta todavía**: su tiempo real no se
+  conoce, y contarla diría "tardas 0.3×" de una tarea a medias. Esto inclina la cifra un
+  poco hacia "tardas más", que para cotizar es lo prudente.
 - Tiempo real = sus sesiones `focus`, el mismo criterio que `seconds` de `TaskResponse`
   (vale también en proyectos archivados).
 - Por etiqueta, **cociente de sumas**: tiempo real total ÷ estimado total de esas tareas.
@@ -205,17 +211,25 @@ estimates: {
   así que las filas no se suman entre sí; el total general cuenta cada tarea una vez.
 - El backend devuelve **enteros**: `ratio_pct` = real × 100 ÷ estimado, con redondeo de
   .5 hacia arriba (`ROUND_HALF_UP`), nunca `round()`. La pantalla pinta "1.6×".
-- Con menos de N tareas en una fila, la fila dice "todavía hay poco historial" en vez de
-  una cifra (principio 2: no fingir precisión).
+- Con menos de **3 tareas** en una fila (etiqueta, *Sin etiqueta* o total), la fila dice
+  "todavía hay poco historial" en vez de una cifra (principio 2: no fingir precisión).
+- **Periodo**: todo el historial. Si la entrada 29 del backlog le pone periodo a Costos,
+  se aplica aquí por fecha de terminada (`completed_at`); una abierta que ya se pasó, por
+  la fecha de hoy.
 
 #### Dónde se ve
+
+El campo y el "de 3 h" son **para todos**, con o sin el plan Maker: planear sirve aunque
+no se cobre, así que el `PATCH` del estimado no comprueba el módulo. El desvío ("tardas
+1.6×") **solo con Maker encendido**, en la ficha y en Costos (decisión 1).
 
 - **Detalle de la tarjeta** (`#cardModal`, `board.js`): campo **Estimado** en
   `.card-fields`, junto a Columna y Proyecto, con horas y minutos como el registro a mano.
   Se guarda al cambiarlo, como los demás campos; vacío = sin estimado.
 - **Tarjeta del tablero** (`buildCard()`): "2 h de 3 h" en `.board-card-time`. Mientras
-  corre el cronómetro, el reloj en vivo ocupa ese sitio, como hoy.
-- **Lista** (`projects.js`, `.task-time`): el mismo "de 3 h" (pregunta 6).
+  corre el cronómetro, el reloj en vivo ocupa ese sitio, como hoy. Pasado del estimado, el
+  número va en el color de alerta del tema, sin avisos ni notificaciones (decisión 7).
+- **Lista** (`projects.js`, `.task-time`): el mismo "de 3 h", también en color de alerta al pasarse (decisión 6).
 - **Ficha** (`project-overview.js`): en *Tareas*, cada fila con "de X"; y una tarjeta
   nueva **Estimado contra real** con el bloque `estimates` del proyecto: por etiqueta,
   real contra estimado y "tardas 1.6× lo que estimas".
@@ -235,8 +249,11 @@ De API (`pytest`):
 - `tests/test_isolation.py`: `PATCH` del estimado de una tarea ajena → 404, y
   `/api/costs/estimates` no trae tareas ni etiquetas de otra cuenta.
 - `tests/test_deploy.py`: lo de "Impacto en producción".
-- La regla: las tareas abiertas no cuentan; cociente de sumas; una tarea con dos
-  etiquetas, en las dos; *Sin etiqueta*; redondeo de .5 hacia arriba; menos de N tareas →
+- El estimado se guarda sin el plan Maker (decisión 1), y la ficha no trae `estimates`
+  con el plan apagado.
+- La regla: una abierta por debajo de su estimado no cuenta, y una que ya lo pasó cuenta
+  con el tiempo que lleva; cociente de sumas; una tarea con dos
+  etiquetas, en las dos; *Sin etiqueta*; redondeo de .5 hacia arriba; menos de 3 tareas →
   sin cifra; y una prueba de cuadre: para un mismo proyecto, la ficha y Costos dan lo
   mismo.
 - Módulo: `/api/costs/estimates` responde 403 sin el plan (con `maker_on()` de
@@ -250,25 +267,23 @@ De navegador (`pytest -m ui`):
   prueba (las del fixture son de ayer y no tienen estimado).
 - `ui_costs.py`: *Tus estimados* con el plan encendido, y que no sale sin él.
 
-#### Preguntas para Yoshio (antes de implementar)
+#### Decisiones de la Fase 4 (2026-10-01)
 
-1. **¿Estimado para todos o solo Maker?** Propuesta: el campo y el "2 h de 3 h" para todos,
-   porque planear sirve aunque no se cobre; el desvío, en la ficha y en Costos, solo con el
-   plan, porque es la base del cotizador. Si el campo fuera solo Maker, el `PATCH` tendría
-   que dar 403 al mandarlo sin el plan: el acceso se comprueba en el servidor, no solo
-   ocultando la UI.
-2. **Tope del estimado.** Propuesta: de 1 minuto a 6000 (100 h) por tarea. Más que eso
-   suele ser un proyecto, no una tarea.
-3. **¿Qué tareas cuentan?** Propuesta: solo las terminadas. Alternativa: también las
-   abiertas que ya pasaron su estimado, porque esas ya se sabe que se desviaron.
-4. **Mínimo para dar una cifra.** Propuesta: 3 tareas por fila.
-5. **Periodo.** Propuesta: todo el historial. Si la entrada 29 decide un periodo para
-   Costos, aplicarlo aquí por fecha de terminada (`completed_at`).
-6. **¿"de X" también en la Lista?** Propuesta: sí, para que cuadre con el tablero.
-7. **¿La tarjeta cambia de color al pasarse del estimado?** Propuesta: sí, el número en el
-   color de alerta del tema; sin avisos ni notificaciones (principio 1: estimar, no vigilar).
-8. **¿Estimado al crear la tarjeta?** Propuesta: no ahora; se agrega a `TaskCreate` cuando
-   el cotizador de la Fase 5 cree tareas previstas con su estimado.
+1. **El estimado es para todos; el desvío, solo con Maker.** El campo y el "2 h de 3 h"
+   los ve cualquiera, porque planear sirve aunque no se cobre. El "tardas 1.6× lo que
+   estimas" (ficha y Costos) solo con el plan encendido, porque es la base del cotizador.
+2. **Tope: de 1 minuto a 6000 (100 h) por tarea.** Más que eso suele ser un proyecto.
+3. **Cuentan las terminadas y las abiertas que ya pasaron su estimado.** Las abiertas por
+   debajo todavía no, porque su tiempo real no se conoce. La cifra se inclina un poco
+   hacia "tardas más", que para cotizar es lo prudente.
+4. **Mínimo: 3 tareas por fila.** Con menos, "todavía hay poco historial".
+5. **Periodo: todo el historial.** Si la entrada 29 decide un periodo para Costos, se
+   aplica aquí también.
+6. **"de X" también en la Lista**, para que cuadre con el tablero.
+7. **Pasado del estimado, el número en color de alerta.** Sin avisos ni notificaciones
+   (principio 1: estimar, no vigilar).
+8. **Sin estimado al crear la tarjeta por ahora.** Se pone en el detalle; se agrega a
+   `TaskCreate` cuando el cotizador de la Fase 5 cree tareas previstas con su estimado.
 
 ### Fase 5 — Cotizador con historial
 
