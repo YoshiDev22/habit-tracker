@@ -166,8 +166,9 @@ async def main():
             await b.shot("reports_week", full=True)
         if STAGE >= 6:
             s6 = await b.js("""(() => {
-                const card = [...document.querySelectorAll('.report-card')].find(c => c.querySelector('.report-streak'));
-                return {pos: [...document.querySelectorAll('.report-card')].indexOf(card),
+                const cards = [...document.querySelectorAll('#reportsBody .report-card')];
+                const card = cards.find(c => c.querySelector('.report-streak'));
+                return {pos: cards.indexOf(card),
                         streak: card.querySelector('.streak-count').textContent,
                         facts: card.querySelector('.report-streak-facts').textContent,
                         rows: [...card.querySelectorAll('.report-bar-row')].map(r => [r.querySelector('.report-bar-name').textContent,
