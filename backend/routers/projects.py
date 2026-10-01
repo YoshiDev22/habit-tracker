@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User, Project, ProjectFinance, Task, PomodoroSession, Tag, TaskTag
+from backend.models import User, Project, ProjectCost, ProjectFinance, Task, PomodoroSession, Tag, TaskTag
 from backend.schemas import (
     OverviewMonth,
     OverviewTag,
@@ -21,6 +21,7 @@ from backend.schemas import (
 )
 from backend.auth import get_current_user
 from backend.boards import ensure_user_setup, unassigned_project_id
+from backend.costing import costs_cents_by_project, finance_response, finance_row
 from backend.routers.auth import require_module, user_modules
 
 router = APIRouter(tags=["projects"])
@@ -182,37 +183,13 @@ def _focus_seconds(session: Session, user_id: int, project_id: int) -> int:
     ).all())
 
 
-def _percent(part: int, whole: Optional[int]) -> Optional[int]:
-    return round(part * 100 / whole) if whole else None
-
-
-def _finance_response(project_id: int, row: Optional[ProjectFinance], total_seconds: int) -> ProjectFinanceResponse:
-    """El costeo guardado (o vacío, sin fila) cruzado con el tiempo del proyecto.
-    Todo en centavos enteros: la mano de obra se redondea una sola vez."""
-    rate = row.hourly_rate_cents if row else None
-    labor = round(total_seconds * rate / 3600) if rate is not None else None
-    budget_cents = row.budget_cents if row else None
-    budget_minutes = row.budget_minutes if row else None
-    return ProjectFinanceResponse(
-        project_id=project_id,
-        client_name=row.client_name if row else None,
-        hourly_rate_cents=rate,
-        currency=row.currency if row else "MXN",
-        budget_cents=budget_cents,
-        budget_minutes=budget_minutes,
-        total_seconds=total_seconds,
-        labor_cents=labor,
-        budget_money_pct=_percent(labor, budget_cents) if labor is not None else None,
-        budget_time_pct=_percent(total_seconds, budget_minutes * 60 if budget_minutes else None),
-        # Una cotización: hay presupuesto y aún no se ha trabajado en él
-        is_quote=bool(budget_cents or budget_minutes) and total_seconds == 0,
+def _project_finance(session: Session, user_id: int, project_id: int) -> ProjectFinanceResponse:
+    """El costeo de un proyecto con su tiempo y sus gastos (backend/costing.py)"""
+    return finance_response(
+        project_id, finance_row(session, user_id, project_id),
+        _focus_seconds(session, user_id, project_id),
+        costs_cents_by_project(session, user_id, [project_id]).get(project_id, 0),
     )
-
-
-def _finance_row(session: Session, user_id: int, project_id: int) -> Optional[ProjectFinance]:
-    return session.exec(
-        select(ProjectFinance).where(ProjectFinance.user_id == user_id, ProjectFinance.project_id == project_id)
-    ).first()
 
 
 @router.get("/{project_id}/finance", response_model=ProjectFinanceResponse)
@@ -224,8 +201,7 @@ def get_project_finance(
     """Costeo del proyecto (plan maker): 403 sin el módulo encendido."""
     require_module(session, current_user, "maker")
     _own_project(session, current_user.id, project_id)
-    row = _finance_row(session, current_user.id, project_id)
-    return _finance_response(project_id, row, _focus_seconds(session, current_user.id, project_id))
+    return _project_finance(session, current_user.id, project_id)
 
 
 @router.put("/{project_id}/finance", response_model=ProjectFinanceResponse)
@@ -260,16 +236,15 @@ def update_project_finance(
         session.add(row)
         session.commit()
 
-    row = _finance_row(session, current_user.id, project_id)
+    row = finance_row(session, current_user.id, project_id)
     try:
         apply(row or ProjectFinance(user_id=current_user.id, project_id=project_id))
     except IntegrityError:
         # Otra petición creó la fila a la vez (uq_project_finance_project)
         session.rollback()
-        apply(_finance_row(session, current_user.id, project_id))
+        apply(finance_row(session, current_user.id, project_id))
 
-    row = _finance_row(session, current_user.id, project_id)
-    return _finance_response(project_id, row, _focus_seconds(session, current_user.id, project_id))
+    return _project_finance(session, current_user.id, project_id)
 
 
 @router.get("/{project_id}/overview", response_model=ProjectOverview)
@@ -335,7 +310,10 @@ def get_project_overview(
     total_seconds = sum(s.duration_seconds for s in focus)
     finance = None
     if not project.is_system and user_modules(session, current_user.id)["maker"]["enabled"]:
-        finance = _finance_response(project_id, _finance_row(session, current_user.id, project_id), total_seconds)
+        finance = finance_response(
+            project_id, finance_row(session, current_user.id, project_id), total_seconds,
+            costs_cents_by_project(session, current_user.id, [project_id]).get(project_id, 0),
+        )
     return ProjectOverview(
         project=ProjectResponse.model_validate(project),
         total_seconds=total_seconds,
@@ -502,10 +480,15 @@ def delete_project(
             s.project_id = unassigned_id
             session.add(s)
 
-    # Su costeo (plan maker) no tiene sentido sin él: se va con el proyecto
-    finance = _finance_row(session, current_user.id, project_id)
+    # Su costeo y sus gastos (plan maker) no tienen sentido sin él: se van con
+    # el proyecto. Archivarlo los conserva.
+    finance = finance_row(session, current_user.id, project_id)
     if finance:
         session.delete(finance)
+    for cost in session.exec(
+        select(ProjectCost).where(ProjectCost.project_id == project_id, ProjectCost.user_id == current_user.id)
+    ).all():
+        session.delete(cost)
 
     session.delete(project)
     session.commit()

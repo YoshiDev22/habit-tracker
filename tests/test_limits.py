@@ -116,3 +116,27 @@ def test_project_finance(api):
     assert api.call("PUT", url, {"client_name": "x" * 121})[0] == 422
     api.call("PUT", url, {"client_name": "x" * 120}, expect=200)
     assert api.call("GET", "/api/projects/999999/finance")[0] == 404
+
+
+def test_costs_and_categories(api):
+    from test_finance import maker_on
+    api.login("gastos-tope@test.com")
+    maker_on(api, "gastos-tope@test.com")
+    _, p = api.call("POST", "/api/projects", {"name": "P"}, expect=201)
+    _, cats = api.call("GET", "/api/costs/categories", expect=200)
+    cat = cats["categories"][0]["id"]
+    ok = {"project_id": p["id"], "category_id": cat, "cost_date": date.today().isoformat(), "concept": "x"}
+    assert api.call("POST", "/api/costs/categories", {"name": "x" * 41})[0] == 422
+    api.call("POST", "/api/costs/categories", {"name": "x" * 40}, expect=201)
+    assert api.call("POST", "/api/costs/categories", {"name": "y", "color": "rojo"})[0] == 422
+    assert api.call("PATCH", f"/api/costs/categories/{cat}", {"order": -1})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "concept": "x" * 201})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "concept": ""})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "note": "x" * 501})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "quantity": 0})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "quantity": 1_000_001})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "unit_cost_cents": -1})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "unit_cost_cents": 100_000_000_001})[0] == 422
+    assert api.call("POST", "/api/costs", {**ok, "cost_date": "ayer"})[0] == 422
+    api.call("POST", "/api/costs", {**ok, "concept": "x" * 200, "note": "x" * 500, "quantity": 1_000_000,
+                                    "unit_cost_cents": 100_000_000_000}, expect=201)

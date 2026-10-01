@@ -65,6 +65,7 @@ habit-tracker/
 │   ├── boards.py          # ensure_user_setup(): "Sin asignar" y relleno perezoso de columnas
 │   ├── ratelimit.py       # Límite de intentos en memoria (login y registro), por IP
 │   ├── modules.py         # MODULES: módulos por cuenta y sus valores por defecto (sin dependencias)
+│   ├── costing.py         # Dinero del plan maker: mano de obra, gastos, costo y margen (centavos)
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -75,6 +76,7 @@ habit-tracker/
 │       ├── tasks.py       # /api/tasks/*       (+ /{id}/checklist y /{id}/comments)
 │       ├── boards.py      # /api/boards/*      (+ /{id}/columns)
 │       ├── tags.py        # /api/tags/*
+│       ├── costs.py       # /api/costs/*      (gastos, categorías y resumen; plan maker)
 │       └── pomodoro.py    # /api/pomodoro/*
 ├── docs/
 │   ├── specs/             # Specs de producto por fases (calendario-v2.md, modulos-y-costeo.md)
@@ -149,7 +151,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 ## Modelo de datos
 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
-`ProjectFinance`, `Task`,
+`ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`,
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -322,7 +324,19 @@ Lo que no se ve en Swagger:
   no se guarda. Una moneda por proyecto y nunca se convierte: un total entre proyectos va
   por moneda. Con presupuesto y sin tiempo, `is_quote` (no hay estados de proyecto). La
   ficha lleva el mismo bloque en `finance` solo si el plan está encendido. "Sin asignar" no
-  se costea (409); borrar un proyecto borra su costeo.
+  se costea (409); borrar un proyecto borra su costeo y sus gastos.
+- **Gastos (pestaña Costos)**: `/api/costs` (router `costs.py`, todo tras `maker_user`, que
+  es `require_module(..., "maker")` como dependencia). Un gasto (`project_costs`) tiene
+  categoría, fecha, concepto, cantidad (decimal: no es dinero) y costo unitario en
+  centavos; su total no se guarda. `/api/costs/import` mete varios de una vez (pegados de
+  Excel/Sheets o de un CSV): **o todos o ninguno**, hasta 500. Las categorías
+  (`cost_categories`) son del usuario: las cinco de inicio las crea
+  `ensure_cost_categories()` la primera vez (perezoso, como "Sin asignar"); una con gastos
+  o la última no se borran (409). `/api/costs/summary` da costo y margen por proyecto, el
+  gasto por categoría y los totales **por moneda**. Los cálculos viven en
+  `backend/costing.py` y los usan la ficha y la pestaña, para que cuadren: **redondeo de
+  .5 hacia arriba** (`ROUND_HALF_UP`, con enteros o `Decimal`), nunca `round()`, que
+  redondea al par.
   En la UI: la casilla **Maker** de Mi perfil solo se ve con `allowed`, y la sección
   Costeo de la ficha (`renderCosting()` en `project-overview.js`) guarda cada campo al
   cambiarlo y solo repinta el resultado, para no quitarle el foco al siguiente. El dinero

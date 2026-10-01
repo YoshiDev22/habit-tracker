@@ -490,6 +490,136 @@ class ProjectFinanceUpdate(SQLModel):
         return v
 
 
+MAX_COST_QUANTITY = 1_000_000
+MAX_IMPORT_ROWS = 500
+
+
+class CostCategoryCreate(SQLModel):
+    """Categoría de gasto nueva (plan maker)"""
+    name: str = Field(min_length=1, max_length=40)
+    color: Optional[str] = None
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class CostCategoryUpdate(SQLModel):
+    """Renombrar, recolorear u ordenar una categoría de gasto (PATCH parcial)"""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    color: Optional[str] = None
+    order: Optional[int] = Field(default=None, ge=0, le=10_000)
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
+class CostCategoryResponse(SQLModel):
+    id: int
+    name: str
+    color: Optional[str] = None
+    order: int
+    cost_count: int = 0      # cuántos gastos la usan: con alguno, no se borra
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CostCategoryListResponse(SQLModel):
+    categories: List[CostCategoryResponse]
+
+
+class ProjectCostFields(SQLModel):
+    """Lo que el usuario escribe de un gasto. El total no se manda: se calcula."""
+    category_id: int
+    cost_date: date_type
+    concept: str = Field(min_length=1, max_length=200)
+    quantity: float = Field(default=1, gt=0, le=MAX_COST_QUANTITY)
+    unit_cost_cents: int = Field(default=0, ge=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
+class ProjectCostCreate(ProjectCostFields):
+    project_id: int
+
+
+class ProjectCostUpdate(SQLModel):
+    """Editar un gasto celda por celda (PATCH parcial)"""
+    category_id: Optional[int] = None
+    cost_date: Optional[date_type] = None
+    concept: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    quantity: Optional[float] = Field(default=None, gt=0, le=MAX_COST_QUANTITY)
+    unit_cost_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
+class ProjectCostImport(SQLModel):
+    """Varios gastos de una vez (pegados de una hoja o de un CSV, ya revisados
+    en la vista previa). O entran todos o ninguno."""
+    project_id: int
+    rows: List[ProjectCostFields] = Field(min_length=1, max_length=MAX_IMPORT_ROWS)
+
+
+class ProjectCostResponse(SQLModel):
+    id: int
+    project_id: int
+    category_id: int
+    cost_date: date_type
+    concept: str
+    quantity: float
+    unit_cost_cents: int
+    total_cents: int          # cantidad × costo unitario, redondeado al centavo
+    note: Optional[str] = None
+
+
+class ProjectCostListResponse(SQLModel):
+    costs: List[ProjectCostResponse]   # del más reciente al más antiguo
+    total_cents: int
+    currency: str
+
+
+class CostsProjectSummary(SQLModel):
+    """Una fila del resumen de la pestaña Costos"""
+    project_id: int
+    name: str
+    color: Optional[str] = None
+    is_active: bool
+    currency: str
+    total_seconds: int
+    hourly_rate_cents: Optional[int] = None
+    labor_cents: Optional[int] = None
+    costs_cents: int
+    total_cost_cents: int                 # mano de obra (si hay tarifa) + gastos
+    budget_cents: Optional[int] = None
+    margin_cents: Optional[int] = None    # presupuesto − costo, con presupuesto en dinero
+    is_quote: bool = False
+
+
+class CostsCategorySummary(SQLModel):
+    category_id: int
+    name: str
+    color: Optional[str] = None
+    currency: str
+    cents: int
+
+
+class CostsCurrencyTotal(SQLModel):
+    """Totales de una moneda: no se convierte entre monedas, nunca se suman"""
+    currency: str
+    labor_cents: int
+    costs_cents: int
+    total_cost_cents: int
+    budget_cents: int
+
+
+class CostsSummaryResponse(SQLModel):
+    projects: List[CostsProjectSummary]
+    categories: List[CostsCategorySummary]   # por moneda, de mayor a menor
+    totals: List[CostsCurrencyTotal]
+
+
 class ProjectFinanceResponse(SQLModel):
     """
     Costeo de un proyecto y lo que sale de cruzarlo con su tiempo de enfoque
@@ -506,6 +636,10 @@ class ProjectFinanceResponse(SQLModel):
     budget_money_pct: Optional[int] = None    # mano de obra ÷ presupuesto en dinero
     budget_time_pct: Optional[int] = None     # tiempo ÷ presupuesto en tiempo
     is_quote: bool = False                    # con presupuesto y sin tiempo todavía
+    # Fase 3: los gastos del proyecto y lo que suman con la mano de obra
+    costs_cents: int = 0
+    total_cost_cents: int = 0                 # mano de obra (si hay tarifa) + gastos
+    margin_cents: Optional[int] = None        # presupuesto − costo, con presupuesto en dinero
 
 
 class OverviewTask(SQLModel):

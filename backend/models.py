@@ -221,6 +221,45 @@ class ProjectFinance(SQLModel, table=True):
     budget_minutes: Optional[int] = Field(default=None) # ...y/o en tiempo
 
 
+class CostCategory(SQLModel, table=True):
+    """
+    Categoría de gasto del usuario (plan maker, Fase 3): "Material", "IA"...
+    Cada cuenta recibe cinco al entrar a Costos por primera vez
+    (ensure_cost_categories en routers/costs.py) y las renombra, pinta, ordena
+    o crea. Una con gastos no se borra. Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "cost_categories"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_cost_categories_user_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    name: str
+    color: Optional[str] = Field(default=None)
+    order: int = Field(default=0)
+
+
+class ProjectCost(SQLModel, table=True):
+    """
+    Un gasto de un proyecto (plan maker, Fase 3): licencias, materiales,
+    servicios... Lo que no es mano de obra. En la moneda del proyecto
+    (project_finance.currency). El total del renglón = cantidad × costo
+    unitario, redondeado al centavo; no se guarda. Se borra con su proyecto.
+    Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "project_costs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
+    category_id: int = Field(foreign_key="cost_categories.id")
+
+    cost_date: date_type                      # fecha local del gasto
+    concept: str
+    quantity: float = Field(default=1)        # no es dinero: 2.5 m de tela, 3 licencias
+    unit_cost_cents: int = Field(default=0)   # dinero: centavos enteros
+    note: Optional[str] = Field(default=None)
+
+
 class Task(SQLModel, table=True):
     """
     Tarea: la tarjeta del tablero. Vive en una columna de un tablero

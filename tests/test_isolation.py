@@ -129,3 +129,30 @@ def test_time_and_habits(seeded):
     assert other.call("DELETE", f"/api/habits/pauses/{mine_pause['id']}?today={today}")[0] == 404
     # Marcar un día toca solo los registros propios: el hábito ajeno no existe para él
     assert other.call("PATCH", "/api/habits/day/2026-01-05", {"habit_key": "gym", "done": True})[0] == 404
+
+
+def test_costs(seeded):
+    from test_finance import maker_on
+    api, other = seeded["api"], seeded["other"]
+    maker_on(api, "yoshi@test.com")
+    maker_on(other, "otro@test.com")
+    pid = seeded["project"]["id"]
+    _, cats = api.call("GET", "/api/costs/categories", expect=200)
+    cat = cats["categories"][0]["id"]
+    row = {"category_id": cat, "cost_date": date.today().isoformat(), "concept": "Base", "unit_cost_cents": 100}
+    _, cost = api.call("POST", "/api/costs", {"project_id": pid, **row}, expect=201)
+    _, theirs = other.call("GET", "/api/costs/categories", expect=200)
+    their_cat = theirs["categories"][0]["id"]
+    their_pid = seeded["other_project"]["id"]
+    # Ni ver, ni tocar, ni usar mis gastos, mis categorías o mis proyectos
+    assert other.call("GET", f"/api/costs?project_id={pid}")[0] == 404
+    assert other.call("POST", "/api/costs", {"project_id": pid, **row, "category_id": their_cat})[0] == 404
+    assert other.call("POST", "/api/costs/import", {"project_id": pid, "rows": [{**row, "category_id": their_cat}]})[0] == 404
+    assert other.call("POST", "/api/costs", {"project_id": their_pid, **row})[0] == 404, "my category in their project"
+    assert other.call("PATCH", f"/api/costs/{cost['id']}", {"concept": "hack"})[0] == 404
+    assert other.call("DELETE", f"/api/costs/{cost['id']}")[0] == 404
+    assert other.call("PATCH", f"/api/costs/categories/{cat}", {"name": "hack"})[0] == 404
+    assert other.call("DELETE", f"/api/costs/categories/{cat}")[0] == 404
+    _, sm = other.call("GET", "/api/costs/summary", expect=200)
+    assert all(r["project_id"] != pid for r in sm["projects"]) and sm["categories"] == []
+    assert api.call("GET", f"/api/costs?project_id={pid}", expect=200)[1]["costs"][0]["concept"] == "Base"
