@@ -56,7 +56,8 @@ async def main():
         await b.js(CLOSE_WELCOME)
         tabs = await b.js(TABS)
         wide = await b.js("document.documentElement.scrollWidth")
-        check(tabs == ["tabCalendar", "tabProjects", "tabReports", "tabCosts"], f"Costos is the fourth tab with Maker on ({tabs})")
+        check(tabs == ["tabCalendar", "tabProjects", "tabCosts", "tabReports"],
+              f"Costos goes after Tableros, Reportes stays last ({tabs})")
         check(wide <= 390, f"four tabs fit a phone ({wide}px)")
 
         await b.js("document.getElementById('tabCosts').click()")
@@ -123,6 +124,22 @@ async def main():
         text = await b.js(f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]').textContent")
         check(f"{row['total_cost_cents'] / 100:,.2f}" in text, f"summary row shows cost and margin ({text})")
 
+        # "En qué se va el dinero": la mano de obra es una barra más, y la leyenda
+        # oculta o muestra cada una; las que quedan se reescalan
+        CHART = "document.querySelector('.costs-breakdown')"
+        BARS = f"[...{CHART}.querySelectorAll('.report-bar-row')].map(r => [r.querySelector('.report-bar-name').textContent, r.querySelector('.report-bar-fill').style.width])"
+        bars = await b.js(BARS)
+        names = [n for n, _ in bars]
+        check(names[0] == "Mano de obra" or "Mano de obra" in names, f"labor is one of the bars ({names})")
+        await b.js(f"{CHART}.querySelector('.costs-legend-item[data-key=\"labor\"]').click()")
+        after = await b.js(BARS)
+        check("Mano de obra" not in [n for n, _ in after] and after[0][1] == "100%",
+              f"hiding labor removes its bar and the biggest left fills the width ({after})")
+        pressed = await b.js(f"{CHART}.querySelector('[data-key=\"labor\"]').getAttribute('aria-pressed')")
+        check(pressed == "false", "its legend dot shows it is hidden")
+        await b.js(f"{CHART}.querySelector('.costs-legend-item[data-key=\"labor\"]').click()")
+        check(len(await b.js(BARS)) == len(bars), "tapping it again brings it back")
+
         # Una categoría con gastos no se borra: el motivo se ve tal cual
         await b.js("document.getElementById('costsCategories').open = true")
         await asyncio.sleep(0.3)
@@ -130,6 +147,25 @@ async def main():
         await b.wait_for("!document.getElementById('costsCategoryError').classList.contains('hidden')")
         err = await b.js("document.getElementById('costsCategoryError').textContent")
         check("gasto" in err, f"a category with costs is not deleted ({err})")
+
+        # Arrastrar una categoría por su asa: "Hosting" (la última) al principio
+        moved = await b.js("""(async () => {
+            const list = document.getElementById('costsCategoryList');
+            const rows = () => [...list.querySelectorAll('.config-row')];
+            const source = rows().find(r => r.querySelector('.config-name').value === 'Hosting');
+            const target = rows()[0];
+            source.querySelector('.config-drag').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
+            const dt = new DataTransfer();
+            source.dispatchEvent(new DragEvent('dragstart', {bubbles: true, dataTransfer: dt}));
+            const y = target.getBoundingClientRect().top + 2;
+            list.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, clientY: y, dataTransfer: dt}));
+            list.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, clientY: y, dataTransfer: dt}));
+            return true;
+        })()""")
+        cats = await wait_api("/api/costs/categories", lambda body: body["categories"][0]["name"] == "Hosting")
+        check(moved and cats["categories"][0]["name"] == "Hosting",
+              f"dragging a category by its handle reorders it ({[c['name'] for c in cats['categories']]})")
+        await b.wait_for("document.querySelector('#costsCategoryList .config-row .config-name').value === 'Hosting'")
 
         wide = await b.js("document.documentElement.scrollWidth")
         check(wide <= 390, f"the page itself never scrolls sideways ({wide}px)")
@@ -153,6 +189,32 @@ async def main():
         await asyncio.sleep(0.5)
         st = await b.js("({wide: document.body.classList.contains('costs-wide'), w: Math.round(document.querySelector('.app-container').getBoundingClientRect().width)})")
         check(st["wide"] and st["w"] > 900, f"desktop widens the app for the sheet ({st})")
+
+        # Presupuesto y mano de obra (su tarifa) se editan tocando la celda
+        ROW = f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]')"
+        await b.js(f"{ROW}.querySelector('[data-edit=\"budget_cents\"]').click()")
+        await b.js("""(() => { const i = document.querySelector('.costs-cell-input'); i.value = '8000';
+            i.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); })()""")
+        fin = await wait_api(f"/api/projects/{ht['id']}/finance", lambda body: body["budget_cents"] == 800000)
+        check(fin["budget_cents"] == 800000, "tapping the budget cell edits it (Enter saves)")
+        await b.js(f"{ROW}.querySelector('[data-edit=\"hourly_rate_cents\"]').click()")
+        await b.js("""(() => { const i = document.querySelector('.costs-cell-input'); i.value = '400';
+            i.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); })()""")
+        fin = await wait_api(f"/api/projects/{ht['id']}/finance", lambda body: body["hourly_rate_cents"] == 40000)
+        await b.wait_for(f"{ROW}.textContent.includes('8,000.00')")
+        text = await b.js(f"{ROW}.textContent")
+        check(fin["hourly_rate_cents"] == 40000 and f"{fin['labor_cents'] / 100:,.2f}" in text,
+              f"tapping labor edits the hourly rate, and the row recomputes ({text})")
+        await b.js(f"{ROW}.querySelector('[data-edit=\"budget_cents\"]').click()")
+        await b.js("""(() => { const i = document.querySelector('.costs-cell-input'); i.value = '1';
+            i.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); })()""")
+        await asyncio.sleep(0.3)
+        check(api.call("GET", f"/api/projects/{ht['id']}/finance", expect=200)[1]["budget_cents"] == 800000,
+              "Escape cancels the edit")
+        _, cats = api.call("GET", "/api/costs/categories", expect=200)
+        hosting = next(c for c in cats["categories"] if c["name"] == "Hosting")
+        check(hosting["color"] and hosting["color"].lower() not in {c["color"].lower() for c in cats["categories"] if c["id"] != hosting["id"]},
+              f"an imported category gets a color nobody uses ({hosting['color']})")
         await b.shot("costs_desktop", full=False)
         await b.js("window.scrollTo(0, document.querySelector('.costs-sheet-card').getBoundingClientRect().top + window.scrollY)")
         await asyncio.sleep(0.3)

@@ -338,7 +338,8 @@ Lo que no se ve en Swagger:
   `backend/costing.py` y los usan la ficha y la pestaña, para que cuadren: **redondeo de
   .5 hacia arriba** (`ROUND_HALF_UP`, con enteros o `Decimal`), nunca `round()`, que
   redondea al par.
-- **Pestaña Costos** (`costs.js`): la cuarta vista (`'costs'`), oculta en el HTML y
+- **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va
+  siempre al final; el orden de `VIEWS` y el de las secciones del HTML deben coincidir), oculta en el HTML y
   mostrada por `applyCostsModule()` con el plan encendido. Si se recargó estando en ella,
   vuelve (`goToView()` no sobrescribe `last_view` cuando la vista pedida aún no se ve).
   En computadora ensancha la app como el tablero (`body.costs-wide`). La hoja edita en
@@ -347,6 +348,9 @@ Lo que no se ve en Swagger:
   CSV abre la vista previa (`parseTable()` → `rowsToCosts()`): separador tab, `;` o `,`;
   dinero con coma o punto decimal; fechas `AAAA-MM-DD` o día primero (`30/09/2026`); las
   categorías desconocidas se pueden crear. Nada se guarda hasta "Agregar".
+  En el resumen, la mano de obra y el presupuesto de cada proyecto se editan tocando la
+  celda (la mano de obra cambia la tarifa). "En qué se va el dinero" suma mano de obra y
+  categorías; su leyenda oculta barras solo de la gráfica (`hiddenBreakdown`).
 - **Nunca `scrollIntoView()` dentro de una vista**: también desplaza en horizontal
   `#viewsViewport` (con `overflow: hidden` sigue siendo desplazable por código) y la vista
   queda corrida. Desplazar con `window.scrollTo()`. `projects.js` además devuelve el

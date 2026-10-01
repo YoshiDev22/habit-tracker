@@ -144,22 +144,81 @@ function renderCostsSummary() {
         cards.push(reportCard('Por proyecto', costsProjectTable(summary.projects)));
     }
 
-    if (summary.categories.length) {
-        const byCurrency = new Map();
-        summary.categories.forEach(c => {
-            if (!byCurrency.has(c.currency)) byCurrency.set(c.currency, []);
-            byCurrency.get(c.currency).push(c);
-        });
-        byCurrency.forEach((rows, currency) => {
-            const list = barList(rows.map(c => ({ name: c.name, color: c.color, seconds: c.cents })));
-            // barList formatea segundos: aquí cada valor es dinero
-            list.querySelectorAll('.report-bar-value').forEach((value, i) => {
-                value.textContent = formatMoney(rows[i].cents, currency);
-            });
-            cards.push(reportCard(byCurrency.size > 1 ? `Gastos por categoría · ${currency}` : 'Gastos por categoría', list));
+    // En qué se va el dinero, por moneda: la mano de obra (horas × tarifa) como
+    // una barra más, y cada categoría de gasto
+    summary.totals.forEach(total => {
+        const rows = [];
+        if (total.labor_cents > 0) {
+            rows.push({ key: 'labor', name: 'Mano de obra', color: 'var(--accent)', cents: total.labor_cents });
+        }
+        summary.categories
+            .filter(c => c.currency === total.currency)
+            .forEach(c => rows.push({ key: `cat-${c.category_id}`, name: c.name, color: c.color, cents: c.cents }));
+        if (!rows.length) return;
+        const title = summary.totals.length > 1 ? `En qué se va el dinero · ${total.currency}` : 'En qué se va el dinero';
+        cards.push(reportCard(title, costsBreakdownChart(rows, total.currency)));
+    });
+    costsSummaryEl.replaceChildren(...cards);
+}
+
+// Ocultas de la gráfica (no de los totales), en esta sesión: "labor" o "cat-<id>"
+const hiddenBreakdown = new Set();
+
+// Barras de dinero con su leyenda abajo: tocar un punto oculta o muestra esa
+// barra, y las demás se reescalan a la más grande de las que quedan
+function costsBreakdownChart(rows, currency) {
+    const wrap = el('div', 'costs-breakdown');
+    const bars = el('ul', 'report-bars');
+    const legend = el('div', 'costs-legend');
+    legend.setAttribute('role', 'group');
+    legend.setAttribute('aria-label', 'Mostrar u ocultar en la gráfica');
+
+    function paint() {
+        const visible = rows.filter(r => !hiddenBreakdown.has(r.key));
+        const max = Math.max(1, ...visible.map(r => r.cents));
+        const sum = visible.reduce((total, r) => total + r.cents, 0);
+        bars.replaceChildren(...visible.map(r => {
+            const item = el('li', 'report-bar-row');
+            const head = el('div', 'report-bar-head');
+            const name = el('span', 'report-bar-name');
+            const dot = el('i', 'report-bar-dot');
+            if (r.color) dot.style.background = r.color;
+            name.append(dot, document.createTextNode(r.name));
+            const value = el('span', 'report-bar-value', formatMoney(r.cents, currency));
+            if (sum) value.appendChild(el('span', 'report-bar-pct', ` · ${Math.round(r.cents / sum * 100)}%`));
+            head.append(name, value);
+            const track = el('div', 'report-bar-track');
+            const fill = el('div', 'report-bar-fill');
+            fill.style.width = `${(r.cents / max) * 100}%`;
+            if (r.color) fill.style.background = r.color;
+            track.appendChild(fill);
+            item.append(head, track);
+            return item;
+        }));
+        if (!visible.length) bars.appendChild(el('li', 'costs-legend-empty', 'Todo está oculto: toca un punto para mostrarlo.'));
+        legend.querySelectorAll('[data-key]').forEach(button => {
+            button.setAttribute('aria-pressed', String(!hiddenBreakdown.has(button.dataset.key)));
         });
     }
-    costsSummaryEl.replaceChildren(...cards);
+
+    rows.forEach(r => {
+        const button = el('button', 'costs-legend-item');
+        button.type = 'button';
+        button.dataset.key = r.key;
+        button.title = 'Mostrar u ocultar en la gráfica';
+        const dot = el('i', 'report-bar-dot');
+        if (r.color) dot.style.background = r.color;
+        button.append(dot, document.createTextNode(r.name));
+        button.addEventListener('click', () => {
+            if (hiddenBreakdown.has(r.key)) hiddenBreakdown.delete(r.key);
+            else hiddenBreakdown.add(r.key);
+            paint();
+        });
+        legend.appendChild(button);
+    });
+    paint();
+    wrap.append(bars, legend);
+    return wrap;
 }
 
 function costsProjectTable(projects) {
@@ -186,13 +245,25 @@ function costsProjectTable(projects) {
         const money = cents => (cents == null ? '—' : formatMoney(cents, p.currency));
         const margin = el('td', p.margin_cents == null ? '' : (p.margin_cents < 0 ? 'negative' : 'positive'),
             money(p.margin_cents));
+        // Mano de obra y presupuesto se editan tocándolos. La mano de obra se
+        // calcula (horas × tarifa): lo que se cambia es la tarifa por hora.
+        const labor = el('td', 'col-hide-narrow costs-editable', money(p.labor_cents));
+        labor.dataset.edit = 'hourly_rate_cents';
+        labor.dataset.value = p.hourly_rate_cents == null ? '' : (p.hourly_rate_cents / 100).toFixed(2);
+        labor.title = p.hourly_rate_cents == null
+            ? 'Toca para poner la tarifa por hora'
+            : `Tarifa: ${formatMoney(p.hourly_rate_cents, p.currency)}/h. Toca para cambiarla`;
+        const budget = el('td', 'col-hide-narrow costs-editable', money(p.budget_cents));
+        budget.dataset.edit = 'budget_cents';
+        budget.dataset.value = p.budget_cents == null ? '' : (p.budget_cents / 100).toFixed(2);
+        budget.title = 'Toca para cambiar el presupuesto';
         row.append(
             name,
             el('td', 'col-hide-narrow', formatDuration(p.total_seconds)),
-            el('td', 'col-hide-narrow', money(p.labor_cents)),
+            labor,
             el('td', 'col-hide-narrow', money(p.costs_cents)),
             el('td', '', money(p.total_cost_cents)),
-            el('td', 'col-hide-narrow', money(p.budget_cents)),
+            budget,
             margin,
         );
         tbody.appendChild(row);
@@ -202,12 +273,64 @@ function costsProjectTable(projects) {
     return wrap;
 }
 
+// Editar en la celda: un campo en su lugar; Enter o salir guarda, Escape cancela
+function startCostsCellEdit(td) {
+    if (td.querySelector('input')) return;
+    const projectId = Number(td.closest('tr').dataset.projectId);
+    const field = td.dataset.edit;
+    const shown = td.textContent;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = '0.01';
+    input.inputMode = 'decimal';
+    input.className = 'costs-cell-input';
+    input.value = td.dataset.value;
+    input.placeholder = field === 'hourly_rate_cents' ? 'Tarifa/h' : 'Presupuesto';
+    input.setAttribute('aria-label', field === 'hourly_rate_cents' ? 'Tarifa por hora' : 'Presupuesto');
+    td.replaceChildren(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    const finish = async (save) => {
+        if (done) return;
+        done = true;
+        if (!save || input.value === td.dataset.value) {
+            td.textContent = shown;
+            return;
+        }
+        costsError.classList.add('hidden');
+        try {
+            await apiFetch(`/api/projects/${projectId}/finance`, {
+                method: 'PUT',
+                json: { [field]: input.value === '' ? null : centsFromInput(input.value) },
+            });
+            await refreshCostsSummary();
+        } catch (error) {
+            td.textContent = shown;
+            showError(costsError, error.message);
+        }
+    };
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+        else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+}
+
 costsSummaryEl.addEventListener('click', (event) => {
+    const editable = event.target.closest('.costs-editable');
+    if (editable) {
+        startCostsCellEdit(editable);
+        return;
+    }
+    if (event.target.closest('.costs-cell-input')) return;
     const row = event.target.closest('tr[data-project-id]');
     if (row) selectCostsProject(Number(row.dataset.projectId), { scroll: true });
 });
 costsSummaryEl.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
+    if (event.key !== 'Enter' || event.target.closest('.costs-cell-input')) return;
     const row = event.target.closest('tr[data-project-id]');
     if (row) selectCostsProject(Number(row.dataset.projectId), { scroll: true });
 });
@@ -576,6 +699,16 @@ function openCostsImport(text) {
     showModal(costsImportModal);
 }
 
+// Un color que ninguna categoría use, para las que se crean al importar: sin
+// color salían del mismo azul que la mano de obra en la gráfica
+const CATEGORY_PALETTE = ['#e67e22', '#3498db', '#27ae60', '#9b59b6', '#95a5a6', '#e74c3c',
+    '#1abc9c', '#f1c40f', '#e84393', '#8d6e63', '#34495e', '#00b894'];
+
+function freeCategoryColor() {
+    const used = new Set(costsState.categories.map(c => (c.color || '').toLowerCase()));
+    return CATEGORY_PALETTE.find(color => !used.has(color)) || CATEGORY_PALETTE[costsState.categories.length % CATEGORY_PALETTE.length];
+}
+
 function closeCostsImport() {
     costsState.pending = null;
     hideModal(costsImportModal);
@@ -593,7 +726,10 @@ async function confirmCostsImport() {
         const created = new Map();
         if (document.getElementById('costsImportNewCats').checked) {
             for (const name of pending.newCategories) {
-                const category = await apiFetch('/api/costs/categories', { method: 'POST', json: { name: name.slice(0, 40) } });
+                const category = await apiFetch('/api/costs/categories', {
+                    method: 'POST', json: { name: name.slice(0, 40), color: freeCategoryColor() },
+                });
+                costsState.categories.push(category);   // para que la siguiente tome otro color
                 created.set(name, category.id);
             }
         }
@@ -649,6 +785,11 @@ function renderCostCategories() {
     costsCategoryList.replaceChildren(...costsState.categories.map((c, i, all) => {
         const row = el('div', 'config-row');
         row.dataset.categoryId = String(c.id);
+        // Asa para arrastrar, como las columnas de Organizar (con mouse; en
+        // táctil quedan las flechas)
+        const handle = el('span', 'config-drag', '⠿');
+        handle.title = 'Arrastra para ordenar';
+        handle.setAttribute('aria-hidden', 'true');
         const color = document.createElement('input');
         color.type = 'color';
         color.className = 'config-color';
@@ -668,7 +809,7 @@ function renderCostCategories() {
         down.dataset.delta = '1';
         down.disabled = i === all.length - 1;
         const remove = configButton('config-action danger cost-cat-delete', `Eliminar ${c.name}`, '×');
-        row.append(color, name, count, up, down, remove);
+        row.append(handle, color, name, count, up, down, remove);
         return row;
     }));
 }
@@ -701,16 +842,85 @@ costsCategoryList.addEventListener('click', (event) => {
     }
     const move = event.target.closest('.cost-cat-move');
     if (!move) return;
-    // Reescribe el orden de las que cambian de lugar, como las columnas
     const list = [...costsState.categories];
     const from = list.findIndex(c => c.id === id);
     const to = from + Number(move.dataset.delta);
     if (to < 0 || to >= list.length) return;
     [list[from], list[to]] = [list[to], list[from]];
+    saveCategoryOrder(list);
+});
+
+// Reescribe el orden de las que cambian de lugar, como las columnas
+function saveCategoryOrder(list) {
+    if (!list.some((c, index) => c.order !== index)) return;
     costCategoryAction(() => Promise.all(list
         .map((c, index) => ({ c, index }))
         .filter(({ c, index }) => c.order !== index)
         .map(({ c, index }) => apiFetch(`/api/costs/categories/${c.id}`, { method: 'PATCH', json: { order: index } }))));
+}
+
+// Arrastrar por el asa ⠿: la fila solo es arrastrable mientras se sujeta,
+// para que se pueda seleccionar el texto del nombre
+let draggedCategoryId = null;
+const categoryDropIndicator = el('div', 'drop-indicator');
+
+costsCategoryList.addEventListener('pointerdown', (event) => {
+    const handle = event.target.closest('.config-drag');
+    if (handle) handle.closest('.config-row').draggable = true;
+});
+
+costsCategoryList.addEventListener('dragstart', (event) => {
+    const row = event.target.closest('.config-row');
+    if (!row || !row.draggable) return;
+    draggedCategoryId = Number(row.dataset.categoryId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', row.dataset.categoryId);
+    row.classList.add('dragging');
+});
+
+function categoryRowBeforePointer(clientY) {
+    return [...costsCategoryList.querySelectorAll('.config-row:not(.dragging)')].find(row => {
+        const box = row.getBoundingClientRect();
+        return clientY < box.top + box.height / 2;
+    }) || null;
+}
+
+costsCategoryList.addEventListener('dragover', (event) => {
+    if (draggedCategoryId === null) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const before = categoryRowBeforePointer(event.clientY);
+    if (before) costsCategoryList.insertBefore(categoryDropIndicator, before);
+    else costsCategoryList.appendChild(categoryDropIndicator);
+});
+
+costsCategoryList.addEventListener('drop', (event) => {
+    if (draggedCategoryId === null) return;
+    event.preventDefault();
+    const before = categoryRowBeforePointer(event.clientY);
+    const moved = costsState.categories.find(c => c.id === draggedCategoryId);
+    const others = costsState.categories.filter(c => c.id !== draggedCategoryId);
+    let index = before ? others.findIndex(c => c.id === Number(before.dataset.categoryId)) : others.length;
+    if (index < 0) index = others.length;
+    endCategoryDrag();
+    saveCategoryOrder([...others.slice(0, index), moved, ...others.slice(index)]);
+});
+
+function endCategoryDrag() {
+    draggedCategoryId = null;
+    categoryDropIndicator.remove();
+    costsCategoryList.querySelectorAll('.config-row').forEach(row => {
+        row.draggable = false;
+        row.classList.remove('dragging');
+    });
+}
+
+costsCategoryList.addEventListener('dragend', endCategoryDrag);
+// Soltar el asa sin arrastrar no debe dejar la fila arrastrable
+document.addEventListener('pointerup', () => {
+    if (draggedCategoryId === null) {
+        costsCategoryList.querySelectorAll('.config-row[draggable="true"]').forEach(row => { row.draggable = false; });
+    }
 });
 
 document.getElementById('costsCategoryForm').addEventListener('submit', (event) => {
@@ -730,6 +940,7 @@ document.getElementById('costsCategoryForm').addEventListener('submit', (event) 
 
 function resetCosts() {
     Object.assign(costsState, { summary: null, categories: [], projectId: null, costs: [], loaded: false, pending: null });
+    hiddenBreakdown.clear();
     costsSummaryEl.replaceChildren();
     costsRows.replaceChildren();
     hideModal(costsImportModal);

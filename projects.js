@@ -66,9 +66,10 @@ const confirmProjectDeleteBtn = document.getElementById('confirmProjectDeleteBtn
 const VIEWS = [
     { id: 'calendar', tab: tabCalendar, section: document.getElementById('viewCalendar') },
     { id: 'projects', tab: tabProjects, section: document.getElementById('viewProjects') },
-    { id: 'reports', tab: tabReports, section: document.getElementById('viewReports') },
-    // Solo con el plan Maker (costs.js la muestra): nace oculta en el HTML
+    // Solo con el plan Maker (costs.js la muestra): nace oculta en el HTML.
+    // Va antes de Reportes, que siempre es la última.
     { id: 'costs', tab: tabCosts, section: document.getElementById('viewCosts') },
+    { id: 'reports', tab: tabReports, section: document.getElementById('viewReports') },
 ];
 
 // Posición de la vista activa entre las que se ven (la que mueve el track) y
