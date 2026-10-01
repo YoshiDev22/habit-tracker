@@ -384,6 +384,19 @@
                 <div id="profileError" class="form-error hidden"></div>
                 <button type="submit" class="submit-btn">Guardar</button>
             </form>
+            <!-- De la cuenta (viaja entre dispositivos), y se guarda al tocarlo,
+                 sin pasar por Guardar. Apagar un módulo solo lo oculta. -->
+            <div class="device-settings" id="moduleSettings">
+                <p class="device-settings-title">Módulos de tu cuenta</p>
+                <label class="module-option">
+                    <input type="checkbox" id="moduleHabits" data-module="habits">
+                    <span class="module-text">
+                        <span class="module-name">Hábitos y metas</span>
+                        <span class="module-hint">La pestaña Calendario, tu racha y los hábitos en Reportes. Si lo apagas, tus registros se guardan y vuelven al encenderlo.</span>
+                    </span>
+                </label>
+                <div id="moduleError" class="form-error hidden"></div>
+            </div>
             <!-- No es del perfil: se guarda en este dispositivo y se aplica al
                  tocarlo, sin pasar por Guardar -->
             <div class="device-settings">

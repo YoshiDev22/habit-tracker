@@ -349,6 +349,7 @@ Todo corre en el scope global compartido. Cuidado con colisiones de nombres entr
 | `window.appInitHooks` | Al final de `initApp()`, siempre (haya sesión o no) |
 | `window.appDataHooks` | Cuando el usuario queda autenticado: login, registro y reload con token |
 | `window.appLogoutHooks` | **Primera** acción de `handleLogout()`, con el token todavía vivo. Arrancan todos a la vez (no en serie): solo el código **hasta su primer `await`** corre con token, así que el POST de despedida va antes de cualquier `await` |
+| `window.modulesChangedHooks` | Tras encender o apagar un módulo en **Mi perfil**, con `currentUser.modules` ya actualizado. Al entrar no corren: cada módulo mira `moduleEnabled(nombre)` en su propio hook de datos |
 
 ```js
 // Al final del archivo nuevo:
@@ -361,6 +362,11 @@ window.appLogoutHooks.push(limpiarMiModulo); // último POST + limpiar localStor
 los demás, solo hace `console.error`. `appLogoutHooks` corre antes de `removeToken()`
 justamente para que un módulo pueda hacer un último POST autenticado (lo usa `pomodoro.js`
 para guardar la sesión en curso antes de perder el token).
+
+**Módulos apagados.** `moduleEnabled('habits')` (script.js) dice si el usuario usa Hábitos.
+Apagado, `habits.js` oculta la vista con `setViewVisible('calendar', false)` y el ⚙️, no pide
+nada de hábitos ni abre sus avisos, y Reportes no pide ni pinta su tarjeta. Al cerrar sesión
+el Calendario vuelve a verse para quien entre. Un módulo nuevo sigue el mismo patrón.
 
 `projects.js` declara dos más, suyos:
 

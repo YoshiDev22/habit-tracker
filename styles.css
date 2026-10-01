@@ -2124,6 +2124,41 @@ body.has-pomodoro-bar {
     color: var(--text-secondary);
 }
 
+/* Módulos de la cuenta, en Mi perfil */
+.module-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.module-option input {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.module-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.module-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.module-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+#moduleError {
+    margin-top: 8px;
+}
+
 .board-filters {
     display: flex;
     flex-direction: column;

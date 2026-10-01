@@ -199,7 +199,10 @@ async function fetchReportData() {
         apiFetch(`/api/tags/summary?${rangeQuery(from, to)}${tagQuery}`),
         apiFetch(completedQuery(from, to)),
         apiFetch(completedQuery(prev.from, prev.to)),
-        apiFetch(`/api/habits/report?${rangeQuery(from, to)}&today=${getDateKey(new Date())}`),
+        // Con el módulo Hábitos apagado no se pide ni se pinta su tarjeta
+        moduleEnabled('habits')
+            ? apiFetch(`/api/habits/report?${rangeQuery(from, to)}&today=${getDateKey(new Date())}`)
+            : null,
     ]);
     return {
         sessions, prevSessions, projects: projectsData.projects, tagSummary,
@@ -317,6 +320,7 @@ function daysText(n) {
 
 function renderHabits({ habitReport }) {
     const report = habitReport;
+    if (!report) return null;
     if (report.habits.length === 0) {
         return reportCard('Hábitos', reportsMessage('Aún no tienes hábitos: configúralos desde el Calendario.'));
     }
@@ -884,3 +888,7 @@ window.projectsChangedHooks.push(() => {
 // (última pestaña recordada) antes de que corran los appInitHooks de aquí.
 initReports();
 window.appLogoutHooks.push(resetReports);
+// Encender o apagar Hábitos quita o pone su tarjeta
+window.modulesChangedHooks.push(() => {
+    if (isReportsVisible()) loadReports();
+});

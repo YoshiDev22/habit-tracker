@@ -1679,7 +1679,7 @@ let missedDayDate = null;
 
 function askMissedYesterday() {
     const missed = streakInfo && streakInfo.missedYesterday;
-    if (!missed || !currentUser || HABITS.length === 0) return;
+    if (!missed || !currentUser || !moduleEnabled('habits') || HABITS.length === 0) return;
     // Otro modal a la vista (bienvenida, tope del cronómetro…): no encimarse
     if (document.querySelector('.modal:not(.hidden)')) return;
     const askedFor = `${currentUser.id}:${missed.date}`;
@@ -1750,31 +1750,52 @@ addCustomHabitBtn.disabled = true;
 // del nombre— que ya nadie lee.
 localStorage.removeItem('habit_labels');
 
-// Definiciones y días del backend. Va antes que askMissedYesterday, que lee
-// la racha que deja loadHabitsFromAPI().
+// El módulo se puede apagar en Mi perfil (moduleEnabled('habits')). Apagado,
+// no se ve la pestaña Calendario ni el ⚙️ de hábitos, y no se pide nada al
+// backend; sus datos siguen ahí y vuelven al encenderlo.
+let habitsLoaded = false;
+
+async function applyHabitsModule() {
+    const on = moduleEnabled('habits');
+    setViewVisible('calendar', on);
+    settingsBtn.hidden = !on;
+    if (on && !habitsLoaded) {
+        await loadHabitDefinitionsFromAPI();
+        await loadHabitsFromAPI();
+        habitsLoaded = true;
+    }
+}
+
+// Al entrar, siempre desde cero: puede ser otra cuenta. Va antes que
+// askMissedYesterday, que lee la racha que deja loadHabitsFromAPI().
 async function loadHabitsModule() {
-    await loadHabitDefinitionsFromAPI();
-    await loadHabitsFromAPI();
+    habitsLoaded = false;
+    await applyHabitsModule();
 }
 
 // Solo al recargar con sesión (appInitHooks), como antes: si no hay hábitos
 // definidos, se abre la configuración. Con el token vencido no hay usuario.
 function offerHabitsSetup() {
-    if (currentUser && HABITS.length === 0) {
+    if (currentUser && moduleEnabled('habits') && HABITS.length === 0) {
         showHabitsSetup();
     }
 }
 
 // La lista del modal se repinta desde el backend cada vez que se abre, y los
 // hábitos del localStorage se quedan para no configurarlos de nuevo: solo se
-// olvida lo que es de la sesión.
+// olvida lo que es de la sesión. Quien entre después ve el Calendario, hasta
+// saber si lo tiene apagado.
 function clearHabitsState() {
     currentStreak = null;
     streakInfo = null;
     habitsData = {};
+    habitsLoaded = false;
+    setViewVisible('calendar', true);
+    settingsBtn.hidden = false;
 }
 
 window.appDataHooks.push(loadHabitsModule);
 window.appDataHooks.push(askMissedYesterday);
 window.appInitHooks.push(offerHabitsSetup);
 window.appLogoutHooks.push(clearHabitsState);
+window.modulesChangedHooks.push(applyHabitsModule);

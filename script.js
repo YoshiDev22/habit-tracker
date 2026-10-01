@@ -9,6 +9,7 @@ const API_BASE_URL = '';  // Usar URL relativa
 window.appInitHooks = [];    // corren al final de initApp(), siempre
 window.appDataHooks = [];    // corren cuando el usuario queda autenticado (login/register/reload)
 window.appLogoutHooks = [];  // corren como PRIMERA acción de handleLogout(), antes de removeToken()
+window.modulesChangedHooks = [];  // corren tras encender o apagar un módulo en Mi perfil
 
 // Ejecuta una lista de hooks en orden; un hook que falla no detiene a los demás.
 async function runHooks(hooks) {
@@ -26,6 +27,13 @@ async function runHooks(hooks) {
 // ============================================
 
 let currentUser = null;
+
+// Si un módulo de la cuenta (backend/modules.py) está encendido. Sin usuario
+// cargado, solo Hábitos: es lo que tiene una cuenta por defecto.
+function moduleEnabled(name) {
+    const state = currentUser && currentUser.modules && currentUser.modules[name];
+    return state ? state.enabled : name === 'habits';
+}
 
 // ============================================
 // Elementos del DOM - Auth
@@ -48,6 +56,7 @@ const logoutBtn = document.getElementById('logoutBtn');
 const profileModal = document.getElementById('profileModal');
 const profileForm = document.getElementById('profileForm');
 const profileError = document.getElementById('profileError');
+const moduleError = document.getElementById('moduleError');
 const confirmModal = document.getElementById('confirmModal');
 const confirmModalTitle = document.getElementById('confirmModalTitle');
 const confirmModalMessage = document.getElementById('confirmModalMessage');
@@ -376,7 +385,37 @@ function showProfile() {
         firstName: currentUser.first_name || '',
         lastName: currentUser.last_name || ''
     };
+    moduleError.classList.add('hidden');
+    moduleInputs().forEach(input => {
+        input.checked = moduleEnabled(input.dataset.module);
+    });
     showModal(profileModal);
+}
+
+function moduleInputs() {
+    return [...document.querySelectorAll('#moduleSettings [data-module]')];
+}
+
+// Un módulo se guarda al tocarlo, como el tamaño del texto: no es parte del
+// formulario ni de su "¿Guardar estos cambios?".
+async function handleModuleToggle(event) {
+    const input = event.target.closest('[data-module]');
+    if (!input) return;
+    moduleError.classList.add('hidden');
+    input.disabled = true;
+    try {
+        currentUser = await apiFetch(`/api/auth/me/modules/${input.dataset.module}`, {
+            method: 'PUT',
+            json: { enabled: input.checked }
+        });
+    } catch (error) {
+        input.checked = !input.checked;
+        showError(moduleError, error.message);
+        return;
+    } finally {
+        input.disabled = false;
+    }
+    await runHooks(window.modulesChangedHooks);
 }
 
 function isProfileDirty() {
@@ -515,6 +554,7 @@ logoutBtn.addEventListener('click', handleLogout);
 // Perfil, desde el nombre en la barra de usuario
 userEmail.addEventListener('click', showProfile);
 profileForm.addEventListener('submit', handleProfileSave);
+document.getElementById('moduleSettings').addEventListener('change', handleModuleToggle);
 
 // La fecha LOCAL del usuario como "AAAA-MM-DD". La usa toda la app: hábitos,
 // sesiones de tiempo, Reportes y el ?today= de la API.
