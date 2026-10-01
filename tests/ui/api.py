@@ -1,6 +1,8 @@
 """Cliente urllib contra el servidor de la prueba (BASE lo fija tests/ui/conftest.py)."""
+import asyncio
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -31,6 +33,18 @@ def call(method, path, body=None, form=None, expect=None):
     if expect is not None and status != expect:
         raise AssertionError(f"{method} {path} -> {status} (expected {expect}): {payload}")
     return status, payload
+
+
+async def wait_api(path, ok, timeout=8.0):
+    """GET `path` hasta que ok(body) se cumpla (o se acabe el tiempo) y devuelve
+    el último body. Para lo que un clic guarda en el backend: con la máquina
+    ocupada, una espera fija a veces no alcanzaba."""
+    deadline = time.monotonic() + timeout
+    while True:
+        _, body = call("GET", path, expect=200)
+        if ok(body) or time.monotonic() > deadline:
+            return body
+        await asyncio.sleep(0.2)
 
 
 def login(email, password=PASSWORD):

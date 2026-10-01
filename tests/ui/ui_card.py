@@ -2,7 +2,7 @@ import asyncio
 import json
 import sys
 
-from api import call
+from api import call, wait_api
 from cdp import Browser
 from ui_board import seed, CLOSE_WELCOME, BASE
 
@@ -119,7 +119,7 @@ async def main():
         check(first == "Listo el backend", "new comment appears first")
         await b.js("[...document.querySelectorAll('.card-comment')].find(c => c.innerText.includes('Investigar GTD')).querySelector('.card-comment-delete').click()")
         await confirm_yes()
-        _, cm = call("GET", f"/api/tasks/{t['id']}/comments", expect=200)
+        cm = await wait_api(f"/api/tasks/{t['id']}/comments", lambda body: len(body["comments"]) == 1)
         check([c["body"] for c in cm["comments"]] == ["Listo el backend"], "own comment deleted after confirm")
 
         # Move to Hecho via column select, close, board reflects it

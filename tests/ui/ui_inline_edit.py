@@ -3,7 +3,7 @@ import asyncio
 import json
 import sys
 
-from api import call
+from api import call, wait_api
 from cdp import Browser
 from ui_board import seed, CLOSE_WELCOME, BASE
 
@@ -98,8 +98,8 @@ async def main():
         st = await js("({open: !document.getElementById('cardModal').classList.contains('hidden'), body: document.querySelector('#cardComments .card-comment-body').textContent})")
         check(st == {"open": True, "body": "Investigar GTD, Personal Kanban y Scrumban"}, f"Escape cancels the comment edit ({st})")
         await js("document.querySelector('#cardComments .card-comment-edit').click()", wait=0.3)
-        await js(f"{ta}.value = 'Investigar GTD'; " + key(ta, "Enter", ctrl=True), wait=1.2)
-        _, cs = call("GET", f"/api/tasks/{kanban['id']}/comments", expect=200)
+        await js(f"{ta}.value = 'Investigar GTD'; " + key(ta, "Enter", ctrl=True), wait=0.3)
+        cs = await wait_api(f"/api/tasks/{kanban['id']}/comments", lambda body: body["comments"][0]["body"] == "Investigar GTD")
         check(cs["comments"][0]["body"] == "Investigar GTD", f"Ctrl+Enter saves ({cs['comments'][0]['body']})")
 
         # Reopen the card: the edits are there
