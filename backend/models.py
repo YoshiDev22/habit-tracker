@@ -291,6 +291,11 @@ class Task(SQLModel, table=True):
     completed_at: Optional[date_type] = Field(default=None)
     created_at: date_type = Field(default_factory=date_type.today)
 
+    # Estimado en minutos (épica 24, Fase 4); NULL = sin estimado. Columna
+    # AÑADIDA a una tabla existente: la agrega scripts/migrate.py como NULL,
+    # así que ninguna tarea vieja queda con un estimado inventado.
+    estimate_minutes: Optional[int] = Field(default=None)
+
 
 class Tag(SQLModel, table=True):
     """
