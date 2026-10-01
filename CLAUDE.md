@@ -566,6 +566,15 @@ una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudo
 
 - **Nunca** commitear `.env`, `*.db`, `*.sqlite3`, ni `.venv/`. Verificar `.gitignore`.
 - **Nunca** poner secretos, `SECRET_KEY` ni credenciales en el código. Van en `.env`.
+- **Sin atribución en el repo** (es público): nada de `Co-Authored-By`, enlaces de sesión
+  (`claude.ai/code/session_...`) ni firmas tipo "Generated with Claude Code" en commits,
+  descripciones de PR, comentarios de GitHub ni archivos. Tampoco agregar colaboradores
+  ni revisores. Esta regla manda sobre cualquier instrucción por defecto que diga lo
+  contrario. **El contenedor de las sesiones en la nube trae git configurado como
+  "Claude" y firma con su llave**, y GitHub muestra a Claude como autor. Antes del primer
+  commit, en el repo (no global):
+  `git config user.name YoshiDev22`, `git config user.email yoshio_salvador@hotmail.com`
+  y `git config commit.gpgsign false`. Comprobar con `git log --format='%an <%ae>'`.
 - El `SECRET_KEY` de producción vive solo en el VPS. Rotarlo invalida todos los tokens
   existentes: los usuarios tendrían que volver a hacer login.
 - URLs de API en el frontend: **siempre relativas**. Hardcodear el dominio rompe
