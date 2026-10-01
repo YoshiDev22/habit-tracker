@@ -96,12 +96,16 @@ idempotentes y límite de intentos en login y registro.
   `habits.js`, y las vistas se nombran por id (`setViewVisible()`).
 - Sin dinero todavía. Útil para cualquiera, esté o no activo el plan maker.
 
-### Fase 2 — Tarifa y presupuesto
+### Fase 2 — Tarifa y presupuesto ✅ (1.18.0)
 
-- Por proyecto: cliente (texto libre, **no** una tabla de clientes), tarifa por hora,
-  moneda, presupuesto opcional (monto u horas).
-- La ficha suma **mano de obra = horas × tarifa** y, si hay presupuesto, el avance
-  ("62 % del presupuesto, 38 % de las tareas").
+- Por proyecto (`project_finance`, `GET`/`PUT /api/projects/{id}/finance`): cliente
+  (texto libre, **no** una tabla de clientes), tarifa por hora, moneda (una de una lista
+  cerrada) y presupuesto opcional en dinero y/o en horas. 403 sin el plan maker encendido.
+- La ficha, en su tarjeta **Costeo**, suma **mano de obra = horas × tarifa** y, si hay
+  presupuesto, su avance en dinero y en horas, con barras (en rojo al pasarse). Las tareas
+  hechas contra totales ya estaban en el Resumen de la ficha.
+- Con presupuesto y sin tiempo, la etiqueta **Cotización**. "Sin asignar" no se costea.
+- La casilla **Maker** aparece en Mi perfil para las cuentas con acceso.
 
 ### Fase 3 — Gastos y materiales
 
@@ -157,7 +161,7 @@ existen (esas van en `scripts/migrate.py` y tocan producción).
 | Fase | Cambio | Tipo | Migración |
 |---|---|---|---|
 | 1 ✅ | `user_modules` (`user_id`, `module`, `enabled`, `allowed`), único por (usuario, módulo). Sin fila o NULL = valor por defecto del módulo | Tabla nueva | No |
-| 2 | `project_finance` (`project_id` único, `user_id`, `client_name`, `hourly_rate_cents`, `currency`, `budget_cents`, `budget_minutes`) | Tabla nueva, 1 a 1 con `projects` | No |
+| 2 ✅ | `project_finance` (`project_id` único, `user_id`, `client_name`, `hourly_rate_cents`, `currency`, `budget_cents`, `budget_minutes`) | Tabla nueva, 1 a 1 con `projects` | No |
 | 3 | `project_costs` (`user_id`, `project_id`, `cost_date`, `concept`, `category`, `quantity`, `unit_cost_cents`, `note`) | Tabla nueva | No |
 | 4 | `tasks.estimate_minutes` (NULL = sin estimado) | Columna nueva | **Sí**: `migrate.py` + `test_deploy.py` |
 | 6 | `project_finance.sheet_csv_url` | Columna en la tabla de la Fase 2 | No, si la Fase 2 aún no salió; si ya salió, sí |

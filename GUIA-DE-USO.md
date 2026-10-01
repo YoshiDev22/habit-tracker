@@ -165,6 +165,13 @@ total de la tarjeta y con Reportes. También se abre con el **📊** de cada pro
 
 **Editar un proyecto**: desde su ficha, con **✎ Editar**.
 
+**Costeo (plan Maker)**: si tu cuenta tiene el plan Maker y lo enciendes en *Mi perfil ›
+Módulos de tu cuenta*, la ficha de cada proyecto trae una tarjeta **Costeo**: cliente,
+tarifa por hora, moneda y presupuesto (en dinero, en horas o los dos). Cada dato se guarda
+al cambiarlo. La tarjeta calcula la **mano de obra** (horas trabajadas × tarifa) y cuánto
+del presupuesto llevas; si un proyecto tiene presupuesto pero todavía no tiene tiempo, lo
+marca como **Cotización**.
+
 **Archivar o eliminar**: el botón **⋯** de la tarjeta.
 
 > **Archivar** conserva todo el historial y solo lo esconde de la lista.
