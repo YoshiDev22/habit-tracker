@@ -10,8 +10,9 @@ commit. Al terminar, borrar la entrada de este archivo en el mismo commit que la
 server local y fallaron de forma observable. Las marcadas *diagnosticado* salen de leer el
 código y no se reprodujeron todavía.
 
-Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros) y el
-2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas).
+Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros), el
+2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas) y el 2026-10-01
+(Fase 1 de la 24 terminada).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
@@ -255,9 +256,11 @@ unas X horas") más materiales y gastos. **No es un CRM**: nada de prospectos ni
   el interruptor de módulos.
 - **Nada cuesta.** Los módulos no son planes de pago; si algún día los hay, el
   interruptor ya marca la frontera.
+- **Plan maker (2026-10-01)**: Costeo se presenta como plan maker, gratis pero solo para
+  las cuentas con acceso (`scripts/grant_module.py`). Códigos de invitación, después.
 
 **Fases** (cada una se despliega sola): 0 base sólida ✅ (lock, CI, sesiones
-idempotentes, límite de login) · 1 interruptor de módulos + ficha de proyecto solo lectura ·
+idempotentes, límite de login) · 1 interruptor de módulos + ficha de proyecto solo lectura ✅ (1.17.0) ·
 2 tarifa y presupuesto · 3 gastos y materiales, con importar CSV · 4 estimado contra real
 por tarea · 5 cotizador con historial (rangos P50/P80) · 6 hoja de Google publicada como
 CSV, solo lectura.
@@ -266,13 +269,13 @@ CSV, solo lectura.
 migración. La única columna en una tabla existente es `tasks.estimate_minutes` (Fase 4):
 **va en `scripts/migrate.py`**, y se avisa el impacto antes de escribirla.
 
-**Orden.** La Fase 1 es chica y útil aunque no se active Costeo: empezar por ahí. Antes
-de la Fase 2, cerrar las decisiones abiertas de la spec (moneda, cotización sin estados,
-dónde vive la ficha).
+**Orden.** Sigue la Fase 2. Antes, cerrar las dos decisiones abiertas de la spec (moneda,
+y cotización sin estados de proyecto). La casilla "Maker" de Mi perfil llega con ella, y
+sus endpoints comprueban el acceso en el servidor (403), con su prueba.
 
-**Aceptación (de la Fase 1, no de la épica).** Un usuario apaga "Hábitos y metas" en Mi
-perfil y deja de ver el Calendario sin perder nada al volver a encenderlo; al tocar un
-proyecto se abre su ficha con el mismo tiempo total que muestran la Lista y Reportes.
+**Aceptación (de la Fase 2, no de la épica).** Con el plan maker encendido, un proyecto
+guarda tarifa por hora, moneda y presupuesto opcional, y su ficha muestra mano de obra
+(horas × tarifa) y el avance del presupuesto; sin acceso, esos endpoints responden 403.
 
 ---
 

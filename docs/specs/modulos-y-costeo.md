@@ -38,6 +38,12 @@ maker, empresa) sino una, donde cada persona activa lo que usa.
   Solo comparten el interruptor de módulos (Fase 1 de aquí).
 - **Nada cuesta.** Los módulos no son planes de pago. Si algún día hay suscripciones, el
   interruptor ya marca la frontera; no se construye nada de cobros ahora.
+- **Plan maker con acceso (decidido 2026-10-01).** Costeo se presenta como el **plan
+  maker**: mismas funciones de base, más las de costeo. Es gratis, pero por ahora solo lo
+  encienden las cuentas a las que se les da acceso (`scripts/grant_module.py`), empezando
+  por la de Yoshio. Los códigos de invitación vienen cuando se quiera dar a más gente.
+  Quizá donaciones más adelante; cobrar solo tendría sentido si se añaden APIs de IA de
+  pago, para cubrir ese costo. En la app se llama "Maker", no "Pro".
 - **Apagar un módulo no borra nada.** Oculta su pestaña y su UI; los datos siguen ahí y
   vuelven al encenderlo. La misma regla que ocultar un hábito.
 
@@ -74,14 +80,21 @@ Cada fase se puede desplegar sola y deja algo usable.
 Árbol de dependencias fijado (`requirements.lock`), CI con `pytest`, sesiones de tiempo
 idempotentes y límite de intentos en login y registro.
 
-### Fase 1 — Interruptor de módulos + ficha de proyecto (solo lectura)
+### Fase 1 — Interruptor de módulos + ficha de proyecto (solo lectura) ✅ (1.17.0)
 
-- **Módulos por usuario**: en **Mi perfil**, casillas "Hábitos y metas" y "Costeo de
-  proyectos". Apagar Hábitos oculta la pestaña Calendario (y su parte de Reportes).
-- **Ficha de proyecto**: al tocar un proyecto (en Lista o en Organizar) se abre su ficha:
-  tiempo total, por tarea, por etiqueta y por mes, y tareas hechas contra totales. Sale
-  entera de los endpoints de la tabla de arriba.
-- Sin dinero todavía. Útil para cualquiera, esté o no activo Costeo.
+- **Módulos por usuario** (`backend/modules.py`, tabla `user_modules`): en **Mi perfil ›
+  Módulos de tu cuenta**, la casilla "Hábitos y metas". Apagarla oculta la pestaña
+  Calendario, el ⚙️ de hábitos y su tarjeta de Reportes, y no pide nada de hábitos. El
+  módulo `maker` ya existe con acceso por cuenta (`allowed`), y la API responde 403 si se
+  enciende sin él; **su casilla llega con la Fase 2**, cuando haga algo.
+- **Ficha de proyecto** (`GET /api/projects/{id}/overview`, `project-overview.js`), en un
+  modal: tiempo total, por tarea, por etiqueta y por mes, y tareas hechas contra totales.
+  Se abre al tocar un proyecto en la Lista (con ✎ Editar dentro) y con 📊 en Organizar.
+  Un endpoint propio en vez de juntar los de la tabla de arriba: una sola consulta, con su
+  prueba de que cuadra con `/summary`, y la base para sumarle dinero en la Fase 2.
+- Antes, dos refactors que lo hicieron posible: los hábitos salieron de `script.js` a
+  `habits.js`, y las vistas se nombran por id (`setViewVisible()`).
+- Sin dinero todavía. Útil para cualquiera, esté o no activo el plan maker.
 
 ### Fase 2 — Tarifa y presupuesto
 
@@ -143,7 +156,7 @@ existen (esas van en `scripts/migrate.py` y tocan producción).
 
 | Fase | Cambio | Tipo | Migración |
 |---|---|---|---|
-| 1 | `user_modules` (`user_id`, `module`, `enabled`), único por (usuario, módulo). Sin fila = valor por defecto del módulo | Tabla nueva | No |
+| 1 ✅ | `user_modules` (`user_id`, `module`, `enabled`, `allowed`), único por (usuario, módulo). Sin fila o NULL = valor por defecto del módulo | Tabla nueva | No |
 | 2 | `project_finance` (`project_id` único, `user_id`, `client_name`, `hourly_rate_cents`, `currency`, `budget_cents`, `budget_minutes`) | Tabla nueva, 1 a 1 con `projects` | No |
 | 3 | `project_costs` (`user_id`, `project_id`, `cost_date`, `concept`, `category`, `quantity`, `unit_cost_cents`, `note`) | Tabla nueva | No |
 | 4 | `tasks.estimate_minutes` (NULL = sin estimado) | Columna nueva | **Sí**: `migrate.py` + `test_deploy.py` |
@@ -163,13 +176,11 @@ existen (esas van en `scripts/migrate.py` y tocan producción).
 2. **Cotización aceptada o no**: se quitaron los estados de proyecto por falta de uso.
    Propuesta: no volver a ellos; un proyecto con presupuesto y sin tiempo registrado *es*
    una cotización. Confirmar.
-3. **Dónde vive la ficha**: ¿modal grande (como el detalle de tarjeta) o vista propia
-   dentro de Tableros? El modal es más barato y ya tiene patrón.
-4. **Hábitos apagado y Reportes**: ¿se oculta solo la tarjeta de hábitos o también la
-   pestaña Calendario? Propuesta: las dos.
-5. **Módulos y épica 14** (pestañas por plantillas): el interruptor de módulos es un caso
-   particular de "qué pestañas ve cada usuario". Decidir si la Fase 1 deja lista la base
-   para la 14 o se mantienen separadas.
+
+Cerradas en la Fase 1 (2026-10-01): la ficha es un **modal**; tocar un proyecto en la
+Lista abre la ficha y editar va dentro; apagar Hábitos oculta **la pestaña y la tarjeta**
+de Reportes; y la Fase 1 dejó la base de la épica 14 a medias (vistas por id y
+`setViewVisible()`), sin crear las pestañas desde datos.
 
 ## Referencias
 

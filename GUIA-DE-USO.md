@@ -49,6 +49,16 @@ modal de perfil.
 Guardar pregunta antes de aplicar el cambio, y si cierras el modal con algo editado sin
 guardar, también te pregunta si quieres salir de todos modos.
 
+### Módulos de tu cuenta
+
+En *Mi perfil*, **Módulos de tu cuenta › Hábitos y metas** decide si usas la parte de
+hábitos. Si solo usas los tableros y el tiempo, apágala: desaparecen la pestaña
+Calendario, el ⚙️ de hábitos y la tarjeta de hábitos de Reportes. **No se borra nada**: al
+encenderla vuelven tus hábitos, tus días marcados y tu racha tal como estaban. Se guarda al
+tocarla, en tu cuenta, así que vale en todos tus dispositivos.
+
+### Tamaño del texto
+
 Al final de *Mi perfil*, **En este dispositivo › Tamaño del texto** agranda toda la app
 (Normal, Grande o Muy grande). Se aplica al momento y se queda en ese dispositivo, también
 en la app instalada y aunque cierres sesión.
@@ -148,7 +158,12 @@ las agrupa por proyecto. Lo que sigue describe la **Lista**.
 **Crear un proyecto**: el botón **+** de la cabecera "Proyectos". Puedes darle nombre,
 descripción, un emoji y un color.
 
-**Editar un proyecto**: clic sobre su nombre.
+**Ficha del proyecto**: clic sobre su nombre. Muestra todo su tiempo de un vistazo: el
+total, las tareas hechas, cuánto lleva cada tarea, cada etiqueta y cada mes. Cuadra con el
+total de la tarjeta y con Reportes. También se abre con el **📊** de cada proyecto en
+**⚙ Organizar**.
+
+**Editar un proyecto**: desde su ficha, con **✎ Editar**.
 
 **Archivar o eliminar**: el botón **⋯** de la tarjeta.
 
