@@ -12,7 +12,8 @@ código y no se reprodujeron todavía.
 
 Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros), el
 2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas) y el 2026-10-01
-(Fase 1 de la 24 terminada).
+(Fase 1 de la 24 terminada;
+entrada 25 cerrada).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
@@ -21,7 +22,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
 | 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
-| 25 | P3 | La guía de uso no cubre el Tablero ni Reportes | diagnosticado |
 | 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | pendiente de revisar |
 | 27 | P3 | Reordenar las pestañas de secciones | pedido |
 | 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido |
@@ -279,33 +279,6 @@ una **columna a una tabla existente** (`tasks.estimate_minutes`): va en
 **Aceptación (de la Fase 4, no de la épica).** Una tarea puede llevar un estimado en
 minutos; su tarjeta muestra "2 h de 3 h", y la ficha y Costos dicen, por etiqueta, cuánto
 se desvía el usuario de lo que estima (real ÷ estimado).
-
----
-
-## 25 · P3 · La guía de uso no cubre el Tablero ni Reportes
-
-**Síntoma.** [GUIA-DE-USO.md](GUIA-DE-USO.md) se escribió antes de los tableros (1.10) y
-de Reportes (1.12). Quien la lee no encuentra cómo usar la vista principal de la pestaña
-Tableros ni la pestaña Reportes.
-
-**Ya corregido (2026-09-30).** La sección del pomodoro describía la UI de antes
-(selectores de proyecto arriba, cierre automático a las 8 h, "las duraciones no se pueden
-cambiar"): se reescribió con lo de ahora. La pestaña se llamaba "Proyectos" y ahora dice
-Tableros, aclarando que lo que describe es la vista Lista.
-
-**Falta.** Secciones nuevas, con el tono del resto de la guía:
-
-- **Tablero**: columnas y sus marcas (📥 Entrada, ✓ Terminada), crear y mover tarjetas
-  (arrastrar en computadora, "Mover a…" en el teléfono), filtros.
-- **Detalle de la tarjeta**: proyecto, etiquetas, checklist, comentarios, historial de
-  tiempo.
-- **⚙ Organizar**: tableros, columnas (y por qué una columna con tareas no se borra),
-  proyectos, etiquetas, Configurar pomodoro.
-- **Reportes**: rangos, qué cuenta cada gráfica (solo tiempo de trabajo, igual que las
-  tarjetas) y Exportar CSV.
-
-**Aceptación.** Cada pestaña y cada botón de la barra del tablero tiene su explicación
-en la guía, y el índice de la guía enlaza las secciones nuevas.
 
 ---
 
