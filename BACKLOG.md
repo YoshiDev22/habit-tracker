@@ -31,7 +31,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 sentada; esto no. Está aquí para que la idea no se pierda y para dejar escritas las
 decisiones que hay que tomar antes de escribir código, no como algo que se empiece tal
 cual. La pestaña fija de Reportes (1.12.0) ya enseñó cómo se añade una vista: empezar por
-ahí (`VIEW_TABS` y `watchActiveView()` en projects.js).
+ahí (`VIEWS` y `watchActiveView()` en projects.js).
 
 **Idea.** Que el usuario pueda añadir las pestañas que necesite para organizarse, a partir
 de **plantillas**: horarios, cronograma de un proyecto, dieta, calendario de recordatorios
@@ -53,17 +53,16 @@ merece existir. Criterios propuestos para esa evaluación:
 4. **¿Cuánto backend nuevo pide?** Reutilizar endpoints existentes es la diferencia entre
    una tarde y una semana.
 
-**Estado actual (revisado en v1.16.1).** La mitad del primer paso ya está: la navegación
-lee de un array. `VIEW_TABS` ([projects.js:61](projects.js#L61)) lista las tres pestañas,
-y `VIEW_COUNT` es su longitud, así que el swipe y el teclado ya no tienen números fijos.
+**Estado actual (revisado el 2026-10-01).** La navegación lee de un array, `VIEWS` en
+projects.js, y cada vista se nombra por su id (`'calendar'`, `'projects'`, `'reports'`),
+nunca por su posición. `setViewVisible()` oculta una vista entera y `goToView()` ajusta el
+ancho del indicador a las que se ven: es lo que usa el interruptor de módulos (entrada 24).
 Lo que falta:
 
 - Cada vista sigue siendo un `<section>` escrito en `index.html`, y cada tab un `<button>`.
-- El ancho de `.tab-indicator` es un `calc(100% / N)` fijo en `styles.css`.
 
-El siguiente paso es que tabs y secciones **se creen desde ese array**. El interruptor de
-módulos de la entrada 24 (ocultar el Calendario si se apaga Hábitos) es el primer caso
-real que lo necesita: conviene hacerlos juntos.
+El siguiente paso es que tabs y secciones **se creen desde ese array**, cuando haya una
+plantilla que lo pida.
 
 **Modelo de datos, la decisión de fondo.** Hará falta al menos una tabla de pestañas del
 usuario (`user_id`, plantilla, título, icono, orden, activa) más el contenido de cada una.
@@ -91,7 +90,7 @@ no es construir la primera plantilla, es mantener cinco. Empezar con **dos plant
 concretas y escritas a mano** sobre el sistema de pestañas dinámico, y no construir un
 motor genérico hasta que duela repetir código.
 
-**Aceptación (del primer paso, no de la épica).** Añadir una entrada a `VIEW_TABS` crea
+**Aceptación (del primer paso, no de la épica).** Añadir una entrada a `VIEWS` crea
 su tab, su vista y el ancho del indicador, sin tocar `index.html` ni `styles.css`; el
 swipe, las flechas del teclado y `Home`/`End` ya funcionan así.
 

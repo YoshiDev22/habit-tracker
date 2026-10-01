@@ -6,7 +6,7 @@
 // elegido; las fechas son siempre las LOCALES del usuario (session_date,
 // completed_at, getDateKey), igual que en el resto de la app.
 
-const REPORTS_VIEW_INDEX = 2;
+const REPORTS_VIEW_ID = 'reports';
 const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
     'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const MONTH_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -156,7 +156,7 @@ reportsTo.addEventListener('change', onCustomDateChange);
 // ============================================
 
 function isReportsVisible() {
-    return typeof currentViewIndex !== 'undefined' && currentViewIndex === REPORTS_VIEW_INDEX;
+    return typeof currentViewId !== 'undefined' && currentViewId === REPORTS_VIEW_ID;
 }
 
 async function loadReports() {
@@ -867,8 +867,8 @@ function resetReports() {
 
 // Al entrar a la vista se pide de nuevo: el tiempo y los hábitos cambian
 // desde las otras dos, y a esta escala pedirlo otra vez es barato.
-window.viewChangedHooks.push(index => {
-    if (index === REPORTS_VIEW_INDEX) loadReports();
+window.viewChangedHooks.push(viewId => {
+    if (viewId === REPORTS_VIEW_ID) loadReports();
 });
 // Mientras se ve (p. ej. termina un pomodoro), también se refresca. La primera
 // carga de proyectos de la sesión no cuenta: al recargar con Reportes abierto,

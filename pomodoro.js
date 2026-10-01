@@ -1455,7 +1455,7 @@ pomodoroBarStopBtn.addEventListener('click', (event) => {
 // Tocar el cuerpo de la barra (no sus botones) lleva a la vista Tableros,
 // salvo en modo mensaje, que no tiene nada que enseñar allí.
 pomodoroBar.addEventListener('click', () => {
-    if (pomoState.status !== 'idle') goToView(1);
+    if (pomoState.status !== 'idle') goToView('projects');
 });
 
 // ============================================

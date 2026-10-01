@@ -62,7 +62,7 @@ maker, empresa) sino una, donde cada persona activa lo que usa.
 | Tiempo por etiqueta | `GET /api/tags/summary` (con `combined_*` para no contar dos veces) |
 | Sesiones por rango y proyecto | `GET /api/pomodoro?date_from&date_to&project_id` |
 | Tareas terminadas por rango | Filtros `completed_from` / `completed_to` de `GET /api/tasks` |
-| Pestañas desde datos | `VIEW_TABS` en `projects.js` (el primer paso de la épica 14 ya está) |
+| Pestañas por id | `VIEWS` y `setViewVisible()` en `projects.js` (ocultar una vista sin correr las demás) |
 | Tiempo no duplicado | Idempotencia de sesiones (antes backlog 22): requisito para cobrar por hora |
 
 ## Fases

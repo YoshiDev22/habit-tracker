@@ -18,8 +18,9 @@ let pendingProjectId = null;
 // para mantener sus selects al día sin que este archivo lo conozca.
 window.projectsChangedHooks = [];
 
-// Corren (síncronos) cada vez que goToView() cambia de vista, con el índice
-// nuevo. board.js los usa para ensanchar la app solo mientras se ve el tablero.
+// Corren (síncronos) cada vez que goToView() cambia de vista, con el id de la
+// vista ('calendar' | 'projects' | 'reports'). board.js los usa para ensanchar
+// la app solo mientras se ve el tablero.
 window.viewChangedHooks = [];
 
 // ============================================
@@ -58,13 +59,33 @@ const confirmProjectDeleteBtn = document.getElementById('confirmProjectDeleteBtn
 // Tabs + swipe
 // ============================================
 
-const VIEW_TABS = [tabCalendar, tabProjects, tabReports];
-const VIEW_COUNT = VIEW_TABS.length;
-let currentViewIndex = 0;
+// Las vistas, en orden. El id es el nombre estable de cada una (last_view,
+// viewChangedHooks, setViewVisible); su posición depende de cuáles se ven, así
+// que el código fuera de este bloque compara ids, nunca posiciones.
+const VIEWS = [
+    { id: 'calendar', tab: tabCalendar, section: document.getElementById('viewCalendar') },
+    { id: 'projects', tab: tabProjects, section: document.getElementById('viewProjects') },
+    { id: 'reports', tab: tabReports, section: document.getElementById('viewReports') },
+];
 
-function goToView(index, opts = {}) {
+// Posición de la vista activa entre las que se ven (la que mueve el track) y
+// su id. Con las tres a la vista, la posición es la de siempre: 0, 1, 2.
+let currentViewIndex = 0;
+let currentViewId = VIEWS[0].id;
+
+function visibleViews() {
+    return VIEWS.filter(view => !view.tab.hidden);
+}
+
+// `target` es un id ('reports') o una posición entre las vistas visibles (el
+// swipe y el teclado). Una vista oculta o desconocida lleva a la primera.
+function goToView(target, opts = {}) {
     const animate = opts.animate !== false;
-    currentViewIndex = Math.max(0, Math.min(VIEW_COUNT - 1, index));
+    const views = visibleViews();
+    let index = typeof target === 'string' ? views.findIndex(view => view.id === target) : target;
+    if (!Number.isInteger(index) || index < 0) index = 0;
+    currentViewIndex = Math.min(views.length - 1, index);
+    currentViewId = views[currentViewIndex].id;
 
     // El popover solo tiene sentido sobre la vista Calendario.
     hideHabitPopover();
@@ -72,36 +93,51 @@ function goToView(index, opts = {}) {
     viewsTrack.style.transition = animate ? '' : 'none';
     viewsTrack.style.transform = `translateX(${-100 * currentViewIndex}%)`;
 
-    VIEW_TABS.forEach((tab, i) => {
+    views.forEach((view, i) => {
         const active = i === currentViewIndex;
-        tab.classList.toggle('active', active);
-        tab.setAttribute('aria-selected', String(active));
-        tab.tabIndex = active ? 0 : -1;
+        view.tab.classList.toggle('active', active);
+        view.tab.setAttribute('aria-selected', String(active));
+        view.tab.tabIndex = active ? 0 : -1;
     });
+    tabIndicator.style.width = `${100 / views.length}%`;
     tabIndicator.style.transform = `translateX(${100 * currentViewIndex}%)`;
     watchActiveView();
-    writeLastView(currentViewIndex);
+    writeLastView(currentViewId);
 
-    window.viewChangedHooks.forEach(hook => hook(currentViewIndex));
+    window.viewChangedHooks.forEach(hook => hook(currentViewId));
+}
+
+// Muestra u oculta una vista entera (su tab y su sección), p. ej. al apagar un
+// módulo. No toca sus datos. Si era la activa, se pasa a la primera visible.
+function setViewVisible(id, visible) {
+    const view = VIEWS.find(v => v.id === id);
+    if (!view || view.tab.hidden === !visible) return;
+    if (!visible && visibleViews().length === 1) return;   // siempre queda una
+    view.tab.hidden = !visible;
+    view.section.hidden = !visible;
+    goToView(currentViewId, { animate: false });
 }
 
 // Las vistas van lado a lado en el track, así que la página tomaría la altura
 // de la más alta: con Reportes cargado, el Calendario quedaba con metros de
 // blanco debajo. El viewport mide lo que la vista activa y la sigue cuando
 // crece o encoge (un tablero que carga, un reporte que se pinta).
-const viewSections = [...viewsTrack.children];
 let observedView = null;
 const viewResizeObserver = 'ResizeObserver' in window
     ? new ResizeObserver(fitViewportToActiveView)
     : null;
 
+function activeViewSection() {
+    return visibleViews()[currentViewIndex].section;
+}
+
 function fitViewportToActiveView() {
-    viewsViewport.style.height = `${viewSections[currentViewIndex].offsetHeight}px`;
+    viewsViewport.style.height = `${activeViewSection().offsetHeight}px`;
 }
 
 function watchActiveView() {
     if (!viewResizeObserver) return;   // sin él, la página conserva la altura del track
-    const view = viewSections[currentViewIndex];
+    const view = activeViewSection();
     if (observedView !== view) {
         if (observedView) viewResizeObserver.unobserve(observedView);
         viewResizeObserver.observe(view);
@@ -118,29 +154,33 @@ watchActiveView();
 // vista (tablero ancho, cargar Reportes) se disparan en init, cuando board.js y
 // reports.js ya se registraron.
 const LAST_VIEW_KEY = 'last_view';
+// Hasta la 1.16 last_view guardaba la posición ("0", "1", "2"), con las tres
+// vistas a la vista. Un dispositivo que la tenga así vuelve a la misma.
+const LEGACY_VIEW_IDS = ['calendar', 'projects', 'reports'];
 
 function readLastView() {
     try {
-        const index = Number(localStorage.getItem(LAST_VIEW_KEY));
-        return Number.isInteger(index) && index >= 0 && index < VIEW_COUNT ? index : 0;
+        const stored = localStorage.getItem(LAST_VIEW_KEY) || '';
+        const id = /^\d+$/.test(stored) ? LEGACY_VIEW_IDS[Number(stored)] : stored;
+        return VIEWS.some(view => view.id === id) ? id : VIEWS[0].id;
     } catch (error) {
-        return 0;
+        return VIEWS[0].id;
     }
 }
 
-function writeLastView(index) {
+function writeLastView(id) {
     try {
-        localStorage.setItem(LAST_VIEW_KEY, String(index));
+        localStorage.setItem(LAST_VIEW_KEY, id);
     } catch (error) {
         // Sin almacenamiento (modo privado estricto): solo no se recuerda
     }
 }
 
 goToView(readLastView(), { animate: false });
-window.appInitHooks.push(() => goToView(currentViewIndex, { animate: false }));
+window.appInitHooks.push(() => goToView(currentViewId, { animate: false }));
 // Quien entre después en este dispositivo empieza por el Calendario
 window.appLogoutHooks.push(() => {
-    goToView(0, { animate: false });
+    goToView('calendar', { animate: false });
     try {
         localStorage.removeItem(LAST_VIEW_KEY);
     } catch (error) {
@@ -148,23 +188,27 @@ window.appLogoutHooks.push(() => {
     }
 });
 
-VIEW_TABS.forEach((tab, i) => {
-    tab.addEventListener('click', () => goToView(i));
+VIEWS.forEach(view => {
+    view.tab.addEventListener('click', () => goToView(view.id));
 });
 
-// Patrón WAI-ARIA tabs: flechas, Home/End, roving tabindex.
-VIEW_TABS.forEach((tab, i) => {
-    tab.addEventListener('keydown', (event) => {
+// Patrón WAI-ARIA tabs: flechas, Home/End, roving tabindex. Sobre las vistas
+// que se ven: una oculta no recibe foco.
+VIEWS.forEach(view => {
+    view.tab.addEventListener('keydown', (event) => {
+        const views = visibleViews();
+        const i = views.indexOf(view);
+        const count = views.length;
         let target = null;
-        if (event.key === 'ArrowRight') target = (i + 1) % VIEW_COUNT;
-        else if (event.key === 'ArrowLeft') target = (i - 1 + VIEW_COUNT) % VIEW_COUNT;
+        if (event.key === 'ArrowRight') target = (i + 1) % count;
+        else if (event.key === 'ArrowLeft') target = (i - 1 + count) % count;
         else if (event.key === 'Home') target = 0;
-        else if (event.key === 'End') target = VIEW_COUNT - 1;
+        else if (event.key === 'End') target = count - 1;
 
         if (target !== null) {
             event.preventDefault();
             goToView(target);
-            VIEW_TABS[target].focus();
+            views[target].tab.focus();
         }
     });
 });
@@ -230,7 +274,7 @@ viewsViewport.addEventListener('touchmove', (event) => {
     swipeDx = dx;
 
     let effectiveDx = dx;
-    if ((currentViewIndex === 0 && dx > 0) || (currentViewIndex === VIEW_COUNT - 1 && dx < 0)) {
+    if ((currentViewIndex === 0 && dx > 0) || (currentViewIndex === visibleViews().length - 1 && dx < 0)) {
         effectiveDx = dx * 0.35; // amortiguar en los bordes
     }
 

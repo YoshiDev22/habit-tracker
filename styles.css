@@ -161,7 +161,7 @@ body {
 }
 
 /* ============================================
-   Tabs + swipe (Calendario / Proyectos)
+   Tabs + swipe (Calendario / Tableros / Reportes)
    ============================================ */
 
 .tabs {
@@ -197,9 +197,18 @@ body {
     bottom: -1px;
     left: 0;
     height: 2px;
-    width: calc(100% / 3);  /* una pestaña: Calendario, Tableros, Reportes */
+    /* Una pestaña de ancho. goToView() lo ajusta a las que se ven; esto es
+       solo el valor antes del primer pintado, con las tres. */
+    width: calc(100% / 3);
     background: var(--accent);
     transition: transform 0.3s ease;
+}
+
+/* Una vista apagada (setViewVisible) no ocupa lugar ni en las tabs ni en el
+   track: así la posición en el track es la de las vistas que se ven. */
+.tab-btn[hidden],
+.view[hidden] {
+    display: none;
 }
 
 .views-viewport {

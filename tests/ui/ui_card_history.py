@@ -142,7 +142,7 @@ async def main():
                 sel: document.getElementById('tabReports').getAttribute('aria-selected'),
                 cards: document.querySelectorAll('#reportsBody .report-card').length,
                 reqs: performance.getEntriesByType('resource').filter(e => e.name.includes('/api/pomodoro?date_from')).length})""")
-            check(stored == "2" and r["view"] == 2 and r["sel"] == "true", f"reload stays on Reportes ({stored}, {r})")
+            check(stored == "reports" and r["view"] == 2 and r["sel"] == "true", f"reload stays on Reportes ({stored}, {r})")
             check(r["first"] == 2 and r["firstT"] == "translateX(-200%)", f"already on Reportes before the first paint ({r['first']}, {r['firstT']})")
             check(r["cards"] >= 5 and r["reqs"] == 2, f"reports load once on reload ({r['cards']} cards, {r['reqs']} session requests)")
 
@@ -161,6 +161,12 @@ async def main():
             await js("localStorage.setItem('last_view', '7')")
             await b.goto(BASE + "/", wait=2.5)
             check(await js("currentViewIndex") == 0, "an invalid stored tab falls back to Calendario")
+
+            # What 1.16 and earlier stored (the position) still lands on that tab
+            await js("localStorage.setItem('last_view', '2')")
+            await b.goto(BASE + "/", wait=2.5)
+            r = await js("({id: currentViewId, stored: localStorage.getItem('last_view')})")
+            check(r == {"id": "reports", "stored": "reports"}, f"a pre-1.17 stored position still works ({r})")
 
             # Logout forgets it
             await js("document.getElementById('tabReports').click()", wait=0.8)

@@ -427,7 +427,7 @@ function applyWideLayout() {
     // Solo con el tablero a la vista: el calendario y la lista están
     // pensados para la columna angosta de siempre.
     const wide = boardState.view === 'board'
-        && currentViewIndex === 1
+        && currentViewId === 'projects'
         && !!(wideBoardQuery && wideBoardQuery.matches);
     document.body.classList.toggle('board-wide', wide);
 }
@@ -2293,7 +2293,7 @@ const boardOnboardingError = document.getElementById('boardOnboardingError');
 
 function maybeOfferFirstBoard() {
     if (!boardState.loaded || boardState.boards.length > 0) return;
-    if (currentViewIndex !== 1 || !boardOnboardingModal.classList.contains('hidden')) return;
+    if (currentViewId !== 'projects' || !boardOnboardingModal.classList.contains('hidden')) return;
     boardOnboardingError.classList.add('hidden');
     showModal(boardOnboardingModal);
     boardOnboardingName.focus();
@@ -2301,7 +2301,9 @@ function maybeOfferFirstBoard() {
 
 function skipFirstBoard() {
     hideModal(boardOnboardingModal);
-    goToView(0);
+    // A otra vista: quedarse en Tableros volvería a ofrecer el primero
+    const other = visibleViews().find(view => view.id !== 'projects');
+    goToView(other ? other.id : 'calendar');
 }
 
 boardOnboardingForm.addEventListener('submit', async (event) => {

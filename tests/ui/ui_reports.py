@@ -291,6 +291,25 @@ async def main():
         await asyncio.sleep(0.4)
         check(await b.js("currentViewIndex") == 2, "End goes to Reportes")
 
+        # a hidden view (module off) leaves the other two, by id, with a half-width indicator
+        await b.js("setViewVisible('calendar', false)")
+        await asyncio.sleep(0.4)
+        st = await b.js("""({id: currentViewId, index: currentViewIndex,
+            tabs: [...document.querySelectorAll('.tab-btn')].filter(t => t.offsetWidth > 0).map(t => t.id),
+            ind: Math.round(document.querySelector('.tab-indicator').getBoundingClientRect().width),
+            tabW: Math.round(document.getElementById('tabReports').getBoundingClientRect().width),
+            sectionShown: document.getElementById('viewReports').getBoundingClientRect().left >= 0})""")
+        check(st["id"] == "reports" and st["index"] == 1 and st["tabs"] == ["tabProjects", "tabReports"]
+              and abs(st["ind"] - st["tabW"]) <= 2 and st["sectionShown"],
+              f"hiding Calendario keeps Reportes, now second of two ({st})")
+        await b.js("document.getElementById('tabReports').dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}))")
+        await asyncio.sleep(0.4)
+        check(await b.js("currentViewId") == "projects", "ArrowRight wraps over the visible tabs only")
+        await b.js("setViewVisible('calendar', true); goToView('reports', {animate: false})")
+        await asyncio.sleep(0.4)
+        st = await b.js("({id: currentViewId, index: currentViewIndex, n: visibleViews().length})")
+        check(st == {"id": "reports", "index": 2, "n": 3}, f"showing it again restores the three tabs ({st})")
+
         # mobile: swipe through the three views
         # Start the swipe test on Calendario: the last tab is remembered on reload
         await b.js("document.getElementById('tabCalendar').click()")

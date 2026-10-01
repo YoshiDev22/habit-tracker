@@ -355,7 +355,7 @@ para guardar la sesión en curso antes de perder el token).
 | Hook | Cuándo corre |
 |---|---|
 | `window.projectsChangedHooks` | Al final de cada `loadProjects()`. Tablero, lista y selects del pomodoro se refrescan por aquí |
-| `window.viewChangedHooks` | Síncrono, en cada `goToView()`, con el índice de la vista |
+| `window.viewChangedHooks` | Síncrono, en cada `goToView()`, con el id de la vista (`'calendar'`, `'projects'`, `'reports'`) |
 
 **Toda mutación de tareas o proyectos termina en `loadProjects()`** (en `board.js`, vía
 `refreshAfterBoardChange()`, que además vacía la caché de tareas de la lista). No refrescar
@@ -410,9 +410,13 @@ su tiempo y su historial.
 
 Tres vistas (`#viewCalendar`, `#viewProjects` — la pestaña se llama "Tableros" —,
 `#viewReports`) dentro de `#viewsTrack`, con tabs arriba y swipe horizontal. Toda la
-lógica está en `projects.js` (`goToView()`, `VIEW_TABS`, manejo de `touchstart/move/end`
-con detección de eje). Agregar una vista implica sumar su tab a `VIEW_TABS`, el HTML de
-tabs y el ancho de `.tab-indicator` (`calc(100% / N)`).
+lógica está en `projects.js` (`goToView()`, `VIEWS`, manejo de `touchstart/move/end`
+con detección de eje). **Cada vista se nombra por su id**, nunca por su posición:
+`goToView('reports')`, `currentViewId === 'projects'`. `setViewVisible(id, visible)`
+oculta una vista entera (tab y sección, p. ej. al apagar un módulo) y la posición de las
+demás se corre: `currentViewIndex` es la posición entre las que se ven, solo para el track
+y el swipe. Agregar una vista implica sumarla a `VIEWS` y su HTML de tab y sección; el
+ancho de `.tab-indicator` lo pone `goToView()`.
 
 **El alto del viewport es el de la vista activa** (`watchActiveView()`, con un
 `ResizeObserver`): las vistas están lado a lado, y sin eso la página tomaba la altura de la
@@ -460,8 +464,8 @@ Claves: `access_token`, `theme`, `habitsData`, `user_habits`,
 tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista,
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión), `card_comments_hidden`
 (comentarios plegados en el detalle de tarjeta, de este dispositivo) y
-`last_view` (última pestaña: `projects.js` la aplica al cargar, antes del primer pintado,
-y se borra al cerrar sesión), `missed_day_asked` (`<user_id>:<fecha>` del último día por
+`last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
+pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?") y `text_size` (`large` | `xlarge`, en **Mi perfil › En este
 dispositivo**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
 los tamaños de texto nuevos van en `rem`, no en `px`—; el script inline del `<head>` lo
