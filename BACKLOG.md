@@ -23,6 +23,9 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
 | 25 | P3 | La guía de uso no cubre el Tablero ni Reportes | diagnosticado |
 | 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | pendiente de revisar |
+| 27 | P3 | Reordenar las pestañas de secciones | pedido |
+| 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido |
+| 29 | P3 | Periodo de "En qué se va el dinero" en Costos (mes, año o todo) | decisión pendiente |
 
 ---
 
@@ -361,3 +364,51 @@ Mientras tanto, `ALLOW_REGISTRATION=false` permite cerrarlo.
 **Aceptación.** Alguien que olvidó su contraseña la recupera sin intervención de Yoshio;
 un correo mal escrito no deja una cuenta usable a nombre de otro; pedir recuperación con
 un correo sin cuenta responde lo mismo que con uno que sí tiene.
+
+---
+
+## 27 · P3 · Reordenar las pestañas de secciones
+
+**Pedido por Yoshio (2026-10-01).** Que cada usuario pueda ordenar las pestañas
+(Calendario, Tableros, Costos, Reportes) a su gusto.
+
+**Cómo encaja.** La navegación ya nombra las vistas por id (`VIEWS` en projects.js) y la
+posición sale de las que se ven. Falta: guardar el orden en la cuenta (una columna o tabla
+nueva: avisar el impacto antes), reordenar `VIEWS` **y** las secciones del track al
+aplicarlo (el track se desplaza por el orden del DOM, ver CLAUDE.md), y la UI para
+arrastrar (con flechas en táctil, como Organizar). Ojo con `LEGACY_VIEW_IDS` y con las
+pruebas que comparan `currentViewIndex` con números fijos.
+
+**Aceptación.** El orden elegido se ve igual en todos los dispositivos de la cuenta, y el
+swipe y el teclado lo siguen.
+
+---
+
+## 28 · P3 · Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas
+
+**Pedido por Yoshio (2026-10-01).** En el Tablero, un **modo ordenar** (un botón que se
+activa y desactiva) en el que se puedan reordenar las columnas arrastrándolas y cambiarles
+el ancho (resize). Solo en ese modo, para no mover ni estirar nada por accidente.
+
+**Cómo encaja.** Reordenar columnas ya existe en Organizar (asa ⠿ y flechas); este modo lo
+lleva al tablero mismo. El ancho es nuevo: `board_columns.width` sería una columna en una
+tabla existente → **va en `scripts/migrate.py`** (o guardarlo por dispositivo en
+localStorage, más barato; decidir). En pantalla angosta (< 700 px) se ve una columna a la
+vez: ahí el ancho no aplica.
+
+**Aceptación.** Fuera del modo ordenar el tablero se comporta igual que hoy; dentro, las
+columnas se arrastran y se estiran, y el resultado se conserva al recargar.
+
+---
+
+## 29 · P3 · Periodo de "En qué se va el dinero" en Costos
+
+**Decisión pendiente con Yoshio (2026-10-01).** La gráfica de la pestaña Costos (mano de
+obra y gasto por categoría) y el resumen suman **todo, desde siempre**. ¿Debería ser por
+mes, por año, o con un selector (Mes / Año / Todo, como el rango de Reportes)?
+
+**Lo que implica.** `GET /api/costs/summary` aceptaría `date_from`/`date_to` (fechas
+locales: `cost_date` de los gastos y `session_date` del tiempo). El margen de un proyecto
+compara con su presupuesto total, así que en un periodo parcial habría que decidir si se
+muestra o se oculta.
+
