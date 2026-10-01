@@ -58,6 +58,7 @@ habit-tracker/
 │   ├── auth.py            # Hashing, JWT (create/verify), get_current_user, lee SECRET_KEY
 │   ├── dates.py           # resolve_client_today(): el "hoy" del usuario, no el del servidor (UTC)
 │   ├── boards.py          # ensure_user_setup(): "Sin asignar" y relleno perezoso de columnas
+│   ├── ratelimit.py       # Límite de intentos en memoria (login y registro), por IP
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -282,6 +283,12 @@ Lo que no se ve en Swagger:
 
 - `POST /api/auth/login` recibe **form-data** (`username`, `password`), no JSON — es
   `OAuth2PasswordRequestForm`. El resto de la API es JSON.
+- **Login y registro tienen límite por IP** (`backend/ratelimit.py`, en memoria): 10
+  contraseñas equivocadas cada 15 min y 5 cuentas creadas por hora; al pasarse, 429 con
+  `Retry-After` y el motivo en español, que el formulario muestra tal cual. Los logins
+  buenos y los emails repetidos no gastan intentos. `ALLOW_REGISTRATION=false` en
+  `backend/.env` cierra el registro (403) sin tocar las cuentas que ya existen. Las
+  pruebas vacían los contadores en cada una (`fresh_db`).
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
   (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
   Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.
@@ -622,6 +629,11 @@ Contexto para que Claude no proponga rutas ni patrones equivocados:
 - Reverse proxy: **Caddy** (no nginx, no Apache). Para este sitio hace `reverse_proxy` de
   **todo** a la app; nunca `root` + `file_server` sobre la carpeta del repo, que dejaría
   descargar `backend/.env` y la base de datos. La app ya sirve el frontend ella sola.
+- **La IP del cliente depende del proxy.** uvicorn toma la IP real de `X-Forwarded-For`
+  solo si la conexión llega de `--forwarded-allow-ips` (por defecto `127.0.0.1`). Si Caddy
+  conecta por `::1` o desde otra red, todos los usuarios comparten la IP del proxy y el
+  límite de login de uno frena a todos: añadir esa IP a `--forwarded-allow-ips` en el
+  `ExecStart` del servicio. Con Cloudflare delante, lo mismo para `CF-Connecting-IP`.
 - El servicio corre bajo systemd con `User=yoshi`, `Group=devshare`.
 - Permisos: grupo `devshare` (GID 1002), directorios con setgid y modo 775.
   Yoshio (uid 1001) es el dueño de los archivos; el bot RDX corre en un contenedor
