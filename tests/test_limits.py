@@ -88,3 +88,11 @@ def test_pause_length(api):
     assert api.call("POST", url, {"start_date": far(0), "end_date": far(365)})[0] == 422
     assert api.call("POST", url, {"start_date": "x" * 5000, "end_date": far(1)})[0] == 422
     api.call("POST", url, {"start_date": far(0), "end_date": far(29)}, expect=201)
+
+
+def test_module_toggle(api):
+    api.login("modulos-tope@test.com")
+    # Solo los módulos de backend/modules.py, y solo un sí o un no
+    assert api.call("PUT", "/api/auth/me/modules/" + "x" * 300, {"enabled": True})[0] == 404
+    assert api.call("PUT", "/api/auth/me/modules/habits", {"enabled": "x" * 5000})[0] == 422
+    api.call("PUT", "/api/auth/me/modules/habits", {"enabled": False}, expect=200)

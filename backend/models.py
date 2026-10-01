@@ -30,6 +30,24 @@ class User(SQLModel, table=True):
     pomodoro_long_break_seconds: Optional[int] = Field(default=None)
 
 
+class UserModule(SQLModel, table=True):
+    """
+    Los módulos de una cuenta (backend/modules.py) que se apartan del valor por
+    defecto: sin fila, cada módulo está como lo define MODULES. `allowed` es el
+    acceso, que se da con scripts/grant_module.py; `enabled`, lo que el usuario
+    encendió o apagó. NULL en cualquiera de los dos = el valor por defecto.
+    Tabla NUEVA: create_all() la crea sola, sin migración.
+    """
+    __tablename__ = "user_modules"
+    __table_args__ = (UniqueConstraint("user_id", "module", name="uq_user_modules_user_module"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    module: str
+    enabled: Optional[bool] = Field(default=None)
+    allowed: Optional[bool] = Field(default=None)
+
+
 class HabitEntry(SQLModel, table=True):
     """Modelo de Entrada de Hábito (día específico) — se mantiene sin cambios"""
     __tablename__ = "habit_entries"

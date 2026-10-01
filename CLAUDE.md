@@ -64,6 +64,7 @@ habit-tracker/
 │   ├── dates.py           # resolve_client_today(): el "hoy" del usuario, no el del servidor (UTC)
 │   ├── boards.py          # ensure_user_setup(): "Sin asignar" y relleno perezoso de columnas
 │   ├── ratelimit.py       # Límite de intentos en memoria (login y registro), por IP
+│   ├── modules.py         # MODULES: módulos por cuenta y sus valores por defecto (sin dependencias)
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -79,7 +80,8 @@ habit-tracker/
 │   ├── specs/             # Specs de producto por fases (calendario-v2.md, modulos-y-costeo.md)
 │   └── referencias.md     # Investigación que sostiene las reglas de la racha (citable)
 ├── scripts/
-│   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
+│   ├── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
+│   └── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan maker)
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema, getDateKey
@@ -145,7 +147,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 
 ## Modelo de datos
 
-Tablas en `backend/models.py`: `User`, `HabitEntry`, `Habit`, `StreakPause`, `Project`, `Task`,
+Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`, `Task`,
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -295,6 +297,16 @@ Lo que no se ve en Swagger:
   buenos y los emails repetidos no gastan intentos. `ALLOW_REGISTRATION=false` en
   `backend/.env` cierra el registro (403) sin tocar las cuentas que ya existen. Las
   pruebas vacían los contadores en cada una (`fresh_db`).
+- **Módulos por cuenta** (`backend/modules.py`, épica 24): `habits` (activo por defecto) y
+  `maker` (el plan maker: gratis, pero solo para cuentas con acceso). Todo usuario que
+  devuelve la API pasa por `user_response()` (`routers/auth.py`) y lleva
+  `modules: {nombre: {enabled, allowed}}`. `PUT /api/auth/me/modules/{módulo}` con
+  `{enabled}` lo enciende o apaga: 403 si la cuenta no tiene acceso, 404 si no existe.
+  Una fila de `user_modules` solo guarda lo que se aparta del valor por defecto (NULL =
+  por defecto), así que un módulo nuevo no necesita relleno. **Apagar no borra ni bloquea
+  datos**: es preferencia de pantalla. El acceso sí es seguridad, y los endpoints propios
+  de un módulo con acceso (los de costeo, desde la Fase 2) tienen que comprobarlo en el
+  servidor, no solo ocultar su UI.
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
   (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
   Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.
@@ -665,6 +677,11 @@ Contexto para que Claude no proponga rutas ni patrones equivocados:
 
 **El deploy es manual.** No asumir CI/CD ni ejecutar comandos contra el VPS
 sin que Yoshio lo pida explícitamente.
+
+**Acceso al plan maker**, en el VPS y desde la raíz del repo, con el servicio ya en una
+versión que tenga `user_modules`: `python3 scripts/grant_module.py --email … --module maker`
+(`--revoke` lo quita, `--list` muestra quién lo tiene). Quitarlo apaga el módulo sin
+olvidar lo que el usuario había elegido.
 
 ## Cómo quiero que trabajes
 

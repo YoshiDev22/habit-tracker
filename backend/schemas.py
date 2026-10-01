@@ -28,6 +28,17 @@ class UserCreate(SQLModel):
         return v
 
 
+class ModuleState(SQLModel):
+    """Un módulo para esta cuenta: si se ve (enabled) y si puede encenderlo (allowed)"""
+    enabled: bool
+    allowed: bool
+
+
+class ModuleUpdate(SQLModel):
+    """Encender o apagar un módulo desde Mi perfil"""
+    enabled: bool
+
+
 class UserResponse(SQLModel):
     """Esquema para respuesta de usuario"""
     id: int
@@ -40,6 +51,8 @@ class UserResponse(SQLModel):
     pomodoro_focus_seconds: Optional[int] = None
     pomodoro_short_break_seconds: Optional[int] = None
     pomodoro_long_break_seconds: Optional[int] = None
+    # Todos los de backend/modules.py, por nombre ("habits", "maker")
+    modules: Dict[str, ModuleState] = {}
 
 
 POMODORO_FIELDS = ("pomodoro_focus_seconds", "pomodoro_short_break_seconds", "pomodoro_long_break_seconds")

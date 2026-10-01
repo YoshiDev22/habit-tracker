@@ -2,11 +2,13 @@ import os
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User
-from backend.schemas import UserCreate, UserUpdate, UserResponse, Token, POMODORO_FIELDS
+from backend.models import User, UserModule
+from backend.modules import MODULES, resolve as resolve_module
+from backend.schemas import UserCreate, UserUpdate, UserResponse, ModuleState, ModuleUpdate, Token, POMODORO_FIELDS
 from backend.auth import (
     verify_password, 
     get_password_hash, 
@@ -31,6 +33,29 @@ def registration_open() -> bool:
     nuevas; las que ya existen siguen entrando. Se lee en cada request, así que
     basta con reiniciar el servicio tras cambiarlo. Sin la variable, abierto."""
     return os.getenv("ALLOW_REGISTRATION", "true").strip().lower() not in ("false", "0", "no")
+
+
+def user_modules(session: Session, user_id: int) -> dict:
+    """Todos los módulos de backend/modules.py para esta cuenta, con su fila
+    de user_modules si la tiene y su valor por defecto si no."""
+    rows = {
+        row.module: row
+        for row in session.exec(select(UserModule).where(UserModule.user_id == user_id)).all()
+    }
+    return {
+        name: resolve_module(name, getattr(rows.get(name), "enabled", None), getattr(rows.get(name), "allowed", None))
+        for name in MODULES
+    }
+
+
+def user_response(session: Session, user: User) -> UserResponse:
+    """El usuario como lo ve el frontend, con sus módulos. Toda respuesta con
+    el usuario pasa por aquí: el frontend reemplaza currentUser con ella."""
+    # Desde los atributos, no con model_dump(): tras un commit el objeto está
+    # expirado y model_dump() lo daría vacío; getattr lo recarga.
+    response = UserResponse.model_validate(user)
+    response.modules = {name: ModuleState(**state) for name, state in user_modules(session, user.id).items()}
+    return response
 
 
 @router.post("/register", response_model=UserResponse)
@@ -72,7 +97,7 @@ def register(user: UserCreate, request: Request, session: Session = Depends(get_
     # Solo cuentan las cuentas creadas: un email repetido no gasta intentos
     ratelimit.registrations.hit(ip)
     
-    return new_user
+    return user_response(session, new_user)
 
 
 @router.post("/login", response_model=Token)
@@ -116,12 +141,15 @@ def login(
 
 
 @router.get("/me", response_model=UserResponse)
-def read_current_user(current_user: User = Depends(get_current_user)):
+def read_current_user(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Retorna el usuario dueño del token. El frontend lo usa al recargar la
     página, donde solo conserva el token y no sabe a quién pertenece.
     """
-    return current_user
+    return user_response(session, current_user)
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -147,4 +175,44 @@ def update_current_user(
     session.commit()
     session.refresh(current_user)
 
-    return current_user
+    return user_response(session, current_user)
+
+
+@router.put("/me/modules/{module}", response_model=UserResponse)
+def set_module_enabled(
+    module: str,
+    body: ModuleUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Enciende o apaga un módulo para esta cuenta (Mi perfil). Apagarlo solo
+    oculta su parte de la app: sus datos siguen ahí. Un módulo sin acceso
+    (allowed) no se enciende: el acceso lo da scripts/grant_module.py.
+    """
+    if module not in MODULES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ese módulo no existe")
+    if body.enabled and not user_modules(session, current_user.id)[module]["allowed"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tu cuenta todavía no tiene acceso a este módulo."
+        )
+
+    query = select(UserModule).where(UserModule.user_id == current_user.id, UserModule.module == module)
+    row = session.exec(query).first()
+    if row is None:
+        row = UserModule(user_id=current_user.id, module=module)
+    row.enabled = body.enabled
+    session.add(row)
+    try:
+        session.commit()
+    except IntegrityError:
+        # Otra petición creó la fila a la vez (uq_user_modules_user_module):
+        # se actualiza la suya
+        session.rollback()
+        row = session.exec(query).one()
+        row.enabled = body.enabled
+        session.add(row)
+        session.commit()
+
+    return user_response(session, current_user)

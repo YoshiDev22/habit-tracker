@@ -79,6 +79,9 @@ def test_old_data_survives_and_is_placed_on_a_board(old_db, api):
     # Las columnas nuevas de users valen NULL = valores por defecto
     _, me = api.call("GET", "/api/auth/me", expect=200)
     assert me["pomodoro_focus_seconds"] is None
+    # Y sin filas en user_modules (tabla nueva), cada módulo como viene por defecto
+    assert me["modules"] == {"habits": {"enabled": True, "allowed": True},
+                             "maker": {"enabled": False, "allowed": False}}
 
 
 def test_a_preexisting_sin_asignar_project_is_adopted():
