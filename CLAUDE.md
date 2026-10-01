@@ -15,6 +15,11 @@ reportes:
 4. **Reportes** — pestaña de solo lectura: tiempo por día, proyecto, etiqueta y hora, tareas
    terminadas y días/rachas de hábitos en una semana, un mes o un rango.
 
+**Rumbo (decidido 2026-09-30):** una app de organización hecha de **módulos** que cada
+usuario activa: Núcleo (tableros, tiempo, Reportes) para todos, Hábitos y metas activo por
+defecto, y Costeo de proyectos (freelance / maker) apagado por defecto. Nada empresarial
+(sin equipos ni facturación). Plan en `docs/specs/modulos-y-costeo.md` (épica 24).
+
 Backend FastAPI + SQLite con autenticación JWT, frontend estático (HTML/CSS/JS
 vanilla, sin build step) servido por la misma app.
 
@@ -71,7 +76,7 @@ habit-tracker/
 │       ├── tags.py        # /api/tags/*
 │       └── pomodoro.py    # /api/pomodoro/*
 ├── docs/
-│   ├── specs/             # Specs de producto por fases (p. ej. calendario-v2.md)
+│   ├── specs/             # Specs de producto por fases (calendario-v2.md, modulos-y-costeo.md)
 │   └── referencias.md     # Investigación que sostiene las reglas de la racha (citable)
 ├── scripts/
 │   └── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
