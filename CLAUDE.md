@@ -42,7 +42,8 @@ completo (transitivas incluidas) y es lo que se instala en el VPS, en CI y en lo
 cambiar `requirements.txt`, regenerar el lock como dice su cabecera.
 
 Pruebas con `pytest` (ver **Pruebas**); sus dependencias van en `requirements-dev.txt`
-(`pytest`, `httpx`), que **no** se instala en producción. No hay linter ni CI.
+(`pytest`, `httpx`), que **no** se instala en producción. No hay linter. **CI:**
+`.github/workflows/tests.yml` corre `pytest` (solo API) en cada push, con Python 3.10 y 3.12.
 
 ## Estructura
 

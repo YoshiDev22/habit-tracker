@@ -1,0 +1,29 @@
+# Pruebas de API en cada push (cualquier rama) y a mano desde la pestaña Actions.
+# Las de navegador (pytest -m ui) se quedan fuera: tardan más de 10 minutos y
+# pytest.ini ya las deja fuera por defecto.
+name: tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # Las de Ubuntu 22.04 y 24.04 LTS: el VPS corre con una de las dos
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock
+            requirements-dev.txt
+      - run: pip install -r requirements.lock -r requirements-dev.txt
+      - run: pytest
