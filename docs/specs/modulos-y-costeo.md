@@ -109,8 +109,24 @@ idempotentes y límite de intentos en login y registro.
 
 ### Fase 3 — Gastos y materiales
 
-- Renglones por proyecto: fecha, concepto, categoría (material, software, servicio, IA,
-  otro), cantidad, costo unitario. Ejemplo real: los ~310 USD de tokens de IA de
+**Decidido (2026-10-01):**
+
+- **Pestaña propia, "Costos"**, junto a Calendario, Tableros y Reportes, visible solo con
+  el plan maker encendido (`setViewVisible`). Arriba, el resumen por proyecto (horas, mano
+  de obra, gastos, costo, presupuesto y margen, agrupado por moneda) y por categoría;
+  abajo, la hoja de gastos del proyecto elegido, que se edita como una hoja de cálculo.
+- **Pegar desde Excel o Google Sheets**: un rango copiado llega como texto separado por
+  tabuladores; se pega en la hoja y se ve en una vista previa antes de guardar. Lo mismo
+  con un archivo CSV. Sin conectar con Google (eso es la Fase 6).
+- **Solo gastos por proyecto.** Para lo general (una licencia que sirve a todo), un
+  proyecto "Gastos generales".
+- **Borrar un proyecto borra sus gastos**, y la confirmación lo avisa. Archivar conserva.
+- **Categorías del usuario**, como las etiquetas: cada cuenta recibe cinco al entrar por
+  primera vez (material, licencia/software, servicio, IA, otro) y las renombra, pinta,
+  ordena o crea. Una categoría con gastos no se borra (409 con el motivo, como las
+  columnas).
+
+- Renglones por proyecto: fecha, concepto, categoría, cantidad, costo unitario. Ejemplo real: los ~310 USD de tokens de IA de
   habit-tracker son un gasto de categoría IA.
 - **Importar CSV** con vista previa antes de guardar (la misma idea que "Exportar CSV" de
   Reportes, al revés). Cubre el caso "lo tengo en una hoja de Drive": se descarga como CSV
@@ -162,7 +178,7 @@ existen (esas van en `scripts/migrate.py` y tocan producción).
 |---|---|---|---|
 | 1 ✅ | `user_modules` (`user_id`, `module`, `enabled`, `allowed`), único por (usuario, módulo). Sin fila o NULL = valor por defecto del módulo | Tabla nueva | No |
 | 2 ✅ | `project_finance` (`project_id` único, `user_id`, `client_name`, `hourly_rate_cents`, `currency`, `budget_cents`, `budget_minutes`) | Tabla nueva, 1 a 1 con `projects` | No |
-| 3 | `project_costs` (`user_id`, `project_id`, `cost_date`, `concept`, `category`, `quantity`, `unit_cost_cents`, `note`) | Tabla nueva | No |
+| 3 | `cost_categories` (`user_id`, `name`, `color`, `order`), único por (usuario, nombre); y `project_costs` (`user_id`, `project_id`, `category_id`, `cost_date`, `concept`, `quantity`, `unit_cost_cents`, `note`) | Tablas nuevas | No |
 | 4 | `tasks.estimate_minutes` (NULL = sin estimado) | Columna nueva | **Sí**: `migrate.py` + `test_deploy.py` |
 | 6 | `project_finance.sheet_csv_url` | Columna en la tabla de la Fase 2 | No, si la Fase 2 aún no salió; si ya salió, sí |
 
