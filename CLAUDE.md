@@ -93,6 +93,7 @@ habit-tracker/
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
 ├── reports.js             # Vista Reportes: rango, gráficas SVG y desgloses (solo lee)
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
+├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -337,6 +338,19 @@ Lo que no se ve en Swagger:
   `backend/costing.py` y los usan la ficha y la pestaña, para que cuadren: **redondeo de
   .5 hacia arriba** (`ROUND_HALF_UP`, con enteros o `Decimal`), nunca `round()`, que
   redondea al par.
+- **Pestaña Costos** (`costs.js`): la cuarta vista (`'costs'`), oculta en el HTML y
+  mostrada por `applyCostsModule()` con el plan encendido. Si se recargó estando en ella,
+  vuelve (`goToView()` no sobrescribe `last_view` cuando la vista pedida aún no se ve).
+  En computadora ensancha la app como el tablero (`body.costs-wide`). La hoja edita en
+  sitio; una fila nueva es un borrador hasta tener concepto, y el repintado conserva los
+  borradores. **Pegar** varias celdas (texto con tabuladores o saltos de línea) o elegir un
+  CSV abre la vista previa (`parseTable()` → `rowsToCosts()`): separador tab, `;` o `,`;
+  dinero con coma o punto decimal; fechas `AAAA-MM-DD` o día primero (`30/09/2026`); las
+  categorías desconocidas se pueden crear. Nada se guarda hasta "Agregar".
+- **Nunca `scrollIntoView()` dentro de una vista**: también desplaza en horizontal
+  `#viewsViewport` (con `overflow: hidden` sigue siendo desplazable por código) y la vista
+  queda corrida. Desplazar con `window.scrollTo()`. `projects.js` además devuelve el
+  viewport a `scrollLeft = 0` si algo lo mueve.
   En la UI: la casilla **Maker** de Mi perfil solo se ve con `allowed`, y la sección
   Costeo de la ficha (`renderCosting()` en `project-overview.js`) guarda cada campo al
   cambiarlo y solo repinta el resultado, para no quitarle el foco al siguiente. El dinero
@@ -359,7 +373,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los siete scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los ocho scripts en orden y **el
 orden importa**:
 
 ```html
@@ -370,6 +384,7 @@ orden importa**:
 <script src="pomodoro.js"></script>
 <script src="reports.js"></script>  <!-- solo lee: usa helpers de script.js, habits.js y projects.js -->
 <script src="project-overview.js"></script> <!-- la ficha: usa barList y summaryStat de reports.js -->
+<script src="costs.js"></script>    <!-- pestaña Costos: usa formatMoney y CURRENCIES de project-overview.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -520,6 +535,7 @@ Claves: `access_token`, `theme`, `habitsData`, `user_habits`,
 tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista,
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión), `card_comments_hidden`
 (comentarios plegados en el detalle de tarjeta, de este dispositivo) y
+`costs_project` (proyecto elegido en la hoja de Costos; se borra al cerrar sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?") y `text_size` (`large` | `xlarge`, en **Mi perfil › En este

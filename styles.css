@@ -2558,8 +2558,15 @@ body.board-wide .app-container {
     max-width: 1200px;
 }
 
+/* Costos en pantalla ancha (costs.js): la hoja necesita sus siete columnas */
+body.costs-wide .app-container {
+    max-width: 1000px;
+}
+
 body.board-wide .app-brand,
-body.board-wide .tabs {
+body.board-wide .tabs,
+body.costs-wide .app-brand,
+body.costs-wide .tabs {
     max-width: 600px;
     margin-left: auto;
     margin-right: auto;
@@ -2688,6 +2695,22 @@ body.board-wide .board-column {
     margin: 0;
     font-size: 0.9rem;
     color: var(--text-secondary);
+}
+
+.costing-line {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.costing-margin {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.costing-margin.negative {
+    color: var(--danger-fg);
 }
 
 .costing-labor strong {
@@ -4689,4 +4712,268 @@ button.day-log-date:focus-visible {
 
 .card-section-toggle.collapsed .card-section-chevron {
     transform: rotate(-90deg);
+}
+
+/* ============================================
+   Costos (plan Maker, costs.js)
+   ============================================ */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+#viewCosts {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#viewCosts[hidden] {
+    display: none;
+}
+
+.costs-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.costs-sheet-scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+/* Resumen por proyecto: una fila por proyecto, se toca para ver sus gastos */
+.costs-projects,
+.costs-sheet {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.costs-projects th,
+.costs-sheet th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.costs-projects td {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.costs-projects td:not(:first-child),
+.costs-projects th:not(:first-child) {
+    text-align: right;
+}
+
+.costs-projects tbody tr {
+    cursor: pointer;
+}
+
+.costs-projects tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.costs-projects tbody tr.selected {
+    background: var(--bg-surface-2);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.costs-projects tbody tr:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.costs-project-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-primary) !important;
+    white-space: normal !important;
+    min-width: 120px;
+}
+
+.costs-projects td.negative {
+    color: var(--danger-fg);
+    font-weight: 600;
+}
+
+.costs-projects td.positive {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Hoja de gastos: celdas que se editan en su lugar */
+.costs-sheet-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.costs-project-pick select {
+    max-width: 240px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.costs-hint {
+    margin: 8px 0 12px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.costs-sheet td {
+    padding: 2px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.costs-sheet input,
+.costs-sheet select {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.costs-sheet input:hover,
+.costs-sheet select:hover {
+    border-color: var(--border-color);
+}
+
+.costs-sheet input:focus,
+.costs-sheet select:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-surface-2);
+}
+
+.costs-sheet .col-date { width: 9.5rem; }
+.costs-sheet .col-concept { min-width: 11rem; }
+.costs-sheet .col-category { width: 10rem; }
+.costs-sheet .col-qty { width: 5.5rem; }
+.costs-sheet .col-unit { width: 7.5rem; }
+.costs-sheet .col-actions { width: 2rem; }
+
+.costs-sheet .col-total {
+    padding: 2px 8px;
+    text-align: right;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.costs-sheet tfoot td {
+    border-bottom: none;
+    padding-top: 8px;
+}
+
+.costs-sheet tfoot .col-total {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.cost-delete {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.cost-delete:hover {
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+}
+
+.cost-empty td {
+    padding: 16px 8px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* Categorías: plegadas, se usan poco */
+.costs-categories summary {
+    cursor: pointer;
+    list-style-position: inside;
+}
+
+.costs-category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.costs-category-form {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.costs-category-form input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.costs-category-form .submit-btn {
+    width: auto;
+    margin-top: 0;
+    padding: 8px 14px;
+}
+
+/* Vista previa de lo pegado o importado */
+.costs-import-modal {
+    max-width: 760px;
+    text-align: left;
+}
+
+.costs-preview td {
+    padding: 6px 8px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.costs-preview tr.invalid td {
+    color: var(--danger-fg);
+    text-decoration: line-through;
+}
+
+@media (max-width: 600px) {
+    .costs-projects .col-hide-narrow {
+        display: none;
+    }
 }

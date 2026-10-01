@@ -222,11 +222,24 @@ function paintCostingResult(card, finance) {
         parts.push(el('p', 'report-compare-small', 'Pon una tarifa por hora para calcular la mano de obra.'));
     }
 
-    // El avance del presupuesto, en dinero y en tiempo, con barras de Reportes
+    // Los gastos de la pestaña Costos, y lo que suman con la mano de obra
+    if (finance.costs_cents > 0) {
+        parts.push(el('p', 'costing-line',
+            `+ ${formatMoney(finance.costs_cents, currency)} de gastos = ${formatMoney(finance.total_cost_cents, currency)} de costo total`));
+    }
+    if (finance.margin_cents != null) {
+        const margin = el('p', `costing-line costing-margin${finance.margin_cents < 0 ? ' negative' : ''}`);
+        margin.textContent = finance.margin_cents < 0
+            ? `Te pasas del presupuesto por ${formatMoney(-finance.margin_cents, currency)}`
+            : `Margen: ${formatMoney(finance.margin_cents, currency)}`;
+        parts.push(margin);
+    }
+
+    // El avance del presupuesto, en dinero (horas + gastos) y en tiempo
     const rows = [];
     if (finance.budget_cents) {
         rows.push({
-            name: `Presupuesto: ${formatMoney(finance.labor_cents || 0, currency)} de ${formatMoney(finance.budget_cents, currency)}`,
+            name: `Presupuesto: ${formatMoney(finance.total_cost_cents || 0, currency)} de ${formatMoney(finance.budget_cents, currency)}`,
             pct: finance.budget_money_pct,
         });
     }

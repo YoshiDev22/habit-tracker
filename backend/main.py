@@ -114,6 +114,12 @@ def project_overview_js():
     return FileResponse(get_frontend_path("project-overview.js"))
 
 
+@app.get("/costs.js")
+def costs_js():
+    """Serve costs.js"""
+    return FileResponse(get_frontend_path("costs.js"))
+
+
 # Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
 # cerrada, no por el nombre que pida la URL, para no servir otros archivos.
 APP_ICONS = {

@@ -30,6 +30,7 @@ window.viewChangedHooks = [];
 const tabCalendar = document.getElementById('tabCalendar');
 const tabProjects = document.getElementById('tabProjects');
 const tabReports = document.getElementById('tabReports');
+const tabCosts = document.getElementById('tabCosts');
 const viewsViewport = document.getElementById('viewsViewport');
 const viewsTrack = document.getElementById('viewsTrack');
 const tabIndicator = document.querySelector('.tab-indicator');
@@ -66,6 +67,8 @@ const VIEWS = [
     { id: 'calendar', tab: tabCalendar, section: document.getElementById('viewCalendar') },
     { id: 'projects', tab: tabProjects, section: document.getElementById('viewProjects') },
     { id: 'reports', tab: tabReports, section: document.getElementById('viewReports') },
+    // Solo con el plan Maker (costs.js la muestra): nace oculta en el HTML
+    { id: 'costs', tab: tabCosts, section: document.getElementById('viewCosts') },
 ];
 
 // Posición de la vista activa entre las que se ven (la que mueve el track) y
@@ -83,7 +86,10 @@ function goToView(target, opts = {}) {
     const animate = opts.animate !== false;
     const views = visibleViews();
     let index = typeof target === 'string' ? views.findIndex(view => view.id === target) : target;
-    if (!Number.isInteger(index) || index < 0) index = 0;
+    // Una vista que aún no se ve (Costos antes de saber si hay plan Maker) no
+    // borra la recordada: al aparecer, su módulo vuelve a ella
+    const fellBack = !Number.isInteger(index) || index < 0;
+    if (fellBack) index = 0;
     currentViewIndex = Math.min(views.length - 1, index);
     currentViewId = views[currentViewIndex].id;
 
@@ -102,7 +108,7 @@ function goToView(target, opts = {}) {
     tabIndicator.style.width = `${100 / views.length}%`;
     tabIndicator.style.transform = `translateX(${100 * currentViewIndex}%)`;
     watchActiveView();
-    writeLastView(currentViewId);
+    if (!fellBack) writeLastView(currentViewId);
 
     window.viewChangedHooks.forEach(hook => hook(currentViewId));
 }
@@ -147,6 +153,13 @@ function watchActiveView() {
 }
 
 watchActiveView();
+
+// El viewport recorta con overflow: hidden, pero el código aún puede
+// desplazarlo: un scrollIntoView() o el foco en un campo de otra vista lo
+// corrían a un lado y la vista quedaba cortada. El track es el que se mueve.
+viewsViewport.addEventListener('scroll', () => {
+    if (viewsViewport.scrollLeft !== 0) viewsViewport.scrollLeft = 0;
+});
 
 // La última pestaña se recuerda en este dispositivo (localStorage.last_view):
 // al recargar se vuelve a ella sin pedir nada extra al servidor. Se aplica ya,
@@ -1107,6 +1120,10 @@ function openProjectDeleteModal(projectId) {
         projectDeleteMessage.textContent = 'Su tiempo registrado pasará a Sin asignar.';
     } else {
         projectDeleteMessage.textContent = 'No tiene tareas ni tiempo registrado.';
+    }
+    // Su costeo y sus gastos (plan Maker) no pasan a ningún lado: se borran
+    if (moduleEnabled('maker')) {
+        projectDeleteMessage.textContent += ' Su costeo y sus gastos se borran con él.';
     }
 
     projectDeleteTimeInput.checked = false;
