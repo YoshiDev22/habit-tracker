@@ -472,6 +472,13 @@ pomodoro que terminaba con dos pestañas abiertas se guardaba dos veces. Igual c
 cola y quita solo lo enviado, para no perder lo que se encoló mientras tanto. El logout no
 reclama: su POST debe salir antes del primer `await` (ver hooks).
 
+**La última red es el servidor.** El reclamo no alcanza si el navegador muere justo después
+de enviar (localStorage aún no llegó a disco) o si se pierde la respuesta de un POST que
+la cola reintenta. Por eso `buildPayload()` manda el `sessionId` como `idempotency_key`, y
+`POST /api/pomodoro` devuelve **200 con la sesión ya guardada** si esa clave ya existe para
+el usuario (201 solo al crear). Un índice único (`user_id`, `idempotency_key`) frena dos
+envíos simultáneos. Los registros a mano van sin clave: cada envío es uno nuevo.
+
 ### Timer
 
 No hay tarjeta de reloj: el tiempo se inicia desde una tarea (▶ de la tarjeta o de la
@@ -603,7 +610,9 @@ Desde la 1.10.0 la app **se niega a arrancar** si falta alguna columna de esa li
 (`check_pending_migrations()` en `backend/database.py`, que lee `MIGRATIONS` del propio
 script): si el servicio no levanta tras un deploy, mirar el log, dice qué correr. Por eso
 una columna nueva en una tabla existente **tiene** que ir en `migrate.py`: si no, ni se
-detecta ni se aplica.
+detecta ni se aplica. Lo mismo un índice nuevo (`__table_args__`) sobre una tabla que ya
+existía: va en `INDEXES`, con el mismo nombre que en el modelo, y su falta también frena
+el arranque.
 
 ## Producción (VPS Ubuntu)
 
