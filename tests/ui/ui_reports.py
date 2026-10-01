@@ -124,8 +124,9 @@ async def main():
         await b.js(CLOSE_WELCOME)
 
         # --- Stage 1: tab, navigation, range
-        tabs = await b.js("[...document.querySelectorAll('.tab-btn')].map(t => t.textContent)")
-        check(tabs == ["Calendario", "Tableros", "Reportes"], f"three tabs ({tabs})")
+        # Costos existe en el HTML pero oculta: solo aparece con el plan Maker
+        tabs = await b.js("[...document.querySelectorAll('.tab-btn')].filter(t => !t.hidden).map(t => t.textContent)")
+        check(tabs == ["Calendario", "Tableros", "Reportes"], f"three tabs without the Maker plan ({tabs})")
         await b.js("document.getElementById('tabReports').click()")
         await asyncio.sleep(1.2)
         st = await b.js("""({view: currentViewIndex, sel: document.getElementById('tabReports').getAttribute('aria-selected'),
