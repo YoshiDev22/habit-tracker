@@ -57,6 +57,7 @@ const profileModal = document.getElementById('profileModal');
 const profileForm = document.getElementById('profileForm');
 const profileError = document.getElementById('profileError');
 const moduleError = document.getElementById('moduleError');
+const moduleStatus = document.getElementById('moduleStatus');
 const confirmModal = document.getElementById('confirmModal');
 const confirmModalTitle = document.getElementById('confirmModalTitle');
 const confirmModalMessage = document.getElementById('confirmModalMessage');
@@ -232,7 +233,22 @@ function updateUserBar() {
         userEmail.title = currentUser.email || '';
         brandGreeting.textContent = `Sigamos adelante, ${label}`;
     }
+    // La etiqueta MKR, pegada al nombre, mientras el plan Maker esté encendido
+    document.getElementById('planBadge').hidden = !(currentUser && moduleEnabled('maker'));
 }
+
+// Qué cambió al tocar un módulo, dicho donde se tocó: encender no recarga
+// nada, así que hay que decir dónde está lo nuevo
+const MODULE_STATUS = {
+    maker: {
+        on: 'Plan Maker encendido. Abre la ficha de un proyecto (Tableros › Lista, toca su nombre) para costearlo.',
+        off: 'Plan Maker apagado. Tu costeo se guarda y vuelve al encenderlo.',
+    },
+    habits: {
+        on: 'Hábitos encendido: vuelve la pestaña Calendario.',
+        off: 'Hábitos apagado: tus registros se guardan y vuelven al encenderlo.',
+    },
+};
 
 async function loadAppVersion() {
     try {
@@ -386,6 +402,7 @@ function showProfile() {
         lastName: currentUser.last_name || ''
     };
     moduleError.classList.add('hidden');
+    moduleStatus.hidden = true;
     moduleInputs().forEach(input => {
         input.checked = moduleEnabled(input.dataset.module);
     });
@@ -405,6 +422,7 @@ async function handleModuleToggle(event) {
     const input = event.target.closest('[data-module]');
     if (!input) return;
     moduleError.classList.add('hidden');
+    moduleStatus.hidden = true;
     input.disabled = true;
     try {
         currentUser = await apiFetch(`/api/auth/me/modules/${input.dataset.module}`, {
@@ -417,6 +435,12 @@ async function handleModuleToggle(event) {
         return;
     } finally {
         input.disabled = false;
+    }
+    updateUserBar();
+    const status = MODULE_STATUS[input.dataset.module];
+    if (status) {
+        moduleStatus.textContent = input.checked ? status.on : status.off;
+        moduleStatus.hidden = false;
     }
     await runHooks(window.modulesChangedHooks);
 }

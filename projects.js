@@ -841,7 +841,7 @@ projectsList.addEventListener('click', (event) => {
         // Tocar el proyecto abre su ficha (project-overview.js); editarlo, desde
         // ahí con ✎ Editar
         const projectId = Number(mainArea.closest('.project-card').dataset.projectId);
-        openProjectOverview(projectId);
+        openProjectOverview(projectId, { editable: true });
         return;
     }
 

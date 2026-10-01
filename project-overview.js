@@ -5,7 +5,7 @@
 // Solo lectura (épica 24, Fase 1). Sale entera de GET /api/projects/{id}/overview,
 // con el mismo criterio que la Lista y Reportes (solo sesiones de enfoque), así
 // que su total cuadra con ellas. Se abre al tocar un proyecto en la Lista, o
-// con 📊 en Organizar, encima de ese modal. Usa las barras y las cifras de
+// con 📊 encima de Organizar o del detalle de una tarjeta. Usa las barras y las cifras de
 // Reportes (barList, summaryStat, reportCard, el): carga después de reports.js.
 
 const projectOverviewModal = document.getElementById('projectOverviewModal');
@@ -16,10 +16,14 @@ const overviewEditBtn = document.getElementById('overviewEditBtn');
 
 let overviewProject = null;
 let overviewRequestId = 0;
+let overviewEditable = false;
 
-async function openProjectOverview(projectId) {
+// `editable`: solo desde la Lista. Encima de la tarjeta o de Organizar, el
+// formulario del proyecto se abriría debajo de esos modales (va antes en el HTML).
+async function openProjectOverview(projectId, { editable = false } = {}) {
     const requestId = ++overviewRequestId;
     overviewProject = null;
+    overviewEditable = editable;
     overviewTitle.textContent = 'Cargando…';
     overviewMeta.textContent = '';
     overviewEditBtn.hidden = true;
@@ -60,7 +64,7 @@ function renderProjectOverview(data) {
     }
     overviewMeta.textContent = notes.join(' · ');
     // "Sin asignar" no se edita; un archivado se edita desde Organizar
-    overviewEditBtn.hidden = project.is_system || !project.is_active;
+    overviewEditBtn.hidden = !overviewEditable || project.is_system || !project.is_active;
 
     const stats = el('div', 'report-stats');
     stats.append(
@@ -295,6 +299,6 @@ window.appLogoutHooks.push(closeProjectOverview);
 // Encender o apagar el plan maker pone o quita el costeo de la ficha abierta
 window.modulesChangedHooks.push(() => {
     if (overviewProject && !projectOverviewModal.classList.contains('hidden')) {
-        openProjectOverview(overviewProject.id);
+        openProjectOverview(overviewProject.id, { editable: overviewEditable });
     }
 });

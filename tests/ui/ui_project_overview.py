@@ -84,6 +84,24 @@ async def main():
         await asyncio.sleep(0.4)
         st = await b.js("({overview: " + OPEN + ", config: !document.getElementById('boardConfigModal').classList.contains('hidden')})")
         check(st == {"overview": False, "config": True}, f"Escape closes only the overview ({st})")
+        await b.js("document.getElementById('closeBoardConfigBtn').click()")
+        await asyncio.sleep(0.6)
+
+        # Desde una tarjeta del Tablero: 📊 junto al proyecto, encima del detalle
+        await b.wait_for("document.querySelectorAll('.board-card').length > 0")
+        await b.js("document.querySelector('.board-card').click()")
+        await b.wait_for("!document.getElementById('cardModal').classList.contains('hidden')")
+        project_name = await b.js("document.getElementById('cardProject').selectedOptions[0].textContent")
+        await b.js("document.getElementById('cardProjectOverviewBtn').click()")
+        await b.wait_for("document.querySelectorAll('#overviewBody .report-card').length >= 1")
+        st = await b.js("""({title: document.getElementById('overviewTitle').textContent,
+            edit: !document.getElementById('overviewEditBtn').hidden})""")
+        check(project_name in st["title"] and not st["edit"],
+              f"the card's 📊 opens its project's overview, without Editar on top of the card ({project_name}, {st})")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))")
+        await asyncio.sleep(0.4)
+        st = await b.js("({overview: " + OPEN + ", card: !document.getElementById('cardModal').classList.contains('hidden')})")
+        check(st == {"overview": False, "card": True}, f"closing it leaves the card open ({st})")
     finally:
         await b.close()
 

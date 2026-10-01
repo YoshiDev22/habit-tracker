@@ -1255,6 +1255,12 @@ cardColumnSelect.addEventListener('change', () => {
     patchCardTask({ column_id: Number(cardColumnSelect.value) });
 });
 
+// La ficha del proyecto de la tarjeta, encima de ella (project-overview.js)
+document.getElementById('cardProjectOverviewBtn').addEventListener('click', () => {
+    const projectId = Number(cardProjectSelect.value);
+    if (projectId) openProjectOverview(projectId);
+});
+
 cardProjectSelect.addEventListener('change', () => {
     if (cardProjectSelect.value === NEW_PROJECT_OPTION) {
         // No es un proyecto: se vuelve al que tenía y se abre la fila de crear

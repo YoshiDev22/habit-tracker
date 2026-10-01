@@ -294,7 +294,12 @@
     <div id="userBar" class="user-bar hidden">
         <button id="themeToggle" class="settings-btn" type="button" title="Tema: Sistema" aria-label="Tema: Sistema">🖥️</button>
         <button id="settingsBtn" class="settings-btn">⚙️</button>
-        <button type="button" id="userEmail" class="user-label-btn" title="Editar perfil"></button>
+        <!-- El nombre y, pegada como subíndice, la etiqueta del plan (MKR con
+             el plan Maker encendido) -->
+        <span class="user-name-wrap">
+            <button type="button" id="userEmail" class="user-label-btn" title="Editar perfil"></button>
+            <span id="planBadge" class="plan-badge" title="Plan Maker" hidden>MKR</span>
+        </span>
         <span class="app-version" id="mainVersion"></span>
         <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
     </div>
@@ -403,6 +408,7 @@
                         <span class="module-hint">Costeo de proyectos: cliente, tarifa por hora y presupuesto en la ficha de cada proyecto.</span>
                     </span>
                 </label>
+                <p id="moduleStatus" class="module-status" role="status" hidden></p>
                 <div id="moduleError" class="form-error hidden"></div>
             </div>
             <!-- No es del perfil: se guarda en este dispositivo y se aplica al
@@ -700,10 +706,15 @@
                     <span>Columna</span>
                     <select id="cardColumn"></select>
                 </label>
-                <label class="card-field">
-                    <span>Proyecto</span>
-                    <select id="cardProject"></select>
-                </label>
+                <div class="card-field">
+                    <span id="cardProjectLabel">Proyecto</span>
+                    <!-- 📊 abre la ficha del proyecto encima de la tarjeta -->
+                    <div class="card-project-row">
+                        <select id="cardProject" aria-labelledby="cardProjectLabel"></select>
+                        <button type="button" id="cardProjectOverviewBtn" class="card-project-overview"
+                                title="Ficha del proyecto" aria-label="Ficha del proyecto">📊</button>
+                    </div>
+                </div>
             </div>
             <!-- "＋ Nuevo proyecto…" del select abre esta fila: se crea sin salir de la tarjeta -->
             <form class="card-new-project hidden" id="cardNewProjectForm">

@@ -59,6 +59,7 @@ async def main():
         # Sin acceso: ni la casilla ni el costeo
         await open_profile()
         check(not await b.js(MAKER_SHOWN), "no Maker checkbox without access")
+        check(await b.js("document.getElementById('planBadge').hidden"), "no MKR badge without the plan")
         await b.js("document.querySelector('#profileModal [data-close-modal]').click()")
         await open_overview()
         check(not await b.js("!!document.querySelector('.costing-card')"), "no costing in the overview without the plan")
@@ -74,7 +75,32 @@ async def main():
         await b.js("document.getElementById('moduleMaker').click()")
         me = await wait_api("/api/auth/me", lambda body: body["modules"]["maker"]["enabled"])
         check(me["modules"]["maker"]["enabled"], "turning it on is saved in the account")
+        await b.wait_for("!document.getElementById('moduleStatus').hidden")
+        status = await b.js("document.getElementById('moduleStatus').textContent")
+        check("ficha de un proyecto" in status, f"the profile says where the new feature is ({status})")
         await b.js("document.querySelector('#profileModal [data-close-modal]').click()")
+        await asyncio.sleep(0.3)
+
+        # La etiqueta MKR, pegada al nombre y un poco abajo (subíndice)
+        st = await b.js("""(() => {
+            const badge = document.getElementById('planBadge');
+            const name = document.getElementById('userEmail').getBoundingClientRect();
+            const r = badge.getBoundingClientRect();
+            return {shown: !badge.hidden && r.width > 0, text: badge.textContent,
+                    gap: Math.round(r.left - name.right), lower: r.bottom > name.bottom};
+        })()""")
+        check(st["shown"] and st["text"] == "MKR" and 0 <= st["gap"] <= 6 and st["lower"],
+              f"MKR badge right after the name, as a subscript ({st})")
+        await b.viewport(1280, 800)
+        await b.shot("maker_badge_light", full=False)
+        await b.js("document.documentElement.setAttribute('data-theme', 'dark')")
+        await asyncio.sleep(0.2)
+        await b.shot("maker_badge_dark", full=False)
+        await b.js("document.documentElement.setAttribute('data-theme', 'light')")
+        await b.viewport(390, 844, mobile=True)
+        await b.goto(BASE + "/", wait=2.5)
+        await b.js(CLOSE_WELCOME)
+        check(not await b.js("document.getElementById('planBadge').hidden"), "the badge is there after a reload")
 
         await open_overview()
         check(await b.js("!!document.querySelector('.costing-card')"), "the overview now has Costeo")

@@ -8,6 +8,10 @@
     color-scheme: light;
 
     --bg-app: #fafafa;
+    /* Plan Maker: la etiqueta MKR junto al nombre */
+    --plan-from: #1d7fe5;
+    --plan-to: #12c99b;
+    --plan-text: #0b8fc4;
     --bg-surface: #ffffff;
     --bg-surface-2: #f8f9fa;
     --bg-surface-3: #e9ecef;
@@ -63,6 +67,9 @@
     color-scheme: dark;
 
     --bg-app: #14161a;
+    --plan-from: #4a9cf0;
+    --plan-to: #2ee6b6;
+    --plan-text: #45c3ea;
     --bg-surface: #1e2127;
     --bg-surface-2: #262a32;
     --bg-surface-3: #323741;
@@ -1590,6 +1597,36 @@ body.has-pomodoro-bar {
     color: var(--text-primary);
 }
 
+.user-name-wrap {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+}
+
+/* Etiqueta del plan, como subíndice del nombre: contorno redondeado con el
+   degradado del plan (azul → verde agua) y el texto en el color de en medio */
+.plan-badge {
+    position: relative;
+    top: 5px;
+    padding: 2px 6px 1px;
+    border: 1.5px solid transparent;
+    border-radius: 999px;
+    background:
+        linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box,
+        linear-gradient(120deg, var(--plan-from), var(--plan-to)) border-box;
+    color: var(--plan-text);
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    cursor: default;
+    user-select: none;
+}
+
+.plan-badge[hidden] {
+    display: none;
+}
+
 .logout-btn {
     padding: 8px 16px;
     background: var(--bg-hover);
@@ -2161,6 +2198,19 @@ body.has-pomodoro-bar {
 }
 
 .module-option[hidden] {
+    display: none;
+}
+
+.module-status {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.module-status[hidden] {
     display: none;
 }
 
@@ -2750,6 +2800,30 @@ body.board-wide .board-column {
     min-width: 0;
     font-size: 0.75rem;
     color: var(--text-muted);
+}
+
+.card-project-row {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+}
+
+.card-project-row select {
+    flex: 1;
+}
+
+.card-project-overview {
+    flex-shrink: 0;
+    width: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.card-project-overview:hover {
+    background: var(--bg-hover);
 }
 
 .card-field select {
