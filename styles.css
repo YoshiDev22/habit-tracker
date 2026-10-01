@@ -2160,6 +2160,14 @@ body.has-pomodoro-bar {
     color: var(--text-secondary);
 }
 
+.module-option[hidden] {
+    display: none;
+}
+
+.module-option + .module-option {
+    margin-top: 12px;
+}
+
 #moduleError {
     margin-top: 8px;
 }
@@ -2597,6 +2605,83 @@ body.board-wide .board-column {
     box-shadow: none;
     border: 1px solid var(--border-color);
     padding: 14px 16px;
+}
+
+/* Costeo (plan maker) dentro de la ficha */
+.costing-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.costing-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.costing-badge[hidden] {
+    display: none;
+}
+
+.costing-result {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.costing-labor {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.costing-labor strong {
+    font-size: 1.15rem;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.costing-result .report-bar-row.over .report-bar-fill {
+    background: var(--danger-solid);
+}
+
+.costing-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+}
+
+.costing-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.costing-field:first-child {
+    grid-column: 1 / -1;   /* el cliente, a lo ancho */
+}
+
+.costing-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.costing-field input,
+.costing-field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.9rem;
 }
 
 @media (max-width: 600px) {

@@ -323,6 +323,11 @@ Lo que no se ve en Swagger:
   por moneda. Con presupuesto y sin tiempo, `is_quote` (no hay estados de proyecto). La
   ficha lleva el mismo bloque en `finance` solo si el plan está encendido. "Sin asignar" no
   se costea (409); borrar un proyecto borra su costeo.
+  En la UI: la casilla **Maker** de Mi perfil solo se ve con `allowed`, y la sección
+  Costeo de la ficha (`renderCosting()` en `project-overview.js`) guarda cada campo al
+  cambiarlo y solo repinta el resultado, para no quitarle el foco al siguiente. El dinero
+  se formatea con `Intl.NumberFormat` en la moneda del proyecto; `CURRENCIES` está en
+  `schemas.py` y repetida en `project-overview.js`: una moneda nueva va en las dos.
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
   (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
   Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.

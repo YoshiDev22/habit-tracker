@@ -395,6 +395,14 @@
                         <span class="module-hint">La pestaña Calendario, tu racha y los hábitos en Reportes. Si lo apagas, tus registros se guardan y vuelven al encenderlo.</span>
                     </span>
                 </label>
+                <!-- Solo para las cuentas con acceso (scripts/grant_module.py) -->
+                <label class="module-option" id="moduleMakerOption" hidden>
+                    <input type="checkbox" id="moduleMaker" data-module="maker">
+                    <span class="module-text">
+                        <span class="module-name">Maker</span>
+                        <span class="module-hint">Costeo de proyectos: cliente, tarifa por hora y presupuesto en la ficha de cada proyecto.</span>
+                    </span>
+                </label>
                 <div id="moduleError" class="form-error hidden"></div>
             </div>
             <!-- No es del perfil: se guarda en este dispositivo y se aplica al

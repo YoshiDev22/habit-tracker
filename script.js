@@ -389,6 +389,9 @@ function showProfile() {
     moduleInputs().forEach(input => {
         input.checked = moduleEnabled(input.dataset.module);
     });
+    // Un módulo sin acceso para esta cuenta no se ofrece
+    const maker = currentUser.modules && currentUser.modules.maker;
+    document.getElementById('moduleMakerOption').hidden = !(maker && maker.allowed);
     showModal(profileModal);
 }
 
