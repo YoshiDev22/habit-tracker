@@ -37,6 +37,10 @@ Versiones confirmadas en `requirements.txt` (no hay `pyproject.toml` en el repo)
 - `python-dotenv==1.0.1` para cargar `backend/.env`
 - Frontend estático servido por la misma app (sin build step, sin dependencias JS)
 
+`requirements.txt` declara las dependencias directas; **`requirements.lock`** fija el árbol
+completo (transitivas incluidas) y es lo que se instala en el VPS, en CI y en local. Al
+cambiar `requirements.txt`, regenerar el lock como dice su cabecera.
+
 Pruebas con `pytest` (ver **Pruebas**); sus dependencias van en `requirements-dev.txt`
 (`pytest`, `httpx`), que **no** se instala en producción. No hay linter ni CI.
 
@@ -80,7 +84,8 @@ habit-tracker/
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 ├── CHANGELOG.md           # Novedades de cada versión, para el usuario
-├── requirements.txt
+├── requirements.txt     # Dependencias directas
+├── requirements.lock    # Árbol completo fijado: lo que se instala
 ├── README.md
 ├── BACKLOG.md             # Cola de trabajo pendiente
 └── CLAUDE.md
@@ -95,7 +100,7 @@ El repo **no incluye** ni la base de datos ni el `.env`. Ambos hay que crearlos:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.lock
 
 cp backend/.env.example backend/.env
 # SECRET_KEY de desarrollo (NO reutilizar el de producción):

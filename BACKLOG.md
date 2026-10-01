@@ -15,7 +15,6 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
 | 5 | P3 | Sin CI | — |
-| 6 | P3 | Dependencias transitivas sin fijar | diagnosticado |
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
 | 17 | P2 | Metas con hábitos y avance medible | épica |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
@@ -36,26 +35,6 @@ aparte con Chrome del runner (`HABIT_UI_BROWSER`).
 
 **Aceptación.** Un push a `main` muestra el resultado de `pytest` en GitHub, y un test
 roto a propósito lo pone en rojo.
-
----
-
-## 6 · P3 · Dependencias transitivas sin fijar
-
-**Síntoma.** Dos instalaciones del mismo `requirements.txt` en fechas distintas producen
-entornos distintos. El venv local y el del VPS pueden divergir sin que nada lo indique.
-
-**Causa.** `requirements.txt` fija las 8 dependencias directas, pero ninguna transitiva.
-En la instalación del 2026-09-08, `pip` resolvió a lo último disponible ese día:
-`pydantic 2.13.5`, `SQLAlchemy 2.0.52`, `cryptography 50.0.1`, `starlette 0.35.1`, entre
-otras. Nada de eso está registrado.
-
-**Arreglo.** Congelar el árbol completo. Lo más simple sin agregar herramientas:
-`pip freeze > requirements.lock` y usar el lock en producción, dejando `requirements.txt`
-como declaración de intención. Alternativa más limpia si se acepta una herramienta nueva:
-`pip-tools` con `requirements.in` → `requirements.txt` compilado.
-
-**Aceptación.** Un `pip install` desde cero en dos máquinas produce las mismas versiones,
-verificable comparando `pip freeze`.
 
 ---
 
