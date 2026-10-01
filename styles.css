@@ -1332,6 +1332,11 @@ body.has-pomodoro-bar {
     z-index: 1050;
 }
 
+/* La ficha de proyecto se abre también encima de Organizar (1000) */
+#projectOverviewModal {
+    z-index: 1050;
+}
+
 /* La pregunta del cronómetro olvidado puede salir sobre cualquier modal
    abierto; solo el confirm va por encima */
 #idleCheckModal {
@@ -2542,6 +2547,63 @@ body.board-wide .board-column {
     max-width: 560px;
     padding: 24px;
     text-align: left;
+}
+
+/* Ficha de proyecto: las tarjetas y barras de Reportes, dentro de un modal */
+.overview-modal {
+    max-width: 560px;
+    padding: 24px;
+    text-align: left;
+}
+
+.overview-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    padding-right: 32px;   /* la X de cerrar */
+}
+
+.overview-title {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.overview-meta {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.overview-meta:empty {
+    display: none;
+}
+
+.overview-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+/* "✓ hecha" no se parte en dos líneas junto a un título largo */
+.overview-body .report-bar-note {
+    white-space: nowrap;
+}
+
+.overview-body .report-card {
+    box-shadow: none;
+    border: 1px solid var(--border-color);
+    padding: 14px 16px;
+}
+
+@media (max-width: 600px) {
+    .overview-modal {
+        width: 94%;
+        padding: 18px;
+    }
 }
 
 .card-modal-head {

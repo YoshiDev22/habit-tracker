@@ -466,6 +466,49 @@ class ProjectSummaryListResponse(SQLModel):
     total: int
 
 
+class OverviewTask(SQLModel):
+    """Una tarea en la ficha del proyecto, con su tiempo de enfoque"""
+    id: int
+    title: str
+    is_done: bool
+    seconds: int
+
+
+class OverviewTag(SQLModel):
+    """Tiempo del proyecto en tareas con esta etiqueta. Una sesión cuenta en
+    cada etiqueta de su tarea: estos totales NO se suman entre sí."""
+    tag_id: int
+    name: str
+    color: Optional[str] = None
+    seconds: int
+
+
+class OverviewMonth(SQLModel):
+    """Tiempo del proyecto en un mes ("AAAA-MM", por session_date: la fecha local)"""
+    month: str
+    seconds: int
+
+
+class ProjectOverview(SQLModel):
+    """
+    Ficha de un proyecto (épica 24, Fase 1): todo su tiempo de enfoque, con
+    el mismo criterio que /api/projects/summary, para que las cifras cuadren
+    con la Lista y Reportes. Vale también para proyectos archivados.
+    """
+    project: ProjectResponse
+    total_seconds: int
+    session_count: int
+    task_total: int
+    task_done: int
+    tasks: List[OverviewTask]          # todas, las de más tiempo primero
+    seconds_no_task: int               # tiempo registrado sin tarea
+    tags: List[OverviewTag]            # las de más tiempo primero
+    untagged_seconds: int              # sesiones sin etiqueta (o sin tarea)
+    months: List[OverviewMonth]        # del más antiguo al más reciente
+    first_date: Optional[date_type] = None   # primera y última sesión
+    last_date: Optional[date_type] = None
+
+
 # ==================== Task Schemas ====================
 
 TASK_NOTES_MAX = 5000

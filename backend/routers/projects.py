@@ -3,8 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User, Project, Task, PomodoroSession
+from backend.models import User, Project, Task, PomodoroSession, Tag, TaskTag
 from backend.schemas import (
+    OverviewMonth,
+    OverviewTag,
+    OverviewTask,
+    ProjectOverview,
     ProjectCreate,
     ProjectUpdate,
     ProjectResponse,
@@ -152,6 +156,90 @@ def get_projects_summary(
         ))
 
     return ProjectSummaryListResponse(summaries=summaries, total=len(summaries))
+
+
+@router.get("/{project_id}/overview", response_model=ProjectOverview)
+def get_project_overview(
+    project_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Ficha del proyecto: tiempo de enfoque total, por tarea, por etiqueta y por
+    mes, y tareas hechas contra totales. Mismo criterio que /summary (solo
+    sesiones focus con este project_id), así que el total cuadra con la Lista
+    y con Reportes. También para archivados y para "Sin asignar".
+    """
+    project = session.exec(
+        select(Project).where(Project.id == project_id, Project.user_id == current_user.id)
+    ).first()
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
+
+    tasks = session.exec(
+        select(Task).where(Task.user_id == current_user.id, Task.project_id == project_id)
+    ).all()
+    focus = session.exec(
+        select(PomodoroSession).where(
+            PomodoroSession.user_id == current_user.id,
+            PomodoroSession.project_id == project_id,
+            PomodoroSession.mode == "focus",
+        )
+    ).all()
+
+    task_ids = [t.id for t in tasks]
+    tags_by_task: Dict[int, list] = {}
+    tag_info: Dict[int, Tag] = {}
+    if task_ids:
+        for task_id, tag in session.exec(
+            select(TaskTag.task_id, Tag)
+            .join(Tag, Tag.id == TaskTag.tag_id)
+            .where(TaskTag.user_id == current_user.id, TaskTag.task_id.in_(task_ids))
+        ).all():
+            tags_by_task.setdefault(task_id, []).append(tag.id)
+            tag_info[tag.id] = tag
+
+    seconds_by_task: Dict[int, int] = {}
+    seconds_by_tag: Dict[int, int] = {}
+    seconds_by_month: Dict[str, int] = {}
+    no_task = untagged = 0
+    for s in focus:
+        seconds = s.duration_seconds
+        month = s.session_date.strftime("%Y-%m")
+        seconds_by_month[month] = seconds_by_month.get(month, 0) + seconds
+        if s.task_id is None:
+            no_task += seconds
+        else:
+            seconds_by_task[s.task_id] = seconds_by_task.get(s.task_id, 0) + seconds
+        task_tags = tags_by_task.get(s.task_id, []) if s.task_id is not None else []
+        if not task_tags:
+            untagged += seconds
+        for tag_id in task_tags:
+            seconds_by_tag[tag_id] = seconds_by_tag.get(tag_id, 0) + seconds
+
+    dates = [s.session_date for s in focus]
+    return ProjectOverview(
+        project=ProjectResponse.model_validate(project),
+        total_seconds=sum(s.duration_seconds for s in focus),
+        session_count=len(focus),
+        task_total=len(tasks),
+        task_done=sum(1 for t in tasks if t.is_done),
+        tasks=sorted(
+            (OverviewTask(id=t.id, title=t.title, is_done=t.is_done, seconds=seconds_by_task.get(t.id, 0))
+             for t in tasks),
+            key=lambda t: (-t.seconds, t.id),
+        ),
+        seconds_no_task=no_task,
+        tags=sorted(
+            (OverviewTag(tag_id=tag_id, name=tag_info[tag_id].name, color=tag_info[tag_id].color, seconds=seconds)
+             for tag_id, seconds in seconds_by_tag.items()),
+            key=lambda t: (-t.seconds, t.name),
+        ),
+        untagged_seconds=untagged,
+        months=[OverviewMonth(month=m, seconds=seconds_by_month[m]) for m in sorted(seconds_by_month)],
+        first_date=min(dates) if dates else None,
+        last_date=max(dates) if dates else None,
+    )
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)

@@ -650,6 +650,21 @@
     <!-- Detalle de una tarjeta del tablero (board.js). Cada campo se guarda al
          cambiarlo, sin botón de guardar. Se cierra antes de abrir el registro
          manual o el cronómetro: los dos modales comparten z-index 1000. -->
+    <!-- Ficha de proyecto (project-overview.js): solo lectura. Se abre desde la
+         Lista o encima de Organizar, así que cierra con sus propios listeners. -->
+    <div id="projectOverviewModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content overview-modal" role="dialog" aria-modal="true" aria-labelledby="overviewTitle">
+            <button class="modal-close" type="button" id="closeOverviewBtn" aria-label="Cerrar">&times;</button>
+            <div class="overview-head">
+                <h2 id="overviewTitle" class="overview-title"></h2>
+                <button type="button" id="overviewEditBtn" class="link-btn" hidden>✎ Editar</button>
+            </div>
+            <p id="overviewMeta" class="overview-meta"></p>
+            <div id="overviewBody" class="overview-body"></div>
+        </div>
+    </div>
+
     <div id="cardModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content card-modal" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
@@ -915,5 +930,6 @@
     <script src="board.js"></script>
     <script src="pomodoro.js"></script>
     <script src="reports.js"></script>
+    <script src="project-overview.js"></script>
 </body>
 </html>

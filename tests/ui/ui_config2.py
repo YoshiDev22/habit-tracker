@@ -60,7 +60,10 @@ async def main():
         await js("document.querySelector('[data-projects-view=\"list\"]').click()", wait=0.8)
         meta = await b.js("[...document.querySelectorAll('.project-card')].map(c => c.querySelector('.project-name').textContent + ' | ' + c.querySelector('.project-meta').textContent)")
         check(any(m.startswith("Habit Tracker | 4/5 tareas") for m in meta), f"list summary line has no state ({meta})")
+        # Tocar el proyecto abre su ficha; editar, desde ahí
         await js("[...document.querySelectorAll('.project-card')].find(c => c.querySelector('.project-name').textContent === 'Habit Tracker').querySelector('.project-main').click()", wait=0.6)
+        await b.wait_for("!document.getElementById('overviewEditBtn').hidden")
+        await js("document.getElementById('overviewEditBtn').click()", wait=0.6)
         check(not await b.js("!!document.getElementById('projectStatus')"), "project form has no Estado field")
         await js("document.getElementById('projectName').value = 'Habit Tracker 2'; document.getElementById('projectForm').requestSubmit()", wait=1.5)
         names = [p["name"] for p in api("/api/projects", "projects")]

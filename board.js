@@ -1852,11 +1852,14 @@ function renderConfigProjects() {
         configProjectsEl.appendChild(hint);
     }
     configState.projects.forEach(project => {
-        configProjectsEl.appendChild(buildConfigRow({
+        const row = buildConfigRow({
             id: project.id, color: project.color, name: project.name, maxLength: 80,
             reorder: false, deleteClass: 'config-archive-project',
             deleteText: 'Archivar', deleteLabel: `Archivar ${project.name}`,
-        }));
+        });
+        // La ficha (project-overview.js) se abre encima de este modal
+        row.insertBefore(configButton('config-action config-overview-project', `Ficha de ${project.name}`, '📊'), row.lastChild);
+        configProjectsEl.appendChild(row);
     });
 
     // Los archivados, con Restaurar: antes no se veían en ningún sitio, y la
@@ -2230,6 +2233,10 @@ configProjectsEl.addEventListener('change', (event) => handleConfigItemChange(ev
 // Archivar no pide confirmación: conserva tareas y tiempo, y crear otra vez
 // un proyecto con ese nombre lo reactiva.
 configProjectsEl.addEventListener('click', (event) => {
+    if (event.target.closest('.config-overview-project')) {
+        openProjectOverview(Number(event.target.closest('.config-row').dataset.itemId));
+        return;
+    }
     if (!event.target.closest('.config-archive-project')) return;
     const projectId = Number(event.target.closest('.config-row').dataset.itemId);
     boardState.filterProjects.delete(projectId);

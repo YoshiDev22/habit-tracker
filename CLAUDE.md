@@ -90,6 +90,7 @@ habit-tracker/
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas)
 ├── pomodoro.js            # Timer, persistencia local y envío de sesiones
 ├── reports.js             # Vista Reportes: rango, gráficas SVG y desgloses (solo lee)
+├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -307,6 +308,11 @@ Lo que no se ve en Swagger:
   datos**: es preferencia de pantalla. El acceso sí es seguridad, y los endpoints propios
   de un módulo con acceso (los de costeo, desde la Fase 2) tienen que comprobarlo en el
   servidor, no solo ocultar su UI.
+- **`GET /api/projects/{id}/overview`** es la ficha del proyecto: tiempo de enfoque total,
+  por tarea, por etiqueta (una sesión cuenta en cada etiqueta de su tarea) y por mes.
+  Mismo criterio que `/summary`, y su prueba exige que los totales cuadren. Vale para
+  archivados y "Sin asignar". Tocar un proyecto en la Lista abre la ficha (y desde ahí
+  ✎ Editar); en Organizar, el 📊 de cada proyecto.
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
   (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
   Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.
@@ -324,7 +330,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los seis scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los siete scripts en orden y **el
 orden importa**:
 
 ```html
@@ -334,6 +340,7 @@ orden importa**:
 <script src="board.js"></script>    <!-- usa los dos; su loadBoard corre antes que los selects del pomodoro -->
 <script src="pomodoro.js"></script>
 <script src="reports.js"></script>  <!-- solo lee: usa helpers de script.js, habits.js y projects.js -->
+<script src="project-overview.js"></script> <!-- la ficha: usa barList y summaryStat de reports.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -415,7 +422,9 @@ tiene que resolver la promesa pendiente, o quien la esperaba se queda colgado—
 `z-index` propio en `styles.css` (1100 el confirm, 1050 el panel), porque con el
 1000 de `.modal` el orden lo decidiría el documento.
 
-Los modales de `board.js` (`#cardModal`, `#boardConfigModal`) y `#projectDeleteModal` se
+Los modales de `board.js` (`#cardModal`, `#boardConfigModal`), `#projectDeleteModal` y la
+ficha de proyecto (`#projectOverviewModal`, z-index 1050 para abrirse encima de Organizar;
+su Escape va en captura para no cerrar también el de abajo) se
 cierran con sus propios listeners, no con `handleModalDismiss()`. El detalle de tarjeta
 **sigue abierto** al arrancar, detener o registrar tiempo: `#logTimeModal` tiene su propio
 `z-index` (1050) para abrirse encima, tanto en "Registrar a mano" como al editar un

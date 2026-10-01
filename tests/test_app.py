@@ -11,7 +11,7 @@ def test_public_routes(api):
 
 def test_frontend_files_are_served(client):
     for path in ["/", "/index.html", "/styles.css", "/script.js", "/habits.js", "/projects.js",
-                 "/board.js", "/pomodoro.js", "/reports.js", "/manifest.webmanifest",
+                 "/board.js", "/pomodoro.js", "/reports.js", "/project-overview.js", "/manifest.webmanifest",
                  "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
                  "/favicon.ico"]:
         assert client.get(path).status_code == 200, path

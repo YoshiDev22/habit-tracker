@@ -48,6 +48,15 @@ def test_tasks(seeded):
     assert other.call("PATCH", f"/api/tasks/{own['id']}", {"project_id": seeded["project"]["id"]})[0] == 404
 
 
+def test_project_overview(seeded):
+    other = seeded["other"]
+    # La ficha de un proyecto ajeno (activo o archivado) no existe para mí
+    assert other.call("GET", f"/api/projects/{seeded['project']['id']}/overview")[0] == 404
+    assert other.call("GET", f"/api/projects/{seeded['archived']['id']}/overview")[0] == 404
+    _, own = other.call("GET", f"/api/projects/{seeded['other_project']['id']}/overview", expect=200)
+    assert own["total_seconds"] == 0 and [t["title"] for t in own["tasks"]] == ["Tarea ajena"]
+
+
 def test_tags(seeded):
     m = mine(seeded)
     other = seeded["other"]
