@@ -7,6 +7,27 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.18.0] — 2026-10-01
+
+Costea tus proyectos con el plan Maker: tarifa, presupuesto y mano de obra en la ficha.
+
+### Nuevo
+- **Plan Maker**: si tu cuenta lo tiene, aparece en Mi perfil › Módulos de tu cuenta. Por
+  ahora es gratis y se da por invitación. Encendido, tu nombre lleva la etiqueta **MKR**, y
+  Mi perfil te dice dónde está lo nuevo.
+- **Costeo en la ficha del proyecto**: con Maker encendido, cada ficha trae una tarjeta
+  **Costeo** con cliente, tarifa por hora, moneda (MXN, USD, EUR y otras) y presupuesto en
+  dinero, en horas o los dos. Calcula la **mano de obra** (horas trabajadas × tarifa) y
+  cuánto del presupuesto llevas, en rojo si te pasas. Un proyecto con presupuesto y sin
+  tiempo todavía se marca como **Cotización**.
+- **La ficha del proyecto desde el Tablero**: en el detalle de una tarjeta, el **📊** junto a
+  Proyecto abre su ficha encima de la tarjeta.
+
+### Para actualizar
+Esta versión crea una tabla nueva (el costeo de cada proyecto), que la app crea sola al
+arrancar: no hace falta `migrate.py` para ella. Para dar el plan Maker a una cuenta:
+`python3 scripts/grant_module.py --email <correo> --module maker`.
+
 ## [1.17.0] — 2026-10-01
 
 Usa solo la parte de la app que te sirve, y mira todo el tiempo de un proyecto de un
@@ -421,6 +442,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.18.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.18.0
 [1.17.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.17.0
 [1.16.2]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.2
 [1.16.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.1
