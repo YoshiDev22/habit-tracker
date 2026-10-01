@@ -10,7 +10,8 @@ commit. Al terminar, borrar la entrada de este archivo en el mismo commit que la
 server local y fallaron de forma observable. Las marcadas *diagnosticado* salen de leer el
 código y no se reprodujeron todavía.
 
-Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros).
+Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros) y el
+2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24 y 25 nuevas).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
@@ -19,6 +20,7 @@ Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tabl
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
 | 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
+| 25 | P3 | La guía de uso no cubre el Tablero ni Reportes | diagnosticado |
 
 ---
 
@@ -50,17 +52,17 @@ merece existir. Criterios propuestos para esa evaluación:
 4. **¿Cuánto backend nuevo pide?** Reutilizar endpoints existentes es la diferencia entre
    una tarde y una semana.
 
-**Estado actual — lo que hoy lo impide.** Las vistas están escritas a mano, no son datos:
+**Estado actual (revisado en v1.16.1).** La mitad del primer paso ya está: la navegación
+lee de un array. `VIEW_TABS` ([projects.js:61](projects.js#L61)) lista las tres pestañas,
+y `VIEW_COUNT` es su longitud, así que el swipe y el teclado ya no tienen números fijos.
+Lo que falta:
 
-- `VIEW_COUNT = 2` en [projects.js:55](projects.js#L55), usado por el swipe y por la
-  navegación con teclado.
-- `goToView()` recorre un array literal `[tabCalendar, tabProjects]`
-  ([projects.js:68](projects.js#L68)).
-- Cada vista es un `<section>` escrito en `index.html`, y cada tab un `<button>`.
+- Cada vista sigue siendo un `<section>` escrito en `index.html`, y cada tab un `<button>`.
+- El ancho de `.tab-indicator` es un `calc(100% / N)` fijo en `styles.css`.
 
-El primer paso real, y probablemente el único commit que se puede hacer solo, es
-**convertir esa lista en datos**: que las pestañas se construyan recorriendo un array, con
-el swipe y el teclado leyendo su longitud. Sin eso, cualquier plantilla es un parche.
+El siguiente paso es que tabs y secciones **se creen desde ese array**. El interruptor de
+módulos de la entrada 24 (ocultar el Calendario si se apaga Hábitos) es el primer caso
+real que lo necesita: conviene hacerlos juntos.
 
 **Modelo de datos, la decisión de fondo.** Hará falta al menos una tabla de pestañas del
 usuario (`user_id`, plantilla, título, icono, orden, activa) más el contenido de cada una.
@@ -69,9 +71,9 @@ Para el contenido hay dos caminos y conviene elegirlo a conciencia:
 - **Una tabla por plantilla.** Consultas claras, agregación fácil, migración por cada
   plantilla nueva.
 - **Una tabla genérica con una columna JSON.** Añadir plantillas no toca el esquema, pero
-  se pierde poder consultar el contenido. Y aquí hay cicatriz: la entrada 1 de este
-  backlog es exactamente un bug de mutar una columna JSON in-place sin `MutableDict`. Si
-  se va por JSON, declararlo `MutableDict.as_mutable(JSON)` desde el primer día.
+  se pierde poder consultar el contenido. Y aquí hay cicatriz: ya hubo un bug de mutar
+  una columna JSON in-place sin `MutableDict` (ver `habits_data` en CLAUDE.md). Si se va
+  por JSON, declararlo `MutableDict.as_mutable(JSON)` desde el primer día.
 
 **Nota sobre migraciones.** Las tablas *nuevas* las crea `create_all()` sola al arrancar,
 sin migración — igual que pasó con `projects`, `tasks` y `pomodoro_sessions`. Solo las
@@ -88,9 +90,9 @@ no es construir la primera plantilla, es mantener cinco. Empezar con **dos plant
 concretas y escritas a mano** sobre el sistema de pestañas dinámico, y no construir un
 motor genérico hasta que duela repetir código.
 
-**Aceptación (del primer paso, no de la épica).** Las pestañas se generan desde un array
-de configuración: añadir una entrada al array crea su tab y su vista, y el swipe, las
-flechas del teclado y `Home`/`End` funcionan sin tocar ninguna constante.
+**Aceptación (del primer paso, no de la épica).** Añadir una entrada a `VIEW_TABS` crea
+su tab, su vista y el ancho del indicador, sin tocar `index.html` ni `styles.css`; el
+swipe, las flechas del teclado y `Home`/`End` ya funcionan así.
 
 ---
 
@@ -186,8 +188,8 @@ siempre que se pueda ("12 de 30 días", "8 días sin fumar") y no solo como porc
 línea corta junto a cada hábito del Calendario, además de la sección de metas) y el
 catálogo de plantillas de la fase 1.
 
-**Orden.** Reportes (1.12.0) y los colores de hábitos en el backend ya están. Antes de
-esta épica conviene la entrada 5 (pruebas en el repo), porque esta cambia el esquema.
+**Orden.** Reportes (1.12.0), los colores de hábitos en el backend, las pruebas y la CI
+(antes entrada 5) ya están: nada bloquea empezar.
 
 **Lugar en la app (decidido 2026-09-30).** Las metas son parte del módulo **Hábitos y
 metas**, activo por defecto (ver entrada 24). Es una ruta independiente del costeo de
@@ -271,3 +273,30 @@ dónde vive la ficha).
 **Aceptación (de la Fase 1, no de la épica).** Un usuario apaga "Hábitos y metas" en Mi
 perfil y deja de ver el Calendario sin perder nada al volver a encenderlo; al tocar un
 proyecto se abre su ficha con el mismo tiempo total que muestran la Lista y Reportes.
+
+---
+
+## 25 · P3 · La guía de uso no cubre el Tablero ni Reportes
+
+**Síntoma.** [GUIA-DE-USO.md](GUIA-DE-USO.md) se escribió antes de los tableros (1.10) y
+de Reportes (1.12). Quien la lee no encuentra cómo usar la vista principal de la pestaña
+Tableros ni la pestaña Reportes.
+
+**Ya corregido (2026-09-30).** La sección del pomodoro describía la UI de antes
+(selectores de proyecto arriba, cierre automático a las 8 h, "las duraciones no se pueden
+cambiar"): se reescribió con lo de ahora. La pestaña se llamaba "Proyectos" y ahora dice
+Tableros, aclarando que lo que describe es la vista Lista.
+
+**Falta.** Secciones nuevas, con el tono del resto de la guía:
+
+- **Tablero**: columnas y sus marcas (📥 Entrada, ✓ Terminada), crear y mover tarjetas
+  (arrastrar en computadora, "Mover a…" en el teléfono), filtros.
+- **Detalle de la tarjeta**: proyecto, etiquetas, checklist, comentarios, historial de
+  tiempo.
+- **⚙ Organizar**: tableros, columnas (y por qué una columna con tareas no se borra),
+  proyectos, etiquetas, Configurar pomodoro.
+- **Reportes**: rangos, qué cuenta cada gráfica (solo tiempo de trabajo, igual que las
+  tarjetas) y Exportar CSV.
+
+**Aceptación.** Cada pestaña y cada botón de la barra del tablero tiene su explicación
+en la guía, y el índice de la guía enlaza las secciones nuevas.

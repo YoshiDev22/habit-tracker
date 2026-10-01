@@ -197,7 +197,7 @@ habit-tracker/
 │   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro
 ├── docs/                  # Specs por fases y referencias de la racha
 ├── scripts/migrate.py     # Columnas nuevas en tablas existentes (correr antes de reiniciar)
-├── index.html             # Única página: ambas vistas y todos los modales
+├── index.html             # Única página: las tres vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, calendario, hábitos, tema
 ├── projects.js            # Tabs con swipe, vista Lista de proyectos
