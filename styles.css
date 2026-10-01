@@ -4978,7 +4978,82 @@ button.day-log-date:focus-visible {
     }
 }
 
-/* "En qué se va el dinero": leyenda que oculta o muestra cada barra */
+/* Gráfica "Costos": columnas de alto fijo (ocultar una no mueve lo de abajo)
+   y una leyenda que oculta o muestra cada columna. Alturas en rem: crecen con
+   el tamaño de texto de Mi perfil. */
+.costs-breakdown {
+    --costs-plot-h: 9rem;
+}
+
+.costs-columns {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: calc(var(--costs-plot-h) + 4rem);
+    padding-top: 1.4rem;
+    box-sizing: border-box;
+}
+
+.costs-col {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.costs-col-track {
+    position: relative;
+    height: var(--costs-plot-h);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.costs-col-fill {
+    width: min(60%, 2.5rem);
+    min-height: 2px;
+    border-radius: 4px 4px 0 0;
+    background: var(--accent);
+}
+
+.costs-col-pct {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.costs-col-name {
+    height: 2.2rem;
+    margin-top: 0.4rem;
+    padding-inline: 2px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    text-align: center;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.costs-columns .costs-legend-empty {
+    align-self: center;
+    margin: auto;
+}
+
+.costs-legend-value {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
 .costs-legend {
     display: flex;
     flex-wrap: wrap;

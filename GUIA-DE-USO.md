@@ -195,9 +195,12 @@ Con el plan Maker encendido aparece una cuarta pestaña, **Costos**, para lo que
 cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
 
 - **Arriba, el resumen**: costo total, mano de obra, gastos y lo presupuestado; una tabla
-  con cada proyecto y su **margen** (presupuesto − costo, en rojo si te pasas), y en qué
-  categorías se va el dinero. En el teléfono la tabla enseña solo costo y margen. Si tienes
-  proyectos en monedas distintas, cada moneda va aparte: la app nunca las suma ni convierte.
+  con cada proyecto y su **margen** (presupuesto − costo, en rojo si te pasas), y la
+  gráfica **Costos**: una columna para la mano de obra y una por categoría, con su
+  porcentaje. Debajo, cada nombre con su cifra exacta; tócalo para ocultar o mostrar su
+  columna (solo en la gráfica, los totales no cambian). En el teléfono la tabla enseña solo
+  costo y margen. Si tienes proyectos en monedas distintas, cada moneda va aparte: la app
+  nunca las suma ni convierte.
 - **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
   en la lista). Se usa como una hoja de cálculo: escribe en las celdas y cada cambio se
   guarda solo; **＋ Agregar fila** para uno nuevo, y Enter baja a la fila siguiente.

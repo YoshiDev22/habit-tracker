@@ -349,8 +349,10 @@ Lo que no se ve en Swagger:
   dinero con coma o punto decimal; fechas `AAAA-MM-DD` o día primero (`30/09/2026`); las
   categorías desconocidas se pueden crear. Nada se guarda hasta "Agregar".
   En el resumen, la mano de obra y el presupuesto de cada proyecto se editan tocando la
-  celda (la mano de obra cambia la tarifa). "En qué se va el dinero" suma mano de obra y
-  categorías; su leyenda oculta barras solo de la gráfica (`hiddenBreakdown`).
+  celda (la mano de obra cambia la tarifa). La gráfica **"Costos"** pone mano de obra y
+  categorías como **columnas verticales de alto fijo** (`costsBreakdownChart()`): su leyenda
+  (con la cifra exacta) oculta columnas solo de la gráfica (`hiddenBreakdown`), y como el
+  alto no cambia, ocultar no mueve lo que hay debajo. No volver a barras horizontales.
 - **Nunca `scrollIntoView()` dentro de una vista**: también desplaza en horizontal
   `#viewsViewport` (con `overflow: hidden` sigue siendo desplazable por código) y la vista
   queda corrida. Desplazar con `window.scrollTo()`. `projects.js` además devuelve el

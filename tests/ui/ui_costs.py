@@ -124,17 +124,24 @@ async def main():
         text = await b.js(f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]').textContent")
         check(f"{row['total_cost_cents'] / 100:,.2f}" in text, f"summary row shows cost and margin ({text})")
 
-        # "En qué se va el dinero": la mano de obra es una barra más, y la leyenda
-        # oculta o muestra cada una; las que quedan se reescalan
+        # Gráfica "Costos": la mano de obra es una columna más, y la leyenda
+        # oculta o muestra cada una; las que quedan se reescalan, y el alto de
+        # la gráfica no cambia (nada de abajo se mueve al ocultar)
         CHART = "document.querySelector('.costs-breakdown')"
-        BARS = f"[...{CHART}.querySelectorAll('.report-bar-row')].map(r => [r.querySelector('.report-bar-name').textContent, r.querySelector('.report-bar-fill').style.width])"
+        BARS = f"[...{CHART}.querySelectorAll('.costs-col')].map(c => [c.querySelector('.costs-col-name').textContent, c.querySelector('.costs-col-fill').style.height])"
+        HEIGHT = f"{CHART}.getBoundingClientRect().height"
         bars = await b.js(BARS)
         names = [n for n, _ in bars]
-        check(names[0] == "Mano de obra" or "Mano de obra" in names, f"labor is one of the bars ({names})")
+        check("Mano de obra" in names, f"labor is one of the columns ({names})")
+        check(max(float(h.rstrip('%')) for _, h in bars) == 100, f"the tallest column fills the plot ({bars})")
+        height_before = await b.js(HEIGHT)
         await b.js(f"{CHART}.querySelector('.costs-legend-item[data-key=\"labor\"]').click()")
         after = await b.js(BARS)
-        check("Mano de obra" not in [n for n, _ in after] and after[0][1] == "100%",
-              f"hiding labor removes its bar and the biggest left fills the width ({after})")
+        check("Mano de obra" not in [n for n, _ in after] and max(float(h.rstrip('%')) for _, h in after) == 100,
+              f"hiding labor removes its column and the tallest left fills the plot ({after})")
+        height_after = await b.js(HEIGHT)
+        check(abs(height_after - height_before) < 1,
+              f"hiding a column does not change the chart's height ({height_before} -> {height_after})")
         pressed = await b.js(f"{CHART}.querySelector('[data-key=\"labor\"]').getAttribute('aria-pressed')")
         check(pressed == "false", "its legend dot shows it is hidden")
         await b.js(f"{CHART}.querySelector('.costs-legend-item[data-key=\"labor\"]').click()")
