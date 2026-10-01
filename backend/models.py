@@ -199,6 +199,28 @@ class Project(SQLModel, table=True):
     created_at: date_type = Field(default_factory=date_type.today)
 
 
+class ProjectFinance(SQLModel, table=True):
+    """
+    Costeo de un proyecto (plan maker, épica 24 Fase 2): cliente, tarifa por
+    hora, moneda y presupuesto. Aparte de `projects` para no tocar esa tabla, y
+    porque solo existe para quien usa el plan maker. Uno por proyecto como
+    mucho; sin fila, el proyecto no tiene costeo. Dinero en centavos enteros,
+    nunca float. Tabla NUEVA: create_all() la crea sola, sin migración.
+    """
+    __tablename__ = "project_finance"
+    __table_args__ = (UniqueConstraint("project_id", name="uq_project_finance_project"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    project_id: int = Field(foreign_key="projects.id")
+
+    client_name: Optional[str] = Field(default=None)   # texto libre, no una tabla de clientes
+    hourly_rate_cents: Optional[int] = Field(default=None)
+    currency: str = Field(default="MXN")                # una por proyecto: no se convierte
+    budget_cents: Optional[int] = Field(default=None)   # presupuesto en dinero...
+    budget_minutes: Optional[int] = Field(default=None) # ...y/o en tiempo
+
+
 class Task(SQLModel, table=True):
     """
     Tarea: la tarjeta del tablero. Vive en una columna de un tablero

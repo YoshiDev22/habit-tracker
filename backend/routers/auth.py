@@ -48,6 +48,19 @@ def user_modules(session: Session, user_id: int) -> dict:
     }
 
 
+def require_module(session: Session, user: User, module: str) -> None:
+    """403 si el módulo no está encendido para esta cuenta. Es el bloqueo de
+    verdad: ocultar la UI no protege nada. Lo llaman los endpoints propios de
+    un módulo (los de costeo del plan maker)."""
+    state = user_modules(session, user.id)[module]
+    if not state["enabled"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=("Enciende este módulo en Mi perfil para usarlo." if state["allowed"]
+                    else "Tu cuenta todavía no tiene acceso a este módulo.")
+        )
+
+
 def user_response(session: Session, user: User) -> UserResponse:
     """El usuario como lo ve el frontend, con sus módulos. Toda respuesta con
     el usuario pasa por aquí: el frontend reemplaza currentUser con ella."""

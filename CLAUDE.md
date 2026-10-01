@@ -148,7 +148,8 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 
 ## Modelo de datos
 
-Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`, `Task`,
+Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
+`ProjectFinance`, `Task`,
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -313,6 +314,15 @@ Lo que no se ve en Swagger:
   Mismo criterio que `/summary`, y su prueba exige que los totales cuadren. Vale para
   archivados y "Sin asignar". Tocar un proyecto en la Lista abre la ficha (y desde ahí
   ✎ Editar); en Organizar, el 📊 de cada proyecto.
+- **Costeo (plan maker)**: `GET`/`PUT /api/projects/{id}/finance` guardan cliente, tarifa por
+  hora, moneda (lista cerrada `CURRENCIES`) y presupuesto en dinero y/o minutos, en la tabla
+  `project_finance` (una fila por proyecto). Empiezan con `require_module(..., "maker")`
+  (`routers/auth.py`): 403 sin el módulo encendido. **Dinero en centavos enteros**, nunca
+  float; la mano de obra (`labor_cents` = segundos × tarifa ÷ 3600) se calcula al pedirla,
+  no se guarda. Una moneda por proyecto y nunca se convierte: un total entre proyectos va
+  por moneda. Con presupuesto y sin tiempo, `is_quote` (no hay estados de proyecto). La
+  ficha lleva el mismo bloque en `finance` solo si el plan está encendido. "Sin asignar" no
+  se costea (409); borrar un proyecto borra su costeo.
 - **Las rutas literales van declaradas ANTES que las paramétricas** dentro del mismo router
   (`/summary` antes de `/{project_id}` en `projects.py`, y antes de `/{tag_id}` en `tags.py`).
   Al revés, FastAPI intenta parsear `"summary"` como `int` y devuelve 422.

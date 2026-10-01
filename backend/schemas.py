@@ -466,6 +466,48 @@ class ProjectSummaryListResponse(SQLModel):
     total: int
 
 
+# Monedas que acepta el costeo de un proyecto (ISO 4217). Lista cerrada: el
+# frontend formatea con Intl.NumberFormat, que necesita un código válido.
+CURRENCIES = ("MXN", "USD", "EUR", "CAD", "GBP", "COP", "ARS", "CLP", "PEN")
+MAX_MONEY_CENTS = 100_000_000_000      # mil millones en la unidad de la moneda
+MAX_BUDGET_MINUTES = 1_000_000         # ~16,600 horas
+
+
+class ProjectFinanceUpdate(SQLModel):
+    """Costeo de un proyecto (PUT parcial): solo cambia lo que se manda, y null
+    borra ese dato."""
+    client_name: Optional[str] = Field(default=None, max_length=120)
+    hourly_rate_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    currency: Optional[str] = None
+    budget_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    budget_minutes: Optional[int] = Field(default=None, ge=0, le=MAX_BUDGET_MINUTES)
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in CURRENCIES:
+            raise ValueError(f"Moneda no válida. Usa una de: {', '.join(CURRENCIES)}")
+        return v
+
+
+class ProjectFinanceResponse(SQLModel):
+    """
+    Costeo de un proyecto y lo que sale de cruzarlo con su tiempo de enfoque
+    (el mismo total que /summary). Los porcentajes son null sin presupuesto.
+    """
+    project_id: int
+    client_name: Optional[str] = None
+    hourly_rate_cents: Optional[int] = None
+    currency: str = "MXN"
+    budget_cents: Optional[int] = None
+    budget_minutes: Optional[int] = None
+    total_seconds: int
+    labor_cents: Optional[int] = None         # horas × tarifa, redondeado al centavo
+    budget_money_pct: Optional[int] = None    # mano de obra ÷ presupuesto en dinero
+    budget_time_pct: Optional[int] = None     # tiempo ÷ presupuesto en tiempo
+    is_quote: bool = False                    # con presupuesto y sin tiempo todavía
+
+
 class OverviewTask(SQLModel):
     """Una tarea en la ficha del proyecto, con su tiempo de enfoque"""
     id: int
@@ -507,6 +549,8 @@ class ProjectOverview(SQLModel):
     months: List[OverviewMonth]        # del más antiguo al más reciente
     first_date: Optional[date_type] = None   # primera y última sesión
     last_date: Optional[date_type] = None
+    # Solo con el plan maker encendido (y nunca en "Sin asignar")
+    finance: Optional[ProjectFinanceResponse] = None
 
 
 # ==================== Task Schemas ====================

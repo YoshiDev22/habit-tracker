@@ -57,6 +57,19 @@ def test_project_overview(seeded):
     assert own["total_seconds"] == 0 and [t["title"] for t in own["tasks"]] == ["Tarea ajena"]
 
 
+def test_project_finance(seeded):
+    from test_finance import maker_on
+    api, other = seeded["api"], seeded["other"]
+    maker_on(api, "yoshi@test.com")
+    maker_on(other, "otro@test.com")
+    url = f"/api/projects/{seeded['project']['id']}/finance"
+    api.call("PUT", url, {"hourly_rate_cents": 35000}, expect=200)
+    # Con el plan maker encendido, el costeo ajeno sigue sin existir para mí
+    assert other.call("GET", url)[0] == 404
+    assert other.call("PUT", url, {"hourly_rate_cents": 1})[0] == 404
+    assert api.call("GET", url, expect=200)[1]["hourly_rate_cents"] == 35000
+
+
 def test_tags(seeded):
     m = mine(seeded)
     other = seeded["other"]

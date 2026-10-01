@@ -96,3 +96,23 @@ def test_module_toggle(api):
     assert api.call("PUT", "/api/auth/me/modules/" + "x" * 300, {"enabled": True})[0] == 404
     assert api.call("PUT", "/api/auth/me/modules/habits", {"enabled": "x" * 5000})[0] == 422
     api.call("PUT", "/api/auth/me/modules/habits", {"enabled": False}, expect=200)
+
+
+def test_project_finance(api):
+    from test_finance import maker_on
+    api.login("topes@test.com")
+    maker_on(api, "topes@test.com")
+    _, p = api.call("POST", "/api/projects", {"name": "P"}, expect=201)
+    url = f"/api/projects/{p['id']}/finance"
+    for currency in ("MXN", "USD", "EUR", "CAD", "GBP", "COP", "ARS", "CLP", "PEN"):
+        api.call("PUT", url, {"currency": currency}, expect=200)
+    assert api.call("PUT", url, {"currency": "BTC"})[0] == 422
+    assert api.call("PUT", url, {"currency": "usd"})[0] == 422
+    assert api.call("PUT", url, {"hourly_rate_cents": -1})[0] == 422
+    assert api.call("PUT", url, {"hourly_rate_cents": 1.5})[0] == 422, "cents are whole numbers"
+    assert api.call("PUT", url, {"budget_cents": 100_000_000_001})[0] == 422
+    api.call("PUT", url, {"budget_cents": 100_000_000_000}, expect=200)
+    assert api.call("PUT", url, {"budget_minutes": 1_000_001})[0] == 422
+    assert api.call("PUT", url, {"client_name": "x" * 121})[0] == 422
+    api.call("PUT", url, {"client_name": "x" * 120}, expect=200)
+    assert api.call("GET", "/api/projects/999999/finance")[0] == 404
