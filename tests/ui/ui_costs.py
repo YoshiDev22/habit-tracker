@@ -208,7 +208,8 @@ async def main():
         await b.js("""(() => { const i = document.querySelector('.costs-cell-input'); i.value = '400';
             i.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); })()""")
         fin = await wait_api(f"/api/projects/{ht['id']}/finance", lambda body: body["hourly_rate_cents"] == 40000)
-        await b.wait_for(f"{ROW}.textContent.includes('8,000.00')")
+        # Esperar la mano de obra nueva: "8,000.00" (el presupuesto) ya se veía antes
+        await b.wait_for(f"{ROW}.textContent.includes('{fin['labor_cents'] / 100:,.2f}')")
         text = await b.js(f"{ROW}.textContent")
         check(fin["hourly_rate_cents"] == 40000 and f"{fin['labor_cents'] / 100:,.2f}" in text,
               f"tapping labor edits the hourly rate, and the row recomputes ({text})")
