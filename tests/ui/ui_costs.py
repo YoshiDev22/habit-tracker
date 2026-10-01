@@ -125,20 +125,32 @@ async def main():
         check(f"{row['total_cost_cents'] / 100:,.2f}" in text, f"summary row shows cost and margin ({text})")
 
         # Gráfica "Costos": la mano de obra es una columna más, y la leyenda
-        # oculta o muestra cada una; las que quedan se reescalan, y el alto de
-        # la gráfica no cambia (nada de abajo se mueve al ocultar)
+        # oculta o muestra cada una. El eje de montos se reajusta a las que
+        # quedan, con su tope al menos 10 % sobre la más alta, y el alto de la
+        # gráfica no cambia (nada de abajo se mueve al ocultar)
         CHART = "document.querySelector('.costs-breakdown')"
-        BARS = f"[...{CHART}.querySelectorAll('.costs-col')].map(c => [c.querySelector('.costs-col-name').textContent, c.querySelector('.costs-col-fill').style.height])"
+        BARS = (f"[...{CHART}.querySelectorAll('.costs-col')].map(c => [c.querySelector('.costs-col-name').textContent, "
+                "Number(c.dataset.cents), parseFloat(c.querySelector('.costs-col-fill').style.height)])")
+        AXIS = (f"({{top: Number({CHART}.querySelector('.costs-plot').dataset.axisTop), "
+                f"ticks: [...{CHART}.querySelectorAll('.costs-ytick')].map(t => t.textContent)}})")
         HEIGHT = f"{CHART}.getBoundingClientRect().height"
+
+        def axis_ok(bars, axis, label):
+            top_cents = max(c for _, c, _ in bars)
+            check(axis["top"] >= top_cents * 1.1 and len(axis["ticks"]) >= 3 and axis["ticks"][0].endswith("0"),
+                  f"{label}: the axis tops out at least 10% above the largest amount ({top_cents} -> {axis})")
+            check(all(abs(h - c / axis["top"] * 100) < 0.01 for _, c, h in bars),
+                  f"{label}: each column is drawn on that scale ({bars})")
+
         bars = await b.js(BARS)
-        names = [n for n, _ in bars]
+        names = [n for n, _, _ in bars]
         check("Mano de obra" in names, f"labor is one of the columns ({names})")
-        check(max(float(h.rstrip('%')) for _, h in bars) == 100, f"the tallest column fills the plot ({bars})")
+        axis_ok(bars, await b.js(AXIS), "all shown")
         height_before = await b.js(HEIGHT)
         await b.js(f"{CHART}.querySelector('.costs-legend-item[data-key=\"labor\"]').click()")
         after = await b.js(BARS)
-        check("Mano de obra" not in [n for n, _ in after] and max(float(h.rstrip('%')) for _, h in after) == 100,
-              f"hiding labor removes its column and the tallest left fills the plot ({after})")
+        check("Mano de obra" not in [n for n, _, _ in after], f"hiding labor removes its column ({after})")
+        axis_ok(after, await b.js(AXIS), "labor hidden")
         height_after = await b.js(HEIGHT)
         check(abs(height_after - height_before) < 1,
               f"hiding a column does not change the chart's height ({height_before} -> {height_after})")

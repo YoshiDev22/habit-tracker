@@ -350,9 +350,12 @@ Lo que no se ve en Swagger:
   categorías desconocidas se pueden crear. Nada se guarda hasta "Agregar".
   En el resumen, la mano de obra y el presupuesto de cada proyecto se editan tocando la
   celda (la mano de obra cambia la tarifa). La gráfica **"Costos"** pone mano de obra y
-  categorías como **columnas verticales de alto fijo** (`costsBreakdownChart()`): su leyenda
-  (con la cifra exacta) oculta columnas solo de la gráfica (`hiddenBreakdown`), y como el
-  alto no cambia, ocultar no mueve lo que hay debajo. No volver a barras horizontales.
+  categorías como **columnas verticales de alto fijo** (`costsBreakdownChart()`) sobre un
+  eje de montos: `costsAxisScale()` pone el tope al menos 10 % sobre la columna más alta
+  (`COSTS_AXIS_HEADROOM`), redondeado a un paso de 1, 2, 2.5 o 5 × 10ⁿ. Su leyenda (con la
+  cifra exacta) oculta columnas solo de la gráfica (`hiddenBreakdown`) y el eje se reajusta
+  a las que quedan; como el alto no cambia, ocultar no mueve lo que hay debajo. No volver a
+  barras horizontales.
 - **Nunca `scrollIntoView()` dentro de una vista**: también desplaza en horizontal
   `#viewsViewport` (con `overflow: hidden` sigue siendo desplazable por código) y la vista
   queda corrida. Desplazar con `window.scrollTo()`. `projects.js` además devuelve el

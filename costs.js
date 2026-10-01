@@ -164,13 +164,52 @@ function renderCostsSummary() {
 // Ocultas de la gráfica (no de los totales), en esta sesión: "labor" o "cat-<id>"
 const hiddenBreakdown = new Set();
 
-// Columnas de dinero con su leyenda abajo: tocar una entrada de la leyenda
-// oculta o muestra su columna, y las demás se reescalan a la más alta de las
+// Margen sobre el gasto más alto: el tope del eje siempre queda al menos un
+// 10 % por encima, para que la columna más alta no toque el borde.
+const COSTS_AXIS_HEADROOM = 1.1;
+
+// Escala del eje en centavos: tope = gasto más alto + margen, redondeado hacia
+// arriba a un paso "redondo" (1, 2, 2.5 o 5 × 10^n) con 2 a 5 divisiones, para
+// que las marcas se lean de un vistazo.
+function costsAxisScale(maxCents) {
+    const target = Math.max(1, maxCents) * COSTS_AXIS_HEADROOM;
+    const raw = target / 4;
+    const magnitude = 10 ** Math.floor(Math.log10(raw));
+    // Nunca menos de una unidad entera por paso: nada de marcas en centavos
+    const step = Math.max(100, [1, 2, 2.5, 5, 10].map(f => f * magnitude).find(s => s >= raw));
+    const divisions = Math.ceil(target / step);
+    const ticks = Array.from({ length: divisions + 1 }, (_, i) => i * step);
+    return { top: divisions * step, ticks };
+}
+
+// "$2.5 k": las marcas del eje van cortas; la cifra exacta está en la leyenda.
+// Armado a mano porque el formato compacto de es-MX pone el símbolo al final
+// en unos navegadores ("2.5 k$") y al principio en otros.
+function formatMoneyShort(cents, currency) {
+    let symbol = currency;
+    try {
+        symbol = new Intl.NumberFormat('es-MX', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+            .formatToParts(0).find(part => part.type === 'currency')?.value || currency;
+    } catch (error) { /* moneda desconocida: queda el código */ }
+    const units = cents / 100;
+    const [value, suffix] = units >= 1e6 ? [units / 1e6, ' M'] : units >= 1e3 ? [units / 1e3, ' k'] : [units, ''];
+    return `${symbol}${new Intl.NumberFormat('es-MX', { maximumFractionDigits: 1 }).format(value)}${suffix}`;
+}
+
+// Columnas de dinero sobre un eje de montos, con su leyenda abajo: tocar una
+// entrada de la leyenda oculta o muestra su columna, y el eje se reajusta a las
 // que quedan. Verticales y de alto fijo a propósito: ocultar una columna no
 // cambia el alto de la tarjeta, así que nada de abajo se mueve. La leyenda
 // lleva la cifra exacta; la columna, el porcentaje y el nombre.
 function costsBreakdownChart(rows, currency) {
     const wrap = el('div', 'costs-breakdown');
+    const plot = el('div', 'costs-plot');
+    // Ancho según cuántas hay, no cuántas se ven: ocultar tampoco lo cambia
+    plot.style.maxWidth = `calc(${rows.length} * 5.5rem + 5rem)`;
+    const yAxis = el('div', 'costs-yaxis');
+    yAxis.setAttribute('aria-hidden', 'true');
+    const grid = el('div', 'costs-grid');
+    grid.setAttribute('aria-hidden', 'true');
     const columns = el('div', 'costs-columns');
     columns.setAttribute('role', 'list');
     const legend = el('div', 'costs-legend');
@@ -179,11 +218,18 @@ function costsBreakdownChart(rows, currency) {
 
     function paint() {
         const visible = rows.filter(r => !hiddenBreakdown.has(r.key));
-        const max = Math.max(1, ...visible.map(r => r.cents));
+        const { top, ticks } = costsAxisScale(Math.max(0, ...visible.map(r => r.cents)));
+        plot.dataset.axisTop = String(top);
+        yAxis.replaceChildren(...ticks.map(v => el('span', 'costs-ytick', formatMoneyShort(v, currency))));
+        grid.replaceChildren(...ticks.map(v => {
+            const line = el('i', 'costs-gridline');
+            line.style.bottom = `${v / top * 100}%`;
+            return line;
+        }));
         const sum = visible.reduce((total, r) => total + r.cents, 0);
         columns.replaceChildren(...visible.map(r => {
             const pct = sum ? Math.round(r.cents / sum * 100) : 0;
-            const height = (r.cents / max) * 100;
+            const height = (r.cents / top) * 100;
             const label = `${r.name}: ${formatMoney(r.cents, currency)} (${pct}%)`;
 
             const column = el('div', 'costs-col');
@@ -191,6 +237,7 @@ function costsBreakdownChart(rows, currency) {
             column.setAttribute('aria-label', label);
             column.title = label;
             column.dataset.key = r.key;
+            column.dataset.cents = String(r.cents);
 
             const track = el('div', 'costs-col-track');
             const fill = el('div', 'costs-col-fill');
@@ -226,7 +273,10 @@ function costsBreakdownChart(rows, currency) {
         legend.appendChild(button);
     });
     paint();
-    wrap.append(columns, legend);
+    const area = el('div', 'costs-plot-area');
+    area.append(grid, columns);
+    plot.append(yAxis, area);
+    wrap.append(plot, legend);
     return wrap;
 }
 

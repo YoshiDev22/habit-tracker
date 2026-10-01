@@ -197,8 +197,10 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
 - **Arriba, el resumen**: costo total, mano de obra, gastos y lo presupuestado; una tabla
   con cada proyecto y su **margen** (presupuesto − costo, en rojo si te pasas), y la
   gráfica **Costos**: una columna para la mano de obra y una por categoría, con su
-  porcentaje. Debajo, cada nombre con su cifra exacta; tócalo para ocultar o mostrar su
-  columna (solo en la gráfica, los totales no cambian). En el teléfono la tabla enseña solo
+  porcentaje, sobre un eje de montos a la izquierda que se ajusta solo (su tope queda
+  siempre un poco arriba del gasto más alto). Debajo, cada nombre con su cifra exacta;
+  tócalo para ocultar o mostrar su columna (solo en la gráfica, los totales no cambian) y
+  el eje se reajusta a las que quedan. En el teléfono la tabla enseña solo
   costo y margen. Si tienes proyectos en monedas distintas, cada moneda va aparte: la app
   nunca las suma ni convierte.
 - **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
