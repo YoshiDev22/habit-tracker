@@ -135,10 +135,12 @@ idempotentes y límite de intentos en login y registro.
 
 ### Fase 4 — Estimado contra real
 
-> **Plan, sin código** (2026-10-01, sobre 1.18.0 más la Fase 3 sin publicar). Es la primera
-> fase que agrega una **columna a una tabla existente**: leer "Impacto en producción" antes
-> de empezar. Las preguntas quedaron cerradas el 2026-10-01: ver "Decisiones de la Fase 4"
-> al final de esta fase.
+> **Hecha** (2026-10-02, sin publicar, sobre 1.18.0 más la Fase 3). Es la primera fase que
+> agrega una **columna a una tabla existente**: leer "Impacto en producción" antes de
+> desplegar. Las preguntas quedaron cerradas el 2026-10-01: ver "Decisiones de la Fase 4"
+> al final de esta fase. Lo que se apartó del plan: la ficha de "Sin asignar" también trae
+> `estimates` (el desvío no es dinero), y la prueba de navegador es una sola,
+> `ui_card_estimate.py`, que cubre tarjeta, Lista, ficha y Costos.
 
 - Cada tarea puede llevar un estimado en minutos. La tarjeta muestra "2 h de 3 h".
 - La ficha y la pestaña **Costos** muestran, por etiqueta, **cuánto se desvía el usuario**

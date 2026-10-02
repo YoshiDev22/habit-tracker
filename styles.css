@@ -2424,6 +2424,12 @@ body.has-pomodoro-bar {
     font-variant-numeric: tabular-nums;
 }
 
+/* Pasado de su estimado: solo el número cambia de color, sin avisos */
+.board-card-time.over-estimate,
+.task-time.over-estimate {
+    color: var(--danger-fg);
+}
+
 .board-card-meta {
     display: flex;
     flex-wrap: wrap;
@@ -2847,6 +2853,26 @@ body.board-wide .board-column {
 
 .card-project-overview:hover {
     background: var(--bg-hover);
+}
+
+.card-estimate-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.card-estimate-row input {
+    width: 4.2rem;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
 }
 
 .card-field select {
@@ -4151,6 +4177,87 @@ body.board-wide .board-column {
 
 .src-manual {
     background: var(--neutral-solid);
+}
+
+/* Estimado contra real (ficha y Costos): nombre y cifra en una línea, el
+   detalle debajo. Texto en tokens de texto; el punto lleva el color */
+.estimate-headline {
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.estimate-headline strong {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.estimate-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.estimate-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.estimate-row:first-child {
+    border-top: none;
+    font-weight: 600;
+}
+
+.estimate-row.muted .estimate-name {
+    color: var(--text-muted);
+}
+
+.estimate-row.muted .report-bar-dot {
+    background: var(--text-muted);
+}
+
+.estimate-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.estimate-ratio {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.estimate-ratio.pending {
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: var(--text-muted);
+}
+
+.estimate-detail {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.estimate-empty {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.report-bar-value.over-estimate {
+    color: var(--danger-fg);
 }
 
 .report-compare-small {

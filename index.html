@@ -803,6 +803,18 @@
                                 title="Ficha del proyecto" aria-label="Ficha del proyecto">📊</button>
                     </div>
                 </div>
+                <!-- Se guarda al cambiarlo; vacío = sin estimado. Tope: 100 h -->
+                <div class="card-field">
+                    <span id="cardEstimateLabel">Estimado</span>
+                    <div class="card-estimate-row" role="group" aria-labelledby="cardEstimateLabel">
+                        <input type="number" id="cardEstimateHours" min="0" max="100" step="1" placeholder="0"
+                               inputmode="numeric" aria-label="Horas estimadas">
+                        <span>h</span>
+                        <input type="number" id="cardEstimateMinutes" min="0" max="59" step="1" placeholder="0"
+                               inputmode="numeric" aria-label="Minutos estimados">
+                        <span>min</span>
+                    </div>
+                </div>
             </div>
             <!-- "＋ Nuevo proyecto…" del select abre esta fila: se crea sin salir de la tarjeta -->
             <form class="card-new-project hidden" id="cardNewProjectForm">

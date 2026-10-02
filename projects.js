@@ -528,6 +528,26 @@ function formatDuration(totalSeconds) {
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
+// Un estimado en minutos, corto: "3h", "1h 30m", "45m"
+function formatEstimate(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    if (!hours) return `${rest}m`;
+    return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
+// El tiempo de una tarea con su estimado: "1h 30m de 3h". over = ya se pasó;
+// la pantalla lo pinta en el color de alerta, sin avisos (estimar, no vigilar).
+function taskTimeLabel(seconds, estimateMinutes) {
+    const spent = formatDuration(seconds);
+    if (!estimateMinutes) return { text: spent, over: false, title: '' };
+    return {
+        text: `${spent} de ${formatEstimate(estimateMinutes)}`,
+        over: seconds > estimateMinutes * 60,
+        title: `Llevas ${spent} de ${formatEstimate(estimateMinutes)} estimadas`,
+    };
+}
+
 function formatProjectMeta(summary) {
     if (!summary || summary.task_total === 0) {
         return 'Sin tareas';
@@ -657,9 +677,11 @@ function fillTaskListElement(container, projectId) {
             // que la columna no llega.
             // Mientras corre, el total cede su sitio al reloj en vivo
             const time = document.createElement('span');
-            time.className = 'task-time';
+            const label = taskTimeLabel(taskSeconds, task.estimate_minutes);
+            time.className = 'task-time' + (label.over ? ' over-estimate' : '');
             time.innerHTML = '<span class="timer-idle"></span><span class="timer-live"></span>';
-            time.firstChild.textContent = formatDuration(taskSeconds);
+            time.firstChild.textContent = label.text;
+            if (label.title) time.title = label.title;
 
             row.appendChild(checkbox);
             row.appendChild(title);

@@ -46,6 +46,7 @@ def test_tasks(seeded):
     assert other.call("POST", "/api/tasks", {"title": "x", "board_id": m["board"]["id"]})[0] == 404
     assert other.call("POST", "/api/tasks/reorder", {"column_id": m["col"]["id"], "task_ids": [m["task"]["id"]]})[0] == 404
     assert other.call("PATCH", f"/api/tasks/{own['id']}", {"project_id": seeded["project"]["id"]})[0] == 404
+    assert other.call("PATCH", f"/api/tasks/{m['task']['id']}", {"estimate_minutes": 60})[0] == 404
 
 
 def test_project_overview(seeded):
@@ -156,3 +157,11 @@ def test_costs(seeded):
     _, sm = other.call("GET", "/api/costs/summary", expect=200)
     assert all(r["project_id"] != pid for r in sm["projects"]) and sm["categories"] == []
     assert api.call("GET", f"/api/costs?project_id={pid}", expect=200)[1]["costs"][0]["concept"] == "Base"
+
+    # Mis estimados (con mi etiqueta) no salen en los suyos
+    task_id = seeded["tasks"]["Corrección de Pomodoros"]["id"]
+    _, tag = api.call("POST", "/api/tags", {"name": "doc"}, expect=201)
+    api.call("PATCH", f"/api/tasks/{task_id}", {"estimate_minutes": 60, "tag_ids": [tag["id"]]}, expect=200)
+    assert api.call("GET", "/api/costs/estimates", expect=200)[1]["overall"]["tasks"] == 1
+    _, theirs = other.call("GET", "/api/costs/estimates", expect=200)
+    assert theirs["overall"]["tasks"] == 0 and theirs["tags"] == []

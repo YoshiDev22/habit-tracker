@@ -642,12 +642,45 @@ class ProjectFinanceResponse(SQLModel):
     margin_cents: Optional[int] = None        # presupuesto − costo, con presupuesto en dinero
 
 
+# ==================== Estimado contra real (épica 24, Fase 4) ====================
+
+ESTIMATE_MAX_MINUTES = 6000   # 100 h: más que eso suele ser un proyecto, no una tarea
+
+
+class EstimateRow(SQLModel):
+    """Real contra estimado de un grupo de tareas. ratio_pct = real × 100 ÷
+    estimado (enteros, .5 hacia arriba); None con menos de min_tasks tareas:
+    con tan poco historial la cifra no diría nada."""
+    tasks: int
+    estimate_seconds: int
+    actual_seconds: int
+    ratio_pct: Optional[int] = None
+
+
+class EstimateTagRow(EstimateRow):
+    """Una etiqueta: una tarea con dos etiquetas cuenta en las dos, así que
+    estas filas NO se suman entre sí"""
+    tag_id: int
+    name: str
+    color: Optional[str] = None
+
+
+class EstimateDeviation(SQLModel):
+    """Cuánto se desvía el usuario de lo que estima. Cuentan las tareas con
+    estimado y tiempo: las terminadas y las abiertas que ya lo pasaron."""
+    min_tasks: int
+    overall: EstimateRow              # cada tarea una vez
+    tags: List[EstimateTagRow]        # las de más tareas primero
+    untagged: EstimateRow
+
+
 class OverviewTask(SQLModel):
     """Una tarea en la ficha del proyecto, con su tiempo de enfoque"""
     id: int
     title: str
     is_done: bool
     seconds: int
+    estimate_minutes: Optional[int] = None
 
 
 class OverviewTag(SQLModel):
@@ -685,6 +718,8 @@ class ProjectOverview(SQLModel):
     last_date: Optional[date_type] = None
     # Solo con el plan maker encendido (y nunca en "Sin asignar")
     finance: Optional[ProjectFinanceResponse] = None
+    # Solo con el plan maker encendido: el estimado es de todos, el desvío no
+    estimates: Optional[EstimateDeviation] = None
 
 
 # ==================== Task Schemas ====================
@@ -715,6 +750,8 @@ class TaskUpdate(SQLModel):
     project_id: Optional[int] = None  # cambiar el proyecto; null = "Sin asignar"
     column_id: Optional[int] = None   # mover la tarea de columna (o de tablero); manda sobre is_done
     tag_ids: Optional[List[int]] = None  # reemplaza TODAS las etiquetas; [] las quita
+    # Minutos; null lo borra. Para todos, con o sin el plan maker
+    estimate_minutes: Optional[int] = Field(default=None, ge=1, le=ESTIMATE_MAX_MINUTES)
 
 
 class TaskReorder(SQLModel):
@@ -735,6 +772,7 @@ class TaskResponse(SQLModel):
     order: int
     completed_at: Optional[date_type] = None
     created_at: date_type
+    estimate_minutes: Optional[int] = None
 
     # Para pintar la tarjeta sin pedir el detalle de cada tarea
     checklist_total: int = 0

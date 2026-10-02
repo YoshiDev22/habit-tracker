@@ -48,6 +48,9 @@ MIGRATIONS = [
     # El sessionId del timer, para que reenviar una sesión no la duplique.
     # Nace NULL: las sesiones de antes no tienen clave y nunca chocan.
     {"table": "pomodoro_sessions", "column": "idempotency_key", "type": "VARCHAR"},
+    # Estimado de cada tarea en minutos (épica 24, Fase 4). Nace NULL: sin
+    # estimado, nunca uno inventado para las tareas de antes.
+    {"table": "tasks", "column": "estimate_minutes", "type": "INTEGER"},
 ]
 
 # Índices que algún modelo declara en __table_args__ sobre una tabla que ya

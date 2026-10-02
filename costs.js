@@ -14,6 +14,7 @@
 
 const costsState = {
     summary: null,
+    estimates: null,      // /api/costs/estimates: cuánto te desvías de lo que estimas
     categories: [],
     projectId: null,      // proyecto de la hoja
     costs: [],
@@ -72,12 +73,14 @@ function applyCostsModule() {
 async function loadCosts() {
     if (!getToken() || !moduleEnabled('maker')) return;
     try {
-        const [summary, categories] = await Promise.all([
+        const [summary, categories, estimates] = await Promise.all([
             apiFetch('/api/costs/summary'),
             apiFetch('/api/costs/categories'),
+            apiFetch('/api/costs/estimates'),
         ]);
         costsState.summary = summary;
         costsState.categories = categories.categories;
+        costsState.estimates = estimates;
         costsState.loaded = true;
     } catch (error) {
         costsSummaryEl.replaceChildren(reportsMessage(error.message || 'No se pudo cargar Costos.'));
@@ -158,6 +161,9 @@ function renderCostsSummary() {
         const title = summary.totals.length > 1 ? `En qué se va el dinero · ${total.currency}` : 'En qué se va el dinero';
         cards.push(reportCard(title, costsBreakdownChart(rows, total.currency)));
     });
+
+    // Tus estimados, de todos tus proyectos: la base del cotizador (Fase 5)
+    if (costsState.estimates) cards.push(estimatesCard(costsState.estimates, 'Tus estimados'));
     costsSummaryEl.replaceChildren(...cards);
 }
 

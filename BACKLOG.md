@@ -265,18 +265,18 @@ unas X horas") más materiales y gastos. **No es un CRM**: nada de prospectos ni
 **Fases** (cada una se despliega sola): 0 base sólida ✅ (lock, CI, sesiones
 idempotentes, límite de login) · 1 interruptor de módulos + ficha de proyecto solo lectura ✅ (1.17.0) ·
 2 tarifa y presupuesto ✅ (1.18.0) · 3 gastos y materiales, pegar de una hoja e importar CSV ✅ · 4 estimado contra real
-por tarea · 5 cotizador con historial (rangos P50/P80) · 6 hoja de Google publicada como
+por tarea ✅ · 5 cotizador con historial (rangos P50/P80) · 6 hoja de Google publicada como
 CSV, solo lectura.
 
 **Esquema.** Tablas nuevas (`user_modules`, `project_finance`, `project_costs`), sin
 migración. La única columna en una tabla existente es `tasks.estimate_minutes` (Fase 4):
 **va en `scripts/migrate.py`**, y se avisa el impacto antes de escribirla.
 
-**Orden.** Sigue la Fase 4 (estimado contra real por tarea). Es la primera que agrega
-una **columna a una tabla existente** (`tasks.estimate_minutes`): va en
-`scripts/migrate.py`, con su caso en `test_deploy.py`, y se avisa el impacto antes.
+**Orden.** Sigue la Fase 5 (cotizador). Las Fases 3 y 4 están hechas y sin publicar:
+la 4 agrega `tasks.estimate_minutes`, así que su deploy corre `scripts/migrate.py` antes
+de reiniciar.
 
-**Aceptación (de la Fase 4, no de la épica).** Una tarea puede llevar un estimado en
+**Aceptación de la Fase 4 (hecha, 2026-10-02).** Una tarea puede llevar un estimado en
 minutos; su tarjeta muestra "2 h de 3 h", y la ficha y Costos dicen, por etiqueta, cuánto
 se desvía el usuario de lo que estima (real ÷ estimado). Decisiones cerradas el 2026-10-01 (estimado para
 todos y desvío solo con Maker, tope de 100 h, qué tareas cuentan, mínimo de 3): en
