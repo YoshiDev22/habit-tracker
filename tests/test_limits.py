@@ -31,6 +31,10 @@ def test_task_title_and_notes(api):
     assert api.call("PATCH", url, {"title": "x" * 201})[0] == 422
     assert api.call("PATCH", url, {"notes": "x" * 5001})[0] == 422
     api.call("PATCH", url, {"notes": None}, expect=200)
+    # Estimado: de 1 minuto a 100 h
+    for bad in (0, -5, 6001, "mucho"):
+        assert api.call("PATCH", url, {"estimate_minutes": bad})[0] == 422, bad
+    assert api.call("PATCH", url, {"estimate_minutes": 6000}, expect=200)[1]["estimate_minutes"] == 6000
 
 
 def test_project_fields(api):

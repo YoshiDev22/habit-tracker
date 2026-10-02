@@ -21,7 +21,7 @@ from backend.schemas import (
 )
 from backend.auth import get_current_user
 from backend.boards import ensure_user_setup, unassigned_project_id
-from backend.costing import costs_cents_by_project, finance_response, finance_row
+from backend.costing import costs_cents_by_project, estimates_for_tasks, finance_response, finance_row
 from backend.routers.auth import require_module, user_modules
 
 router = APIRouter(tags=["projects"])
@@ -308,8 +308,12 @@ def get_project_overview(
 
     dates = [s.session_date for s in focus]
     total_seconds = sum(s.duration_seconds for s in focus)
-    finance = None
-    if not project.is_system and user_modules(session, current_user.id)["maker"]["enabled"]:
+    finance = estimates = None
+    maker_on = user_modules(session, current_user.id)["maker"]["enabled"]
+    if maker_on:
+        # El desvío es del usuario, no dinero: vale también en "Sin asignar"
+        estimates = estimates_for_tasks(session, current_user.id, project_id)
+    if maker_on and not project.is_system:
         finance = finance_response(
             project_id, finance_row(session, current_user.id, project_id), total_seconds,
             costs_cents_by_project(session, current_user.id, [project_id]).get(project_id, 0),
@@ -321,7 +325,8 @@ def get_project_overview(
         task_total=len(tasks),
         task_done=sum(1 for t in tasks if t.is_done),
         tasks=sorted(
-            (OverviewTask(id=t.id, title=t.title, is_done=t.is_done, seconds=seconds_by_task.get(t.id, 0))
+            (OverviewTask(id=t.id, title=t.title, is_done=t.is_done, seconds=seconds_by_task.get(t.id, 0),
+                          estimate_minutes=t.estimate_minutes)
              for t in tasks),
             key=lambda t: (-t.seconds, t.id),
         ),
@@ -336,6 +341,7 @@ def get_project_overview(
         first_date=min(dates) if dates else None,
         last_date=max(dates) if dates else None,
         finance=finance,
+        estimates=estimates,
     )
 
 

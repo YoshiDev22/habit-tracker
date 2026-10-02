@@ -2424,6 +2424,12 @@ body.has-pomodoro-bar {
     font-variant-numeric: tabular-nums;
 }
 
+/* Pasado de su estimado: solo el número cambia de color, sin avisos */
+.board-card-time.over-estimate,
+.task-time.over-estimate {
+    color: var(--danger-fg);
+}
+
 .board-card-meta {
     display: flex;
     flex-wrap: wrap;
@@ -2847,6 +2853,26 @@ body.board-wide .board-column {
 
 .card-project-overview:hover {
     background: var(--bg-hover);
+}
+
+.card-estimate-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.card-estimate-row input {
+    width: 4.2rem;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
 }
 
 .card-field select {
@@ -4153,6 +4179,87 @@ body.board-wide .board-column {
     background: var(--neutral-solid);
 }
 
+/* Estimado contra real (ficha y Costos): nombre y cifra en una línea, el
+   detalle debajo. Texto en tokens de texto; el punto lleva el color */
+.estimate-headline {
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.estimate-headline strong {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.estimate-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.estimate-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.estimate-row:first-child {
+    border-top: none;
+    font-weight: 600;
+}
+
+.estimate-row.muted .estimate-name {
+    color: var(--text-muted);
+}
+
+.estimate-row.muted .report-bar-dot {
+    background: var(--text-muted);
+}
+
+.estimate-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.estimate-ratio {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.estimate-ratio.pending {
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: var(--text-muted);
+}
+
+.estimate-detail {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.estimate-empty {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.report-bar-value.over-estimate {
+    color: var(--danger-fg);
+}
+
 .report-compare-small {
     margin-top: 4px;
     font-size: 0.75rem;
@@ -4978,7 +5085,141 @@ button.day-log-date:focus-visible {
     }
 }
 
-/* "En qué se va el dinero": leyenda que oculta o muestra cada barra */
+/* Gráfica "Costos": columnas de alto fijo sobre un eje de montos (ocultar una
+   no mueve lo de abajo) y una leyenda que oculta o muestra cada columna.
+   Alturas en rem: crecen con el tamaño de texto de Mi perfil. */
+.costs-breakdown {
+    --costs-plot-h: 9rem;
+    --costs-plot-top: 1.4rem;
+}
+
+.costs-plot {
+    display: flex;
+    margin-inline: auto;
+    height: calc(var(--costs-plot-h) + 4rem);
+}
+
+/* Marcas del eje: repartidas igual que las líneas (pasos iguales de 0 al tope),
+   así que basta con space-between; alto 0 para centrarlas sobre su línea */
+.costs-yaxis {
+    flex: none;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+    height: var(--costs-plot-h);
+    margin-top: var(--costs-plot-top);
+    padding-right: 6px;
+}
+
+.costs-ytick {
+    height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.costs-plot-area {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.costs-grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--costs-plot-top);
+    height: var(--costs-plot-h);
+    pointer-events: none;
+}
+
+.costs-gridline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed var(--border-color);
+    opacity: 0.7;
+}
+
+/* La línea del 0 es la base de las columnas: continua */
+.costs-gridline:first-child {
+    border-top-style: solid;
+    opacity: 1;
+}
+
+.costs-columns {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 100%;
+    padding-top: var(--costs-plot-top);
+    box-sizing: border-box;
+}
+
+.costs-col {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.costs-col-track {
+    position: relative;
+    height: var(--costs-plot-h);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.costs-col-fill {
+    width: min(60%, 2.5rem);
+    min-height: 2px;
+    border-radius: 4px 4px 0 0;
+    background: var(--accent);
+}
+
+.costs-col-pct {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.costs-col-name {
+    height: 2.2rem;
+    margin-top: 0.4rem;
+    padding-inline: 2px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    text-align: center;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.costs-columns .costs-legend-empty {
+    align-self: center;
+    margin: auto;
+}
+
+.costs-legend-value {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
 .costs-legend {
     display: flex;
     flex-wrap: wrap;

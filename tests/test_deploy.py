@@ -26,7 +26,7 @@ def test_the_app_refuses_to_start_without_migrating():
     first = run_migrate(db)
     assert first.returncode == 0, first.stderr
     assert "tasks.column_id" in first.stdout and "users.pomodoro_focus_seconds" in first.stdout
-    assert "pomodoro_sessions.idempotency_key" in first.stdout
+    assert "pomodoro_sessions.idempotency_key" in first.stdout and "tasks.estimate_minutes" in first.stdout
     assert "index uq_pomodoro_sessions_user_key" in first.stdout
     again = run_migrate(db)
     assert again.returncode == 0 and "nothing, already up to date" in again.stdout
@@ -66,6 +66,7 @@ def test_old_data_survives_and_is_placed_on_a_board(old_db, api):
     for t in tl["tasks"]:
         assert t["column_id"] == (col["Hecho"] if t["is_done"] else col["Por hacer"]), t
         assert t["board_id"] == board["id"]
+        assert t["estimate_minutes"] is None, "no old task gets an invented estimate"
 
     # El archivado sigue archivado, y aparece "Sin asignar" vacío
     _, allp = api.call("GET", "/api/projects?include_inactive=true", expect=200)

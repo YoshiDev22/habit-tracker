@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.auth import get_current_user
-from backend.costing import costs_cents_by_project, labor_cents, line_total_cents
+from backend.costing import costs_cents_by_project, estimates_for_tasks, labor_cents, line_total_cents
 from backend.database import get_session
 from backend.models import CostCategory, PomodoroSession, Project, ProjectCost, ProjectFinance, User
 from backend.routers.auth import require_module
@@ -26,6 +26,7 @@ from backend.schemas import (
     CostsCurrencyTotal,
     CostsProjectSummary,
     CostsSummaryResponse,
+    EstimateDeviation,
     ProjectCostCreate,
     ProjectCostFields,
     ProjectCostImport,
@@ -295,6 +296,16 @@ def get_costs_summary(session: Session = Depends(get_session), user: User = Depe
         t.budget_cents += row.budget_cents or 0
     return CostsSummaryResponse(projects=rows, categories=category_rows,
                                 totals=sorted(totals.values(), key=lambda t: t.currency))
+
+
+@router.get("/estimates", response_model=EstimateDeviation)
+def get_costs_estimates(session: Session = Depends(get_session), user: User = Depends(maker_user)):
+    """
+    Tus estimados (épica 24, Fase 4): cuánto se desvía el usuario de lo que
+    estima, con las tareas de todos sus proyectos (archivados y "Sin asignar"
+    incluidos). La misma función que la ficha, así que las cifras cuadran.
+    """
+    return estimates_for_tasks(session, user.id)
 
 
 # ==================== Gastos ====================

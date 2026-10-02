@@ -182,7 +182,9 @@ cuenta las tarjetas que ves y su tiempo, con "(con filtro)" si hay alguno.
 
 **Cada tarjeta** muestra su título, el tiempo que lleva, el **▶** para cronometrarla, su
 proyecto, sus etiquetas, y si las tiene, el avance del checklist (☑ 2/5) y cuántos
-comentarios hay (💬). Tócala para abrir su [detalle](#detalle-de-la-tarjeta).
+comentarios hay (💬). Si le pusiste un estimado, el tiempo dice cuánto llevas de él
+("1h 30m de 3h"); al pasarte, el número cambia de color, sin avisos. Tócala para abrir su
+[detalle](#detalle-de-la-tarjeta).
 
 **Crear una tarjeta**: al pie de cada columna, escribe en **+ Añadir tarjeta** y pulsa
 Enter. Nace en esa columna y en el proyecto "Sin asignar"; si tienes filtrado un solo
@@ -215,6 +217,10 @@ y el tablero se actualiza al cerrar.
 - **Proyecto**: dónde se suma su tiempo. **＋ Nuevo proyecto…** crea uno sin salir de la
   tarjeta, y el **📊** abre la [ficha del proyecto](#proyectos-y-tareas). Si cambias el
   proyecto, su tiempo se va con ella: el tiempo es de la tarea.
+- **Estimado**: cuánto crees que te va a llevar, en horas y minutos (hasta 100 h). Se
+  guarda al salir del campo; vacíalo para quitarlo. La tarjeta y la Lista dicen cuánto
+  llevas de él. Con el plan Maker, la app compara lo que estimas con lo que de verdad
+  tardas (ver [Costos](#costos-plan-maker)).
 - **Tiempo**: **▶ Cronómetro**, **🍅 Pomodoro** y **✍️ Registrar a mano**. Mientras corre,
   **■ Detener** lo para. El detalle sigue abierto mientras tanto.
 - **Historial de tiempo**: cada registro de esta tarea, del más reciente al más antiguo,
@@ -277,6 +283,11 @@ al cambiarlo. La tarjeta calcula la **mano de obra** (horas trabajadas × tarifa
 del presupuesto llevas; si un proyecto tiene presupuesto pero todavía no tiene tiempo, lo
 marca como **Cotización**.
 
+**Estimado contra real (plan Maker)**: si alguna tarea del proyecto tiene estimado, la
+ficha trae también esta tarjeta: cuánto tardas en total frente a lo que estimaste, en
+general y por etiqueta. Es la misma cuenta que *Tus estimados* de Costos, solo con las
+tareas de este proyecto.
+
 **Archivar o eliminar**: el botón **⋯** de la tarjeta.
 
 > **Archivar** conserva todo y solo lo esconde de la lista.
@@ -289,7 +300,8 @@ marca como **Cotización**.
 campo *Nueva tarea* para añadir más, y el historial de tiempo.
 
 - La casilla marca la tarea como terminada.
-- Junto a cada nombre verás **el tiempo dedicado a esa tarea**.
+- Junto a cada nombre verás **el tiempo dedicado a esa tarea**, y si tiene estimado,
+  cuánto llevas de él ("de 3h"), en otro color si ya te pasaste.
 - El **▶** arranca el cronómetro en esa tarea, sin pasar por los selectores de arriba.
   Mientras corre, la fila queda resaltada. Si ya tenías otro timer en curso, te pregunta
   antes de cambiarlo. En las tareas ya hechas no aparece.
@@ -302,9 +314,14 @@ Con el plan Maker encendido aparece una cuarta pestaña, **Costos**, para lo que
 cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
 
 - **Arriba, el resumen**: costo total, mano de obra, gastos y lo presupuestado; una tabla
-  con cada proyecto y su **margen** (presupuesto − costo, en rojo si te pasas), y en qué
-  categorías se va el dinero. En el teléfono la tabla enseña solo costo y margen. Si tienes
-  proyectos en monedas distintas, cada moneda va aparte: la app nunca las suma ni convierte.
+  con cada proyecto y su **margen** (presupuesto − costo, en rojo si te pasas), y la
+  gráfica **Costos**: una columna para la mano de obra y una por categoría, con su
+  porcentaje, sobre un eje de montos a la izquierda que se ajusta solo (su tope queda
+  siempre un poco arriba del gasto más alto). Debajo, cada nombre con su cifra exacta;
+  tócalo para ocultar o mostrar su columna (solo en la gráfica, los totales no cambian) y
+  el eje se reajusta a las que quedan. En el teléfono la tabla enseña solo
+  costo y margen. Si tienes proyectos en monedas distintas, cada moneda va aparte: la app
+  nunca las suma ni convierte.
 - **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
   en la lista). Se usa como una hoja de cálculo: escribe en las celdas y cada cambio se
   guarda solo; **＋ Agregar fila** para uno nuevo, y Enter baja a la fila siguiente.
@@ -318,6 +335,13 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   ordenas o creas más. Una categoría con gastos no se borra hasta pasar sus gastos a otra.
 - Para gastos que no son de un proyecto (una licencia que usas en todo), crea un proyecto
   "Gastos generales". Borrar un proyecto borra sus gastos; archivarlo los conserva.
+- **Tus estimados**: cuánto te desvías de lo que estimas, con las tareas de todos tus
+  proyectos. *"Tardas 1.3× lo que estimas"* quiere decir que cada hora que estimas te
+  lleva 1h 18m. Debajo, la misma cifra por etiqueta, para saber en qué tipo de trabajo te
+  quedas más corto. Cuentan las tareas con estimado y tiempo que ya terminaste, y las
+  abiertas que ya pasaron su estimado; las que van por debajo esperan a terminarse. Con
+  menos de 3 tareas, una fila dice "poco historial" en vez de una cifra. Sirve para
+  cotizar: si sueles tardar 1.3×, estima con eso en mente.
 
 ## Reportes
 

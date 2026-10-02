@@ -230,6 +230,10 @@ Lo que no se deduce leyendo los modelos:
   hecha (con `?today=`), y moverla entre dos columnas `done` conserva la fecha.
 - **El tiempo es de la tarea**: cambiarle el proyecto a una tarea mueve el `project_id` de
   sus sesiones. El tiempo registrado sin tarea no se toca.
+- **`Task.estimate_minutes`** (Fase 4, columna en `migrate.py`): NULL = sin estimado, de 1 a
+  6000 (100 h). Es **de todos**, con o sin el plan maker: el `PATCH` no mira el módulo y
+  `null` lo borra. La tarjeta y la Lista pintan "1h 30m de 3h" con `taskTimeLabel()`
+  (`projects.js`), en `--danger-fg` al pasarse y sin avisos.
 - **"Sin asignar"** es un `Project` con `is_system=True` que cada usuario recibe para las
   tareas sin proyecto (existe porque `tasks.project_id` es NOT NULL y quitarlo en SQLite
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;
@@ -338,6 +342,15 @@ Lo que no se ve en Swagger:
   `backend/costing.py` y los usan la ficha y la pestaña, para que cuadren: **redondeo de
   .5 hacia arriba** (`ROUND_HALF_UP`, con enteros o `Decimal`), nunca `round()`, que
   redondea al par.
+- **Estimado contra real** (plan maker): `GET /api/costs/estimates` (todas las tareas,
+  archivados y "Sin asignar" incluidos) y el bloque `estimates` de la ficha (solo su
+  proyecto, solo con el plan encendido) salen de la misma `estimates_for_tasks()` en
+  `costing.py`. Cuentan las tareas con estimado y tiempo que estén terminadas **o** abiertas
+  y ya pasadas de su estimado (`estimate_counts()`): una abierta por debajo no, porque aún
+  no se sabe cuánto tardará. Cociente de sumas, `ratio_pct` entero con .5 hacia arriba, y
+  `None` con menos de `ESTIMATE_MIN_TASKS` (3) tareas en la fila. El tiempo de una tarea es
+  el de su `seconds` (sesiones focus de la tarea). `estimatesCard()` en
+  `project-overview.js` la pinta en la ficha y en Costos (*Tus estimados*).
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va
   siempre al final; el orden de `VIEWS` y el de las secciones del HTML deben coincidir), oculta en el HTML y
   mostrada por `applyCostsModule()` con el plan encendido. Si se recargó estando en ella,
@@ -349,8 +362,13 @@ Lo que no se ve en Swagger:
   dinero con coma o punto decimal; fechas `AAAA-MM-DD` o día primero (`30/09/2026`); las
   categorías desconocidas se pueden crear. Nada se guarda hasta "Agregar".
   En el resumen, la mano de obra y el presupuesto de cada proyecto se editan tocando la
-  celda (la mano de obra cambia la tarifa). "En qué se va el dinero" suma mano de obra y
-  categorías; su leyenda oculta barras solo de la gráfica (`hiddenBreakdown`).
+  celda (la mano de obra cambia la tarifa). La gráfica **"Costos"** pone mano de obra y
+  categorías como **columnas verticales de alto fijo** (`costsBreakdownChart()`) sobre un
+  eje de montos: `costsAxisScale()` pone el tope al menos 10 % sobre la columna más alta
+  (`COSTS_AXIS_HEADROOM`), redondeado a un paso de 1, 2, 2.5 o 5 × 10ⁿ. Su leyenda (con la
+  cifra exacta) oculta columnas solo de la gráfica (`hiddenBreakdown`) y el eje se reajusta
+  a las que quedan; como el alto no cambia, ocultar no mueve lo que hay debajo. No volver a
+  barras horizontales.
 - **Nunca `scrollIntoView()` dentro de una vista**: también desplaza en horizontal
   `#viewsViewport` (con `overflow: hidden` sigue siendo desplazable por código) y la vista
   queda corrida. Desplazar con `window.scrollTo()`. `projects.js` además devuelve el
