@@ -1,14 +1,20 @@
 # Habit Tracker
 
-App personal de productividad, con tres módulos sobre una misma cuenta:
+App personal de organización hecha de módulos sobre una misma cuenta. Cada quien enciende
+los que usa en *Mi perfil*:
 
-- **Hábitos** — calendario mensual, marcado por día, racha con escudos, días de descanso
-  y pausa por vacaciones.
-- **Proyectos y tareas** — tableros kanban con columnas configurables. Cada tarjeta es una
-  tarea con proyecto, etiquetas, descripción, checklist y comentarios. También hay vista Lista.
-- **Pomodoro** — cronómetro, pomodoro o registro manual, con tiempo por proyecto, tarea y etiqueta.
-- **Reportes** — tiempo por día, proyecto, etiqueta y hora, tareas terminadas y rachas de
-  hábitos, por semana, mes o rango.
+- **Proyectos y tareas** (todos) — tableros kanban con columnas configurables. Cada tarjeta
+  es una tarea con proyecto, etiquetas, descripción, checklist, comentarios y un estimado
+  opcional. También hay vista Lista, y cada proyecto tiene su ficha con todo su tiempo.
+- **Pomodoro** (todos) — cronómetro, pomodoro o registro manual, con tiempo por proyecto,
+  tarea y etiqueta.
+- **Reportes** (todos) — tiempo por día, proyecto, etiqueta y hora, tareas terminadas y
+  rachas de hábitos, por semana, mes o rango.
+- **Hábitos** (activo por defecto, se puede apagar) — calendario mensual, marcado por día,
+  racha con escudos, días de descanso y pausa por vacaciones.
+- **Plan Maker** (por invitación, gratis) — costeo de proyectos: tarifa por hora,
+  presupuesto, gastos y materiales (se pueden pegar desde Excel o Google Sheets), costo y
+  margen por proyecto, y cuánto se desvía uno de lo que estima.
 
 Backend FastAPI + SQLite con autenticación JWT. Frontend estático (HTML/CSS/JS vanilla,
 sin build step ni dependencias) servido por la misma app.
@@ -38,7 +44,7 @@ tiempo, corregir un registro— está la [guía de uso](GUIA-DE-USO.md).
 
 ## Instalación
 
-Requiere **Python 3.11+** (probado en 3.13). El repo **no incluye** la base de datos ni el
+Requiere **Python 3.10+** (la CI prueba 3.10 y 3.12; en desarrollo, 3.13). El repo **no incluye** la base de datos ni el
 archivo `.env`: ambos hay que crearlos.
 
 ```bash
@@ -140,13 +146,14 @@ Los endpoints se agrupan por módulo, todos con prefijo `/api`:
 
 | Prefijo | Qué cubre |
 |---|---|
-| `/api/auth` | Registro y login |
+| `/api/auth` | Registro, login, perfil y módulos de la cuenta (`/me/modules/{módulo}`) |
 | `/api/habits` | Marcar un hábito por día, racha con escudos, pausas por vacaciones, hábitos de cada mes, reporte y definiciones |
-| `/api/projects` | CRUD de proyectos (etiquetas de las tareas) y resumen de progreso |
+| `/api/projects` | CRUD de proyectos (etiquetas de las tareas), resumen de progreso, ficha (`/{id}/overview`) y costeo (`/{id}/finance`, plan Maker) |
 | `/api/boards` | Tableros y sus columnas |
-| `/api/tasks` | Tareas (tarjetas), con su checklist y sus comentarios |
+| `/api/tasks` | Tareas (tarjetas), con su estimado, su checklist y sus comentarios |
 | `/api/tags` | Etiquetas y tiempo por etiqueta |
 | `/api/pomodoro` | Registro y estadísticas de sesiones |
+| `/api/costs` | Plan Maker: gastos de cada proyecto, importación, categorías, resumen de costo y margen, y estimado contra real |
 
 Todos requieren `Authorization: Bearer <token>` salvo `/api/auth/*`, `/api`, `/api/version` y `/api/health`.
 
@@ -193,11 +200,17 @@ habit-tracker/
 │   ├── schemas.py         # Esquemas de request/response
 │   ├── auth.py            # Hashing, JWT, get_current_user
 │   ├── boards.py          # "Sin asignar" y columnas de las tareas de cada usuario
+│   ├── modules.py         # Módulos de cada cuenta y sus valores por defecto
+│   ├── costing.py         # Dinero del plan Maker: mano de obra, gastos, costo, margen, estimados
+│   ├── ratelimit.py       # Límite de intentos de login y registro, por IP
 │   ├── .env.example       # Plantilla del .env (el .env real no se versiona)
-│   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro
+│   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro, costs
 ├── docs/                  # Specs por fases y referencias de la racha
-├── scripts/migrate.py     # Columnas nuevas en tablas existentes (correr antes de reiniciar)
-├── index.html             # Única página: las tres vistas y todos los modales
+├── scripts/
+│   ├── migrate.py         # Columnas nuevas en tablas existentes (correr antes de reiniciar)
+│   └── grant_module.py    # Da o quita a una cuenta el acceso al plan Maker
+├── tests/                 # pytest: API, y tests/ui/ en navegador
+├── index.html             # Única página: las vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema
 ├── habits.js              # Hábitos: calendario, racha, configuración, vacaciones
@@ -205,6 +218,8 @@ habit-tracker/
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar"
 ├── pomodoro.js            # Timer y envío de sesiones
 ├── reports.js             # Vista Reportes
+├── project-overview.js    # Ficha de proyecto (tiempo, costeo y estimados)
+├── costs.js               # Vista Costos (plan Maker)
 ├── manifest.webmanifest   # Instalable como app
 ├── icons/                 # Iconos y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -217,10 +232,12 @@ montado, así que un archivo JS nuevo necesita su propia ruta o devuelve 404.
 
 ## Notas
 
-- **Sin migraciones.** No hay Alembic. `create_all()` crea tablas nuevas al arrancar, pero
-  no hace `ALTER TABLE`: agregar una columna a un modelo existente no se aplica sobre una
-  base que ya tiene datos. Requiere migración manual.
-- **Sin tests ni CI** por ahora.
+- **Migraciones a mano.** No hay Alembic. `create_all()` crea tablas nuevas al arrancar,
+  pero no hace `ALTER TABLE`: una columna nueva en una tabla existente va en
+  `scripts/migrate.py`, que se corre antes de reiniciar. Si falta, la app no arranca y el
+  log dice qué correr.
+- **Pruebas y CI.** `pytest` (API) corre en GitHub Actions en cada push; las de navegador
+  (`pytest -m ui`) se corren en local.
 - **Deploy manual** sobre un VPS Ubuntu con Caddy como reverse proxy y systemd para el
   servicio.
 - Rotar el `SECRET_KEY` invalida todos los tokens emitidos: los usuarios tienen que volver

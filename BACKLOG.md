@@ -11,9 +11,8 @@ server local y fallaron de forma observable. Las marcadas *diagnosticado* salen 
 código y no se reprodujeron todavía.
 
 Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros), el
-2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas) y el 2026-10-01
-(Fase 1 de la 24 terminada;
-entrada 25 cerrada).
+2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas) y el 2026-10-02
+sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
