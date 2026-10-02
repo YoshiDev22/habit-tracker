@@ -7,6 +7,45 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.19.0] — 2026-10-02
+
+Con el plan Maker, anota lo que cuesta cada proyecto además de tus horas, y compara lo que
+estimas con lo que de verdad tardas.
+
+### Nuevo
+- **Estimado en cada tarjeta**: en el detalle de la tarjeta, el campo **Estimado** (horas y
+  minutos, hasta 100 h). La tarjeta y la Lista dicen cuánto llevas de él ("1h 30m de 3h");
+  si te pasas, el número cambia de color, sin avisos. Es para todos, con o sin Maker.
+- **Pestaña Costos** (plan Maker), entre Tableros y Reportes:
+  - un resumen con costo total, mano de obra, gastos y presupuesto, y una tabla con cada
+    proyecto y su **margen** (en rojo si te pasas). La mano de obra y el presupuesto se
+    editan tocando la cifra;
+  - la **hoja de gastos** de cada proyecto (licencias, materiales, servicios, IA…), que se
+    edita como una hoja de cálculo y guarda cada celda sola;
+  - **pegar desde Excel o Google Sheets**, o importar un CSV, con vista previa antes de
+    guardar: las filas que no se entienden se marcan y se saltan;
+  - **categorías** tuyas: vienen cinco, y las renombras, les cambias el color, las
+    ordenas (arrastrando, en la computadora) o creas más;
+  - la gráfica **Costos**: una columna para la mano de obra y una por categoría, sobre un
+    eje de montos que se ajusta solo. Toca un nombre de la leyenda para ocultar su
+    columna: el eje se reajusta y nada de la página se mueve;
+  - **Tus estimados**: cuánto tardas frente a lo que estimas ("tardas 1.3× lo que
+    estimas"), en total y por etiqueta, con las tareas de todos tus proyectos.
+- **Estimado contra real en la ficha del proyecto** (plan Maker): la misma cuenta, solo con
+  las tareas de ese proyecto.
+
+### Cambios
+- La tarjeta **Costeo** de la ficha suma ahora los gastos al costo, y dice el margen o
+  cuánto te pasaste del presupuesto.
+- Al eliminar un proyecto con Maker, la confirmación avisa que se borran su costeo y sus
+  gastos.
+
+### Para actualizar
+Esta versión añade una columna a la base de datos (el estimado de cada tarea): correr
+`python3 scripts/migrate.py` **antes** de reiniciar el servicio. Si se olvida, el servicio
+no arranca y el log dice qué falta. Las tablas de gastos y categorías son nuevas y la app
+las crea sola al arrancar. Las tareas que ya existían quedan sin estimado.
+
 ## [1.18.0] — 2026-10-01
 
 Costea tus proyectos con el plan Maker: tarifa, presupuesto y mano de obra en la ficha.
@@ -442,6 +481,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.19.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.19.0
 [1.18.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.18.0
 [1.17.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.17.0
 [1.16.2]: https://github.com/YoshiDev22/habit-tracker/tree/v1.16.2
