@@ -76,6 +76,10 @@ function renderProjectOverview(data) {
     const cards = [reportCard('Resumen', stats)];
     // Solo con el plan maker encendido trae `finance` (el backend decide)
     if (data.finance) cards.push(renderCosting(data.finance));
+    // Igual `estimates`; sin ningún estimado en el proyecto, la tarjeta sobra
+    if (data.estimates && (data.estimates.overall.tasks || data.tasks.some(t => t.estimate_minutes))) {
+        cards.push(estimatesCard(data.estimates, 'Estimado contra real'));
+    }
 
     if (data.total_seconds === 0) {
         cards.push(reportsMessage(data.task_total
@@ -94,6 +98,7 @@ function renderOverviewTasks(data) {
             name: task.title,
             color: overviewColor(data),
             seconds: task.seconds,
+            estimateMinutes: task.estimate_minutes,
             note: task.is_done ? '✓ hecha' : '',
         }));
     if (data.seconds_no_task > 0) {
@@ -128,6 +133,62 @@ function renderOverviewMonths(data) {
 
 function overviewColor(data) {
     return data.project.color || null;
+}
+
+// ============================================
+// Estimado contra real (plan maker, Fase 4)
+// ============================================
+// La ficha y Costos pintan el mismo bloque `estimates` del backend
+// (costing.estimate_deviation): aquí no se calcula nada, solo se formatea.
+
+// 160 → "1.6×"
+function formatRatio(pct) {
+    return `${(pct / 100).toLocaleString('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`;
+}
+
+function estimateRowItem(name, color, row, minTasks, muted = false) {
+    const item = el('li', `estimate-row${muted ? ' muted' : ''}`);
+    const label = el('span', 'estimate-name');
+    if (color || muted) {
+        const dot = el('i', 'report-bar-dot');
+        if (color) dot.style.background = color;
+        label.appendChild(dot);
+    }
+    label.append(name);
+    const detail = el('span', 'estimate-detail',
+        `${row.tasks} ${row.tasks === 1 ? 'tarea' : 'tareas'} · ${formatDuration(row.actual_seconds)} de ${formatDuration(row.estimate_seconds)}`);
+    const ratio = row.ratio_pct === null
+        ? el('span', 'estimate-ratio pending', 'poco historial')
+        : el('span', 'estimate-ratio', formatRatio(row.ratio_pct));
+    if (row.ratio_pct === null) ratio.title = `Hace falta al menos ${minTasks} tareas para dar una cifra`;
+    item.append(label, ratio, detail);
+    return item;
+}
+
+function estimatesCard(estimates, title) {
+    const { overall, tags, untagged, min_tasks: minTasks } = estimates;
+    if (!overall.tasks) {
+        return reportCard(title, el('p', 'estimate-empty',
+            'Todavía no hay tareas que comparar. Pon un estimado en el detalle de una tarjeta: '
+            + 'cuenta al terminarla, o antes si ya se pasó de él.'));
+    }
+    const headline = el('p', 'estimate-headline');
+    if (overall.ratio_pct === null) {
+        headline.textContent = `Con ${overall.tasks} ${overall.tasks === 1 ? 'tarea' : 'tareas'} todavía hay poco historial: `
+            + `la cifra sale desde ${minTasks}.`;
+    } else {
+        // ratio_pct × 36 = segundos reales por cada hora (3600 s) estimada
+        headline.append('Tardas ', el('strong', '', formatRatio(overall.ratio_pct)), ' lo que estimas: ',
+            `cada hora estimada te lleva ${formatDuration(overall.ratio_pct * 36)}.`);
+    }
+    const list = el('ul', 'estimate-rows');
+    list.appendChild(estimateRowItem('Total', null, overall, minTasks));
+    tags.forEach(tag => list.appendChild(estimateRowItem(tag.name, tag.color, tag, minTasks)));
+    if (tags.length && untagged.tasks) list.appendChild(estimateRowItem('Sin etiqueta', null, untagged, minTasks, true));
+    const note = el('p', 'report-compare-small',
+        'Cuentan las tareas terminadas y las abiertas que ya pasaron su estimado.'
+        + (tags.length > 1 ? ' Una tarea con varias etiquetas cuenta en cada una.' : ''));
+    return reportCard(title, headline, list, note);
 }
 
 // ============================================

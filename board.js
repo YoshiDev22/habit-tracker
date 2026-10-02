@@ -240,10 +240,13 @@ function buildCard(task, columns) {
     title.textContent = task.title;
 
     // Mientras corre, el total cede su sitio al reloj en vivo
+    // Con estimado, "1h 30m de 3h"; pasado de él, en el color de alerta
     const time = document.createElement('span');
-    time.className = 'board-card-time';
+    const label = taskTimeLabel(boardTaskSeconds(task), task.estimate_minutes);
+    time.className = 'board-card-time' + (label.over ? ' over-estimate' : '');
     time.innerHTML = '<span class="timer-idle"></span><span class="timer-live"></span>';
-    time.firstChild.textContent = formatDuration(boardTaskSeconds(task));
+    time.firstChild.textContent = label.text;
+    if (label.title) time.title = label.title;
 
     // El cronómetro se puede arrancar en cualquier columna, y no mueve la
     // tarjeta: solo el usuario la cambia de columna.
@@ -1142,12 +1145,39 @@ function renderCardComments() {
     });
 }
 
+const cardEstimateHours = document.getElementById('cardEstimateHours');
+const cardEstimateMinutes = document.getElementById('cardEstimateMinutes');
+const ESTIMATE_MAX_MINUTES = 6000; // 100 h, el tope de la API
+
+function renderCardEstimate(task) {
+    // No pisar lo que se está escribiendo
+    if ([cardEstimateHours, cardEstimateMinutes].includes(document.activeElement)) return;
+    const minutes = task.estimate_minutes;
+    cardEstimateHours.value = minutes ? String(Math.floor(minutes / 60)) : '';
+    cardEstimateMinutes.value = minutes ? String(minutes % 60) : '';
+}
+
+function saveCardEstimate() {
+    const task = cardTask();
+    if (!task) return;
+    const hours = Math.max(0, Math.floor(Number(cardEstimateHours.value) || 0));
+    const minutes = Math.max(0, Math.floor(Number(cardEstimateMinutes.value) || 0));
+    const total = Math.min(hours * 60 + minutes, ESTIMATE_MAX_MINUTES);
+    const estimate = total > 0 ? total : null;
+    if (estimate === (task.estimate_minutes ?? null)) {
+        renderCardEstimate(task);
+        return;
+    }
+    patchCardTask({ estimate_minutes: estimate });
+}
+
 function renderCardModal() {
     const task = cardTask();
     if (!task) return;
     renderCardHeader(task);
     renderCardColumnSelect(task);
     renderCardProjectSelect(task);
+    renderCardEstimate(task);
     renderCardTagRow(task);
     if (isTagPickerOpen()) renderTagPicker(task);
     renderCardChecklist();
@@ -1253,6 +1283,17 @@ cardNotesInput.addEventListener('blur', saveCardText);
 
 cardColumnSelect.addEventListener('change', () => {
     patchCardTask({ column_id: Number(cardColumnSelect.value) });
+});
+
+// Horas y minutos se guardan juntos al dejar cualquiera de los dos
+[cardEstimateHours, cardEstimateMinutes].forEach(input => {
+    input.addEventListener('change', saveCardEstimate);
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            input.blur();
+        }
+    });
 });
 
 // La ficha del proyecto de la tarjeta, encima de ella (project-overview.js)

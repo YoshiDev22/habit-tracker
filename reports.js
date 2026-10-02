@@ -500,6 +500,10 @@ function barList(rows, total) {
         name.append(dot, document.createTextNode(row.name));
         if (row.note) name.appendChild(el('span', 'report-bar-note', row.note));
         const value = el('span', 'report-bar-value', formatDuration(row.seconds));
+        if (row.estimateMinutes) {
+            value.append(` de ${formatEstimate(row.estimateMinutes)}`);
+            if (row.seconds > row.estimateMinutes * 60) value.classList.add('over-estimate');
+        }
         if (total) value.appendChild(el('span', 'report-bar-pct', ` · ${Math.round(row.seconds / total * 100)}%`));
         head.append(name, value);
 
