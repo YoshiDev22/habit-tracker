@@ -107,7 +107,7 @@ idempotentes y límite de intentos en login y registro.
 - Con presupuesto y sin tiempo, la etiqueta **Cotización**. "Sin asignar" no se costea.
 - La casilla **Maker** aparece en Mi perfil para las cuentas con acceso.
 
-### Fase 3 — Gastos y materiales ✅ (2026-10-01, sin publicar)
+### Fase 3 — Gastos y materiales ✅ (1.19.0)
 
 **Decidido (2026-10-01):**
 
@@ -133,9 +133,9 @@ idempotentes y límite de intentos en login y registro.
   y se sube.
 - La ficha queda completa: mano de obra + gastos = costo; cotizado − costo = margen.
 
-### Fase 4 — Estimado contra real
+### Fase 4 — Estimado contra real ✅ (1.19.0)
 
-> **Hecha** (2026-10-02, sin publicar, sobre 1.18.0 más la Fase 3). Es la primera fase que
+> **Hecha** (2026-10-02; sale en la 1.19.0 junto con la Fase 3). Es la primera fase que
 > agrega una **columna a una tabla existente**: leer "Impacto en producción" antes de
 > desplegar. Las preguntas quedaron cerradas el 2026-10-01: ver "Decisiones de la Fase 4"
 > al final de esta fase. Lo que se apartó del plan: la ficha de "Sin asignar" también trae
