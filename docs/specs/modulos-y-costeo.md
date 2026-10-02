@@ -135,10 +135,155 @@ idempotentes y límite de intentos en login y registro.
 
 ### Fase 4 — Estimado contra real
 
+> **Plan, sin código** (2026-10-01, sobre 1.18.0 más la Fase 3 sin publicar). Es la primera
+> fase que agrega una **columna a una tabla existente**: leer "Impacto en producción" antes
+> de empezar. Las preguntas quedaron cerradas el 2026-10-01: ver "Decisiones de la Fase 4"
+> al final de esta fase.
+
 - Cada tarea puede llevar un estimado en minutos. La tarjeta muestra "2 h de 3 h".
-- La ficha y Reportes muestran, por etiqueta, **cuánto se desvía el usuario** (real ÷
-  estimado): *"en tareas de backend tardas 1.6× lo que estimas"*. Esta es la "velocidad"
-  personal que usa el cotizador.
+- La ficha y la pestaña **Costos** muestran, por etiqueta, **cuánto se desvía el usuario**
+  (real ÷ estimado): *"en tareas de backend tardas 1.6× lo que estimas"*. Esta es la
+  "velocidad" personal que usará el cotizador de la Fase 5. (La primera versión de este
+  texto decía "la ficha y Reportes"; la aceptación del backlog y este plan dicen Costos.)
+
+#### Impacto en producción
+
+- **Columna nueva en `tasks`**: `estimate_minutes INTEGER`, NULL = sin estimado. En
+  `models.py`, `Task.estimate_minutes: Optional[int] = Field(default=None)`, con el
+  comentario "Columna AÑADIDA: migrate.py" como `column_id`.
+- **`scripts/migrate.py`**: entrada nueva al final de `MIGRATIONS`,
+  `{"table": "tasks", "column": "estimate_minutes", "type": "INTEGER"}`, sin `default`:
+  nace NULL y ninguna tarea vieja queda con un estimado inventado. Sin índice (nada filtra
+  por esta columna), así que `INDEXES` no cambia.
+- **`check_pending_migrations()`** (`backend/database.py`) lee `MIGRATIONS` del propio
+  script: sin migrar, la app se niega a arrancar y el log nombra `tasks.estimate_minutes`.
+  No hay que tocar `database.py`.
+- **`tests/test_deploy.py`**: en `test_the_app_refuses_to_start_without_migrating`, que la
+  salida del primer `migrate.py` incluya `tasks.estimate_minutes` (y la segunda corrida
+  siga diciendo "nothing, already up to date"); en
+  `test_old_data_survives_and_is_placed_on_a_board`, que las tareas de la base de la 1.9
+  devuelvan `estimate_minutes: null`.
+- **Deploy**: `git pull` → `.venv/bin/pip install -r requirements.lock` →
+  `python3 scripts/migrate.py` → reiniciar. El CHANGELOG lleva la sección "Para actualizar".
+- **Volver atrás** no exige deshacer nada: `ADD COLUMN` no reescribe la tabla y el código
+  anterior no lee la columna, que sobra sin estorbar (como `projects.status_id`).
+- **Versión**: es un `feat:` → MINOR. La Fase 3 tampoco se ha publicado (`VERSION` sigue
+  en 1.18.0): si salen juntas, es una sola 1.19.0.
+
+#### API: lo que cambia (leído de `routers/tasks.py` y `schemas.py`)
+
+| Dónde | Hoy | Cambio |
+|---|---|---|
+| `TaskUpdate` | `title`, `notes`, `is_done`, `order`, `project_id`, `column_id`, `tag_ids` | `+ estimate_minutes: Optional[int]`, con `ge=1` y `le=6000` (100 h; decisión 2) |
+| `PATCH /api/tasks/{id}` | `model_dump(exclude_unset=True)`; un `null` se ignora solo en `column_id` e `is_done` | Mandar `null` borra el estimado y no mandarlo lo deja igual. Nada más que tocar: el `setattr` del final ya aplica el campo |
+| `TaskResponse` | Sin estimado | `+ estimate_minutes: Optional[int] = None`. `_task_responses()` usa `model_validate(t)`, así que sale solo en `GET /api/tasks`, `POST` y `PATCH` |
+| `TaskCreate` | — | Sin cambio en esta fase: las tarjetas se crean solo con título (decisión 8) |
+| `OverviewTask` | `id`, `title`, `is_done`, `seconds` | `+ estimate_minutes` |
+| `ProjectOverview` | Tiempo por tarea, etiqueta y mes, `finance` con el plan | `+ estimates` (bloque de abajo), solo del proyecto y solo con el plan encendido, como `finance` (decisión 1) |
+| `GET /api/costs/estimates` | No existe | **Nuevo**, en `routers/costs.py` tras `maker_user`: el mismo bloque con todos los proyectos. Ruta literal: declararla antes de las paramétricas (`/{cost_id}`) |
+
+El cálculo vive **en una sola función pura** (p. ej. `estimate_deviation()` en
+`backend/costing.py`), que usan la ficha y Costos para que sus cifras cuadren, igual que
+la mano de obra.
+
+```
+estimates: {
+  overall:  {tasks, estimate_seconds, actual_seconds, ratio_pct},   # cada tarea una vez
+  tags:     [{tag_id, name, color, tasks, estimate_seconds, actual_seconds, ratio_pct}],
+  untagged: {tasks, estimate_seconds, actual_seconds, ratio_pct}
+}
+```
+
+**La regla del desvío (decisiones 3 a 5):**
+
+- Cuentan las tareas **con estimado** y con tiempo registrado que sean:
+  - **terminadas**, con su tiempo final;
+  - o **abiertas que ya pasaron su estimado**, con el tiempo que llevan: ya se sabe que se
+    desviaron, y al terminar solo pueden desviarse más.
+- Una abierta que va por debajo de su estimado **no cuenta todavía**: su tiempo real no se
+  conoce, y contarla diría "tardas 0.3×" de una tarea a medias. Esto inclina la cifra un
+  poco hacia "tardas más", que para cotizar es lo prudente.
+- Tiempo real = sus sesiones `focus`, el mismo criterio que `seconds` de `TaskResponse`
+  (vale también en proyectos archivados).
+- Por etiqueta, **cociente de sumas**: tiempo real total ÷ estimado total de esas tareas.
+  No el promedio de cocientes, para que una tarea de 5 minutos estimada en 1 no domine.
+- Una tarea con dos etiquetas cuenta en las dos (la misma regla del tiempo por etiqueta),
+  así que las filas no se suman entre sí; el total general cuenta cada tarea una vez.
+- El backend devuelve **enteros**: `ratio_pct` = real × 100 ÷ estimado, con redondeo de
+  .5 hacia arriba (`ROUND_HALF_UP`), nunca `round()`. La pantalla pinta "1.6×".
+- Con menos de **3 tareas** en una fila (etiqueta, *Sin etiqueta* o total), la fila dice
+  "todavía hay poco historial" en vez de una cifra (principio 2: no fingir precisión).
+- **Periodo**: todo el historial. Si la entrada 29 del backlog le pone periodo a Costos,
+  se aplica aquí por fecha de terminada (`completed_at`); una abierta que ya se pasó, por
+  la fecha de hoy.
+
+#### Dónde se ve
+
+El campo y el "de 3 h" son **para todos**, con o sin el plan Maker: planear sirve aunque
+no se cobre, así que el `PATCH` del estimado no comprueba el módulo. El desvío ("tardas
+1.6×") **solo con Maker encendido**, en la ficha y en Costos (decisión 1).
+
+- **Detalle de la tarjeta** (`#cardModal`, `board.js`): campo **Estimado** en
+  `.card-fields`, junto a Columna y Proyecto, con horas y minutos como el registro a mano.
+  Se guarda al cambiarlo, como los demás campos; vacío = sin estimado.
+- **Tarjeta del tablero** (`buildCard()`): "2 h de 3 h" en `.board-card-time`. Mientras
+  corre el cronómetro, el reloj en vivo ocupa ese sitio, como hoy. Pasado del estimado, el
+  número va en el color de alerta del tema, sin avisos ni notificaciones (decisión 7).
+- **Lista** (`projects.js`, `.task-time`): el mismo "de 3 h", también en color de alerta al pasarse (decisión 6).
+- **Ficha** (`project-overview.js`): en *Tareas*, cada fila con "de X"; y una tarjeta
+  nueva **Estimado contra real** con el bloque `estimates` del proyecto: por etiqueta,
+  real contra estimado y "tardas 1.6× lo que estimas".
+- **Costos** (`costs.js`, `renderCostsSummary()`): tarjeta **Tus estimados** con
+  `GET /api/costs/estimates`, de todos tus proyectos.
+- **Reportes**: nada en esta fase.
+- **Guía de uso**: el campo en "Detalle de la tarjeta" y la tarjeta nueva en "Costos".
+
+#### Pruebas
+
+De API (`pytest`):
+
+- `tests/test_task_details.py`, o un `tests/test_estimates.py` nuevo: poner, cambiar y
+  borrar (`null`) el estimado; un `PATCH` sin el campo no lo toca; aparece en
+  `GET /api/tasks`.
+- `tests/test_limits.py`: `0`, negativo y el tope + 1 → 422; el tope entra.
+- `tests/test_isolation.py`: `PATCH` del estimado de una tarea ajena → 404, y
+  `/api/costs/estimates` no trae tareas ni etiquetas de otra cuenta.
+- `tests/test_deploy.py`: lo de "Impacto en producción".
+- El estimado se guarda sin el plan Maker (decisión 1), y la ficha no trae `estimates`
+  con el plan apagado.
+- La regla: una abierta por debajo de su estimado no cuenta, y una que ya lo pasó cuenta
+  con el tiempo que lleva; cociente de sumas; una tarea con dos
+  etiquetas, en las dos; *Sin etiqueta*; redondeo de .5 hacia arriba; menos de 3 tareas →
+  sin cifra; y una prueba de cuadre: para un mismo proyecto, la ficha y Costos dan lo
+  mismo.
+- Módulo: `/api/costs/estimates` responde 403 sin el plan (con `maker_on()` de
+  `test_finance.py`, como `test_costs.py`).
+
+De navegador (`pytest -m ui`):
+
+- `tests/ui/ui_card_estimate.py`, nueva: escribir 1 h 30 min en el detalle, cerrar, y la
+  tarjeta dice "de 1 h 30 min"; tras recargar sigue ahí; vaciar el campo lo quita.
+- `ui_project_overview.py`: la tarjeta *Estimado contra real*, con tareas que crea la
+  prueba (las del fixture son de ayer y no tienen estimado).
+- `ui_costs.py`: *Tus estimados* con el plan encendido, y que no sale sin él.
+
+#### Decisiones de la Fase 4 (2026-10-01)
+
+1. **El estimado es para todos; el desvío, solo con Maker.** El campo y el "2 h de 3 h"
+   los ve cualquiera, porque planear sirve aunque no se cobre. El "tardas 1.6× lo que
+   estimas" (ficha y Costos) solo con el plan encendido, porque es la base del cotizador.
+2. **Tope: de 1 minuto a 6000 (100 h) por tarea.** Más que eso suele ser un proyecto.
+3. **Cuentan las terminadas y las abiertas que ya pasaron su estimado.** Las abiertas por
+   debajo todavía no, porque su tiempo real no se conoce. La cifra se inclina un poco
+   hacia "tardas más", que para cotizar es lo prudente.
+4. **Mínimo: 3 tareas por fila.** Con menos, "todavía hay poco historial".
+5. **Periodo: todo el historial.** Si la entrada 29 decide un periodo para Costos, se
+   aplica aquí también.
+6. **"de X" también en la Lista**, para que cuadre con el tablero.
+7. **Pasado del estimado, el número en color de alerta.** Sin avisos ni notificaciones
+   (principio 1: estimar, no vigilar).
+8. **Sin estimado al crear la tarjeta por ahora.** Se pone en el detalle; se agrega a
+   `TaskCreate` cuando el cotizador de la Fase 5 cree tareas previstas con su estimado.
 
 ### Fase 5 — Cotizador con historial
 

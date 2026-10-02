@@ -13,8 +13,12 @@ Producción: https://habits.yoshidev22.com
 - [Tu perfil y el alias](#tu-perfil-y-el-alias)
 - [Calendario de hábitos](#calendario-de-hábitos)
 - [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones)
+- [Tablero](#tablero)
+- [Detalle de la tarjeta](#detalle-de-la-tarjeta)
+- [Organizar](#organizar)
 - [Proyectos y tareas](#proyectos-y-tareas)
 - [Costos (plan Maker)](#costos-plan-maker)
+- [Reportes](#reportes)
 - [Pomodoro y cronómetro](#pomodoro-y-cronómetro)
 - [Registrar tiempo a mano](#registrar-tiempo-a-mano)
 - [Corregir o borrar un registro](#corregir-o-borrar-un-registro)
@@ -150,11 +154,111 @@ está en [docs/referencias.md](docs/referencias.md).
     Las que ya terminaron quedan en tu historial y no se pueden borrar.
   - En Reportes, los días de vacaciones no cuentan entre los que tocaban.
 
-## Proyectos y tareas
+## Tablero
 
 Pestaña **Tableros**. También se llega deslizando el dedo hacia la izquierda desde el
-calendario. Arriba, **Tablero** muestra las tareas como tarjetas en columnas y **Lista**
-las agrupa por proyecto. Lo que sigue describe la **Lista**.
+calendario. Arriba eliges cómo ver tus tareas: **Tablero**, como tarjetas en columnas, o
+**Lista**, agrupadas por proyecto (ver [Proyectos y tareas](#proyectos-y-tareas)). La app
+recuerda la elección en ese dispositivo.
+
+La primera vez que entras sin ningún tablero, la app te ofrece crear uno. Viene con tres
+columnas: **Por hacer**, **Haciendo** y **Hecho**. Puedes tener varios, por ejemplo
+"Escuela" y "Trabajo". **Omitir** te devuelve al calendario.
+
+**La barra de arriba**, de izquierda a derecha:
+
+- **El nombre del tablero**: cambia de tablero. **＋ Nuevo tablero…** abre Organizar para
+  crear otro.
+- **⚙**: abre [Organizar](#organizar).
+- **Hoy** y **🔊**: el tiempo de hoy y el sonido del aviso (ver
+  [Pomodoro y cronómetro](#pomodoro-y-cronómetro)).
+- **Tablero / Lista**.
+
+**Filtros**: debajo de la barra salen los proyectos y las etiquetas que tienen las tarjetas
+de este tablero. Toca uno para ver solo sus tarjetas; si tocas varios proyectos (o varias
+etiquetas), ves las de cualquiera de ellos. Con un proyecto y una etiqueta a la vez, solo
+quedan las tarjetas que tienen los dos. **Quitar filtros** los apaga. Debajo, una línea
+cuenta las tarjetas que ves y su tiempo, con "(con filtro)" si hay alguno.
+
+**Cada tarjeta** muestra su título, el tiempo que lleva, el **▶** para cronometrarla, su
+proyecto, sus etiquetas, y si las tiene, el avance del checklist (☑ 2/5) y cuántos
+comentarios hay (💬). Tócala para abrir su [detalle](#detalle-de-la-tarjeta).
+
+**Crear una tarjeta**: al pie de cada columna, escribe en **+ Añadir tarjeta** y pulsa
+Enter. Nace en esa columna y en el proyecto "Sin asignar"; si tienes filtrado un solo
+proyecto, nace en ese proyecto. Después le cambias el proyecto desde su detalle.
+
+**Mover tarjetas**:
+
+- **En la computadora**: arrástrala a otra columna, o dentro de la misma para cambiar su
+  orden. Una línea marca dónde va a caer.
+- **En el teléfono**: con **Mover a…**, bajo cada tarjeta. La pantalla enseña una columna a
+  la vez; arriba tienes una pestaña por columna con cuántas tarjetas tiene.
+- **En una tablet o con el teléfono acostado**: las columnas que no caben se desplazan de
+  lado. Cuando llegas a la última, el mismo gesto cambia de pestaña.
+
+**Columnas que marcan algo**: en Organizar verás que una columna dice **📥 Entrada** y otras
+**✓ Terminada**. A la Entrada llegan las tareas nuevas que creas desde la Lista, y vuelve
+una tarea a la que le quitas la palomita. Mover una tarjeta a una columna Terminada la
+marca como hecha: cuenta en el avance del proyecto y en *Tareas terminadas* de Reportes, con
+la fecha del día en que la moviste.
+
+## Detalle de la tarjeta
+
+Se abre al tocar una tarjeta. **No hay botón de guardar**: cada cambio se guarda al hacerlo,
+y el tablero se actualiza al cerrar.
+
+- **Título**: arriba, se edita ahí mismo. A su lado, el tiempo total de la tarea.
+- **Etiquetas**: debajo del título. El **+** abre la lista: toca una para ponerla o
+  quitarla. Escribe para buscar, o para crear una nueva con su color.
+- **Columna**: para moverla sin salir del detalle.
+- **Proyecto**: dónde se suma su tiempo. **＋ Nuevo proyecto…** crea uno sin salir de la
+  tarjeta, y el **📊** abre la [ficha del proyecto](#proyectos-y-tareas). Si cambias el
+  proyecto, su tiempo se va con ella: el tiempo es de la tarea.
+- **Tiempo**: **▶ Cronómetro**, **🍅 Pomodoro** y **✍️ Registrar a mano**. Mientras corre,
+  **■ Detener** lo para. El detalle sigue abierto mientras tanto.
+- **Historial de tiempo**: cada registro de esta tarea, del más reciente al más antiguo,
+  con **✎** para corregirlo y **×** para borrarlo. Si son muchos, **Ver los N registros**
+  los enseña todos.
+- **Descripción**: notas libres de la tarea.
+- **Checklist**: escribe en *Añadir elemento* y pulsa **+**. Cada elemento tiene su casilla,
+  **✎** para cambiarle el texto y **×** para quitarlo. El título del bloque cuenta cuántos
+  llevas.
+- **Comentarios**: para ir anotando el seguimiento. Los tuyos tienen **✎** y **×**. Con
+  **▾** los pliegas; la app lo recuerda en ese dispositivo.
+- **Eliminar tarjeta**: al final. Borra la tarea con su checklist y sus comentarios. **Su
+  tiempo no se pierde**: se queda en el proyecto, sin tarea.
+
+## Organizar
+
+El **⚙** junto al nombre del tablero. Aquí se ordena todo lo que usan las tarjetas. Cada
+cambio se guarda al hacerlo, y si algo no se puede, la app te dice por qué.
+
+- **⏱ Configurar pomodoro**: arriba del todo. Lleva a las duraciones del enfoque y los
+  descansos (ver [Pomodoro y cronómetro](#pomodoro-y-cronómetro)); **‹ Organizar** te
+  regresa.
+- **Tableros**: escribe sobre el nombre para cambiarlo. **Archivar** lo esconde sin perder
+  nada, y bajo *Archivados* tienes **Restaurar**. El **×** lo borra, pero solo si está
+  vacío: si tiene tareas, muévelas antes o archívalo. Tu único tablero activo no se puede
+  archivar ni borrar. Para uno nuevo, escribe su nombre abajo y pulsa **+**.
+- **Columnas de…**: elige el tablero en el menú del título. Cada columna tiene su color, su
+  nombre y su marca (📥 Entrada o ✓ Terminada, ver [Tablero](#tablero)). Ordénalas
+  arrastrando el **⠿** o con las flechas **↑ ↓**. Para una nueva, escribe el nombre; marca
+  *✓ Las tareas aquí cuentan como terminadas* si debe marcarlas como hechas.
+  - Una columna **con tareas no se borra**: muévelas antes a otra. Así ninguna tarea se
+    queda sin columna.
+  - Tampoco se borran la única Entrada ni la única Terminada de un tablero: el tablero las
+    necesita para saber dónde poner una tarea nueva y cuándo una está hecha.
+- **Proyectos**: nombre y color, el **📊** que abre su ficha y **Archivar**. Bajo
+  *Archivados*, **Restaurar**. Para borrar un proyecto ve a la **Lista** (con su **⋯**): ahí
+  eliges qué pasa con su tiempo. Si está archivado, restáuralo primero.
+- **Etiquetas**: nombre, color y **×** para borrarla. Borrar una etiqueta solo la quita de
+  sus tareas: las tareas y su tiempo no cambian.
+
+## Proyectos y tareas
+
+La vista **Lista** de la pestaña Tableros: tus tareas agrupadas por proyecto. Se elige con
+**Lista**, arriba a la derecha (para las columnas, ver [Tablero](#tablero)).
 
 **Crear un proyecto**: el botón **+** de la cabecera "Proyectos". Puedes darle nombre,
 descripción, un emoji y un color.
@@ -175,8 +279,11 @@ marca como **Cotización**.
 
 **Archivar o eliminar**: el botón **⋯** de la tarjeta.
 
-> **Archivar** conserva todo el historial y solo lo esconde de la lista.
-> **Eliminar** borra los datos y no se puede deshacer. Ante la duda, archiva.
+> **Archivar** conserva todo y solo lo esconde de la lista.
+> **Eliminar** quita el proyecto, pero no sus tareas: sus tareas y su tiempo pasan a
+> **Sin asignar**. Si también quieres borrar su tiempo, la confirmación trae una casilla
+> para eso. Con el plan Maker, su costeo y sus gastos sí se borran con él. Eliminar no se
+> puede deshacer: ante la duda, archiva.
 
 **Tareas**: despliega el proyecto con la flecha **▾**. Debajo aparecen sus tareas, el
 campo *Nueva tarea* para añadir más, y el historial de tiempo.
@@ -211,6 +318,39 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   ordenas o creas más. Una categoría con gastos no se borra hasta pasar sus gastos a otra.
 - Para gastos que no son de un proyecto (una licencia que usas en todo), crea un proyecto
   "Gastos generales". Borrar un proyecto borra sus gastos; archivarlo los conserva.
+
+## Reportes
+
+La última pestaña. Es solo de lectura: aquí no se cambia nada, solo se ve lo que hiciste.
+
+**El periodo**, arriba: **Semana** (de lunes a domingo), **Mes** o **Personalizado** (eliges
+*Desde* y *Hasta*). Con **<** y **>** vas al periodo anterior o al siguiente.
+
+**Qué cuenta**: solo el **tiempo de trabajo** (pomodoros de enfoque, cronómetro y registros a
+mano), nunca los descansos. Es el mismo criterio que las tarjetas y la Lista, así que las
+cifras cuadran entre sí.
+
+Las tarjetas, en orden:
+
+- **Resumen**: tiempo total, promedio por día, días con tiempo y tareas terminadas, y cuánto
+  cambió respecto al periodo anterior.
+- **Hábitos**: tu racha, tu récord, tus escudos y cómo te fue con cada hábito en el periodo.
+  Si apagaste *Hábitos y metas* en tu perfil, esta tarjeta no sale.
+- **Tiempo por día**: una barra por día. Pasa el dedo o el ratón por encima para ver la
+  cifra. Los días de descanso se distinguen.
+- **Por proyecto**: cuánto tiempo fue a cada uno.
+- **Por etiqueta**: cuánto fue a cada etiqueta, más *Sin etiqueta*. Una sesión cuenta en
+  cada etiqueta de su tarea, así que estas cifras **no se suman entre sí**. Toca varias
+  etiquetas y abajo sale su total **juntas**, contando cada sesión una sola vez.
+- **Tareas terminadas**: las que terminaste en el periodo, con su tiempo. Ese tiempo es el
+  total de la tarea, no solo el de este periodo. Si son muchas, **Ver las N**.
+- **¿A qué hora rindes más?**: un mapa de calor por día de la semana y hora. Usa la hora de este
+  dispositivo, así que lo que registraste desde otro huso horario se verá corrido.
+- **Cómo se registró**: qué parte vino del pomodoro, del cronómetro y de registros a mano.
+
+**⬇ Exportar CSV**, bajo la fecha: descarga los registros de tiempo del periodo, uno por
+fila (fecha, inicio, fin, duración, horas, tarea, proyecto, etiquetas, origen y nota). Se
+abre directo en Excel o en Google Sheets.
 
 ## Pomodoro y cronómetro
 
