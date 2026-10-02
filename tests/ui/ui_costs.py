@@ -124,17 +124,36 @@ async def main():
         text = await b.js(f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]').textContent")
         check(f"{row['total_cost_cents'] / 100:,.2f}" in text, f"summary row shows cost and margin ({text})")
 
-        # "En qué se va el dinero": la mano de obra es una barra más, y la leyenda
-        # oculta o muestra cada una; las que quedan se reescalan
+        # Gráfica "Costos": la mano de obra es una columna más, y la leyenda
+        # oculta o muestra cada una. El eje de montos se reajusta a las que
+        # quedan, con su tope al menos 10 % sobre la más alta, y el alto de la
+        # gráfica no cambia (nada de abajo se mueve al ocultar)
         CHART = "document.querySelector('.costs-breakdown')"
-        BARS = f"[...{CHART}.querySelectorAll('.report-bar-row')].map(r => [r.querySelector('.report-bar-name').textContent, r.querySelector('.report-bar-fill').style.width])"
+        BARS = (f"[...{CHART}.querySelectorAll('.costs-col')].map(c => [c.querySelector('.costs-col-name').textContent, "
+                "Number(c.dataset.cents), parseFloat(c.querySelector('.costs-col-fill').style.height)])")
+        AXIS = (f"({{top: Number({CHART}.querySelector('.costs-plot').dataset.axisTop), "
+                f"ticks: [...{CHART}.querySelectorAll('.costs-ytick')].map(t => t.textContent)}})")
+        HEIGHT = f"{CHART}.getBoundingClientRect().height"
+
+        def axis_ok(bars, axis, label):
+            top_cents = max(c for _, c, _ in bars)
+            check(axis["top"] >= top_cents * 1.1 and len(axis["ticks"]) >= 3 and axis["ticks"][0].endswith("0"),
+                  f"{label}: the axis tops out at least 10% above the largest amount ({top_cents} -> {axis})")
+            check(all(abs(h - c / axis["top"] * 100) < 0.01 for _, c, h in bars),
+                  f"{label}: each column is drawn on that scale ({bars})")
+
         bars = await b.js(BARS)
-        names = [n for n, _ in bars]
-        check(names[0] == "Mano de obra" or "Mano de obra" in names, f"labor is one of the bars ({names})")
+        names = [n for n, _, _ in bars]
+        check("Mano de obra" in names, f"labor is one of the columns ({names})")
+        axis_ok(bars, await b.js(AXIS), "all shown")
+        height_before = await b.js(HEIGHT)
         await b.js(f"{CHART}.querySelector('.costs-legend-item[data-key=\"labor\"]').click()")
         after = await b.js(BARS)
-        check("Mano de obra" not in [n for n, _ in after] and after[0][1] == "100%",
-              f"hiding labor removes its bar and the biggest left fills the width ({after})")
+        check("Mano de obra" not in [n for n, _, _ in after], f"hiding labor removes its column ({after})")
+        axis_ok(after, await b.js(AXIS), "labor hidden")
+        height_after = await b.js(HEIGHT)
+        check(abs(height_after - height_before) < 1,
+              f"hiding a column does not change the chart's height ({height_before} -> {height_after})")
         pressed = await b.js(f"{CHART}.querySelector('[data-key=\"labor\"]').getAttribute('aria-pressed')")
         check(pressed == "false", "its legend dot shows it is hidden")
         await b.js(f"{CHART}.querySelector('.costs-legend-item[data-key=\"labor\"]').click()")
@@ -201,7 +220,8 @@ async def main():
         await b.js("""(() => { const i = document.querySelector('.costs-cell-input'); i.value = '400';
             i.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); })()""")
         fin = await wait_api(f"/api/projects/{ht['id']}/finance", lambda body: body["hourly_rate_cents"] == 40000)
-        await b.wait_for(f"{ROW}.textContent.includes('8,000.00')")
+        # Esperar la mano de obra nueva: "8,000.00" (el presupuesto) ya se veía antes
+        await b.wait_for(f"{ROW}.textContent.includes('{fin['labor_cents'] / 100:,.2f}')")
         text = await b.js(f"{ROW}.textContent")
         check(fin["hourly_rate_cents"] == 40000 and f"{fin['labor_cents'] / 100:,.2f}" in text,
               f"tapping labor edits the hourly rate, and the row recomputes ({text})")

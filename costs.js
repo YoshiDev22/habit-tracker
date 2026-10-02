@@ -147,8 +147,8 @@ function renderCostsSummary() {
         cards.push(reportCard('Por proyecto', costsProjectTable(summary.projects)));
     }
 
-    // En qué se va el dinero, por moneda: la mano de obra (horas × tarifa) como
-    // una barra más, y cada categoría de gasto
+    // Costos, por moneda: la mano de obra (horas × tarifa) como una columna
+    // más, y cada categoría de gasto
     summary.totals.forEach(total => {
         const rows = [];
         if (total.labor_cents > 0) {
@@ -158,7 +158,7 @@ function renderCostsSummary() {
             .filter(c => c.currency === total.currency)
             .forEach(c => rows.push({ key: `cat-${c.category_id}`, name: c.name, color: c.color, cents: c.cents }));
         if (!rows.length) return;
-        const title = summary.totals.length > 1 ? `En qué se va el dinero · ${total.currency}` : 'En qué se va el dinero';
+        const title = summary.totals.length > 1 ? `Costos · ${total.currency}` : 'Costos';
         cards.push(reportCard(title, costsBreakdownChart(rows, total.currency)));
     });
 
@@ -170,38 +170,93 @@ function renderCostsSummary() {
 // Ocultas de la gráfica (no de los totales), en esta sesión: "labor" o "cat-<id>"
 const hiddenBreakdown = new Set();
 
-// Barras de dinero con su leyenda abajo: tocar un punto oculta o muestra esa
-// barra, y las demás se reescalan a la más grande de las que quedan
+// Margen sobre el gasto más alto: el tope del eje siempre queda al menos un
+// 10 % por encima, para que la columna más alta no toque el borde.
+const COSTS_AXIS_HEADROOM = 1.1;
+
+// Escala del eje en centavos: tope = gasto más alto + margen, redondeado hacia
+// arriba a un paso "redondo" (1, 2, 2.5 o 5 × 10^n) con 2 a 5 divisiones, para
+// que las marcas se lean de un vistazo.
+function costsAxisScale(maxCents) {
+    const target = Math.max(1, maxCents) * COSTS_AXIS_HEADROOM;
+    const raw = target / 4;
+    const magnitude = 10 ** Math.floor(Math.log10(raw));
+    // Nunca menos de una unidad entera por paso: nada de marcas en centavos
+    const step = Math.max(100, [1, 2, 2.5, 5, 10].map(f => f * magnitude).find(s => s >= raw));
+    const divisions = Math.ceil(target / step);
+    const ticks = Array.from({ length: divisions + 1 }, (_, i) => i * step);
+    return { top: divisions * step, ticks };
+}
+
+// "$2.5 k": las marcas del eje van cortas; la cifra exacta está en la leyenda.
+// Armado a mano porque el formato compacto de es-MX pone el símbolo al final
+// en unos navegadores ("2.5 k$") y al principio en otros.
+function formatMoneyShort(cents, currency) {
+    let symbol = currency;
+    try {
+        symbol = new Intl.NumberFormat('es-MX', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+            .formatToParts(0).find(part => part.type === 'currency')?.value || currency;
+    } catch (error) { /* moneda desconocida: queda el código */ }
+    const units = cents / 100;
+    const [value, suffix] = units >= 1e6 ? [units / 1e6, ' M'] : units >= 1e3 ? [units / 1e3, ' k'] : [units, ''];
+    return `${symbol}${new Intl.NumberFormat('es-MX', { maximumFractionDigits: 1 }).format(value)}${suffix}`;
+}
+
+// Columnas de dinero sobre un eje de montos, con su leyenda abajo: tocar una
+// entrada de la leyenda oculta o muestra su columna, y el eje se reajusta a las
+// que quedan. Verticales y de alto fijo a propósito: ocultar una columna no
+// cambia el alto de la tarjeta, así que nada de abajo se mueve. La leyenda
+// lleva la cifra exacta; la columna, el porcentaje y el nombre.
 function costsBreakdownChart(rows, currency) {
     const wrap = el('div', 'costs-breakdown');
-    const bars = el('ul', 'report-bars');
+    const plot = el('div', 'costs-plot');
+    // Ancho según cuántas hay, no cuántas se ven: ocultar tampoco lo cambia
+    plot.style.maxWidth = `calc(${rows.length} * 5.5rem + 5rem)`;
+    const yAxis = el('div', 'costs-yaxis');
+    yAxis.setAttribute('aria-hidden', 'true');
+    const grid = el('div', 'costs-grid');
+    grid.setAttribute('aria-hidden', 'true');
+    const columns = el('div', 'costs-columns');
+    columns.setAttribute('role', 'list');
     const legend = el('div', 'costs-legend');
     legend.setAttribute('role', 'group');
     legend.setAttribute('aria-label', 'Mostrar u ocultar en la gráfica');
 
     function paint() {
         const visible = rows.filter(r => !hiddenBreakdown.has(r.key));
-        const max = Math.max(1, ...visible.map(r => r.cents));
-        const sum = visible.reduce((total, r) => total + r.cents, 0);
-        bars.replaceChildren(...visible.map(r => {
-            const item = el('li', 'report-bar-row');
-            const head = el('div', 'report-bar-head');
-            const name = el('span', 'report-bar-name');
-            const dot = el('i', 'report-bar-dot');
-            if (r.color) dot.style.background = r.color;
-            name.append(dot, document.createTextNode(r.name));
-            const value = el('span', 'report-bar-value', formatMoney(r.cents, currency));
-            if (sum) value.appendChild(el('span', 'report-bar-pct', ` · ${Math.round(r.cents / sum * 100)}%`));
-            head.append(name, value);
-            const track = el('div', 'report-bar-track');
-            const fill = el('div', 'report-bar-fill');
-            fill.style.width = `${(r.cents / max) * 100}%`;
-            if (r.color) fill.style.background = r.color;
-            track.appendChild(fill);
-            item.append(head, track);
-            return item;
+        const { top, ticks } = costsAxisScale(Math.max(0, ...visible.map(r => r.cents)));
+        plot.dataset.axisTop = String(top);
+        yAxis.replaceChildren(...ticks.map(v => el('span', 'costs-ytick', formatMoneyShort(v, currency))));
+        grid.replaceChildren(...ticks.map(v => {
+            const line = el('i', 'costs-gridline');
+            line.style.bottom = `${v / top * 100}%`;
+            return line;
         }));
-        if (!visible.length) bars.appendChild(el('li', 'costs-legend-empty', 'Todo está oculto: toca un punto para mostrarlo.'));
+        const sum = visible.reduce((total, r) => total + r.cents, 0);
+        columns.replaceChildren(...visible.map(r => {
+            const pct = sum ? Math.round(r.cents / sum * 100) : 0;
+            const height = (r.cents / top) * 100;
+            const label = `${r.name}: ${formatMoney(r.cents, currency)} (${pct}%)`;
+
+            const column = el('div', 'costs-col');
+            column.setAttribute('role', 'listitem');
+            column.setAttribute('aria-label', label);
+            column.title = label;
+            column.dataset.key = r.key;
+            column.dataset.cents = String(r.cents);
+
+            const track = el('div', 'costs-col-track');
+            const fill = el('div', 'costs-col-fill');
+            fill.style.height = `${height}%`;
+            if (r.color) fill.style.background = r.color;
+            const value = el('span', 'costs-col-pct', `${pct}%`);
+            value.style.bottom = `calc(${height}% + 4px)`;
+            track.append(value, fill);
+
+            column.append(track, el('span', 'costs-col-name', r.name));
+            return column;
+        }));
+        if (!visible.length) columns.appendChild(el('p', 'costs-legend-empty', 'Todo está oculto: toca un nombre de abajo para mostrarlo.'));
         legend.querySelectorAll('[data-key]').forEach(button => {
             button.setAttribute('aria-pressed', String(!hiddenBreakdown.has(button.dataset.key)));
         });
@@ -214,7 +269,8 @@ function costsBreakdownChart(rows, currency) {
         button.title = 'Mostrar u ocultar en la gráfica';
         const dot = el('i', 'report-bar-dot');
         if (r.color) dot.style.background = r.color;
-        button.append(dot, document.createTextNode(r.name));
+        button.append(dot, document.createTextNode(r.name),
+            el('span', 'costs-legend-value', formatMoney(r.cents, currency)));
         button.addEventListener('click', () => {
             if (hiddenBreakdown.has(r.key)) hiddenBreakdown.delete(r.key);
             else hiddenBreakdown.add(r.key);
@@ -223,7 +279,10 @@ function costsBreakdownChart(rows, currency) {
         legend.appendChild(button);
     });
     paint();
-    wrap.append(bars, legend);
+    const area = el('div', 'costs-plot-area');
+    area.append(grid, columns);
+    plot.append(yAxis, area);
+    wrap.append(plot, legend);
     return wrap;
 }
 

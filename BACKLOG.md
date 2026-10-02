@@ -25,7 +25,7 @@ entrada 25 cerrada).
 | 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | pendiente de revisar |
 | 27 | P3 | Reordenar las pestañas de secciones | pedido |
 | 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido |
-| 29 | P3 | Periodo de "En qué se va el dinero" en Costos (mes, año o todo) | decisión pendiente |
+| 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | decisión pendiente |
 
 ---
 
@@ -376,7 +376,7 @@ columnas se arrastran y se estiran, y el resultado se conserva al recargar.
 
 ---
 
-## 29 · P3 · Periodo de "En qué se va el dinero" en Costos
+## 29 · P3 · Periodo de la gráfica "Costos" en la pestaña Costos
 
 **Decisión pendiente con Yoshio (2026-10-01).** La gráfica de la pestaña Costos (mano de
 obra y gasto por categoría) y el resumen suman **todo, desde siempre**. ¿Debería ser por
