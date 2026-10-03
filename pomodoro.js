@@ -1750,14 +1750,20 @@ async function openLogTimeModal(projectId, session = null, task = null) {
     showModal(logTimeModal);
 
     // Después de mostrar, porque la lista viene de la red: al editar hay que
-    // esperarla para poder preseleccionar la tarea del registro.
-    await fillLogTimeTasks(projectId);
-    if (session && session.task_id) {
-        ensureLogTimeTaskOption(session.task_id, 'Tarea terminada');
-    } else if (task) {
-        ensureLogTimeTaskOption(task.id, task.title);
+    // esperarla para poder preseleccionar la tarea del registro. Hasta entonces
+    // no se puede guardar: con la lista vacía, el registro perdía su tarea.
+    logTimeSubmitBtn.disabled = true;
+    try {
+        await fillLogTimeTasks(projectId);
+        if (session && session.task_id) {
+            ensureLogTimeTaskOption(session.task_id, 'Tarea terminada');
+        } else if (task) {
+            ensureLogTimeTaskOption(task.id, task.title);
+        }
+        syncLogTimeProject();
+    } finally {
+        logTimeSubmitBtn.disabled = false;
     }
-    syncLogTimeProject();
 }
 
 // "2026-09-08" + segundos desde medianoche -> instante LOCAL, y de ahí a UTC
@@ -1770,6 +1776,9 @@ function localEpochMs(dateKey, secondsFromMidnight) {
 
 async function submitLogTime(event) {
     event.preventDefault();
+    // Enter o requestSubmit() envían aunque el botón esté desactivado: mientras
+    // cargan las tareas, guardar dejaría el registro sin la suya
+    if (logTimeSubmitBtn.disabled) return;
     logTimeErrorEl.classList.add('hidden');
 
     const duration = logTimeDurationSeconds();
