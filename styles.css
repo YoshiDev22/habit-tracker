@@ -4489,6 +4489,18 @@ button.day-log-date:focus-visible {
     gap: 2px;
 }
 
+/* Los dos enlaces de exportar, uno junto al otro bajo la fecha */
+.reports-exports {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0 6px;
+}
+
+.reports-export[hidden] {
+    display: none;
+}
+
 /* Exportar se usa poco: un enlace pequeño bajo la fecha, no un botón */
 .reports-export {
     padding: 0 4px;

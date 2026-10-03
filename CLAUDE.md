@@ -527,6 +527,11 @@ importa, guardar el offset en una columna nueva vía `scripts/migrate.py`. Endpo
 "Exportar CSV" (`exportReportCsv()`) arma el archivo en el navegador con los mismos
 endpoints: una fila por sesión `focus` del rango, BOM UTF-8 para Excel, y `csvCell()`
 antepone `'` a lo que empiece por `= + - @` (un título así se ejecutaría como fórmula).
+"⬇ Hábitos CSV" (`exportHabitsCsv()`, solo con el módulo Hábitos) pide
+`GET /api/habits/export?date_from&date_to&today`: una fila por día y hábito hasta hoy
+(los activos y los ocultos con registros en el rango), con `day_kind` (hoy, descanso,
+vacaciones, escudo) calculado con `_walk_streak()`, igual que el calendario. Hasta 366
+días por export.
 
 Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 

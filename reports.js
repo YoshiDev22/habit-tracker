@@ -853,6 +853,71 @@ async function exportReportCsv() {
 reportsExportBtn.addEventListener('click', exportReportCsv);
 
 // ============================================
+// Exportar hábitos
+// ============================================
+// Una fila por día y hábito del rango, hasta hoy. Qué se hizo y por qué un día
+// sin nada no cuenta como perdido lo decide el backend (/api/habits/export), con
+// la misma regla que el calendario.
+
+const reportsExportHabitsBtn = document.getElementById('reportsExportHabits');
+const HABITS_CSV_HEADER = ['Fecha', 'Día', 'Hábito', 'Hecho', 'Tipo de día'];
+const WEEKDAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const DAY_KIND_LABEL = {
+    hoy: 'Hoy (en curso)',
+    descanso: 'Descanso',
+    vacaciones: 'Vacaciones',
+    escudo: 'Protegido por escudo',
+};
+
+function buildHabitsCsv(rows) {
+    const lines = rows.map(r => {
+        const [year, month, day] = r.date.split('-').map(Number);
+        return [
+            r.date,
+            WEEKDAY_SHORT[new Date(year, month - 1, day).getDay()],
+            habitDisplayName(r.icon, r.label),
+            r.done ? 'Sí' : 'No',
+            DAY_KIND_LABEL[r.day_kind] || '',
+        ];
+    });
+    return '\uFEFF' + [HABITS_CSV_HEADER, ...lines].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+}
+
+async function exportHabitsCsv() {
+    const { from, to } = reportsState;
+    const label = reportsExportHabitsBtn.textContent;
+    const flash = (text) => {
+        reportsExportHabitsBtn.textContent = text;
+        setTimeout(() => { reportsExportHabitsBtn.textContent = label; }, 2500);
+    };
+    reportsExportHabitsBtn.disabled = true;
+    reportsExportHabitsBtn.textContent = 'Preparando…';
+    try {
+        const data = await apiFetch(`/api/habits/export?${rangeQuery(from, to)}&today=${getDateKey(new Date())}`);
+        if (data.rows.length === 0) {
+            flash('Sin hábitos en este periodo');
+            return;
+        }
+        downloadText(`habit-tracker-habitos_${getDateKey(from)}_${getDateKey(to)}.csv`, buildHabitsCsv(data.rows), 'text/csv;charset=utf-8');
+        reportsExportHabitsBtn.textContent = label;
+    } catch (error) {
+        console.error('Error al exportar los hábitos:', error);
+        flash(error.message || 'No se pudo exportar');
+    } finally {
+        reportsExportHabitsBtn.disabled = false;
+    }
+}
+
+// Solo con el módulo Hábitos encendido, como su tarjeta
+function syncHabitsExport() {
+    reportsExportHabitsBtn.hidden = !moduleEnabled('habits');
+}
+
+reportsExportHabitsBtn.addEventListener('click', exportHabitsCsv);
+window.appDataHooks.push(syncHabitsExport);
+window.modulesChangedHooks.push(syncHabitsExport);
+
+// ============================================
 // Hooks
 // ============================================
 

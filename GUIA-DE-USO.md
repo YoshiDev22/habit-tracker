@@ -372,9 +372,13 @@ Las tarjetas, en orden:
   dispositivo, así que lo que registraste desde otro huso horario se verá corrido.
 - **Cómo se registró**: qué parte vino del pomodoro, del cronómetro y de registros a mano.
 
-**⬇ Exportar CSV**, bajo la fecha: descarga los registros de tiempo del periodo, uno por
+**⬇ Tiempo CSV**, bajo la fecha: descarga los registros de tiempo del periodo, uno por
 fila (fecha, inicio, fin, duración, horas, tarea, proyecto, etiquetas, origen y nota). Se
 abre directo en Excel o en Google Sheets.
+
+**⬇ Hábitos CSV**, a su lado: un renglón por día y hábito del periodo, hasta hoy (fecha,
+día de la semana, hábito, si lo hiciste y el tipo de día: descanso, vacaciones, protegido
+por escudo u hoy en curso). Para un periodo largo, elige *Personalizado* (hasta un año).
 
 ## Pomodoro y cronómetro
 

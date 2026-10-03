@@ -320,9 +320,14 @@
                             <button id="reportsPrev" class="nav-btn" type="button" aria-label="Periodo anterior">&lt;</button>
                             <div class="reports-range">
                                 <h2 id="reportsRangeLabel" class="reports-range-label"></h2>
-                                <!-- Se usa poco: un enlace pequeño bajo la fecha -->
-                                <button type="button" id="reportsExport" class="reports-export"
-                                        title="Descargar los registros de tiempo de este periodo (se abre en Excel o Google Sheets)">⬇ Exportar CSV</button>
+                                <!-- Se usan poco: enlaces pequeños bajo la fecha. El de hábitos
+                                     solo con el módulo Hábitos encendido (reports.js) -->
+                                <span class="reports-exports">
+                                    <button type="button" id="reportsExport" class="reports-export"
+                                            title="Descargar los registros de tiempo de este periodo (se abre en Excel o Google Sheets)">⬇ Tiempo CSV</button>
+                                    <button type="button" id="reportsExportHabits" class="reports-export"
+                                            title="Descargar los hábitos de este periodo: un renglón por día y hábito (se abre en Excel o Google Sheets)">⬇ Hábitos CSV</button>
+                                </span>
                             </div>
                             <button id="reportsNext" class="nav-btn" type="button" aria-label="Periodo siguiente">&gt;</button>
                         </div>

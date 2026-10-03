@@ -252,6 +252,31 @@ class HabitReportResponse(SQLModel):
     best_streak: int
     streak_shields: int = 0           # protectores de la racha general
     habits: List[HabitReportItem]
+
+
+# Rango máximo de un export de hábitos: un año (cada día × cada hábito es una fila)
+MAX_HABIT_EXPORT_DAYS = 366
+
+
+class HabitExportRow(SQLModel):
+    """Un hábito en un día del export. `day_kind` dice por qué un día sin nada no
+    rompe la racha: descanso, vacaciones, escudo (protector), hoy (en curso), o
+    vacío si es un día normal."""
+    date: date_type
+    habit_key: str
+    label: str
+    icon: Optional[str] = None
+    done: bool
+    day_kind: str = ""
+
+
+class HabitExportResponse(SQLModel):
+    """Una fila por día y hábito del rango (fechas LOCALES, hasta hoy). Los
+    hábitos: los activos y los ocultos con algún registro en el rango, en orden
+    (order, id), como el calendario."""
+    date_from: date_type
+    date_to: date_type
+    rows: List[HabitExportRow]
 
 
 # Una pausa por vacaciones dura como mucho esto (Apple permite 90; aquí se decidió 30)

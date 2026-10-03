@@ -20,6 +20,9 @@ from backend.schemas import (
     HabitListResponse,
     HabitReportItem,
     HabitReportResponse,
+    HabitExportRow,
+    HabitExportResponse,
+    MAX_HABIT_EXPORT_DAYS,
     StreakResponse,
     DeleteImpact,
     PauseCreate,
@@ -315,6 +318,81 @@ def get_habit_report(
         streak_shields=overall.shields,
         habits=items,
     )
+
+
+@router.get("/export", response_model=HabitExportResponse)
+def export_habits(
+    date_from: date_type,
+    date_to: date_type,
+    today: Optional[date_type] = None,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Los hábitos de un rango para el CSV de Reportes: una fila por día y hábito,
+    con si se hizo y por qué un día sin nada no cuenta como perdido (descanso,
+    vacaciones o escudo, con la misma regla que el calendario: _walk_streak).
+    Solo hasta `today` (la fecha local del cliente): los días que no han llegado
+    no tienen nada que exportar. Hasta un año por export.
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from no puede ser posterior a date_to"
+        )
+    if (date_to - date_from).days + 1 > MAX_HABIT_EXPORT_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"El rango no puede pasar de {MAX_HABIT_EXPORT_DAYS} días"
+        )
+    today = resolve_client_today(today)
+    last_day = min(date_to, today)
+    if last_day < date_from:
+        return HabitExportResponse(date_from=date_from, date_to=date_to, rows=[])
+
+    rest_days = set(current_user.rest_days or [])
+    paused = _paused_days(session, current_user.id)
+    # Todo el historial hasta hoy: los escudos se ganan desde el principio de la racha
+    entries = session.exec(
+        select(HabitEntry).where(HabitEntry.user_id == current_user.id, HabitEntry.entry_date <= today)
+    ).all()
+    by_date = {e.entry_date: (e.habits_data or {}) for e in entries}
+    done_dates = {d for d, data in by_date.items() if _is_done_day(data)}
+    protected = set(_walk_streak(done_dates, rest_days, today, paused).protected)
+
+    # Los activos, más los ocultos con algún registro en el rango (como el calendario)
+    with_records = {
+        key for d, data in by_date.items() if date_from <= d <= last_day
+        for key, value in data.items() if value
+    }
+    habits = [
+        h for h in session.exec(
+            select(Habit).where(Habit.user_id == current_user.id).order_by(Habit.order, Habit.id)
+        ).all()
+        if h.is_active or h.key in with_records
+    ]
+
+    rows: List[HabitExportRow] = []
+    day = date_from
+    while day <= last_day:
+        data = by_date.get(day, {})
+        if day == today:
+            kind = "hoy"
+        elif day.weekday() in rest_days:
+            kind = "descanso"
+        elif day in paused:
+            kind = "vacaciones"
+        elif day in protected:
+            kind = "escudo"
+        else:
+            kind = ""
+        for habit in habits:
+            rows.append(HabitExportRow(
+                date=day, habit_key=habit.key, label=habit.label, icon=habit.icon,
+                done=bool(data.get(habit.key)), day_kind=kind,
+            ))
+        day += timedelta(days=1)
+    return HabitExportResponse(date_from=date_from, date_to=date_to, rows=rows)
 
 
 # ==================== Endpoints: Definición de Hábitos ====================

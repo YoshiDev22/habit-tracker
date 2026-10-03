@@ -346,3 +346,52 @@ def test_habit_report(api):
     assert lec["days_done"] == 1 and lec["best_streak"] == 1
     assert hr["streak"] == api.call("GET", f"/api/habits/streak?today={today}", expect=200)[1]["streak"]
     assert api.call("GET", f"/api/habits/report?date_from={today}&date_to={monday - timedelta(days=1)}")[0] == 422
+
+
+def test_export_rows_and_day_kinds(api):
+    from test_pauses import insert_pause
+    api.login("export@test.com")
+    t = date.today()
+    d = lambda n: (t - timedelta(days=n)).isoformat()
+    _, gym = api.call("POST", "/api/habits/definitions", {"key": "gym", "label": "Gym", "icon": "💪"}, expect=201)
+    _, leer = api.call("POST", "/api/habits/definitions", {"key": "leer", "label": "Leer"}, expect=201)
+    _, viejo = api.call("POST", "/api/habits/definitions", {"key": "viejo", "label": "Viejo"}, expect=201)
+    # Descanso: el día de la semana de hace 2 días
+    api.call("PATCH", "/api/auth/me", {"rest_days": [(t - timedelta(days=2)).weekday()]}, expect=200)
+    # 8 días seguidos con gym (hace 12 a hace 5): gana un escudo...
+    for n in range(12, 4, -1):
+        api.call("POST", "/api/habits", {"date": d(n), "habits": {"gym": True}}, expect=200)
+    # ...que cubre hace 4 (sin nada). Hace 3, de vacaciones. Ayer, solo leer.
+    insert_pause("export@test.com", t - timedelta(days=3), t - timedelta(days=3))
+    api.call("POST", "/api/habits", {"date": d(1), "habits": {"leer": True}}, expect=200)
+    # Leer y viejo se ocultan: leer tiene registro en el rango, viejo no
+    api.call("PATCH", f"/api/habits/definitions/{leer['id']}", {"is_active": False}, expect=200)
+    api.call("PATCH", f"/api/habits/definitions/{viejo['id']}", {"is_active": False}, expect=200)
+
+    # Hasta 5 días en el futuro: se corta en hoy
+    url = f"/api/habits/export?date_from={d(4)}&date_to={(t + timedelta(days=5)).isoformat()}&today={t.isoformat()}"
+    _, out = api.call("GET", url, expect=200)
+    rows = out["rows"]
+    assert len(rows) == 5 * 2, "5 days up to today × gym and the hidden habit with records (not viejo)"
+    assert {r["habit_key"] for r in rows} == {"gym", "leer"}
+    kind = {r["date"]: r["day_kind"] for r in rows}
+    assert kind == {d(4): "escudo", d(3): "vacaciones", d(2): "descanso", d(1): "", d(0): "hoy"}
+    done = {(r["date"], r["habit_key"]) for r in rows if r["done"]}
+    assert done == {(d(1), "leer")}
+    assert [r["habit_key"] for r in rows[:2]] == ["gym", "leer"], "habits in (order, id)"
+    assert rows[0]["icon"] == "💪" and rows[0]["label"] == "Gym"
+
+    # Días hechos: gym hace 5 cuenta
+    _, out = api.call("GET", f"/api/habits/export?date_from={d(5)}&date_to={d(5)}&today={t.isoformat()}", expect=200)
+    assert [(r["habit_key"], r["done"]) for r in out["rows"]] == [("gym", True)], "a hidden habit without records in range is left out"
+
+    # Futuro entero: vacío. Rangos inválidos: 422
+    future = (t + timedelta(days=3)).isoformat()
+    assert api.call("GET", f"/api/habits/export?date_from={future}&date_to={future}&today={t.isoformat()}", expect=200)[1]["rows"] == []
+    assert api.call("GET", f"/api/habits/export?date_from={d(0)}&date_to={d(1)}")[0] == 422
+    assert api.call("GET", f"/api/habits/export?date_from={d(366)}&date_to={d(0)}")[0] == 422
+    api.call("GET", f"/api/habits/export?date_from={d(365)}&date_to={d(0)}", expect=200)
+
+    # Otro usuario solo ve lo suyo
+    other = api.as_user("ajeno-export@test.com")
+    assert other.call("GET", url, expect=200)[1]["rows"] == []
