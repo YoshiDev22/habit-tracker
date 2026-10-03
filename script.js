@@ -244,6 +244,10 @@ const MODULE_STATUS = {
         on: 'Plan Maker encendido. Abre la ficha de un proyecto (Tableros › Lista, toca su nombre) para costearlo.',
         off: 'Plan Maker apagado. Tu costeo se guarda y vuelve al encenderlo.',
     },
+    ai: {
+        on: 'IA encendida: escribirá el texto de tus próximos reportes. En uno ya guardado, usa «Reescribir con IA».',
+        off: 'IA apagada: el texto de los reportes sale de reglas fijas.',
+    },
     habits: {
         on: 'Hábitos encendido: vuelve la pestaña Calendario.',
         off: 'Hábitos apagado: tus registros se guardan y vuelven al encenderlo.',
@@ -416,6 +420,9 @@ function syncModuleSettings() {
     // Un módulo sin acceso para esta cuenta no se ofrece
     const maker = currentUser.modules && currentUser.modules.maker;
     document.getElementById('moduleMakerOption').hidden = !(maker && maker.allowed);
+    const ai = currentUser.modules && currentUser.modules.ai;
+    document.getElementById('moduleAiOption').hidden = !(ai && ai.allowed);
+    document.getElementById('aiPreview').hidden = !(ai && ai.allowed);
 }
 
 function moduleInputs() {

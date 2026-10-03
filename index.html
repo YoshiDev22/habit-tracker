@@ -655,6 +655,21 @@
                         <span class="module-hint">Costeo de proyectos: cliente, tarifa por hora y presupuesto en la ficha de cada proyecto.</span>
                     </span>
                 </label>
+                <!-- Solo para las cuentas con acceso (scripts/grant_module.py --module ai) -->
+                <label class="module-option" id="moduleAiOption" hidden>
+                    <input type="checkbox" id="moduleAi" data-module="ai">
+                    <span class="module-text">
+                        <span class="module-name">IA para los reportes</span>
+                        <span class="module-hint">Una IA escribe el resumen, las observaciones y las recomendaciones de tus reportes guardados, a partir de sus cifras. Si falla, el texto sale de reglas fijas.</span>
+                    </span>
+                </label>
+                <!-- Qué recibe el proveedor (settings.js, GET /api/reports/ai-preview) -->
+                <details class="ai-preview" id="aiPreview" hidden>
+                    <summary>Ver qué se envía</summary>
+                    <p class="module-hint" id="aiPreviewMeta"></p>
+                    <p class="report-review-note hidden" id="aiPreviewWarning">El proveedor de esta instancia es Gemini: en su capa gratuita, Google usa el contenido para mejorar sus productos.</p>
+                    <pre class="ai-preview-json" id="aiPreviewJson"></pre>
+                </details>
                 <p id="moduleStatus" class="module-status" role="status" hidden></p>
                 <div id="moduleError" class="form-error hidden"></div>
             </div>
@@ -862,6 +877,7 @@
             <p class="overview-meta" id="savedReportMeta"></p>
             <div class="saved-report-actions" id="savedReportActions" hidden>
                 <button type="button" class="submit-btn btn-neutral" id="savedReportRegenerate">Regenerar</button>
+                <button type="button" class="submit-btn btn-neutral" id="savedReportRewrite" hidden>Reescribir con IA</button>
                 <button type="button" class="submit-btn" id="savedReportPrint">Imprimir / PDF</button>
             </div>
             <p class="form-error hidden" id="savedReportError" role="alert"></p>

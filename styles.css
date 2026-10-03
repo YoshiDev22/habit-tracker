@@ -5729,6 +5729,30 @@ button.day-log-date:focus-visible {
     }
 }
 
+/* Configuración › Módulos › Ver qué se envía (la IA) */
+.ai-preview {
+    margin-top: 10px;
+    font-size: 0.85rem;
+}
+
+.ai-preview summary {
+    cursor: pointer;
+    color: var(--accent);
+}
+
+.ai-preview-json {
+    max-height: 320px;
+    overflow: auto;
+    margin: 8px 0 0;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 /* Imprimir / PDF: solo el reporte abierto, en papel blanco y sin botones */
 @media print {
     body.saved-report-open > :not(#savedReportsModal) {

@@ -155,3 +155,29 @@ document.getElementById('configPomoForm').addEventListener('submit', async (even
     configPomoStatus.textContent = 'Guardado ✓';
     setTimeout(() => { configPomoStatus.textContent = ''; }, 2500);
 });
+
+// ============================================
+// IA: "Ver qué se envía" (solo con acceso al módulo ai)
+// ============================================
+
+const aiPreview = document.getElementById('aiPreview');
+
+aiPreview.addEventListener('toggle', async () => {
+    if (!aiPreview.open) return;
+    const meta = document.getElementById('aiPreviewMeta');
+    const pre = document.getElementById('aiPreviewJson');
+    meta.textContent = 'Cargando…';
+    pre.textContent = '';
+    try {
+        const data = await apiFetch(`/api/reports/ai-preview?today=${getDateKey(new Date())}`);
+        meta.textContent = data.configured
+            ? `Proveedor: ${data.provider} · modelo ${data.model} · hoy van ${data.used_today} de ${data.daily_limit}. `
+              + 'Se envían las instrucciones y este JSON (tu último reporte guardado, o esta semana): '
+              + 'cifras en minutos y los nombres de tus proyectos, tareas y etiquetas. Nunca tus registros uno por uno.'
+            : 'La IA no está configurada en este servidor: el texto sale de reglas fijas. Si se configura, se enviaría esto:';
+        document.getElementById('aiPreviewWarning').classList.toggle('hidden', !data.training_warning);
+        pre.textContent = `${data.system}\n\n${JSON.stringify(data.payload, null, 2)}`;
+    } catch (error) {
+        meta.textContent = error.message;
+    }
+});

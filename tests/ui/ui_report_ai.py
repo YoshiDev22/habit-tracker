@@ -1,0 +1,84 @@
+"""IA para los reportes (épica 30, Fase 5): la casilla, "Ver qué se envía" y
+"Reescribir con IA". Las pruebas no tienen proveedor: se ve el aviso y las reglas."""
+import asyncio
+import json
+import os
+import sqlite3
+from pathlib import Path
+
+import api
+from api import login
+from cdp import Browser
+
+BASE = api.BASE
+CLOSE_WELCOME = "document.getElementById('habitsSetupModal').classList.add('hidden')"
+results = []
+
+
+def check(cond, label):
+    results.append(("OK  " if cond else "FAIL") + " " + label)
+
+
+def grant_ai(email):
+    db = Path(os.environ["HABIT_UI_TMP"]) / "test_report_ai.db"
+    conn = sqlite3.connect(db)
+    user_id = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()[0]
+    conn.execute("INSERT INTO user_modules (user_id, module, allowed, enabled) VALUES (?, 'ai', 1, 1)", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+async def main():
+    login("yoshi@test.com")
+    token = api.TOKEN
+    grant_ai("yoshi@test.com")
+    b = Browser()
+    await b.start()
+    try:
+        await b.viewport(390, 844, mobile=True)
+        await b.goto(BASE + "/")
+        await b.js(f"localStorage.setItem('access_token', {json.dumps(token)}); localStorage.removeItem('last_view');")
+        await b.goto(BASE + "/", wait=2.5)
+        await b.js(CLOSE_WELCOME)
+
+        # Configuración › Módulos: la casilla encendida y "Ver qué se envía"
+        await b.js("openSettings('modules')")
+        st = await b.js("({shown: !document.getElementById('moduleAiOption').hidden, on: document.getElementById('moduleAi').checked,"
+                        " preview: !document.getElementById('aiPreview').hidden})")
+        check(st == {"shown": True, "on": True, "preview": True}, f"with access the AI option and preview show ({st})")
+        await b.js("document.getElementById('aiPreview').open = true")
+        await b.wait_for("document.getElementById('aiPreviewJson').textContent.includes('Responde SOLO')")
+        meta = await b.js("document.getElementById('aiPreviewMeta').textContent")
+        check("no está configurada" in meta, f"the preview says there is no provider ({meta})")
+        sent = await b.js("document.getElementById('aiPreviewJson').textContent")
+        check('"total_minutes"' in sent and "project_id" not in sent, "it shows the payload, in minutes and without ids")
+        await b.shot("ai_preview", full=False)
+        await b.js("document.getElementById('settingsClose').click()")
+
+        # Un reporte: sale de las reglas y dice por qué; reescribir avisa sin romperlo
+        await b.js("document.getElementById('tabReports').click()")
+        await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte'")
+        await b.js("document.getElementById('savedReportBtn').click()")
+        await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte semanal')")
+        st = await b.js("({meta: document.getElementById('savedReportMeta').textContent,"
+                        " note: document.getElementById('savedReportError').textContent,"
+                        " rewrite: !document.getElementById('savedReportRewrite').hidden})")
+        check("texto de reglas" in st["meta"] and "no está configurada" in st["note"] and st["rewrite"],
+              f"the report says its text came from the rules, and why ({st})")
+        await b.js("document.getElementById('savedReportRewrite').click()")
+        await b.wait_for("document.getElementById('savedReportRewrite').textContent === 'Reescribir con IA'")
+        st = await b.js("({note: document.getElementById('savedReportError').textContent,"
+                        " cards: document.querySelectorAll('#savedReportBody .report-card').length})")
+        check("no está configurada" in st["note"] and st["cards"] >= 3, f"rewriting without a provider says so and keeps the report ({st})")
+    finally:
+        await b.close()
+
+    print("\n".join(results))
+    errors = [c for c in b.console if c.startswith(("[error]", "[exception]"))]
+    print("console errors:", errors or "none")
+    if any(r.startswith("FAIL") for r in results) or errors:
+        raise AssertionError("\n".join(r for r in results if not r.startswith("OK")) + f"\nconsole errors: {errors}")
+
+
+def test_report_ai():
+    asyncio.run(main())

@@ -19,6 +19,7 @@ const savedBody = document.getElementById('savedReportBody');
 const savedBack = document.getElementById('savedReportBack');
 const savedReportBtn = document.getElementById('savedReportBtn');
 const savedRegenerate = document.getElementById('savedReportRegenerate');
+const savedRewrite = document.getElementById('savedReportRewrite');
 const KIND_TITLE = { week: 'Reporte semanal', month: 'Reporte mensual' };
 
 const savedState = {
@@ -59,7 +60,12 @@ function savedMetaText(report) {
     const when = made.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     const parts = [`Generado el ${when}`, report.trigger === 'auto' ? 'automático' : 'a mano'];
     if (report.through < report.period_end) parts.push(`con datos hasta el ${shortDay(report.through)}`);
+    parts.push(report.text_source === 'ai' ? `texto de IA (${report.text_model})` : 'texto de reglas');
     return parts.join(' · ');
+}
+
+function aiOn() {
+    return Boolean(currentUser && currentUser.modules && currentUser.modules.ai && currentUser.modules.ai.enabled);
 }
 
 // ============================================
@@ -242,11 +248,18 @@ function showSavedReport(report) {
     savedTitle.textContent = `${KIND_TITLE[report.kind]} · ${savedPeriodLabel(report)}`;
     savedMeta.textContent = savedMetaText(report);
     savedActions.hidden = false;
+    savedRewrite.hidden = !aiOn();
+    savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir con IA otra vez' : 'Reescribir con IA';
     savedBack.hidden = !savedState.fromList;
     savedList.replaceChildren();
     savedList.hidden = true;
     document.body.classList.add('saved-report-open');
     renderSavedReport(report);
+    // Por qué no lo escribió la IA, si le tocaba (límite, error, sin configurar)
+    if (report.text_note) {
+        const note = report.text_note;
+        showSavedError(`El texto salió de las reglas: ${note.charAt(0).toLowerCase()}${note.slice(1)}.`);
+    }
     savedModal.querySelector('.modal-content').scrollTop = 0;
 }
 
@@ -381,6 +394,23 @@ savedRegenerate.addEventListener('click', () => {
     const report = savedState.current;
     if (!report) return;
     generateSavedReport(report.kind, report.period_start);
+});
+
+savedRewrite.addEventListener('click', async () => {
+    const report = savedState.current;
+    if (!report) return;
+    showSavedError(null);
+    savedRewrite.disabled = true;
+    savedRewrite.textContent = 'Escribiendo…';
+    try {
+        showSavedReport(await apiFetch(`/api/reports/${report.id}/rewrite`, { method: 'POST' }));
+    } catch (error) {
+        // El reporte se queda como estaba
+        savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir con IA otra vez' : 'Reescribir con IA';
+        showSavedError(error.message);
+    } finally {
+        savedRewrite.disabled = false;
+    }
 });
 
 document.getElementById('savedReportPrint').addEventListener('click', () => window.print());
