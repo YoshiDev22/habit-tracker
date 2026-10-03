@@ -12,3 +12,5 @@ python-multipart==0.0.6
 
 # Environment Variables
 python-dotenv==1.0.1
+# Husos horarios para zoneinfo (Windows no trae la base del sistema; en Linux es respaldo)
+tzdata==2026.5
