@@ -141,6 +141,12 @@ def settings_js():
     return FileResponse(get_frontend_path("settings.js"))
 
 
+@app.get("/saved-reports.js")
+def saved_reports_js():
+    """Serve saved-reports.js"""
+    return FileResponse(get_frontend_path("saved-reports.js"))
+
+
 # Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
 # cerrada, no por el nombre que pida la URL, para no servir otros archivos.
 APP_ICONS = {

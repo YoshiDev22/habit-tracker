@@ -335,6 +335,12 @@
                             <label>Desde <input type="date" id="reportsFrom"></label>
                             <label>Hasta <input type="date" id="reportsTo"></label>
                         </div>
+                        <!-- Reportes guardados (saved-reports.js): con Semana o Mes, el del periodo
+                             que se ve. "Ver reporte" si ya existe; si no, "Generar reporte". -->
+                        <div id="reportsSaved" class="reports-saved">
+                            <button type="button" id="savedReportBtn" class="submit-btn btn-neutral reports-saved-btn">Generar reporte</button>
+                            <button type="button" id="savedReportsListBtn" class="link-btn">Reportes guardados</button>
+                        </div>
                     </div>
                     <div id="reportsBody" class="reports-body" aria-live="polite"></div>
                 </section>
@@ -843,6 +849,27 @@
          manual o el cronómetro: los dos modales comparten z-index 1000. -->
     <!-- Ficha de proyecto (project-overview.js): solo lectura. Se abre desde la
          Lista o encima de Organizar, así que cierra con sus propios listeners. -->
+    <!-- Reportes guardados (saved-reports.js): la lista y, al tocar uno, el reporte,
+         con ‹ para volver. "Imprimir / PDF" imprime solo este modal (@media print). -->
+    <div id="savedReportsModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content saved-report-modal" role="dialog" aria-modal="true" aria-labelledby="savedReportTitle">
+            <button class="modal-close" type="button" id="savedReportClose" aria-label="Cerrar">&times;</button>
+            <div class="saved-report-head">
+                <button type="button" class="settings-back" id="savedReportBack" aria-label="Volver a la lista" hidden>‹</button>
+                <h2 class="overview-title" id="savedReportTitle">Reportes guardados</h2>
+            </div>
+            <p class="overview-meta" id="savedReportMeta"></p>
+            <div class="saved-report-actions" id="savedReportActions" hidden>
+                <button type="button" class="submit-btn btn-neutral" id="savedReportRegenerate">Regenerar</button>
+                <button type="button" class="submit-btn" id="savedReportPrint">Imprimir / PDF</button>
+            </div>
+            <p class="form-error hidden" id="savedReportError" role="alert"></p>
+            <ul class="saved-report-list" id="savedReportList"></ul>
+            <div class="overview-body saved-report-body" id="savedReportBody"></div>
+        </div>
+    </div>
+
     <div id="projectOverviewModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content overview-modal" role="dialog" aria-modal="true" aria-labelledby="overviewTitle">
@@ -1159,5 +1186,6 @@
     <script src="notifications.js"></script>
     <script src="workdays.js"></script>
     <script src="settings.js"></script>
+    <script src="saved-reports.js"></script>
 </body>
 </html>

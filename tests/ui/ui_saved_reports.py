@@ -1,0 +1,94 @@
+"""Reportes guardados (épica 30, Fase 4): generar, ver, la lista e imprimir."""
+import asyncio
+import json
+
+import api
+from api import call, login
+from cdp import Browser
+
+BASE = api.BASE
+CLOSE_WELCOME = "document.getElementById('habitsSetupModal').classList.add('hidden')"
+OPEN = "!document.getElementById('savedReportsModal').classList.contains('hidden')"
+TITLES = "[...document.querySelectorAll('#savedReportBody .report-card-title')].map(t => t.textContent)"
+results = []
+
+
+def check(cond, label):
+    results.append(("OK  " if cond else "FAIL") + " " + label)
+
+
+async def main():
+    login("yoshi@test.com")
+    token = api.TOKEN
+    b = Browser()
+    await b.start()
+    try:
+        await b.viewport(390, 844, mobile=True)
+        await b.goto(BASE + "/")
+        await b.js(f"localStorage.setItem('access_token', {json.dumps(token)}); localStorage.removeItem('last_view');")
+        await b.goto(BASE + "/", wait=2.5)
+        await b.js(CLOSE_WELCOME)
+        await b.js("document.getElementById('tabReports').click()")
+        await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte'")
+        check(True, "with no report for this week the button says 'Generar reporte'")
+
+        # Generar el de la semana que se ve
+        await b.js("document.getElementById('savedReportBtn').click()")
+        await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte semanal')")
+        titles = await b.js(TITLES)
+        check("Resumen" in titles and "Tiempo por día" in titles and "Cierre" in titles,
+              f"the report shows its sections ({titles})")
+        _, lst = call("GET", "/api/reports", expect=200)
+        check(len(lst["reports"]) == 1 and lst["reports"][0]["kind"] == "week", f"it is saved ({lst['reports']})")
+        st = await b.js("({back: !document.getElementById('savedReportBack').hidden, actions: !document.getElementById('savedReportActions').hidden,"
+                        " wide: document.documentElement.scrollWidth})")
+        check(not st["back"] and st["actions"] and st["wide"] <= 390, f"no ‹ when opened from the button, fits a phone ({st})")
+        await b.shot("saved_report", full=False)
+
+        # Imprimir: solo el reporte, sin botones
+        await b.send("Emulation.setEmulatedMedia", media="print")
+        st = await b.js("""({app: getComputedStyle(document.querySelector('.app-container')).display,
+            modal: getComputedStyle(document.getElementById('savedReportsModal')).display,
+            actions: getComputedStyle(document.getElementById('savedReportActions')).display})""")
+        check(st == {"app": "none", "modal": "block", "actions": "none"}, f"printing shows only the report ({st})")
+        await b.send("Emulation.setEmulatedMedia", media="")
+
+        # Cerrar: ahora el botón abre el guardado
+        await b.js("document.getElementById('savedReportClose').click()")
+        await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Ver reporte'")
+        check(await b.js("!document.body.classList.contains('saved-report-open')"), "closing clears the print mode")
+
+        # La lista, y de ahí el reporte con ‹; Escape vuelve a la lista
+        await b.js("document.getElementById('savedReportsListBtn').click()")
+        await b.wait_for("document.querySelectorAll('#savedReportList .saved-report-row').length === 1")
+        await b.js("document.querySelector('#savedReportList .saved-report-row').click()")
+        await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte semanal')")
+        check(await b.js("!document.getElementById('savedReportBack').hidden"), "opened from the list it has ‹")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
+        await b.wait_for("!document.getElementById('savedReportList').hidden")
+        check(await b.js(OPEN), "Escape goes back to the list")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
+        await b.wait_for(f"!({OPEN})")
+        check(True, "and from the list it closes")
+
+        # Mes: genera el suyo; Personalizado no tiene botón
+        await b.js("document.querySelector('[data-range=month]').click()")
+        await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte'")
+        await b.js("document.getElementById('savedReportBtn').click()")
+        await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte mensual')")
+        check(True, "the month report is generated too")
+        await b.js("document.getElementById('savedReportClose').click()")
+        await b.js("document.querySelector('[data-range=custom]').click()")
+        check(await b.js("document.getElementById('savedReportBtn').hidden"), "Personalizado has no report button")
+    finally:
+        await b.close()
+
+    print("\n".join(results))
+    errors = [c for c in b.console if c.startswith(("[error]", "[exception]"))]
+    print("console errors:", errors or "none")
+    if any(r.startswith("FAIL") for r in results) or errors:
+        raise AssertionError("\n".join(r for r in results if not r.startswith("OK")) + f"\nconsole errors: {errors}")
+
+
+def test_saved_reports():
+    asyncio.run(main())

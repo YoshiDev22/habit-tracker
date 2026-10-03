@@ -108,6 +108,8 @@ function setRange(kind, from, to) {
     reportsRangeLabel.textContent = formatRangeLabel();
     // Hacia delante solo mientras el periodo no llegue a hoy
     reportsNext.disabled = to >= startOfToday();
+    // "Generar / Ver reporte" del periodo que se ve (saved-reports.js, carga después)
+    if (typeof syncSavedReportButton === 'function') syncSavedReportButton();
 
     loadReports();
 }

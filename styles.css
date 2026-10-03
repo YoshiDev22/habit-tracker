@@ -5604,3 +5604,182 @@ button.day-log-date:focus-visible {
     margin-top: 0;
     padding: 7px 14px;
 }
+
+/* ============================================
+   Reportes guardados (saved-reports.js)
+   ============================================ */
+
+.reports-saved {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 16px;
+    margin-top: 10px;
+}
+
+.reports-saved-btn {
+    width: auto;
+    padding: 7px 16px;
+    font-size: 0.875rem;
+}
+
+#savedReportsModal {
+    z-index: 1050;
+}
+
+.saved-report-modal {
+    max-width: 760px;
+    padding: 24px;
+    text-align: left;
+}
+
+.saved-report-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 32px;   /* la X de cerrar */
+}
+
+.saved-report-head .settings-back {
+    position: static;
+    padding: 0 8px 0 0;
+}
+
+.saved-report-actions:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.saved-report-actions .submit-btn {
+    width: auto;
+    padding: 7px 16px;
+    font-size: 0.875rem;
+}
+
+.saved-report-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+}
+
+.saved-report-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 4px;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.saved-report-row:hover {
+    background: var(--bg-surface-2);
+}
+
+.saved-report-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.saved-report-row-text small {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.saved-report-text {
+    margin: 10px 0 0;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.saved-report-text.muted {
+    color: var(--text-muted);
+}
+
+.saved-report-points {
+    margin: 6px 0 0;
+    padding-left: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    line-height: 1.45;
+    color: var(--text-primary);
+}
+
+.saved-report-review .work-subtitle:first-child {
+    margin-top: 0;
+}
+
+@media (max-width: 600px) {
+    .saved-report-modal {
+        width: 94%;
+        padding: 18px;
+    }
+}
+
+/* Imprimir / PDF: solo el reporte abierto, en papel blanco y sin botones */
+@media print {
+    body.saved-report-open > :not(#savedReportsModal) {
+        display: none !important;
+    }
+
+    /* El papel es blanco: con el tema oscuro, los tokens del claro (los de :root) */
+    body.saved-report-open {
+        --bg-app: #fafafa;
+        --bg-surface: #ffffff;
+        --bg-surface-2: #f8f9fa;
+        --bg-surface-3: #e9ecef;
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #888888;
+        --border-color: #e0e0e0;
+        --danger-bg: #fee2e2;
+        --danger-fg: #dc2626;
+        background: var(--bg-surface);
+    }
+
+    body.saved-report-open #savedReportsModal {
+        position: static;
+        display: block;
+    }
+
+    body.saved-report-open #savedReportsModal .modal-overlay,
+    body.saved-report-open #savedReportsModal .modal-close,
+    body.saved-report-open .saved-report-actions,
+    body.saved-report-open #savedReportBack {
+        display: none !important;
+    }
+
+    body.saved-report-open .saved-report-modal {
+        max-width: none;
+        width: 100%;
+        max-height: none;
+        overflow: visible;
+        box-shadow: none;
+        transform: none;
+        padding: 0;
+    }
+
+    body.saved-report-open .report-card {
+        break-inside: avoid;
+    }
+
+    /* Las barras de color salen en el PDF */
+    body.saved-report-open * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
