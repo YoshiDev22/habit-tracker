@@ -46,14 +46,28 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    10,000 diarios gratis alcanzan para ~23 reportes al día. Para unas pocas cuentas, el
    costo de IA es cero.
 
-   **Quién configura qué.** La instancia declara en `backend/.env` los proveedores que
-   ofrece (URL, clave y modelo de cada uno). Cada usuario, en *Mi perfil*, elige uno de esos
-   o *Sin IA*. Que cada usuario traiga su propia clave queda pendiente (pide cifrarla).
+   **Quién configura qué (decidido 2026-10-03).** Un **solo proveedor por instancia**, en
+   `backend/.env` (`AI_PROVIDER`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`); el de Yoshio, el
+   de Cloudflare en su capa gratuita. `backend/.env.example` trae el bloque vacío con los
+   valores de cada proveedor comentados, para que quien descargue el repo (o Yoshio, si
+   escala) cambie de proveedor sin tocar código.
+
+   **El uso de la IA es un módulo con acceso, como el plan maker.** Módulo `ai` en
+   `backend/modules.py`, sin acceso por defecto; lo da `scripts/grant_module.py --module ai`
+   a las cuentas que Yoshio elija. Todo endpoint que llame al proveedor empieza con
+   `require_module(..., "ai")`: sin acceso, 403, por cualquier enlace o llamada directa a
+   la API. Con acceso, el usuario la enciende o apaga en *Mi perfil*.
+
+   **Claves propias de cada usuario: no, por ahora.** Guardarlas obliga a tenerlas en la
+   base: aunque se cifren, el servidor tiene que poder descifrarlas para usarlas, así que el
+   dueño de la instancia (o quien robe la base y el `.env`) podría leerlas, y un error en un
+   log las expondría. Para unos pocos conocidos no vale ese riesgo: queda en *Pendiente*.
 
 2. **Limpieza de datos: no se excluye nada, se avisa.**
    - Un cronómetro que llegó al tope de 8 h y no se ha confirmado queda **por confirmar**.
-     La app lo avisa (aviso en la barra y en *Hoy*) hasta que el usuario corrija o confirme
-     su duración.
+     La app lo avisa con una **campanita en la barra de arriba**, visible en todas las
+     pestañas, con el número de pendientes; tocarla lista las sesiones y lleva a corregir o
+     confirmar cada una. La campanita servirá después para otros avisos (reporte nuevo).
    - El reporte **cuenta** esas sesiones y lo dice: "Incluye 8 h de «<tarea>» (<fecha>)
      sin confirmar".
    - Las sesiones de más de 4 h, los solapes y las duraciones raras también se cuentan y se
@@ -109,9 +123,9 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    - Una vista nueva con las secciones de los ejemplos, gráficas SVG con los colores de
      cada proyecto e impresión a PDF.
    - El texto sale de reglas.
-5. **IA para el texto.** `backend/ai.py` con la función de llamada única y los
-   proveedores de la tabla. En *Mi perfil*, el usuario elige proveedor o *Sin IA* y ve el
-   JSON exacto que se enviaría. Si el proveedor falla o se pasa del límite diario, el texto
+5. **IA para el texto.** `backend/ai.py` con la función de llamada única, configurada por
+   `backend/.env`, y el módulo `ai` con acceso. En *Mi perfil*, quien tiene acceso la
+   enciende o apaga y ve el JSON exacto que se enviaría. Si el proveedor falla o se pasa del límite diario, el texto
    sale de las reglas. Respuesta en JSON validado, y se rechaza un texto que cite números
    que no venían en las métricas.
 6. **Costos del periodo (Maker).** Tipo de proyecto, precio, "presupuesto disponible" y
@@ -123,7 +137,8 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
 | Fase | Cambio | Tipo | Migración |
 |---|---|---|---|
 | 2 | `pomodoro_sessions.needs_review` (bool), relleno desde la nota de cierre automático | Columna en tabla existente | **Sí**: `migrate.py` + `test_deploy.py` |
-| 3 | `user_report_settings` (`user_id` único, `timezone`, `country`, `subdivision`, `ai_provider`) | Tabla nueva | No |
+| 3 | `user_report_settings` (`user_id` único, `timezone`, `country`, `subdivision`) | Tabla nueva | No |
+| 5 | Módulo `ai` en `backend/modules.py` (usa `user_modules`, que ya existe) | Sin cambio de esquema | No |
 | 3 | `user_holidays` (`user_id`, `date`, `name`, `kind`: añadido o quitado) | Tabla nueva | No |
 | 3 | `holiday_cache` (`country`, `year`, JSON de Nager.Date, `fetched_at`) | Tabla nueva | No |
 | 4 | `reports` (`user_id`, `kind`: semanal o mensual, `period_start`, `period_end`, `metrics` JSON, `text` JSON, `text_source`: reglas o proveedor, `created_at`) | Tabla nueva | No |
@@ -135,11 +150,13 @@ proveedores van en `backend/.env`, nunca en el repo ni en la base.
 
 ## Transparencia y privacidad
 
-- La IA está apagada hasta que el usuario elige un proveedor.
+- Solo las cuentas a las que Yoshio da acceso (`grant_module.py --module ai`) pueden usar
+  la IA, y está apagada hasta que el usuario la enciende. El servidor lo comprueba en cada
+  llamada (403), no solo la pantalla.
 - *Mi perfil* muestra el JSON exacto que se enviaría. Incluye títulos de tareas y nombres de
   proyectos: son texto personal.
-- Al elegir Gemini en la capa gratuita, la app avisa que Google usa ese contenido para
-  mejorar sus productos.
+- Si la instancia usa Gemini en la capa gratuita, *Mi perfil* avisa que Google usa ese
+  contenido para mejorar sus productos.
 - Límite de llamadas por usuario y día; si se pasa, el texto sale de las reglas.
 
 ## Pendiente (no entra en esta iteración)
@@ -160,8 +177,9 @@ proveedores van en `backend/.env`, nunca en el repo ni en la base.
   métricas. Antes, verificar qué autenticación aceptan los conectores personalizados de
   Claude.ai (OAuth o sin autenticación; un token fijo en un header quizá solo sirva en
   Claude Code y Desktop).
-- **Para abrirlo a más gente**: que cada usuario traiga su propia clave (cifrada en la
-  base), cuotas por usuario, festivos de más países con revisión, i18n.
+- **Para abrirlo a más gente**: varios proveedores a elegir por usuario; que cada usuario
+  traiga su propia clave (cifrada en la base, con el riesgo descrito en *Decisiones*),
+  cuotas por usuario, festivos de más países con revisión, i18n.
 
 ## Fuentes consultadas (2026-10-03)
 
