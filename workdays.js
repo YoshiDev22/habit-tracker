@@ -1,5 +1,5 @@
 // ============================================
-// Días festivos y huso horario (⚙️ Configuración)
+// Días festivos y huso horario (⚙️ Configuración › Días y horario)
 // ============================================
 //
 // Épica 30, Fase 3. Deciden qué días son hábiles en las métricas y reportes, a
@@ -177,7 +177,7 @@ function renderWorkDays(days) {
     } else {
         workOfficialEl.replaceChildren(...days.official.map(day => {
             const item = el('li', `work-day${day.observed ? '' : ' worked'}`);
-            item.appendChild(el('span', 'work-day-name', `🎉 ${shortDayLabel(day.date)} · ${day.name}`));
+            item.appendChild(el('span', 'work-day-name', `${shortDayLabel(day.date)} · ${day.name}`));
             // Marcada: lo descansas (no es hábil y no corta la racha). Desmarcada: lo trabajas.
             const label = el('label', 'work-day-label');
             label.title = 'Desmárcalo si ese día trabajas: contará como día hábil';
@@ -197,7 +197,7 @@ function renderWorkDays(days) {
     } else {
         workOwnEl.replaceChildren(...free.map(day => {
             const item = el('li', 'work-day');
-            item.append(el('span', 'work-day-name', `🎉 ${shortDayLabel(day.date)}${day.name ? ` · ${day.name}` : ''}`));
+            item.append(el('span', 'work-day-name', `${shortDayLabel(day.date)}${day.name ? ` · ${day.name}` : ''}`));
             const remove = el('button', 'cost-delete work-remove', '×');
             remove.type = 'button';
             remove.dataset.id = String(day.id);

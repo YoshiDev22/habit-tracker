@@ -484,41 +484,27 @@
                 <!-- El menú: cada fila desliza a su página (settings.js) -->
                 <nav class="settings-menu" id="settingsMenu" aria-label="Configuración">
                     <button type="button" class="settings-item" data-open="habits" data-habits-only>
-                        <span class="settings-item-icon" aria-hidden="true">✅</span>
                         <span class="settings-item-text"><strong>Hábitos</strong><small>Cuáles sigues, sus colores y emojis</small></span>
                         <span class="settings-item-go" aria-hidden="true">›</span>
                     </button>
-                    <button type="button" class="settings-item" data-open="rest" data-habits-only>
-                        <span class="settings-item-icon" aria-hidden="true">😴</span>
-                        <span class="settings-item-text"><strong>Días de descanso</strong><small>Los días de la semana que no cortan la racha</small></span>
-                        <span class="settings-item-go" aria-hidden="true">›</span>
-                    </button>
-                    <button type="button" class="settings-item" data-open="vacations">
-                        <span class="settings-item-icon" aria-hidden="true">🏖️</span>
-                        <span class="settings-item-text"><strong>Vacaciones</strong><small>Pausas de la racha, hasta 30 días</small></span>
-                        <span class="settings-item-go" aria-hidden="true">›</span>
-                    </button>
-                    <button type="button" class="settings-item" data-open="holidays">
-                        <span class="settings-item-icon" aria-hidden="true">🎉</span>
-                        <span class="settings-item-text"><strong>Días festivos y huso horario</strong><small>Festivos de tu país y tus días libres</small></span>
+                    <button type="button" class="settings-item" data-open="days">
+                        <span class="settings-item-text"><strong>Días y horario</strong><small>Descansos, vacaciones, festivos y huso horario</small></span>
                         <span class="settings-item-go" aria-hidden="true">›</span>
                     </button>
                     <button type="button" class="settings-item" data-open="modules">
-                        <span class="settings-item-icon" aria-hidden="true">🧩</span>
                         <span class="settings-item-text"><strong>Módulos</strong><small>Qué partes de la app usas</small></span>
                         <span class="settings-item-go" aria-hidden="true">›</span>
                     </button>
                     <button type="button" class="settings-item" data-open="pomodoro">
-                        <span class="settings-item-icon" aria-hidden="true">⏱</span>
                         <span class="settings-item-text"><strong>Pomodoro</strong><small>Duración del enfoque y los descansos</small></span>
                         <span class="settings-item-go" aria-hidden="true">›</span>
                     </button>
-                    <button type="button" class="settings-item" data-open="display">
-                        <span class="settings-item-icon" aria-hidden="true">🔠</span>
-                        <span class="settings-item-text"><strong>Pantalla</strong><small>Tamaño del texto en este dispositivo</small></span>
+                    <button type="button" class="settings-item" data-open="accessibility">
+                        <span class="settings-item-text"><strong>Accesibilidad</strong><small>Tamaño del texto</small></span>
                         <span class="settings-item-go" aria-hidden="true">›</span>
                     </button>
                 </nav>
+
 
                 <section class="settings-page" data-section="habits" data-habits-only data-title="Hábitos">
                     <div class="settings-body">
@@ -552,9 +538,15 @@
                     </div>
                 </section>
 
-                <section class="settings-page" data-section="rest" data-habits-only data-title="Días de descanso">
+                <!-- Días y horario: qué días cuentan y a qué hora. Descanso (habits.js),
+                     vacaciones (habits.js, loadPauses) y festivos y huso (workdays.js); todo
+                     se guarda al tocarlo. Los festivos se guardan en este dispositivo y ↻ los
+                     vuelve a pedir. -->
+                <section class="settings-page" data-section="days" data-title="Días y horario">
                     <div class="settings-body">
-                        <p class="module-hint">Cada semana, estos días congelan la racha: sin hábitos no la cortan ni suman. Se guarda al tocarlo.</p>
+                        <div class="settings-group" data-habits-only>
+                            <h3 class="settings-group-title">Días de descanso</h3>
+                            <p class="module-hint">Cada semana, estos días congelan la racha: sin hábitos no la cortan ni suman.</p>
                             <div class="rest-days-options" id="restDaysOptions">
                                 <label class="day-checkbox-label">
                                     <input type="checkbox" name="rest_day" value="0">
@@ -585,15 +577,12 @@
                                     <span>Dom</span>
                                 </label>
                             </div>
-                        <p class="config-pomo-status" id="restDaysStatus" role="status"></p>
-                    </div>
-                </section>
+                            <p class="config-pomo-status" id="restDaysStatus" role="status"></p>
+                        </div>
 
-                <!-- Vacaciones (habits.js, loadPauses): se guardan al momento. Hoy o
-                     hacia adelante; hasta 30 días. También cuentan como días no hábiles. -->
-                <section class="settings-page" data-section="vacations" data-title="Vacaciones">
-                    <div class="settings-body">
-                        <p class="module-hint">Pausan la racha hasta 30 días, desde hoy o más adelante, y en los reportes no cuentan como días hábiles.</p>
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">Vacaciones</h3>
+                            <p class="module-hint">Pausan la racha hasta 30 días, desde hoy o más adelante, y en los reportes no cuentan como días hábiles.</p>
                         <ul class="pause-list" id="pauseList"></ul>
                         <div class="pause-form">
                             <label>Desde <input type="date" id="pauseStart"></label>
@@ -601,27 +590,16 @@
                             <button type="button" id="pauseAddBtn" class="submit-btn btn-neutral pause-add">Programar pausa</button>
                         </div>
                         <p class="form-error hidden" id="pauseError" role="alert"></p>
-                    </div>
-                </section>
+                        </div>
 
-                <!-- Festivos y huso horario (workdays.js), van juntos: deciden qué días son
-                     hábiles y a qué hora local pasó cada sesión. Se guardan en este
-                     dispositivo; ↻ los vuelve a pedir. -->
-                <section class="settings-page work-calendar" data-section="holidays" id="workCalendar" data-title="Días festivos y huso horario">
-                    <div class="settings-body">
-                        <div class="work-calendar-row">
-                    <label class="work-field">
-                        <span>Huso horario</span>
-                        <input type="text" id="workTimezone" list="workTimezoneList" maxlength="64" autocomplete="off">
-                        <datalist id="workTimezoneList"></datalist>
-                    </label>
-                    <label class="work-field work-country">
-                        <span>País</span>
-                        <input type="text" id="workCountry" maxlength="2" autocomplete="off" placeholder="MX">
-                    </label>
-                </div>
-                <p class="module-hint">Días hábiles: de lunes a viernes, sin festivos oficiales de tu país, sin
-                    tus vacaciones y sin tus días libres. Los festivos que descansas tampoco cortan la racha.</p>
+                        <div class="settings-group work-calendar" id="workCalendar">
+                            <h3 class="settings-group-title">Días festivos</h3>
+                            <p class="module-hint">Días hábiles: de lunes a viernes, sin festivos oficiales de tu país, sin
+                                tus vacaciones y sin tus días libres. Los festivos que descansas tampoco cortan la racha.</p>
+                            <label class="work-field work-country">
+                                <span>País</span>
+                                <input type="text" id="workCountry" maxlength="2" autocomplete="off" placeholder="MX">
+                            </label>
                 <div class="work-year">
                     <button type="button" class="nav-btn" id="workYearPrev" aria-label="Año anterior">&lt;</button>
                     <strong id="workYearLabel"></strong>
@@ -637,7 +615,18 @@
                     <button type="submit" class="submit-btn">Agregar</button>
                 </form>
                 <div id="workCalendarError" class="form-error hidden"></div>
-                        <button type="button" class="link-btn work-refresh" id="workRefresh">↻ Actualizar festivos</button>
+                            <button type="button" class="link-btn work-refresh" id="workRefresh">↻ Actualizar festivos</button>
+                        </div>
+
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">Huso horario</h3>
+                            <p class="module-hint">Para saber a qué hora local trabajaste. Se guardó el de tu dispositivo la primera vez.</p>
+                            <label class="work-field">
+                                <span class="visually-hidden">Huso horario</span>
+                                <input type="text" id="workTimezone" list="workTimezoneList" maxlength="64" autocomplete="off">
+                                <datalist id="workTimezoneList"></datalist>
+                            </label>
+                        </div>
                     </div>
                 </section>
 
@@ -684,7 +673,7 @@
                 </section>
 
                 <!-- De este dispositivo: se aplica al tocarlo y sobrevive al cierre de sesión -->
-                <section class="settings-page" data-section="display" data-title="Pantalla">
+                <section class="settings-page" data-section="accessibility" data-title="Accesibilidad">
                     <div class="settings-body">
                         <div class="device-setting-row">
                     <span id="textSizeLabel">Tamaño del texto</span>

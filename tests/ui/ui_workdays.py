@@ -1,4 +1,4 @@
-"""⚙️ Configuración › Días festivos y huso horario (épica 30, Fase 3): huso, país, festivos y días libres."""
+"""⚙️ Configuración › Días y horario (épica 30, Fase 3): huso, país, festivos y días libres."""
 import asyncio
 import datetime as dt
 import json
@@ -51,7 +51,7 @@ async def main():
         check(settings["configured"] and settings["timezone"] == zone,
               f"the browser's time zone is saved on first visit ({settings}, {zone})")
 
-        await b.js("openSettings('holidays')")
+        await b.js("openSettings('days')")
         await b.wait_for("document.querySelectorAll('#workOfficialDays .work-day').length > 0")
         st = await b.js("""({tz: document.getElementById('workTimezone').value, country: document.getElementById('workCountry').value,
             official: document.getElementById('workOfficialDays').textContent})""")
@@ -122,22 +122,22 @@ async def main():
         st = await b.js("({menu: !document.getElementById('settingsMenu').hidden, title: document.getElementById('setupTitle').textContent})")
         check(st == {"menu": True, "title": "Configuración"}, f"‹ shows the menu ({st})")
         await b.shot("settings_menu", full=False)
-        await b.js("document.querySelector('#settingsMenu [data-open=holidays]').click()")
-        st = await b.js("({active: document.getElementById('workCalendar').classList.contains('active'), menu: !document.getElementById('settingsMenu').hidden,"
+        await b.js("document.querySelector('#settingsMenu [data-open=days]').click()")
+        st = await b.js("({active: document.querySelector('[data-section=days]').classList.contains('active'), menu: !document.getElementById('settingsMenu').hidden,"
                         " title: document.getElementById('setupTitle').textContent, back: !document.getElementById('settingsBack').hidden,"
                         " n: document.querySelectorAll('#workOfficialDays .work-day').length, fetches: window._daysFetches})")
-        check(st == {"active": True, "menu": False, "title": "Días festivos y huso horario", "back": True, "n": 1, "fetches": 0},
+        check(st == {"active": True, "menu": False, "title": "Días y horario", "back": True, "n": 1, "fetches": 0},
               f"its row slides to the page, with the saved holidays and without asking ({st})")
         # ‹ y Escape vuelven al menú; Escape desde el menú cierra
         await b.js("document.getElementById('settingsBack').click()")
         check(await b.js("!document.getElementById('settingsMenu').hidden && document.getElementById('settingsBack').hidden"), "‹ goes back to the menu")
-        await b.js("document.querySelector('#settingsMenu [data-open=holidays]').click()")
+        await b.js("document.querySelector('#settingsMenu [data-open=days]').click()")
         await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
         check(await b.js("!document.getElementById('settingsMenu').hidden"), "Escape goes back to the menu")
         await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
         await b.wait_for("document.getElementById('habitsSetupModal').classList.contains('hidden')")
         check(True, "and from the menu it closes")
-        await b.js("openSettings('holidays')")
+        await b.js("openSettings('days')")
         await b.js("document.getElementById('workRefresh').click()")
         await b.wait_for("window._daysFetches === 1")
         check(True, "↻ asks for them again")

@@ -63,27 +63,27 @@ vez, si aún no sigues ningún hábito, abre directo en *Hábitos*. Los hábitos
 **Guardar Hábitos**; todo lo demás, al tocarlo.
 
 - **Hábitos**: cuáles sigues, sus colores y sus emojis (ver más abajo).
-- **Días de descanso**: los días de la semana que no cortan la racha.
-- **Vacaciones**: pausas de la racha (ver [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones)).
-- **Días festivos y huso horario**: ver abajo.
+- **Días y horario**: qué días cuentan y a qué hora: días de descanso, vacaciones,
+  festivos y huso horario (ver abajo).
 - **Módulos**: **Hábitos y metas** decide si usas la parte de hábitos. Si solo usas los
-  tableros y el tiempo, apágala: desaparecen la pestaña Calendario, las secciones de
-  hábitos de Configuración y la tarjeta de hábitos de Reportes. **No se borra nada**: al
+  tableros y el tiempo, apágala: desaparecen la pestaña Calendario, *Hábitos* y los días
+  de descanso de Configuración y la tarjeta de hábitos de Reportes. **No se borra nada**: al
   encenderla vuelven tus hábitos, tus días marcados y tu racha tal como estaban. Se guarda
   en tu cuenta, así que vale en todos tus dispositivos.
 - **Pomodoro**: las duraciones del enfoque y los descansos.
-- **Pantalla › Tamaño del texto**: agranda toda la app (Normal, Grande o Muy grande). Se
+- **Accesibilidad › Tamaño del texto**: agranda toda la app (Normal, Grande o Muy grande). Se
   aplica al momento y se queda en ese dispositivo, también en la app instalada y aunque
   cierres sesión.
 
-### Días festivos y huso horario
+### Días y horario
 
-Dicen qué días trabajas, para que los reportes cuenten bien los días hábiles, y qué
-festivos no cortan tu racha:
+Dicen qué días trabajas, para que los reportes cuenten bien los días hábiles, y qué días
+no cortan tu racha. Todo se guarda al tocarlo.
 
-- **Huso horario**: se guarda solo la primera vez, con el de tu dispositivo. Sirve para
-  saber a qué hora local trabajaste (por ejemplo, si te desvelaste).
-- **País**: de ahí salen los **festivos oficiales** del año. Cada uno trae la casilla
+- **Días de descanso**: los días de la semana que congelan la racha (por ejemplo, el
+  domingo). Solo con el módulo de hábitos.
+- **Vacaciones**: pausas de la racha (ver [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones)).
+- **Días festivos › País**: de ahí salen los **festivos oficiales** del año. Cada uno trae la casilla
   **Descanso**, marcada: ese día no es hábil y congela la racha, como un día de descanso.
   Si lo trabajas, desmárcala y contará como un día normal.
 - **Tus días libres**: agrega los que no vienen en el calendario oficial, como un festivo
@@ -91,6 +91,8 @@ festivos no cortan tu racha:
   libres.
 - Los festivos se guardan en tu dispositivo para no pedirlos cada vez. Si la lista sale
   vacía o falta alguno, **↻ Actualizar festivos** los vuelve a pedir.
+- **Huso horario**: se guarda solo la primera vez, con el de tu dispositivo. Sirve para
+  saber a qué hora local trabajaste (por ejemplo, si te desvelaste).
 
 En el calendario, los festivos que descansas llevan 🎉 en la esquina.
 
@@ -170,7 +172,7 @@ está en [docs/referencias.md](docs/referencias.md).
 - **Escudos 🛡️**: cada 7 días de racha ganas uno, y puedes tener 2. Si un día no anotas
   nada (y no es de descanso ni de vacaciones), se gasta uno solo y la racha sigue. Si
   después anotas ese día, el escudo vuelve. Sin escudos, un día vacío corta la racha.
-- **Vacaciones**: en ⚙️ Configuración › Vacaciones, elige **Desde** y **Hasta** y pulsa
+- **Vacaciones**: en ⚙️ Configuración › Días y horario, elige **Desde** y **Hasta** y pulsa
   **Programar pausa**. Se guarda al momento.
   - Empieza hoy o después, nunca en días pasados (para un día que ya pasó están los
     escudos y "¿Olvidaste anotar ayer?").
@@ -528,7 +530,7 @@ Debería cambiar al instante al guardar. Si no, recarga con `Ctrl + F5`.
 Sí, el diseño se adapta y se cambia de pestaña deslizando el dedo. También se puede
 instalar: desde el navegador, "Agregar a la pantalla de inicio" (o "Instalar app" en la
 computadora), y se abre como una aplicación. Si el texto se ve pequeño, agrándalo en
-*⚙️ Configuración › Pantalla › Tamaño del texto*.
+*⚙️ Configuración › Accesibilidad › Tamaño del texto*.
 
 **En el teléfono todo se ve diminuto, como si fuera la versión de computadora.**
 El navegador está en modo **"Sitio para ordenador"** (o "Versión de escritorio"): dibuja la

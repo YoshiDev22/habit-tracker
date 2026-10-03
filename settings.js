@@ -2,9 +2,8 @@
 // ⚙️ Configuración
 // ============================================
 //
-// Un solo modal (#habitsSetupModal): primero un menú (Hábitos, Días de
-// descanso, Vacaciones, Días festivos y huso horario, Módulos, Pomodoro y
-// Pantalla) y, al tocar una fila, su página, que entra deslizándose; ‹ (o
+// Un solo modal (#habitsSetupModal): primero un menú (Hábitos, Días y horario,
+// Módulos, Pomodoro y Accesibilidad) y, al tocar una fila, su página, que entra deslizándose; ‹ (o
 // Escape) vuelve al menú. showHabitsSetup() (habits.js) lo llena y lo muestra,
 // y al final llama a onSettingsOpened(). Cada página guarda lo suyo: los
 // hábitos con "Guardar Hábitos" (el pie solo se ve en su página); lo demás, al
@@ -52,8 +51,8 @@ function showSettingsPage(name, { animate = true } = {}) {
     settingsFooter.hidden = name !== 'habits';
     settingsScroll.scrollTop = 0;
     if (animate) slideIn(page, 'forward');
-    // Festivos: lo guardado al instante, lo que falte de la red (workdays.js)
-    if (name === 'holidays' && typeof loadWorkCalendar === 'function') loadWorkCalendar();
+    // Festivos y huso: lo guardado al instante, lo que falte de la red (workdays.js)
+    if (name === 'days' && typeof loadWorkCalendar === 'function') loadWorkCalendar();
 }
 
 function showSettingsMenu({ animate = true } = {}) {
@@ -106,8 +105,8 @@ document.addEventListener('keydown', (event) => {
     else closeHabitsSetup();
 });
 
-// Apagar Hábitos (en Módulos) oculta sus filas del menú; si su página estaba
-// abierta, se vuelve al menú
+// Apagar Hábitos (en Módulos) oculta su fila del menú y los días de descanso;
+// si su página estaba abierta, se vuelve al menú
 window.modulesChangedHooks.push(() => {
     if (settingsPage && settingsPageEl(settingsPage).hidden) showSettingsMenu({ animate: false });
 });

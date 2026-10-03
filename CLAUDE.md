@@ -102,7 +102,7 @@ habit-tracker/
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── notifications.js       # La campanita de avisos: sesiones por confirmar
-├── workdays.js            # Configuración › Días festivos y huso horario; festivos del calendario (🎉)
+├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
@@ -513,10 +513,12 @@ scroll, y sus botones quedan inalcanzables — el `.modal` que lo envuelve es
 cuerpo en `.setup-scroll` (que necesita `min-height: 0` para poder encoger) y el pie en
 `.setup-footer`, para que "Guardar Hábitos" no se vaya con el scroll. Su cuerpo es un menú
 (`#settingsMenu`, una fila por categoría con `data-open`) y una página por categoría
-(`<section class="settings-page" data-section="…">`), que se muestra con la clase
-`.active` y entra deslizándose; ‹ (`#settingsBack`) o Escape vuelven al menú. `hidden`
-queda para el módulo Hábitos apagado: las filas y páginas de hábitos llevan
-`data-habits-only`. El pie solo se ve en la página Hábitos. Lo llena `showHabitsSetup()`
+(`<section class="settings-page" data-section="…">`: `habits`, `days` —descanso,
+vacaciones, festivos y huso, en grupos—, `modules`, `pomodoro`, `accessibility`), que se
+muestra con la clase `.active` y entra deslizándose; ‹ (`#settingsBack`) o Escape vuelven al menú. `hidden`
+queda para el módulo Hábitos apagado: la fila y la página de Hábitos, y el grupo de días de
+descanso, llevan `data-habits-only`. El menú es solo texto, sin emojis (como los ajustes de
+Todoist o Linear). El pie solo se ve en la página Hábitos. Lo llena `showHabitsSetup()`
 (`habits.js`), que al final llama a `onSettingsOpened()` (`settings.js`): abre el menú, o
 Hábitos como bienvenida si aún no hay hábitos; `openSettings(nombre)` abre directo una página.
 Mi perfil quedó solo con alias, nombre y apellido.
@@ -607,7 +609,7 @@ del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar 
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?"), `work_calendar_cache` (huso, país y festivos por año, para
 no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
-`text_size` (`large` | `xlarge`, en **Configuración › Pantalla**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
+`text_size` (`large` | `xlarge`, en **Configuración › Accesibilidad**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
 los tamaños de texto nuevos van en `rem`, no en `px`—; el script inline del `<head>` lo
 aplica junto con el tema, y sobrevive al cierre de sesión).
 

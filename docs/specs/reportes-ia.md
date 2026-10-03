@@ -115,7 +115,7 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
      nocturnas (después de las 23 h, hora local), horas en fin de semana, tiempo por
      proyecto, tarea y etiqueta, horario habitual y la lista de lo que hay que revisar.
    - Necesita el huso horario y el país de cada usuario, y los festivos.
-   - ⚙️ Configuración › *Días festivos y huso horario*: huso, país, festivos ("Descanso") y días
+   - ⚙️ Configuración › *Días y horario*: huso, país, festivos ("Descanso") y días
      libres propios.
    - La pestaña Reportes sigue con sus cálculos de siempre: pasará a leer de aquí cuando
      la vista de reportes guardados (Fase 4) use las mismas cifras.
