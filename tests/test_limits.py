@@ -158,3 +158,11 @@ def test_work_calendar(api):
     assert api.call("POST", "/api/days", {"date": "ayer"})[0] == 422
     api.call("POST", "/api/days", {"date": day, "name": "x" * 80}, expect=201)
     assert api.call("GET", "/api/days?year=1999")[0] == 422
+
+
+def test_saved_report(api):
+    api.login("reporte-tope@test.com")
+    monday = date.today() - timedelta(days=date.today().weekday())
+    assert api.call("POST", "/api/reports", {"kind": "anual", "period_start": monday.isoformat()})[0] == 422
+    assert api.call("POST", "/api/reports", {"kind": "week", "period_start": "lunes"})[0] == 422
+    assert api.call("POST", "/api/reports", {"kind": "week", "period_start": (monday + timedelta(days=2)).isoformat()})[0] == 422

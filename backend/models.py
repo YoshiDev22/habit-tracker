@@ -481,3 +481,28 @@ class PomodoroSession(SQLModel, table=True):
     idempotency_key: Optional[str] = Field(default=None)
 
     created_at: date_type = Field(default_factory=date_type.today)
+
+
+class Report(SQLModel, table=True):
+    """
+    Un reporte guardado de una semana (lunes a domingo) o un mes (épica 30,
+    Fase 4). Congela las cifras de backend/metrics.py al generarlo, más un
+    resumen del periodo anterior para comparar, y el texto (observaciones,
+    recomendaciones, cierre). Uno por usuario, tipo y periodo: regenerar lo
+    reemplaza, así que el timer puede correr dos veces sin duplicar.
+    Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "reports"
+    __table_args__ = (UniqueConstraint("user_id", "kind", "period_start", name="uq_reports_user_kind_start"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    kind: str                     # week | month
+    period_start: date_type       # lunes, o día 1
+    period_end: date_type         # domingo, o último del mes
+    through: date_type            # último día con datos: antes de period_end si se generó a medio periodo
+    metrics: Dict = Field(default={}, sa_type=JSON)
+    text: Dict = Field(default={}, sa_type=JSON)
+    text_source: str = Field(default="rules")   # rules (Fase 5: el proveedor de IA)
+    trigger: str = Field(default="manual")      # manual (botón) | auto (scripts/generate_reports.py)
+    created_at: datetime = Field(default_factory=utc_now_naive)  # UTC naive

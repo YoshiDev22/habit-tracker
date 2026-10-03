@@ -1105,3 +1105,44 @@ class YearDaysResponse(SQLModel):
     country: str
     official: List[OfficialDay]
     own: List[UserDayResponse]
+
+
+# ==================== Reportes guardados (épica 30, Fase 4) ====================
+
+REPORT_KINDS = ("week", "month")
+
+
+class ReportCreate(SQLModel):
+    """Generar (o regenerar) el reporte de un periodo: semana desde su lunes, mes desde su día 1"""
+    kind: str
+    period_start: date_type
+    today: Optional[date_type] = None   # fecha LOCAL del cliente (resolve_client_today)
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v: str) -> str:
+        if v not in REPORT_KINDS:
+            raise ValueError(f"kind debe ser uno de: {', '.join(REPORT_KINDS)}")
+        return v
+
+
+class ReportSummary(SQLModel):
+    """Una fila de la lista: sin cifras ni texto"""
+    id: int
+    kind: str
+    period_start: date_type
+    period_end: date_type
+    through: date_type
+    total_seconds: int
+    trigger: str
+    text_source: str
+    created_at: datetime
+
+
+class ReportListResponse(SQLModel):
+    reports: List[ReportSummary]
+
+
+class ReportResponse(ReportSummary):
+    metrics: Dict
+    text: Dict

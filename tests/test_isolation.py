@@ -4,7 +4,7 @@ usuario no puede leer, usar ni tocar tableros, columnas, tareas, etiquetas,
 checklist, comentarios, registros de tiempo ni hábitos ajenos (404, no 403: ni
 siquiera se entera de que existen).
 """
-from datetime import date
+from datetime import date, timedelta
 
 
 def mine(seeded):
@@ -165,3 +165,12 @@ def test_costs(seeded):
     assert api.call("GET", "/api/costs/estimates", expect=200)[1]["overall"]["tasks"] == 1
     _, theirs = other.call("GET", "/api/costs/estimates", expect=200)
     assert theirs["overall"]["tasks"] == 0 and theirs["tags"] == []
+
+
+def test_saved_reports(seeded):
+    api, other = seeded["api"], seeded["other"]
+    monday = date.today() - timedelta(days=date.today().weekday())
+    _, rep = api.call("POST", "/api/reports", {"kind": "week", "period_start": monday.isoformat(),
+                                               "today": date.today().isoformat()}, expect=200)
+    assert other.call("GET", f"/api/reports/{rep['id']}")[0] == 404
+    assert all(r["id"] != rep["id"] for r in other.call("GET", "/api/reports", expect=200)[1]["reports"])
