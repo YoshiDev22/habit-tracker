@@ -28,10 +28,10 @@ async def main():
         await b.js(CLOSE_WELCOME)
         check(await b.js(FONT) == "16px", "default text size is 16px")
 
-        await b.js("document.getElementById('userEmail').click()")
-        await asyncio.sleep(0.4)
+        await b.js("openSettings('display')")
+        await b.wait_for("!document.getElementById('habitsSetupModal').classList.contains('hidden')")
         pressed = await b.js("document.querySelector('#textSizeToggle [aria-pressed=\"true\"]').dataset.size")
-        check(pressed == "normal", f"profile marks Normal ({pressed})")
+        check(pressed == "normal", f"Configuración › Pantalla marks Normal ({pressed})")
 
         await b.js("document.querySelector('#textSizeToggle [data-size=\"xlarge\"]').click()")
         await asyncio.sleep(0.3)
@@ -42,7 +42,7 @@ async def main():
         await asyncio.sleep(0.3)
         check(await b.js(FONT) == "22px", "Muy grande applies at once (22px)")
         check(await b.js("localStorage.getItem('text_size')") == "xlarge", "saved on this device")
-        await b.shot("text_size_profile", full=False)
+        await b.shot("text_size_settings", full=False)
 
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
@@ -64,8 +64,8 @@ async def main():
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)})")
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
-        await b.js("document.getElementById('userEmail').click()")
-        await asyncio.sleep(0.4)
+        await b.js("openSettings('display')")
+        await b.wait_for("!document.getElementById('habitsSetupModal').classList.contains('hidden')")
         await b.js("document.querySelector('#textSizeToggle [data-size=\"normal\"]').click()")
         await asyncio.sleep(0.3)
         check(await b.js(FONT) == "16px", "Normal goes back to 16px")

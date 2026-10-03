@@ -24,8 +24,8 @@ async def main():
         results.append(("OK  " if cond else "FAIL") + " " + label)
 
     async def toggle_habits():
-        await b.js("document.getElementById('userEmail').click()")
-        await asyncio.sleep(0.4)
+        await b.js("openSettings('modules')")
+        await b.wait_for("!document.getElementById('habitsSetupModal').classList.contains('hidden')")
         await b.js("document.getElementById('moduleHabits').click()")
 
     try:
@@ -37,18 +37,20 @@ async def main():
         check(await b.js(TABS) == ["tabCalendar", "tabProjects", "tabReports"], "three tabs by default")
 
         # Apagar: la casilla está marcada y al tocarla se va el Calendario
-        await b.js("document.getElementById('userEmail').click()")
-        await asyncio.sleep(0.4)
-        check(await b.js("document.getElementById('moduleHabits').checked") is True, "Mi perfil shows Hábitos on")
+        await b.js("openSettings('modules')")
+        await b.wait_for("!document.getElementById('habitsSetupModal').classList.contains('hidden')")
+        check(await b.js("document.getElementById('moduleHabits').checked") is True, "Configuración shows Hábitos on")
         await b.shot("modules_profile", full=False)
         await b.js("document.getElementById('moduleHabits').click()")
         ok = await b.wait_for("document.getElementById('tabCalendar').hidden")
-        st = await b.js(f"({{tabs: {TABS}, view: currentViewId, gear: document.getElementById('settingsBtn').hidden}})")
-        check(ok and st == {"tabs": ["tabProjects", "tabReports"], "view": "projects", "gear": True},
-              f"turning it off hides Calendario and the habits gear ({st})")
+        st = await b.js(f"({{tabs: {TABS}, view: currentViewId, gear: document.getElementById('settingsBtn').hidden,"
+                        " habitSections: [...document.querySelectorAll('#habitsSetupModal [data-habits-only]')].every(s => s.hidden),"
+                        " footer: document.querySelector('#habitsSetupModal .setup-footer').hidden})")
+        check(ok and st == {"tabs": ["tabProjects", "tabReports"], "view": "projects", "gear": False, "habitSections": True, "footer": True},
+              f"turning it off hides Calendario and the habit sections of Configuración ({st})")
         _, me = api.call("GET", "/api/auth/me", expect=200)
         check(me["modules"]["habits"]["enabled"] is False, "saved in the account")
-        await b.js("document.querySelector('#profileModal [data-close-modal]').click()")
+        await b.js("document.getElementById('settingsClose').click()")
         await asyncio.sleep(0.3)
 
         # Reportes sin la tarjeta de hábitos, y sin pedirla
@@ -73,7 +75,7 @@ async def main():
         # Encender: vuelve el Calendario con sus datos, y la tarjeta de Reportes
         await toggle_habits()
         ok = await b.wait_for("!document.getElementById('tabCalendar').hidden")
-        await b.js("document.querySelector('#profileModal [data-close-modal]').click()")
+        await b.js("document.getElementById('settingsClose').click()")
         await b.wait_for(f"{CARD_TITLES}.includes('Hábitos')")
         check(ok and "Hábitos" in await b.js(CARD_TITLES), "turning it on brings back the tab and the habits card")
         await b.js("document.getElementById('tabCalendar').click()")
@@ -86,7 +88,7 @@ async def main():
         # Cerrar sesión con el módulo apagado deja el Calendario para quien entre
         await toggle_habits()
         await b.wait_for("document.getElementById('tabCalendar').hidden")
-        await b.js("document.querySelector('#profileModal [data-close-modal]').click()")
+        await b.js("document.getElementById('settingsClose').click()")
         await b.js("handleLogout()")
         await asyncio.sleep(1.0)
         st = await b.js("({hidden: document.getElementById('tabCalendar').hidden, view: currentViewId})")

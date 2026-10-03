@@ -102,7 +102,8 @@ habit-tracker/
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── notifications.js       # La campanita de avisos: sesiones por confirmar
-├── workdays.js            # Mi perfil › Calendario de trabajo (huso, país, festivos, días libres)
+├── workdays.js            # Configuración › Días festivos y huso horario; festivos del calendario (🎉)
+├── settings.js            # ⚙️ Configuración: secciones plegables, cuáles quedan abiertas, pomodoro
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -348,7 +349,9 @@ Lo que no se ve en Swagger:
   los días `libre` del usuario (`user_days`) y sin sus vacaciones (`streak_pauses`); los días
   de descanso de los hábitos no cuentan. El huso (`user_settings.timezone`, IANA) y el país
   viven en `user_settings`; sin fila, `America/Mexico_City` y MX, y el frontend
-  (`workdays.js`) guarda el huso del navegador la primera vez. Los festivos los trae
+  (`workdays.js`) guarda el huso del navegador la primera vez. Los festivos que se
+  **descansan** (oficiales sin marca `laboral` y días `libre`, `holiday_rest_days()`)
+  congelan la racha como los de descanso, y el calendario les pone 🎉. Los festivos los trae
   `backend/holidays.py` de **Nager.Date** (`date.nager.at/api/v3/PublicHolidays/{año}/{país}`,
   solo nacionales, con `localName` en español) y quedan en `holiday_cache` por país y año; un
   fallo no se guarda y no se reintenta en una hora. `GET /api/metrics` (`backend/metrics.py`)
@@ -399,7 +402,7 @@ Lo que no se ve en Swagger:
   `#viewsViewport` (con `overflow: hidden` sigue siendo desplazable por código) y la vista
   queda corrida. Desplazar con `window.scrollTo()`. `projects.js` además devuelve el
   viewport a `scrollLeft = 0` si algo lo mueve.
-  En la UI: la casilla **Maker** de Mi perfil solo se ve con `allowed`, y la sección
+  En la UI: la casilla **Maker** de Configuración › Módulos solo se ve con `allowed`, y la sección
   Costeo de la ficha (`renderCosting()` en `project-overview.js`) guarda cada campo al
   cambiarlo y solo repinta el resultado, para no quitarle el foco al siguiente. El dinero
   se formatea con `Intl.NumberFormat` en la moneda del proyecto; `CURRENCIES` está en
@@ -434,7 +437,8 @@ orden importa**:
 <script src="project-overview.js"></script> <!-- la ficha: usa barList y summaryStat de reports.js -->
 <script src="costs.js"></script>    <!-- pestaña Costos: usa formatMoney y CURRENCIES de project-overview.js -->
 <script src="notifications.js"></script> <!-- la campanita: usa openLogTimeModal de pomodoro.js y el() de reports.js -->
-<script src="workdays.js"></script>     <!-- calendario de trabajo en Mi perfil: usa el() de reports.js -->
+<script src="workdays.js"></script>     <!-- festivos y huso en Configuración: usa el() de reports.js -->
+<script src="settings.js"></script>     <!-- ⚙️ Configuración: usa habits.js (el modal) y workdays.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -450,7 +454,7 @@ Todo corre en el scope global compartido. Cuidado con colisiones de nombres entr
 | `window.appInitHooks` | Al final de `initApp()`, siempre (haya sesión o no) |
 | `window.appDataHooks` | Cuando el usuario queda autenticado: login, registro y reload con token |
 | `window.appLogoutHooks` | **Primera** acción de `handleLogout()`, con el token todavía vivo. Arrancan todos a la vez (no en serie): solo el código **hasta su primer `await`** corre con token, así que el POST de despedida va antes de cualquier `await` |
-| `window.modulesChangedHooks` | Tras encender o apagar un módulo en **Mi perfil**, con `currentUser.modules` ya actualizado. Al entrar no corren: cada módulo mira `moduleEnabled(nombre)` en su propio hook de datos |
+| `window.modulesChangedHooks` | Tras encender o apagar un módulo en **Configuración › Módulos**, con `currentUser.modules` ya actualizado. Al entrar no corren: cada módulo mira `moduleEnabled(nombre)` en su propio hook de datos |
 
 ```js
 // Al final del archivo nuevo:
@@ -504,10 +508,15 @@ escribir `fetch()` crudo nuevo.
 `.modal-content` tiene `max-height: 90vh` y `overflow-y: auto`. **No quitarlos:**
 sin tope, un modal más alto que la pantalla se recorta arriba y abajo sin barra de
 scroll, y sus botones quedan inalcanzables — el `.modal` que lo envuelve es
-`position: fixed` y centrado, así que la página no llega a él. El de hábitos va un
-paso más allá: `.setup-modal` es una columna flex con el cuerpo en `.setup-scroll`
-(que necesita `min-height: 0` para poder encoger) y el pie en `.setup-footer`, para
-que "Guardar Hábitos" no se vaya con el scroll.
+`position: fixed` y centrado, así que la página no llega a él. El de ⚙️ Configuración
+(`#habitsSetupModal`) va un paso más allá: `.setup-modal` es una columna flex con el
+cuerpo en `.setup-scroll` (que necesita `min-height: 0` para poder encoger) y el pie en
+`.setup-footer`, para que "Guardar Hábitos" no se vaya con el scroll. Su cuerpo son
+`<details class="settings-section" data-section="…">`: los de hábitos llevan
+`data-habits-only` (se ocultan con el módulo apagado) y el pie solo se ve con Hábitos
+abierto. Lo llena `showHabitsSetup()` (`habits.js`), que al final llama a
+`onSettingsOpened()` (`settings.js`); para abrir en una sección, `openSettings(nombre)`.
+Mi perfil quedó solo con alias, nombre y apellido.
 
 Dos modales se abren **encima** de otro y devuelven una promesa en vez de cerrarse
 solos: `#confirmModal` (`confirmDialog()`) y `#emojiPickerModal` (`pickEmoji()`).
@@ -593,8 +602,10 @@ del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar 
 `costs_project` (proyecto elegido en la hoja de Costos; se borra al cerrar sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
-el que se preguntó "¿Olvidaste anotar?") y `text_size` (`large` | `xlarge`, en **Mi perfil › En este
-dispositivo**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
+el que se preguntó "¿Olvidaste anotar?"), `settings_open` (secciones de ⚙️ Configuración
+desplegadas, de este dispositivo), `work_calendar_cache` (huso, país y festivos por año, para
+no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
+`text_size` (`large` | `xlarge`, en **Configuración › Pantalla**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
 los tamaños de texto nuevos van en `rem`, no en `px`—; el script inline del `<head>` lo
 aplica junto con el tema, y sobrevive al cierre de sesión).
 
@@ -660,9 +671,8 @@ la misma del historial de la tarjeta.
 
 **Duraciones del pomodoro por usuario.** `users.pomodoro_focus_seconds`,
 `pomodoro_short_break_seconds` y `pomodoro_long_break_seconds` (NULL = 25 / 5 / 15 min), en
-minutos en **Organizar › Configurar pomodoro** (segunda página del modal, que se desliza:
-`showConfigPage()` en `board.js`; la página que no se ve se pliega con `.collapsed`). No van
-en el perfil: solo las usa el tiempo de las tarjetas. `pomoDuration(mode)` las lee de `currentUser` solo al
+minutos en **⚙️ Configuración › Pomodoro** (`settings.js`); el botón de Organizar cierra
+ese modal y abre la sección con `openSettings('pomodoro')`. `pomoDuration(mode)` las lee de `currentUser` solo al
 **arrancar** un timer: el que ya corre guarda su `plannedSeconds` y termina con esa
 duración aunque cambie el ajuste. La API acepta de 60 s a 4 h; `null` vuelve al valor por defecto.
 

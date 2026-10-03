@@ -401,6 +401,13 @@ function showProfile() {
         firstName: currentUser.first_name || '',
         lastName: currentUser.last_name || ''
     };
+    showModal(profileModal);
+}
+
+// Las casillas de ⚙️ Configuración › Módulos, al día con la cuenta (settings.js
+// las sincroniza al abrir)
+function syncModuleSettings() {
+    if (!currentUser) return;
     moduleError.classList.add('hidden');
     moduleStatus.hidden = true;
     moduleInputs().forEach(input => {
@@ -409,7 +416,6 @@ function showProfile() {
     // Un módulo sin acceso para esta cuenta no se ofrece
     const maker = currentUser.modules && currentUser.modules.maker;
     document.getElementById('moduleMakerOption').hidden = !(maker && maker.allowed);
-    showModal(profileModal);
 }
 
 function moduleInputs() {

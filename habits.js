@@ -32,6 +32,8 @@ let initialSelectedHabits = [];
 // ============================================
 
 let currentDate = new Date();
+// Festivos que se descansan del año a la vista: fecha -> nombre (renderCalendar)
+let holidayNames = new Map();
 let habitsData = {};
 let selectedDate = null;
 
@@ -363,9 +365,16 @@ async function showHabitsSetup() {
     updateColorWarning();
     await loadPauses();
 
+    // La primera vez, sin hábitos, es la bienvenida: con Hábitos desplegado
+    const welcome = moduleEnabled('habits') && HABITS.length === 0;
+    document.getElementById('setupTitle').textContent = welcome ? '¡Bienvenido! 👋' : 'Configuración';
+    document.getElementById('setupWelcome').classList.toggle('hidden', !welcome);
+
     // Siempre al final: openHabitsSetup() toma la foto del dirty-check, así que
     // tiene que ver la lista ya pintada.
     openHabitsSetup();
+    // Secciones abiertas, pomodoro, módulos (settings.js, que carga después)
+    if (typeof onSettingsOpened === 'function') onSettingsOpened({ welcome });
 }
 
 // ============================================
@@ -530,12 +539,9 @@ function getHabitsSetupState() {
         habits.push(`${row.dataset.habitKey}:${colorInput ? colorInput.value : ''}:${getRowIcon(row)}`);
     });
 
-    const restDays = [];
-    habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked').forEach(cb => {
-        restDays.push(cb.value);
-    });
-
-    return JSON.stringify({ habits: habits.sort(), restDays: restDays.sort() });
+    // Los días de descanso se guardan al tocarlos (saveRestDays): no son parte
+    // de "Guardar Hábitos" ni de su pregunta al salir
+    return JSON.stringify({ habits: habits.sort() });
 }
 
 // Toma la foto y muestra. showHabitsSetup() tiene varias salidas (la de éxito
@@ -556,7 +562,7 @@ function isHabitsSetupDirty() {
 // hideHabitsSetup() directo: preguntarles si quieren descartar sería mentira.
 async function closeHabitsSetup() {
     if (isHabitsSetupDirty()) {
-        const ok = await confirmDialog('Tienes cambios sin guardar en tus hábitos y días de descanso. ¿Seguro que quieres salir?', {
+        const ok = await confirmDialog('Tienes cambios sin guardar en tus hábitos. ¿Seguro que quieres salir?', {
             confirmLabel: 'Salir sin guardar',
             cancelLabel: 'Seguir editando',
             danger: true
@@ -611,12 +617,6 @@ async function handleSaveHabits() {
 
     localStorage.setItem('user_habits', JSON.stringify(selectedKeys));
 
-    const selectedRestDays = [];
-    habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked').forEach(cb => {
-        selectedRestDays.push(parseInt(cb.value, 10));
-    });
-    selectedRestDays.sort((a, b) => a - b);
-
     if (!getToken()) {
         // Sin sesión no hay a quién atribuir nada; al menos la vista local
         // queda coherente con lo elegido.
@@ -631,16 +631,6 @@ async function handleSaveHabits() {
         hideHabitsSetup();
         habitsSetupInitialState = null;
         return;
-    }
-
-    try {
-        currentUser = await apiFetch('/api/auth/me', {
-            method: 'PATCH',
-            json: { rest_days: selectedRestDays }
-        });
-        updateUserBar();
-    } catch (error) {
-        console.error('Error al guardar días de descanso:', error);
     }
 
     try {
@@ -776,6 +766,24 @@ habitSuggestions.addEventListener('click', (event) => {
 saveHabitsBtn.addEventListener('click', handleSaveHabits);
 
 settingsBtn.addEventListener('click', showHabitsSetup);
+
+// Días de descanso: se guardan al tocarlos, con la racha y el calendario al día
+const restDaysStatus = document.getElementById('restDaysStatus');
+document.getElementById('restDaysOptions').addEventListener('change', async () => {
+    const selected = [...habitsSetupModal.querySelectorAll('input[name="rest_day"]:checked')]
+        .map(cb => parseInt(cb.value, 10)).sort((a, b) => a - b);
+    restDaysStatus.textContent = 'Guardando…';
+    try {
+        currentUser = await apiFetch('/api/auth/me', { method: 'PATCH', json: { rest_days: selected } });
+    } catch (error) {
+        restDaysStatus.textContent = error.message || 'No se pudo guardar';
+        return;
+    }
+    restDaysStatus.textContent = 'Guardado ✓';
+    setTimeout(() => { restDaysStatus.textContent = ''; }, 2000);
+    await refreshStreakFromAPI();
+    renderCalendar();
+});
 
 
 // ============================================
@@ -1120,6 +1128,12 @@ function getMonthName(month) {
 }
 
 function renderCalendar() {
+    // Los festivos del año que se ve: de la caché de este dispositivo
+    // (workdays.js); si no están, se piden y se vuelve a pintar
+    holidayNames = typeof restedHolidaysFor === 'function'
+        ? restedHolidaysFor(currentDate.getFullYear(), renderCalendar)
+        : new Map();
+
     console.log('renderCalendar called', { daysGrid, habitsData });
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -1185,6 +1199,17 @@ function renderCalendar() {
             shield.className = 'day-shield';
             shield.textContent = '🛡️';
             dayCell.appendChild(shield);
+        }
+        // Festivo que se descansa (oficial o día libre propio): congela la racha
+        const holiday = holidayNames.get(dateKey);
+        if (holiday) {
+            dayCell.classList.add('holiday');
+            if (!dayCell.title) dayCell.title = `${holiday}: no corta la racha`;
+            const mark = document.createElement('span');
+            mark.className = 'day-holiday';
+            mark.textContent = '🎉';
+            mark.setAttribute('aria-label', holiday);
+            dayCell.appendChild(mark);
         }
         
         // Número del día
@@ -1418,6 +1443,8 @@ function renderPopoverFooter(dateKey, doneCount, total) {
         state = 'Día de descanso';
     } else if (streakInfo && streakInfo.pausedDays.has(dateKey) && doneCount === 0) {
         state = '🏖️ Vacaciones';
+    } else if (holidayNames.has(dateKey)) {
+        state = `🎉 ${holidayNames.get(dateKey)}`;
     }
     document.getElementById('popoverState').textContent = state;
 }
@@ -1758,7 +1785,8 @@ let habitsLoaded = false;
 async function applyHabitsModule() {
     const on = moduleEnabled('habits');
     setViewVisible('calendar', on);
-    settingsBtn.hidden = !on;
+    // El ⚙️ sigue: Configuración tiene más que hábitos. Se ocultan sus secciones.
+    habitsSetupModal.querySelectorAll('[data-habits-only]').forEach(section => { section.hidden = !on; });
     if (on && !habitsLoaded) {
         await loadHabitDefinitionsFromAPI();
         await loadHabitsFromAPI();
@@ -1791,7 +1819,7 @@ function clearHabitsState() {
     habitsData = {};
     habitsLoaded = false;
     setViewVisible('calendar', true);
-    settingsBtn.hidden = false;
+    habitsSetupModal.querySelectorAll('[data-habits-only]').forEach(section => { section.hidden = false; });
 }
 
 window.appDataHooks.push(loadHabitsModule);

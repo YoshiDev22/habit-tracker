@@ -1184,6 +1184,15 @@ body.has-pomodoro-bar {
     line-height: 1;
 }
 
+/* Festivo que se descansa: congela la racha, como un día de descanso */
+.day-holiday {
+    position: absolute;
+    top: 2px;
+    left: 3px;
+    font-size: 0.6rem;
+    line-height: 1;
+}
+
 .missed-day-modal {
     max-width: 420px;
     text-align: left;
@@ -1674,6 +1683,9 @@ body.has-pomodoro-bar {
        que el scroll no aparecería nunca. */
     min-height: 0;
     overflow-y: auto;
+    /* Solo vertical: un ancho de más (los controles nativos de color) no debe
+       abrir una barra horizontal */
+    overflow-x: hidden;
 }
 
 .setup-footer {
@@ -2139,22 +2151,6 @@ body.has-pomodoro-bar {
     background: var(--bg-surface);
     color: var(--text-primary);
     box-shadow: var(--shadow-sm);
-}
-
-.device-settings {
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-color);
-    text-align: left;
-}
-
-.device-settings-title {
-    margin-bottom: 10px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-muted);
 }
 
 .device-setting-row {
@@ -4635,41 +4631,6 @@ button.day-log-date:focus-visible {
     padding: 8px 18px;
 }
 
-/* Organizar › Pomodoro: dos páginas lado a lado que se deslizan (board.js) */
-.config-pages {
-    overflow: hidden;
-}
-
-.config-track {
-    display: flex;
-    align-items: flex-start;
-    transition: transform 0.3s ease;
-}
-
-.config-track.no-anim {
-    transition: none;
-}
-
-.config-track.show-pomo {
-    transform: translateX(-100%);
-}
-
-.config-page {
-    flex: 0 0 100%;
-    min-width: 0;
-}
-
-.config-page.collapsed {
-    height: 0;
-    overflow: hidden;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .config-track {
-        transition: none;
-    }
-}
-
 .config-pomo-open {
     display: flex;
     align-items: center;
@@ -5397,12 +5358,59 @@ button.day-log-date:focus-visible {
 }
 
 /* ============================================
-   Calendario de trabajo, en Mi perfil (workdays.js)
+   ⚙️ Configuración: secciones que se despliegan (settings.js)
    ============================================ */
 
-.work-calendar summary {
-    cursor: pointer;
+.settings-section {
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
 }
+
+.settings-section > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 2px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    list-style: none;
+}
+
+.settings-section > summary::-webkit-details-marker {
+    display: none;
+}
+
+.settings-section > summary::after {
+    content: '›';
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.settings-section[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+.settings-body {
+    padding: 0 2px 16px;
+}
+
+.work-refresh {
+    margin-top: 10px;
+}
+
+.profile-settings-hint {
+    margin-top: 16px;
+    text-align: center;
+}
+
+/* ============================================
+   Días festivos y huso horario (workdays.js)
+   ============================================ */
 
 .work-calendar-row {
     display: flex;

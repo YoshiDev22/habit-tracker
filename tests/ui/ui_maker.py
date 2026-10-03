@@ -40,8 +40,9 @@ async def main():
         results.append(("OK  " if cond else "FAIL") + " " + label)
 
     async def open_profile():
-        await b.js("document.getElementById('userEmail').click()")
-        await asyncio.sleep(0.4)
+        # Los módulos viven en ⚙️ Configuración
+        await b.js("openSettings('modules')")
+        await b.wait_for("!document.getElementById('habitsSetupModal').classList.contains('hidden')")
 
     async def open_overview():
         await b.js("document.getElementById('tabProjects').click()")
@@ -60,7 +61,7 @@ async def main():
         await open_profile()
         check(not await b.js(MAKER_SHOWN), "no Maker checkbox without access")
         check(await b.js("document.getElementById('planBadge').hidden"), "no MKR badge without the plan")
-        await b.js("document.querySelector('#profileModal [data-close-modal]').click()")
+        await b.js("document.getElementById('settingsClose').click()")
         await open_overview()
         check(not await b.js("!!document.querySelector('.costing-card')"), "no costing in the overview without the plan")
         await b.js("document.getElementById('closeOverviewBtn').click()")
@@ -77,8 +78,8 @@ async def main():
         check(me["modules"]["maker"]["enabled"], "turning it on is saved in the account")
         await b.wait_for("!document.getElementById('moduleStatus').hidden")
         status = await b.js("document.getElementById('moduleStatus').textContent")
-        check("ficha de un proyecto" in status, f"the profile says where the new feature is ({status})")
-        await b.js("document.querySelector('#profileModal [data-close-modal]').click()")
+        check("ficha de un proyecto" in status, f"Configuración says where the new feature is ({status})")
+        await b.js("document.getElementById('settingsClose').click()")
         await asyncio.sleep(0.3)
 
         # La etiqueta MKR, pegada al nombre y un poco abajo (subíndice)

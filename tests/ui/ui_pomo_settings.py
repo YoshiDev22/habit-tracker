@@ -1,4 +1,4 @@
-"""Pomodoro durations from the profile; a running timer keeps the one it started with."""
+"""Pomodoro durations in ⚙️ Configuración › Pomodoro; a running timer keeps the one it started with."""
 import asyncio
 import json
 import sys
@@ -8,6 +8,7 @@ from cdp import Browser
 from ui_board import seed, CLOSE_WELCOME, BASE
 
 TITLE = "Idea suelta sin proyecto"
+SETTINGS_OPEN = "!document.getElementById('habitsSetupModal').classList.contains('hidden')"
 results = []
 
 
@@ -28,13 +29,14 @@ async def main():
         return r
 
     async def save_settings(focus, short, long):
-        await js("document.getElementById('boardConfigBtn').click()", wait=1.0)
-        await js("document.getElementById('configPomoOpen').click()", wait=0.6)
+        await js("openSettings('pomodoro')")
+        await b.wait_for(SETTINGS_OPEN)
         await js(f"document.getElementById('configPomoFocus').value = '{focus}';"
                  f"document.getElementById('configPomoShort').value = '{short}';"
                  f"document.getElementById('configPomoLong').value = '{long}';"
-                 "document.querySelector('#configPomoForm .submit-btn').click()", wait=1.2)
-        await js("document.getElementById('closeBoardConfigBtn').click()", wait=0.8)
+                 "document.querySelector('#configPomoForm .submit-btn').click()")
+        await b.wait_for("document.getElementById('configPomoStatus').textContent === 'Guardado ✓'")
+        await js("document.getElementById('settingsClose').click()", wait=0.5)
 
     try:
         await b.viewport(1280, 900)
@@ -50,23 +52,17 @@ async def main():
         check(not in_profile, "the profile no longer has the pomodoro fields")
         await js("closeProfileModal()", wait=0.3)
 
-        # Organizar -> Configurar pomodoro slides to its page, placeholders = defaults
+        # Organizar -> Configurar pomodoro lleva a Configuración › Pomodoro, placeholders = defaults
         await js("document.getElementById('boardConfigBtn').click()", wait=1.0)
-        await js("document.getElementById('configPomoOpen').click()", wait=0.6)
-        st = await js("""({slid: document.getElementById('configTrack').classList.contains('show-pomo'),
-            mainFolded: document.getElementById('configMainPage').classList.contains('collapsed'),
-            open: !document.getElementById('boardConfigModal').classList.contains('hidden'),
-            fields: ['configPomoFocus','configPomoShort','configPomoLong'].map(id => [document.getElementById(id).value, document.getElementById(id).placeholder]),
-            focused: document.activeElement.id})""")
-        check(st["slid"] and st["mainFolded"] and st["open"] and st["focused"] == "configPomoFocus",
-              f"slides to the pomodoro page without closing anything ({st})")
+        await js("document.getElementById('configPomoOpen').click()")
+        await b.wait_for(SETTINGS_OPEN)
+        st = await js("""({organizar: !document.getElementById('boardConfigModal').classList.contains('hidden'),
+            pomoOpen: document.querySelector('#habitsSetupModal [data-section="pomodoro"]').open,
+            fields: ['configPomoFocus','configPomoShort','configPomoLong'].map(id => [document.getElementById(id).value, document.getElementById(id).placeholder])})""")
+        check(not st["organizar"] and st["pomoOpen"], f"Organizar's button opens Configuración › Pomodoro ({st})")
         check(st["fields"] == [["", "25"], ["", "5"], ["", "15"]], f"defaults as placeholders ({st['fields']})")
         await b.shot("config_pomo", full=False)
-        # Escape goes back to Organizar instead of closing
-        await js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))", wait=0.6)
-        st = await js("({slid: document.getElementById('configTrack').classList.contains('show-pomo'), open: !document.getElementById('boardConfigModal').classList.contains('hidden')})")
-        check(st == {"slid": False, "open": True}, f"Escape goes back to Organizar ({st})")
-        await js("document.getElementById('closeBoardConfigBtn').click()", wait=0.6)
+        await js("document.getElementById('settingsClose').click()", wait=0.5)
 
         # A pomodoro started with the default keeps it after the setting changes
         await js(f"startTimerForTask({task['project_id']}, {task['id']}, 'focus', {json.dumps(TITLE)})", wait=0.5)
@@ -95,19 +91,18 @@ async def main():
         check(st == 3000, f"after a reload the running pomodoro still has 50 min ({st})")
         await js("stopTimer({ skipConfirm: true })", wait=1.0)
 
-        # Out of range is refused, and saving returns to Organizar with a confirmation
-        await js("document.getElementById('boardConfigBtn').click()", wait=1.0)
-        await js("document.getElementById('configPomoOpen').click()", wait=0.6)
+        # Out of range is refused, and saving confirms in place
+        await js("openSettings('pomodoro')")
+        await b.wait_for(SETTINGS_OPEN)
         await js("document.getElementById('configPomoFocus').value = '0'; document.getElementById('configPomoForm').requestSubmit()", wait=0.5)
         err = await js("!document.getElementById('configPomoError').classList.contains('hidden') || !document.getElementById('configPomoFocus').checkValidity()")
         check(err, "0 minutes is refused")
         await js("document.getElementById('configPomoFocus').value = '50'; document.querySelector('#configPomoForm .submit-btn').click()", wait=1.2)
-        st = await js("({slid: document.getElementById('configTrack').classList.contains('show-pomo'), status: document.getElementById('configPomoStatus').textContent})")
-        check(st == {"slid": False, "status": "Guardado ✓"}, f"saving slides back with 'Guardado ✓' ({st})")
-        await js("document.getElementById('closeBoardConfigBtn').click()", wait=0.6)
+        st = await js("({open: !document.getElementById('habitsSetupModal').classList.contains('hidden'), status: document.getElementById('configPomoStatus').textContent})")
+        check(st == {"open": True, "status": "Guardado ✓"}, f"saving says 'Guardado ✓' and stays open ({st})")
+        await js("document.getElementById('settingsClose').click()", wait=0.5)
 
         # Clearing the fields goes back to the defaults
-        await js("closeProfileModal()", wait=0.3)
         await save_settings("", "", "")
         _, me = call("GET", "/api/auth/me", expect=200)
         check(me["pomodoro_focus_seconds"] is None and me["pomodoro_long_break_seconds"] is None, "empty fields reset to the defaults")

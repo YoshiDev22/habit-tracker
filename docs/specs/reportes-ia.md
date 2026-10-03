@@ -56,7 +56,7 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    `backend/modules.py`, sin acceso por defecto; lo da `scripts/grant_module.py --module ai`
    a las cuentas que Yoshio elija. Todo endpoint que llame al proveedor empieza con
    `require_module(..., "ai")`: sin acceso, 403, por cualquier enlace o llamada directa a
-   la API. Con acceso, el usuario la enciende o apaga en *Mi perfil*.
+   la API. Con acceso, el usuario la enciende o apaga en *⚙️ Configuración › Módulos*.
 
    **Claves propias de cada usuario: no, por ahora.** Guardarlas obliga a tenerlas en la
    base: aunque se cifren, el servidor tiene que poder descifrarlas para usarlas, así que el
@@ -80,7 +80,7 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    puente, vacaciones) lo agrega cada quien como día libre. Los festivos oficiales salen de
    **Nager.Date** (`https://date.nager.at/api/v3/PublicHolidays/{año}/{país}`, gratis y sin
    clave; trae el nombre en español en `localName`; probado el 2026-10-03) y se guardan en
-   caché por año. Si el usuario trabaja un festivo, lo marca "Lo trabajo". Google Calendar
+   caché por año. Si el usuario trabaja un festivo, le quita la casilla "Descanso". Google Calendar
    también publica festivos, pero pide una clave de API: queda como alternativa.
 
 4. **PDF lo más parecido al Word de hoy**, generado por el navegador: una vista del reporte
@@ -115,7 +115,7 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
      nocturnas (después de las 23 h, hora local), horas en fin de semana, tiempo por
      proyecto, tarea y etiqueta, horario habitual y la lista de lo que hay que revisar.
    - Necesita el huso horario y el país de cada usuario, y los festivos.
-   - Mi perfil › *Calendario de trabajo*: huso, país, festivos ("Lo trabajo") y días
+   - ⚙️ Configuración › *Días festivos y huso horario*: huso, país, festivos ("Descanso") y días
      libres propios.
    - La pestaña Reportes sigue con sus cálculos de siempre: pasará a leer de aquí cuando
      la vista de reportes guardados (Fase 4) use las mismas cifras.
@@ -129,7 +129,7 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
      cada proyecto e impresión a PDF.
    - El texto sale de reglas.
 5. **IA para el texto.** `backend/ai.py` con la función de llamada única, configurada por
-   `backend/.env`, y el módulo `ai` con acceso. En *Mi perfil*, quien tiene acceso la
+   `backend/.env`, y el módulo `ai` con acceso. En *⚙️ Configuración › Módulos*, quien tiene acceso la
    enciende o apaga y ve el JSON exacto que se enviaría. Si el proveedor falla o se pasa del límite diario, el texto
    sale de las reglas. Respuesta en JSON validado, y se rechaza un texto que cite números
    que no venían en las métricas.
@@ -160,9 +160,9 @@ proveedores van en `backend/.env`, nunca en el repo ni en la base.
 - Solo las cuentas a las que Yoshio da acceso (`grant_module.py --module ai`) pueden usar
   la IA, y está apagada hasta que el usuario la enciende. El servidor lo comprueba en cada
   llamada (403), no solo la pantalla.
-- *Mi perfil* muestra el JSON exacto que se enviaría. Incluye títulos de tareas y nombres de
+- *⚙️ Configuración* muestra el JSON exacto que se enviaría. Incluye títulos de tareas y nombres de
   proyectos: son texto personal.
-- Si la instancia usa Gemini en la capa gratuita, *Mi perfil* avisa que Google usa ese
+- Si la instancia usa Gemini en la capa gratuita, *⚙️ Configuración* avisa que Google usa ese
   contenido para mejorar sus productos.
 - Límite de llamadas por usuario y día; si se pasa, el texto sale de las reglas.
 

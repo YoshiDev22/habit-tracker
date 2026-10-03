@@ -82,9 +82,9 @@ idempotentes y límite de intentos en login y registro.
 
 ### Fase 1 — Interruptor de módulos + ficha de proyecto (solo lectura) ✅ (1.17.0)
 
-- **Módulos por usuario** (`backend/modules.py`, tabla `user_modules`): en **Mi perfil ›
-  Módulos de tu cuenta**, la casilla "Hábitos y metas". Apagarla oculta la pestaña
-  Calendario, el ⚙️ de hábitos y su tarjeta de Reportes, y no pide nada de hábitos. El
+- **Módulos por usuario** (`backend/modules.py`, tabla `user_modules`): en **⚙️ Configuración ›
+  Módulos**, la casilla "Hábitos y metas". Apagarla oculta la pestaña
+  Calendario, las secciones de hábitos de Configuración y su tarjeta de Reportes, y no pide nada de hábitos. El
   módulo `maker` ya existe con acceso por cuenta (`allowed`), y la API responde 403 si se
   enciende sin él; **su casilla llega con la Fase 2**, cuando haga algo.
 - **Ficha de proyecto** (`GET /api/projects/{id}/overview`, `project-overview.js`), en un
@@ -105,7 +105,7 @@ idempotentes y límite de intentos en login y registro.
   presupuesto, su avance en dinero y en horas, con barras (en rojo al pasarse). Las tareas
   hechas contra totales ya estaban en el Resumen de la ficha.
 - Con presupuesto y sin tiempo, la etiqueta **Cotización**. "Sin asignar" no se costea.
-- La casilla **Maker** aparece en Mi perfil para las cuentas con acceso.
+- La casilla **Maker** aparece en ⚙️ Configuración › Módulos para las cuentas con acceso.
 
 ### Fase 3 — Gastos y materiales ✅ (1.19.0)
 

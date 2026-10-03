@@ -458,10 +458,155 @@
                 <div id="profileError" class="form-error hidden"></div>
                 <button type="submit" class="submit-btn">Guardar</button>
             </form>
-            <!-- De la cuenta (viaja entre dispositivos), y se guarda al tocarlo,
-                 sin pasar por Guardar. Apagar un módulo solo lo oculta. -->
-            <div class="device-settings" id="moduleSettings">
-                <p class="device-settings-title">Módulos de tu cuenta</p>
+            <p class="module-hint profile-settings-hint">Módulos, días festivos, pomodoro y tamaño del texto
+                están en <strong>⚙️ Configuración</strong>.</p>
+        </div>
+    </div>
+
+    <!-- Popup de Bienvenida / Configuración de Hábitos -->
+    <!-- ⚙️ Configuración (settings.js): todo lo que se ajusta, en secciones que se
+         despliegan. Recuerda en este dispositivo cuáles quedaron abiertas. La primera
+         vez, sin hábitos, se abre como bienvenida con Hábitos desplegado. Los hábitos
+         se guardan con su botón; lo demás, al tocarlo. -->
+    <div id="habitsSetupModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal">
+            <button class="modal-close" type="button" id="settingsClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="setupTitle">Configuración</h2>
+            <p class="setup-subtitle hidden" id="setupWelcome">Empieza por los hábitos que quieres seguir.</p>
+
+            <!-- Solo este bloque hace scroll: así el pie con Guardar Hábitos
+                 sigue visible por muchos hábitos que haya. -->
+            <div class="setup-scroll">
+                <details class="settings-section" data-section="habits" data-habits-only>
+                    <summary>Hábitos</summary>
+                    <div class="settings-body">
+                        <!-- Se llena desde el backend en showHabitsSetup(): aquí solo
+                             están los hábitos que sigues, no un catálogo. -->
+                        <div class="habits-options" id="habitsOptions"></div>
+                        <p class="empty-state hidden" id="habitsEmpty">
+                            Todavía no sigues ningún hábito. Añade uno de los sugeridos o escribe el tuyo.
+                        </p>
+
+                        <!-- El catálogo, separado de tu lista: solo aparece aquí lo que
+                             todavía no sigues. -->
+                        <div class="habit-add-area">
+                            <p class="setup-subtitle">Añadir un hábito:</p>
+                            <div class="habit-suggestions" id="habitSuggestions"></div>
+                            <div class="custom-habit-row">
+                                <span class="custom-habit-label">➕ Otro:</span>
+                                <button type="button" id="customHabitIconBtn" class="habit-emoji" title="Elegir emoji" aria-label="Elegir el emoji del hábito nuevo">🎯</button>
+                                <input type="text" id="customHabitInput" placeholder="Escribe tu hábito" maxlength="40">
+                                <input type="color" value="#95a5a6" id="customHabitColor" class="habit-color">
+                                <button type="button" id="addCustomHabitBtn" class="add-custom-btn" title="Añadir hábito">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Los archivados: a dónde va un hábito cuando lo desmarcas y
+                             guardas, y el único sitio desde donde se puede borrar. -->
+                        <details class="archived-habits" id="archivedHabits" hidden>
+                            <summary>Anteriores u ocultos (<span id="archivedCount">0</span>)</summary>
+                            <div class="archived-list" id="archivedHabitsList"></div>
+                        </details>
+                    </div>
+                </details>
+
+                <details class="settings-section" data-section="rest" data-habits-only>
+                    <summary>Días de descanso</summary>
+                    <div class="settings-body">
+                        <p class="module-hint">Cada semana, estos días congelan la racha: sin hábitos no la cortan ni suman. Se guarda al tocarlo.</p>
+                            <div class="rest-days-options" id="restDaysOptions">
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="rest_day" value="0">
+                                    <span>Lun</span>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="rest_day" value="1">
+                                    <span>Mar</span>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="rest_day" value="2">
+                                    <span>Mié</span>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="rest_day" value="3">
+                                    <span>Jue</span>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="rest_day" value="4">
+                                    <span>Vie</span>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="rest_day" value="5">
+                                    <span>Sáb</span>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="rest_day" value="6">
+                                    <span>Dom</span>
+                                </label>
+                            </div>
+                        <p class="config-pomo-status" id="restDaysStatus" role="status"></p>
+                    </div>
+                </details>
+
+                <!-- Vacaciones (habits.js, loadPauses): se guardan al momento. Hoy o
+                     hacia adelante; hasta 30 días. También cuentan como días no hábiles. -->
+                <details class="settings-section" data-section="vacations">
+                    <summary>Vacaciones</summary>
+                    <div class="settings-body">
+                        <p class="module-hint">Pausan la racha hasta 30 días, desde hoy o más adelante, y en los reportes no cuentan como días hábiles.</p>
+                        <ul class="pause-list" id="pauseList"></ul>
+                        <div class="pause-form">
+                            <label>Desde <input type="date" id="pauseStart"></label>
+                            <label>Hasta <input type="date" id="pauseEnd"></label>
+                            <button type="button" id="pauseAddBtn" class="submit-btn btn-neutral pause-add">Programar pausa</button>
+                        </div>
+                        <p class="form-error hidden" id="pauseError" role="alert"></p>
+                    </div>
+                </details>
+
+                <!-- Festivos y huso horario (workdays.js), van juntos: deciden qué días son
+                     hábiles y a qué hora local pasó cada sesión. Se guardan en este
+                     dispositivo; ↻ los vuelve a pedir. -->
+                <details class="settings-section work-calendar" data-section="holidays" id="workCalendar">
+                    <summary>Días festivos y huso horario</summary>
+                    <div class="settings-body">
+                        <div class="work-calendar-row">
+                    <label class="work-field">
+                        <span>Huso horario</span>
+                        <input type="text" id="workTimezone" list="workTimezoneList" maxlength="64" autocomplete="off">
+                        <datalist id="workTimezoneList"></datalist>
+                    </label>
+                    <label class="work-field work-country">
+                        <span>País</span>
+                        <input type="text" id="workCountry" maxlength="2" autocomplete="off" placeholder="MX">
+                    </label>
+                </div>
+                <p class="module-hint">Días hábiles: de lunes a viernes, sin festivos oficiales de tu país, sin
+                    tus vacaciones y sin tus días libres. Los festivos que descansas tampoco cortan la racha.</p>
+                <div class="work-year">
+                    <button type="button" class="nav-btn" id="workYearPrev" aria-label="Año anterior">&lt;</button>
+                    <strong id="workYearLabel"></strong>
+                    <button type="button" class="nav-btn" id="workYearNext" aria-label="Año siguiente">&gt;</button>
+                </div>
+                <p class="work-subtitle">Festivos oficiales</p>
+                <ul class="work-days" id="workOfficialDays"></ul>
+                <p class="work-subtitle">Tus días libres</p>
+                <ul class="work-days" id="workOwnDays"></ul>
+                <form class="work-add" id="workAddForm">
+                    <input type="date" id="workAddDate" required aria-label="Fecha del día libre">
+                    <input type="text" id="workAddName" maxlength="80" placeholder="Nombre (opcional)" aria-label="Nombre del día libre">
+                    <button type="submit" class="submit-btn">Agregar</button>
+                </form>
+                <div id="workCalendarError" class="form-error hidden"></div>
+                        <button type="button" class="link-btn work-refresh" id="workRefresh">↻ Actualizar festivos</button>
+                    </div>
+                </details>
+
+                <details class="settings-section" data-section="modules">
+                    <summary>Módulos</summary>
+                    <div class="settings-body">
+                        <div id="moduleSettings">
                 <label class="module-option">
                     <input type="checkbox" id="moduleHabits" data-module="habits">
                     <span class="module-text">
@@ -480,44 +625,33 @@
                 <p id="moduleStatus" class="module-status" role="status" hidden></p>
                 <div id="moduleError" class="form-error hidden"></div>
             </div>
-            <!-- Calendario de trabajo (workdays.js): huso horario, país y días no
-                 laborables. Lo usan las métricas y los reportes. Se guarda al tocarlo. -->
-            <details class="device-settings work-calendar" id="workCalendar">
-                <summary class="device-settings-title">Calendario de trabajo</summary>
-                <div class="work-calendar-row">
-                    <label class="work-field">
-                        <span>Huso horario</span>
-                        <input type="text" id="workTimezone" list="workTimezoneList" maxlength="64" autocomplete="off">
-                        <datalist id="workTimezoneList"></datalist>
-                    </label>
-                    <label class="work-field work-country">
-                        <span>País</span>
-                        <input type="text" id="workCountry" maxlength="2" autocomplete="off" placeholder="MX">
-                    </label>
-                </div>
-                <p class="module-hint">Días hábiles: de lunes a viernes, sin festivos oficiales de tu país, sin
-                    tus vacaciones y sin los días que marques aquí.</p>
-                <div class="work-year">
-                    <button type="button" class="nav-btn" id="workYearPrev" aria-label="Año anterior">&lt;</button>
-                    <strong id="workYearLabel"></strong>
-                    <button type="button" class="nav-btn" id="workYearNext" aria-label="Año siguiente">&gt;</button>
-                </div>
-                <p class="work-subtitle">Festivos oficiales</p>
-                <ul class="work-days" id="workOfficialDays"></ul>
-                <p class="work-subtitle">Tus días libres</p>
-                <ul class="work-days" id="workOwnDays"></ul>
-                <form class="work-add" id="workAddForm">
-                    <input type="date" id="workAddDate" required aria-label="Fecha del día libre">
-                    <input type="text" id="workAddName" maxlength="80" placeholder="Nombre (opcional)" aria-label="Nombre del día libre">
-                    <button type="submit" class="submit-btn">Agregar</button>
+                    </div>
+                </details>
+
+                <!-- Duraciones del pomodoro (settings.js), de la cuenta. Antes en
+                     Organizar, que ahora trae aquí. -->
+                <details class="settings-section" data-section="pomodoro">
+                    <summary>Pomodoro</summary>
+                    <div class="settings-body">
+                        <p class="config-hint">En minutos. Vacío = el valor por defecto. Un pomodoro que ya está corriendo termina con la duración con la que empezó.</p>
+                <form id="configPomoForm" class="pomo-settings">
+                    <label>Enfoque <input type="number" id="configPomoFocus" min="1" max="240" step="1" inputmode="numeric" placeholder="25"></label>
+                    <label>Descanso corto <input type="number" id="configPomoShort" min="1" max="240" step="1" inputmode="numeric" placeholder="5"></label>
+                    <label>Descanso largo <input type="number" id="configPomoLong" min="1" max="240" step="1" inputmode="numeric" placeholder="15"></label>
+                    <div id="configPomoError" class="form-error hidden" role="alert"></div>
+                    <div class="pomo-settings-actions">
+                        <button type="submit" class="submit-btn">Guardar</button>
+                        <span class="config-pomo-status" id="configPomoStatus" role="status"></span>
+                    </div>
                 </form>
-                <div id="workCalendarError" class="form-error hidden"></div>
-            </details>
-            <!-- No es del perfil: se guarda en este dispositivo y se aplica al
-                 tocarlo, sin pasar por Guardar -->
-            <div class="device-settings">
-                <p class="device-settings-title">En este dispositivo</p>
-                <div class="device-setting-row">
+                    </div>
+                </details>
+
+                <!-- De este dispositivo: se aplica al tocarlo y sobrevive al cierre de sesión -->
+                <details class="settings-section" data-section="display">
+                    <summary>Pantalla</summary>
+                    <div class="settings-body">
+                        <div class="device-setting-row">
                     <span id="textSizeLabel">Tamaño del texto</span>
                     <div class="view-toggle" id="textSizeToggle" role="group" aria-labelledby="textSizeLabel">
                         <button type="button" class="view-toggle-btn" data-size="normal">Normal</button>
@@ -525,94 +659,9 @@
                         <button type="button" class="view-toggle-btn" data-size="xlarge">Muy grande</button>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Popup de Bienvenida / Configuración de Hábitos -->
-    <div id="habitsSetupModal" class="modal hidden">
-        <div class="modal-overlay"></div>
-        <div class="modal-content setup-modal">
-            <h2 class="modal-title">¡Bienvenido! 👋</h2>
-            <p class="setup-subtitle">Los hábitos que sigues:</p>
-
-            <!-- Solo este bloque hace scroll: así el pie con Guardar Hábitos
-                 sigue visible por muchos hábitos que haya. -->
-            <div class="setup-scroll">
-                <!-- Se llena desde el backend en showHabitsSetup(): aquí solo
-                     están los hábitos que sigues, no un catálogo. -->
-                <div class="habits-options" id="habitsOptions"></div>
-                <p class="empty-state hidden" id="habitsEmpty">
-                    Todavía no sigues ningún hábito. Añade uno de los sugeridos o escribe el tuyo.
-                </p>
-
-                <!-- El catálogo, separado de tu lista: solo aparece aquí lo que
-                     todavía no sigues. -->
-                <div class="habit-add-area">
-                    <p class="setup-subtitle">Añadir un hábito:</p>
-                    <div class="habit-suggestions" id="habitSuggestions"></div>
-                    <div class="custom-habit-row">
-                        <span class="custom-habit-label">➕ Otro:</span>
-                        <button type="button" id="customHabitIconBtn" class="habit-emoji" title="Elegir emoji" aria-label="Elegir el emoji del hábito nuevo">🎯</button>
-                        <input type="text" id="customHabitInput" placeholder="Escribe tu hábito" maxlength="40">
-                        <input type="color" value="#95a5a6" id="customHabitColor" class="habit-color">
-                        <button type="button" id="addCustomHabitBtn" class="add-custom-btn" title="Añadir hábito">+</button>
+                        <p class="module-hint">Se guarda en este dispositivo.</p>
                     </div>
-                </div>
-
-                <!-- Los archivados: a dónde va un hábito cuando lo desmarcas y
-                     guardas, y el único sitio desde donde se puede borrar. -->
-                <details class="archived-habits" id="archivedHabits" hidden>
-                    <summary>Anteriores u ocultos (<span id="archivedCount">0</span>)</summary>
-                    <div class="archived-list" id="archivedHabitsList"></div>
                 </details>
-
-                <div class="rest-days-section">
-                    <p class="setup-subtitle" style="margin-bottom: 10px; margin-top: 16px;">Días de descanso semanal (congelan la racha):</p>
-                    <div class="rest-days-options" id="restDaysOptions">
-                        <label class="day-checkbox-label">
-                            <input type="checkbox" name="rest_day" value="0">
-                            <span>Lun</span>
-                        </label>
-                        <label class="day-checkbox-label">
-                            <input type="checkbox" name="rest_day" value="1">
-                            <span>Mar</span>
-                        </label>
-                        <label class="day-checkbox-label">
-                            <input type="checkbox" name="rest_day" value="2">
-                            <span>Mié</span>
-                        </label>
-                        <label class="day-checkbox-label">
-                            <input type="checkbox" name="rest_day" value="3">
-                            <span>Jue</span>
-                        </label>
-                        <label class="day-checkbox-label">
-                            <input type="checkbox" name="rest_day" value="4">
-                            <span>Vie</span>
-                        </label>
-                        <label class="day-checkbox-label">
-                            <input type="checkbox" name="rest_day" value="5">
-                            <span>Sáb</span>
-                        </label>
-                        <label class="day-checkbox-label">
-                            <input type="checkbox" name="rest_day" value="6">
-                            <span>Dom</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Vacaciones (script.js, loadPauses): se guardan al momento, no con
-                     "Guardar Hábitos". Hoy o hacia adelante; hasta 30 días. -->
-                <div class="pause-section">
-                    <p class="setup-subtitle" style="margin-bottom: 6px; margin-top: 16px;">Vacaciones (pausan la racha, hasta 30 días):</p>
-                    <ul class="pause-list" id="pauseList"></ul>
-                    <div class="pause-form">
-                        <label>Desde <input type="date" id="pauseStart"></label>
-                        <label>Hasta <input type="date" id="pauseEnd"></label>
-                        <button type="button" id="pauseAddBtn" class="submit-btn btn-neutral pause-add">Programar pausa</button>
-                    </div>
-                    <p class="form-error hidden" id="pauseError" role="alert"></p>
-                </div>
             </div>
 
             <div class="setup-footer">
@@ -622,6 +671,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- Modal de Crear/Editar Proyecto -->
     <div id="projectModal" class="modal hidden">
@@ -956,15 +1006,10 @@
         <div class="modal-overlay"></div>
         <div class="modal-content config-modal" role="dialog" aria-modal="true" aria-labelledby="boardConfigTitle">
             <button class="modal-close" type="button" id="closeBoardConfigBtn" aria-label="Cerrar">&times;</button>
-            <!-- Dos páginas lado a lado: Organizar y, deslizando a la derecha, el
-                 pomodoro. Nada se abre ni se cierra al pasar de una a otra. -->
-            <div class="config-pages">
-            <div class="config-track" id="configTrack">
-            <div class="config-page" id="configMainPage">
             <h2 class="modal-title" id="boardConfigTitle">Organizar</h2>
+            <!-- Las duraciones viven en ⚙️ Configuración › Pomodoro: esto lleva ahí -->
             <button type="button" class="config-pomo-open" id="configPomoOpen">
                 <span>⏱ Configurar pomodoro</span>
-                <span class="config-pomo-status" id="configPomoStatus"></span>
                 <span aria-hidden="true">›</span>
             </button>
             <div id="boardConfigError" class="form-error hidden" role="alert"></div>
@@ -1019,25 +1064,6 @@
                     <button type="submit" aria-label="Crear etiqueta">+</button>
                 </form>
             </section>
-            </div>
-
-            <div class="config-page collapsed" id="configPomoPage" aria-labelledby="configPomoTitle">
-                <button type="button" class="config-back" id="configPomoBack">‹ Organizar</button>
-                <h2 class="modal-title" id="configPomoTitle">Pomodoro</h2>
-                <p class="config-hint">En minutos. Vacío = el valor por defecto. Un pomodoro que ya está corriendo termina con la duración con la que empezó.</p>
-                <form id="configPomoForm" class="pomo-settings">
-                    <label>Enfoque <input type="number" id="configPomoFocus" min="1" max="240" step="1" inputmode="numeric" placeholder="25"></label>
-                    <label>Descanso corto <input type="number" id="configPomoShort" min="1" max="240" step="1" inputmode="numeric" placeholder="5"></label>
-                    <label>Descanso largo <input type="number" id="configPomoLong" min="1" max="240" step="1" inputmode="numeric" placeholder="15"></label>
-                    <div id="configPomoError" class="form-error hidden" role="alert"></div>
-                    <div class="pomo-settings-actions">
-                        <button type="submit" class="submit-btn">Guardar</button>
-                        <button type="button" class="submit-btn btn-neutral" id="configPomoCancel">Cancelar</button>
-                    </div>
-                </form>
-            </div>
-            </div>
-            </div>
         </div>
     </div>
 
@@ -1107,5 +1133,6 @@
     <script src="costs.js"></script>
     <script src="notifications.js"></script>
     <script src="workdays.js"></script>
+    <script src="settings.js"></script>
 </body>
 </html>

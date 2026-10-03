@@ -11,6 +11,7 @@ Producción: https://habits.yoshidev22.com
 
 - [Entrar por primera vez](#entrar-por-primera-vez)
 - [Tu perfil y el alias](#tu-perfil-y-el-alias)
+- [Configuración](#configuración)
 - [Calendario de hábitos](#calendario-de-hábitos)
 - [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones)
 - [Tablero](#tablero)
@@ -54,31 +55,44 @@ modal de perfil.
 Guardar pregunta antes de aplicar el cambio, y si cierras el modal con algo editado sin
 guardar, también te pregunta si quieres salir de todos modos.
 
-### Módulos de tu cuenta
+## Configuración
 
-En *Mi perfil*, **Módulos de tu cuenta › Hábitos y metas** decide si usas la parte de
-hábitos. Si solo usas los tableros y el tiempo, apágala: desaparecen la pestaña
-Calendario, el ⚙️ de hábitos y la tarjeta de hábitos de Reportes. **No se borra nada**: al
-encenderla vuelven tus hábitos, tus días marcados y tu racha tal como estaban. Se guarda al
-tocarla, en tu cuenta, así que vale en todos tus dispositivos.
+El **⚙️** de la barra superior abre *Configuración*, que reúne todo lo que se ajusta, en secciones que se despliegan
+tocando su título. La app recuerda en ese dispositivo cuáles dejaste abiertas. Los hábitos
+se guardan con **Guardar Hábitos** (el botón solo se ve con *Hábitos* abierto); todo lo
+demás, al tocarlo.
 
-### Calendario de trabajo
+- **Hábitos**: cuáles sigues, sus colores y sus emojis (ver más abajo).
+- **Días de descanso**: los días de la semana que no cortan la racha.
+- **Vacaciones**: pausas de la racha (ver [Racha, escudos y vacaciones](#racha-escudos-y-vacaciones)).
+- **Días festivos y huso horario**: ver abajo.
+- **Módulos**: **Hábitos y metas** decide si usas la parte de hábitos. Si solo usas los
+  tableros y el tiempo, apágala: desaparecen la pestaña Calendario, las secciones de
+  hábitos de Configuración y la tarjeta de hábitos de Reportes. **No se borra nada**: al
+  encenderla vuelven tus hábitos, tus días marcados y tu racha tal como estaban. Se guarda
+  en tu cuenta, así que vale en todos tus dispositivos.
+- **Pomodoro**: las duraciones del enfoque y los descansos.
+- **Pantalla › Tamaño del texto**: agranda toda la app (Normal, Grande o Muy grande). Se
+  aplica al momento y se queda en ese dispositivo, también en la app instalada y aunque
+  cierres sesión.
 
-En *Mi perfil*, **Calendario de trabajo** dice qué días trabajas, para que los reportes
-cuenten bien los días hábiles:
+### Días festivos y huso horario
+
+Dicen qué días trabajas, para que los reportes cuenten bien los días hábiles, y qué
+festivos no cortan tu racha:
 
 - **Huso horario**: se guarda solo la primera vez, con el de tu dispositivo. Sirve para
   saber a qué hora local trabajaste (por ejemplo, si te desvelaste).
-- **País**: de ahí salen los **festivos oficiales** del año. Si trabajas uno, marca
-  **Lo trabajo**.
+- **País**: de ahí salen los **festivos oficiales** del año. Cada uno trae la casilla
+  **Descanso**, marcada: ese día no es hábil y congela la racha, como un día de descanso.
+  Si lo trabajas, desmárcala y contará como un día normal.
 - **Tus días libres**: agrega los que no vienen en el calendario oficial, como un festivo
-  de tu ciudad o un puente. Tus vacaciones (las de la racha) ya cuentan como días libres.
+  de tu ciudad o un puente. También congelan la racha. Tus vacaciones ya cuentan como días
+  libres.
+- Los festivos se guardan en tu dispositivo para no pedirlos cada vez. Si la lista sale
+  vacía o falta alguno, **↻ Actualizar festivos** los vuelve a pedir.
 
-### Tamaño del texto
-
-Al final de *Mi perfil*, **En este dispositivo › Tamaño del texto** agranda toda la app
-(Normal, Grande o Muy grande). Se aplica al momento y se queda en ese dispositivo, también
-en la app instalada y aunque cierres sesión.
+En el calendario, los festivos que descansas llevan 🎉 en la esquina.
 
 ## Calendario de hábitos
 
@@ -97,15 +111,15 @@ La pestaña **Calendario** es la vista de inicio.
 - **Clic en un día**: se abre un panel con tus hábitos, cada uno con un círculo de su color
   (vacío si no lo hiciste, relleno si sí). Tócalos para marcar o desmarcar; solo cambia el
   que tocas. Abajo dice cuántos llevas ("2 de 3 hoy") y, si el día no cuenta como fallado,
-  por qué: descanso, escudo o vacaciones.
+  por qué: descanso, escudo, vacaciones o festivo.
 - **Cómo se ve cada tipo de día**: descanso, atenuado; cubierto por un escudo, con fondo
-  azulado y 🛡️ en la esquina; de vacaciones, rayado.
+  azulado y 🛡️ en la esquina; de vacaciones, rayado; festivo que descansas, con 🎉.
 - **"¿Olvidaste anotar ayer?"**: si ayer quedó vacío y tenías racha, al abrir la app te lo
   pregunta con tus hábitos para marcarlos. Si sí lo hiciste, lo anotas ahí y recuperas la
   racha (o el escudo que se gastó). Se pregunta una sola vez por día.
 
-Para elegir qué hábitos sigues, sus colores y sus emojis, usa el **⚙️** de la barra
-superior.
+Para elegir qué hábitos sigues, sus colores y sus emojis, usa **⚙️ Configuración ›
+Hábitos**.
 
 La lista de arriba son **solo los hábitos que sigues**. No hay un catálogo mezclado con
 ellos: lo que no sigues no ocupa sitio ahí.
@@ -150,13 +164,13 @@ suelto no borra tu racha. Por qué funciona así, con las investigaciones en que
 está en [docs/referencias.md](docs/referencias.md).
 
 - **Racha**: días seguidos con al menos un hábito marcado. Hoy sin marcar no la corta (el
-  día aún no termina). Los días de descanso, los cubiertos por un escudo y los de
-  vacaciones la **congelan**: no suman ni la cortan.
+  día aún no termina). Los días de descanso, los cubiertos por un escudo, los de
+  vacaciones y los festivos que descansas la **congelan**: no suman ni la cortan.
 - **Récord**: tu racha más larga.
 - **Escudos 🛡️**: cada 7 días de racha ganas uno, y puedes tener 2. Si un día no anotas
   nada (y no es de descanso ni de vacaciones), se gasta uno solo y la racha sigue. Si
   después anotas ese día, el escudo vuelve. Sin escudos, un día vacío corta la racha.
-- **Vacaciones**: en ⚙️, bajo los días de descanso, elige **Desde** y **Hasta** y pulsa
+- **Vacaciones**: en ⚙️ Configuración › Vacaciones, elige **Desde** y **Hasta** y pulsa
   **Programar pausa**. Se guarda al momento.
   - Empieza hoy o después, nunca en días pasados (para un día que ya pasó están los
     escudos y "¿Olvidaste anotar ayer?").
@@ -252,9 +266,8 @@ y el tablero se actualiza al cerrar.
 El **⚙** junto al nombre del tablero. Aquí se ordena todo lo que usan las tarjetas. Cada
 cambio se guarda al hacerlo, y si algo no se puede, la app te dice por qué.
 
-- **⏱ Configurar pomodoro**: arriba del todo. Lleva a las duraciones del enfoque y los
-  descansos (ver [Pomodoro y cronómetro](#pomodoro-y-cronómetro)); **‹ Organizar** te
-  regresa.
+- **⏱ Configurar pomodoro**: arriba del todo. Lleva a **⚙️ Configuración › Pomodoro**,
+  con las duraciones del enfoque y los descansos (ver [Pomodoro y cronómetro](#pomodoro-y-cronómetro)).
 - **Tableros**: escribe sobre el nombre para cambiarlo. **Archivar** lo esconde sin perder
   nada, y bajo *Archivados* tienes **Restaurar**. El **×** lo borra, pero solo si está
   vacío: si tiene tareas, muévelas antes o archívalo. Tu único tablero activo no se puede
@@ -288,8 +301,8 @@ total de la tarjeta y con Reportes. También se abre con el **📊** de cada pro
 
 **Editar un proyecto**: desde su ficha, con **✎ Editar**.
 
-**Costeo (plan Maker)**: si tu cuenta tiene el plan Maker y lo enciendes en *Mi perfil ›
-Módulos de tu cuenta*, la ficha de cada proyecto trae una tarjeta **Costeo**: cliente,
+**Costeo (plan Maker)**: si tu cuenta tiene el plan Maker y lo enciendes en *⚙️ Configuración ›
+Módulos*, la ficha de cada proyecto trae una tarjeta **Costeo**: cliente,
 tarifa por hora, moneda y presupuesto (en dinero, en horas o los dos). Cada dato se guarda
 al cambiarlo. La tarjeta calcula la **mano de obra** (horas trabajadas × tarifa) y cuánto
 del presupuesto llevas; si un proyecto tiene presupuesto pero todavía no tiene tiempo, lo
@@ -427,7 +440,7 @@ extra se quede sin registrar por no haber oído el aviso.
 ### Pomodoro
 
 - **Enfoque** dura 25 minutos, y los descansos 5 y 15. **Puedes cambiarlos** en
-  **⚙ Organizar › ⏱ Configurar pomodoro**. Un pomodoro que ya corre termina con la
+  **⚙️ Configuración › Pomodoro** (también desde *⚙ Organizar*). Un pomodoro que ya corre termina con la
   duración con la que empezó.
 - Al terminar un enfoque, la barra te ofrece **descanso corto o largo**. Los descansos
   solo se inician desde ahí y no cuentan como trabajo.
@@ -515,7 +528,7 @@ Debería cambiar al instante al guardar. Si no, recarga con `Ctrl + F5`.
 Sí, el diseño se adapta y se cambia de pestaña deslizando el dedo. También se puede
 instalar: desde el navegador, "Agregar a la pantalla de inicio" (o "Instalar app" en la
 computadora), y se abre como una aplicación. Si el texto se ve pequeño, agrándalo en
-*Mi perfil › En este dispositivo › Tamaño del texto*.
+*⚙️ Configuración › Pantalla › Tamaño del texto*.
 
 **En el teléfono todo se ve diminuto, como si fuera la versión de computadora.**
 El navegador está en modo **"Sitio para ordenador"** (o "Versión de escritorio"): dibuja la
