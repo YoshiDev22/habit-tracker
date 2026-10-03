@@ -5294,3 +5294,104 @@ button.day-log-date:focus-visible {
     font: inherit;
     text-align: right;
 }
+
+/* ============================================
+   Avisos: la campanita (notifications.js)
+   ============================================ */
+
+.bell-btn {
+    position: relative;
+}
+
+.bell-btn:not(.has-notices) {
+    opacity: 0.55;
+}
+
+.bell-count {
+    position: absolute;
+    top: -2px;
+    right: -4px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--danger-solid);
+    color: var(--text-on-accent);
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 17px;
+    text-align: center;
+}
+
+.bell-count[hidden] {
+    display: none;
+}
+
+.notices-modal {
+    max-width: 480px;
+    text-align: left;
+}
+
+.notices-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.notice-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface-2);
+}
+
+.notice-text {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.notice-title {
+    margin: 0;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.notice-meta,
+.notice-hint {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.notice-hint {
+    color: var(--text-muted);
+}
+
+.notice-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.notice-actions .submit-btn {
+    width: auto;
+    margin-top: 0;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+/* Reportes: el tiempo por confirmar que el resumen está contando */
+.report-review-note {
+    margin: 12px 0 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+    font-size: 0.82rem;
+}

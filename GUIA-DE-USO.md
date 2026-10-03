@@ -458,6 +458,12 @@ la tarea y al tiempo de hoy.
 
 ## Corregir o borrar un registro
 
+**La campanita 🔔**, arriba junto al ⚙️, avisa cuando un cronómetro llegó al tope de 8 h y
+nadie dijo cuánto trabajaste (por ejemplo, si cerraste la sesión o la pregunta se quedó en
+otra pestaña). El número rojo dice cuántos hay. Tócala y, en cada uno, elige **Corregir**
+para poner el tiempo real, o **Está bien** si de verdad fueron 8 h. Mientras no lo hagas, ese
+tiempo cuenta en tus totales, y Reportes te avisa que lo está incluyendo.
+
 Despliega el proyecto y busca **Registros de tiempo**, debajo de las tareas. Cada línea
 muestra día, horario, duración, tarea y nota:
 

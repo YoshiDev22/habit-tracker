@@ -51,7 +51,15 @@ MIGRATIONS = [
     # Estimado de cada tarea en minutos (épica 24, Fase 4). Nace NULL: sin
     # estimado, nunca uno inventado para las tareas de antes.
     {"table": "tasks", "column": "estimate_minutes", "type": "INTEGER"},
+    # Sesión por confirmar (épica 30, Fase 2). Nace en 0; las de antes se marcan
+    # con mark_sessions_to_review(), solo la vez que se añade la columna.
+    {"table": "pomodoro_sessions", "column": "needs_review", "type": "BOOLEAN", "default": 0},
 ]
+
+# La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado
+# solo a las 8 h. Antes de needs_review era la única marca de "por confirmar".
+AUTOCLOSE_NOTE = "Cerrado automáticamente a las 8 h"
+STOPWATCH_CAP_SECONDS = 8 * 3600
 
 # Índices que algún modelo declara en __table_args__ sobre una tabla que ya
 # existía. create_all() los crea con la tabla, pero no en una tabla que ya
@@ -119,6 +127,18 @@ def existing_columns(connection, table):
 
 def existing_indexes(connection, table):
     return {row[1] for row in connection.execute(f"PRAGMA index_list({table})")}
+
+
+def mark_sessions_to_review(connection):
+    """Marca por confirmar las sesiones de antes que se cerraron solas a las 8 h
+    y nadie corrigió (siguen en 8 h exactas con la nota). Corre solo la vez que
+    se añade la columna: después, confirmar una la deja en 0 y una segunda
+    corrida no debe volver a marcarla."""
+    cursor = connection.execute(
+        "UPDATE pomodoro_sessions SET needs_review = 1 WHERE note = ? AND duration_seconds = ?",
+        (AUTOCLOSE_NOTE, STOPWATCH_CAP_SECONDS),
+    )
+    return cursor.rowcount
 
 
 def split_leading_emoji(label):
@@ -218,12 +238,16 @@ def main():
         # Después de las columnas: el esquema tiene que estar completo antes de
         # tocar filas.
         relabeled = normalize_habit_labels(connection)
+        to_review = (mark_sessions_to_review(connection)
+                     if "pomodoro_sessions.needs_review" in applied else 0)
 
         connection.commit()
     finally:
         connection.close()
 
     print("Added: " + (", ".join(applied) if applied else "nothing, already up to date"))
+    if to_review:
+        print(f"Sessions to review (closed at 8 h, never corrected): {to_review}")
 
     if relabeled:
         print(f"Habit labels normalized ({len(relabeled)}):")

@@ -94,6 +94,7 @@ habit-tracker/
 ├── reports.js             # Vista Reportes: rango, gráficas SVG y desgloses (solo lee)
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
+├── notifications.js       # La campanita de avisos: sesiones por confirmar
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -395,7 +396,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los ocho scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los nueve scripts en orden y **el
 orden importa**:
 
 ```html
@@ -407,6 +408,7 @@ orden importa**:
 <script src="reports.js"></script>  <!-- solo lee: usa helpers de script.js, habits.js y projects.js -->
 <script src="project-overview.js"></script> <!-- la ficha: usa barList y summaryStat de reports.js -->
 <script src="costs.js"></script>    <!-- pestaña Costos: usa formatMoney y CURRENCIES de project-overview.js -->
+<script src="notifications.js"></script> <!-- la campanita: usa openLogTimeModal de pomodoro.js y el() de reports.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -614,8 +616,20 @@ avisos ("Sesión guardada") y la oferta de descanso al terminar un pomodoro: los
 solo se inician desde ahí (`startBreak`). "Hoy" y el botón de sonido viven en la barra del
 tablero. **Tocar "Hoy"** abre `#dayLogModal` (`openDayLog()` en `pomodoro.js`): todos los
 registros de un día, de todas las tareas, con ‹ › entre días, ✎ y ×. Marca con ⚠ los
-cronómetros que se cerraron solos a las 8 h (nota `POMO_AUTOCLOSE_NOTE`), y al corregir la
-duración de uno esa nota se quita. Las filas salen de `buildSessionRow()` (`projects.js`),
+registros **por confirmar** (`needs_review`), y al corregir la duración de uno la nota
+`POMO_AUTOCLOSE_NOTE` se quita.
+
+**Por confirmar (`pomodoro_sessions.needs_review`, épica 30 Fase 2).** Un cronómetro que llegó
+al tope de 8 h sin que el usuario dijera cuánto trabajó (cerrado solo, o al cerrar sesión)
+se guarda con la nota y `needs_review: true` (`buildPayload()` lo deriva de la nota). Se
+cuenta igual en totales y Reportes, y Reportes dice cuánto tiempo sin confirmar incluye. La
+**campanita** de la barra de arriba (`notifications.js`, siempre visible) lo cuenta desde
+`GET /api/pomodoro/review` y lista cada uno con *Corregir* (abre `#logTimeModal` encima) y
+*Está bien* (`PATCH {needs_review: false}`). Corregir horas o duración por `PATCH` también lo
+confirma (`routers/pomodoro.py`). La migración marca una sola vez las de antes (nota y 8 h
+exactas): volver a correrla no marca otra vez una que el usuario confirmó. *Guardar* de
+`#logTimeModal` queda desactivado hasta que cargan las tareas: guardar antes dejaba el
+registro sin su tarea. Las filas salen de `buildSessionRow()` (`projects.js`),
 la misma del historial de la tarjeta.
 
 **Duraciones del pomodoro por usuario.** `users.pomodoro_focus_seconds`,

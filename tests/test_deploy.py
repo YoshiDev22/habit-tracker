@@ -27,6 +27,7 @@ def test_the_app_refuses_to_start_without_migrating():
     assert first.returncode == 0, first.stderr
     assert "tasks.column_id" in first.stdout and "users.pomodoro_focus_seconds" in first.stdout
     assert "pomodoro_sessions.idempotency_key" in first.stdout and "tasks.estimate_minutes" in first.stdout
+    assert "pomodoro_sessions.needs_review" in first.stdout
     assert "index uq_pomodoro_sessions_user_key" in first.stdout
     again = run_migrate(db)
     assert again.returncode == 0 and "nothing, already up to date" in again.stdout
@@ -45,6 +46,38 @@ def test_the_app_refuses_to_start_without_migrating():
                              capture_output=True, text=True, encoding="utf-8")
     assert started.returncode != 0 and "uq_pomodoro_sessions_user_key" in started.stderr
     assert run_migrate(db).returncode == 0
+
+
+def test_old_auto_closed_sessions_are_marked_for_review_once():
+    """Las sesiones de antes que se cerraron solas a las 8 h y nadie corrigió quedan
+    por confirmar al añadir needs_review. Solo esa vez: confirmar una y volver a
+    migrar no la marca de nuevo."""
+    db = TMP / "review.db"
+    load_sql_fixture(db, "db_v1_9")
+    conn = sqlite3.connect(db)
+    note = "Cerrado automáticamente a las 8 h"
+    rows = [(901, 28800, note), (902, 7200, note), (903, 28800, None)]   # solo la 901
+    for sid, seconds, n in rows:
+        conn.execute("INSERT INTO pomodoro_sessions VALUES(?,1,1,1,'2026-09-20','2026-09-20 08:00:00',"
+                     "'2026-09-20 16:00:00',?,0,'focus',1,?,'timer','2026-09-20')", (sid, seconds, n))
+    conn.commit()
+    conn.close()
+
+    first = run_migrate(db)
+    assert first.returncode == 0, first.stderr
+    assert "pomodoro_sessions.needs_review" in first.stdout and "Sessions to review" in first.stdout
+    conn = sqlite3.connect(db)
+    marked = {r[0] for r in conn.execute("SELECT id FROM pomodoro_sessions WHERE needs_review = 1")}
+    assert marked == {901}
+    assert conn.execute("SELECT COUNT(*) FROM pomodoro_sessions WHERE needs_review IS NULL").fetchone()[0] == 0
+    conn.execute("UPDATE pomodoro_sessions SET needs_review = 0 WHERE id = 901")   # el usuario la confirma
+    conn.commit()
+    conn.close()
+
+    assert run_migrate(db).returncode == 0
+    conn = sqlite3.connect(db)
+    assert conn.execute("SELECT needs_review FROM pomodoro_sessions WHERE id = 901").fetchone()[0] == 0
+    conn.close()
 
 
 def test_old_data_survives_and_is_placed_on_a_board(old_db, api):

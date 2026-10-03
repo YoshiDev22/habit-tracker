@@ -401,11 +401,11 @@ modelo local, a elegir por usuario, con una sola función de llamada), PDF desde
 navegador.
 
 **Fases.** 1 export de hábitos ✅ · 2 sesiones por confirmar (`needs_review`, con
-migración) · 3 capa de métricas con huso horario y festivos · 4 reportes guardados sin IA
+migración) ✅ · 3 capa de métricas con huso horario y festivos · 4 reportes guardados sin IA
 (systemd timer) · 5 IA para el texto · 6 costos del periodo, tipo de proyecto y precio
 (con migración).
 
-**Aceptación (de la Fase 2, no de la épica).** Un cronómetro cerrado a las 8 h queda
-marcado por confirmar (columna, no texto de la nota); la campanita de arriba lo cuenta y
-lleva a corregirlo; Reportes dice cuánto tiempo sin confirmar está contando.
+**Aceptación (de la Fase 3, no de la épica).** `GET /api/metrics?date_from&date_to` da las
+métricas del brief con el huso horario del usuario y sus festivos (Nager.Date más los
+suyos), y Reportes muestra las mismas cifras que hoy, leídas de ahí.
 

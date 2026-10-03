@@ -42,7 +42,9 @@ async def main():
             "project_id": task["project_id"], "task_id": task["id"], "session_date": day.isoformat(),
             "started_at": start.isoformat(), "ended_at": (start + dt.timedelta(minutes=minutes)).isoformat(),
             "duration_seconds": minutes * 60, "planned_seconds": minutes * 60, "mode": "focus",
-            "was_completed": True, "source": source, "note": note}, expect=201)
+            "was_completed": True, "source": source, "note": note,
+            # Lo que manda pomodoro.js con la nota de cierre automático
+            "needs_review": note == "Cerrado automáticamente a las 8 h"}, expect=201)
 
     # The user's case: a stopwatch left running from 01:00 that closed itself at 8 h, then 1 h today
     log(kanban, 1, 480, "stopwatch", note="Cerrado automáticamente a las 8 h")

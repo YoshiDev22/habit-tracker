@@ -106,7 +106,7 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
 1. **Export de hábitos (C)** ✅ (2026-10-03, sin publicar). CSV por rango (fecha, hábito, hecho, y si el día fue de
    descanso, vacaciones o cubierto por escudo), junto al "Exportar CSV" de Reportes. El
    export de tiempo por rango ya existe (*Personalizado*).
-2. **Sesiones por confirmar.** `needs_review` con su migración y relleno desde la nota; aviso
+2. **Sesiones por confirmar** ✅ (2026-10-03, sin publicar). `needs_review` con su migración y relleno desde la nota; aviso
    en la app; confirmar o corregir lo quita. Reportes dice cuánto tiempo sin confirmar está
    contando.
 3. **Capa de métricas** (`backend/metrics.py`, `GET /api/metrics?date_from&date_to`):

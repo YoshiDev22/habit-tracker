@@ -359,6 +359,10 @@
     <div id="userBar" class="user-bar hidden">
         <button id="themeToggle" class="settings-btn" type="button" title="Tema: Sistema" aria-label="Tema: Sistema">🖥️</button>
         <button id="settingsBtn" class="settings-btn">⚙️</button>
+        <!-- Avisos (notifications.js): siempre a la vista; el número, solo con pendientes -->
+        <button id="bellBtn" class="settings-btn bell-btn" type="button" title="Avisos" aria-label="Avisos">
+            🔔<span id="bellCount" class="bell-count" hidden>0</span>
+        </button>
         <!-- El nombre y, pegada como subíndice, la etiqueta del plan (MKR con
              el plan Maker encendido) -->
         <span class="user-name-wrap">
@@ -772,6 +776,18 @@
         </div>
     </div>
 
+    <!-- Avisos de la campanita (notifications.js). "Corregir" abre el registro
+         a mano encima (#logTimeModal, z-index 1050). -->
+    <div id="noticesModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content notices-modal" role="dialog" aria-modal="true" aria-labelledby="noticesTitle">
+            <button class="modal-close" type="button" id="noticesClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="noticesTitle">Avisos</h2>
+            <div id="noticesList" class="notices-list"></div>
+            <div id="noticesError" class="form-error hidden"></div>
+        </div>
+    </div>
+
     <div id="cardModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content card-modal" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
@@ -1056,5 +1072,6 @@
     <script src="reports.js"></script>
     <script src="project-overview.js"></script>
     <script src="costs.js"></script>
+    <script src="notifications.js"></script>
 </body>
 </html>

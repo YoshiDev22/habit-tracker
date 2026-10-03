@@ -307,7 +307,15 @@ function renderSummary({ sessions, prevSessions, completed, prevCompleted }) {
         ? el('p', 'report-compare-small',
             `${diffTasks > 0 ? '+' : '−'}${Math.abs(diffTasks)} ${Math.abs(diffTasks) === 1 ? 'tarea' : 'tareas'} vs. ${previousPeriodName()}`)
         : null;
-    return reportCard('Resumen', grid, note, tasksNote);
+    // El tiempo por confirmar se cuenta igual, pero se dice: puede estar inflado
+    const toReview = sessions.filter(s => s.needs_review);
+    const reviewNote = toReview.length
+        ? el('p', 'report-review-note',
+            `⚠ Incluye ${formatDuration(sumSeconds(toReview))} sin confirmar `
+            + `(${toReview.length} ${toReview.length === 1 ? 'registro que llegó' : 'registros que llegaron'} al tope de 8 h). `
+            + 'Revísalo en la 🔔 de arriba.')
+        : null;
+    return reportCard('Resumen', grid, note, tasksNote, reviewNote);
 }
 
 // ============================================

@@ -973,6 +973,8 @@ class PomodoroSessionCreate(SQLModel):
     # El sessionId del timer (pomodoro.js). Mismo usuario y misma clave = la
     # misma sesión: el segundo POST devuelve la primera en vez de duplicarla.
     idempotency_key: Optional[str] = Field(default=None, max_length=64)
+    # Un cronómetro que llegó al tope de 8 h sin que nadie dijera cuánto se trabajó
+    needs_review: Optional[bool] = False
 
     @field_validator("mode")
     @classmethod
@@ -996,6 +998,9 @@ class PomodoroSessionUpdate(SQLModel):
     Esquema para corregir una sesión ya registrada (PATCH parcial).
     El origen no se cambia. El proyecto no se manda: sigue a la tarea.
     """
+    # false = "Está bien": confirmar tal cual. Corregir horas o duración también
+    # la confirma (routers/pomodoro.py), sin mandar este campo.
+    needs_review: Optional[bool] = None
     task_id: Optional[int] = None
     session_date: Optional[date_type] = None
     started_at: Optional[datetime] = None
@@ -1018,6 +1023,7 @@ class PomodoroSessionResponse(SQLModel):
     was_completed: bool
     note: Optional[str] = None
     source: str = "timer"
+    needs_review: bool = False
     created_at: date_type
 
     model_config = ConfigDict(from_attributes=True)

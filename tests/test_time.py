@@ -134,3 +134,40 @@ def test_two_simultaneous_resends_keep_one_session(seeded, monkeypatch):
     assert again["id"] == first["id"] and len(calls) == 2
     _, listed = api.call("GET", f"/api/pomodoro?task_id={task['id']}", expect=200)
     assert len(listed["sessions"]) == 1
+
+
+def test_sessions_to_review(seeded):
+    api, p = seeded["api"], seeded["project"]
+    task = seeded["tasks"]["Revisión de idea para cambiar a kanban"]
+    start = utc_now() - timedelta(hours=9)
+    body = {"project_id": p["id"], "task_id": task["id"], "session_date": date.today().isoformat(),
+            "started_at": start.isoformat(), "ended_at": (start + timedelta(hours=8)).isoformat(),
+            "duration_seconds": 8 * H, "planned_seconds": 0, "mode": "focus", "was_completed": True,
+            "source": "stopwatch", "note": "Cerrado automáticamente a las 8 h", "needs_review": True}
+    _, s1 = api.call("POST", "/api/pomodoro", body, expect=201)
+    _, s2 = api.call("POST", "/api/pomodoro", {**body, "started_at": (start - timedelta(days=1)).isoformat(),
+                                               "ended_at": (start - timedelta(days=1) + timedelta(hours=8)).isoformat()}, expect=201)
+    assert s1["needs_review"] is True
+    _, rv = api.call("GET", "/api/pomodoro/review", expect=200)
+    assert [s["id"] for s in rv["sessions"]] == [s1["id"], s2["id"]], "newest first"
+    # Cuenta en los totales igual que cualquier otra
+    _, summ = api.call("GET", "/api/projects/summary", expect=200)
+    assert next(x for x in summ["summaries"] if x["project_id"] == p["id"])["total_seconds"] == 417 * 60 + 16 * H
+
+    # Corregir las horas la confirma; "Está bien" también, sin tocar nada más
+    _, fixed = api.call("PATCH", f"/api/pomodoro/{s1['id']}", {"duration_seconds": 3 * H,
+                        "ended_at": (start + timedelta(hours=3)).isoformat()}, expect=200)
+    assert fixed["needs_review"] is False
+    _, ok = api.call("PATCH", f"/api/pomodoro/{s2['id']}", {"needs_review": False}, expect=200)
+    assert ok["needs_review"] is False and ok["duration_seconds"] == 8 * H
+    assert api.call("GET", "/api/pomodoro/review", expect=200)[1]["total"] == 0
+    # Cambiar solo la nota o la tarea no la confirma
+    _, s3 = api.call("POST", "/api/pomodoro", {**body, "started_at": (start - timedelta(days=2)).isoformat(),
+                                               "ended_at": (start - timedelta(days=2) + timedelta(hours=8)).isoformat()}, expect=201)
+    _, still = api.call("PATCH", f"/api/pomodoro/{s3['id']}", {"note": "revisar"}, expect=200)
+    assert still["needs_review"] is True
+
+    # La de otro usuario no aparece en su campanita ni se confirma desde fuera
+    other = seeded["other"]
+    assert other.call("GET", "/api/pomodoro/review", expect=200)[1]["total"] == 0
+    assert other.call("PATCH", f"/api/pomodoro/{s3['id']}", {"needs_review": False})[0] == 404

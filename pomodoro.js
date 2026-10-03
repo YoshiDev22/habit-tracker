@@ -454,6 +454,8 @@ function buildPayload(state, startedEpochMs, endedEpochMs, durationSeconds, wasC
         source: isStopwatch(state) ? 'stopwatch' : 'timer',
         was_completed: wasCompleted,
         note,
+        // Cerrado solo al tope de 8 h: por confirmar (la campanita lo avisa)
+        needs_review: note === POMO_AUTOCLOSE_NOTE,
         // Si este mismo POST llega dos veces (el navegador murió justo después
         // de enviarlo, o la cola reintenta uno cuya respuesta se perdió), el
         // servidor reconoce la sesión por esta clave y no la duplica. Los
@@ -1184,12 +1186,12 @@ function renderDayLog(tasks, projects) {
         if (project && !project.is_system) parts.push(project.name);
         if (session.note) parts.push(session.note);
         const row = buildSessionRow(session, parts.join(' · '));
-        // El cronómetro olvidado que se cerró solo a las 8 h: lo que más se
-        // corrige, así que se señala
-        if (session.note === POMO_AUTOCLOSE_NOTE) {
+        // El cronómetro olvidado que se cerró solo a las 8 h y nadie confirmó:
+        // lo que más se corrige, así que se señala (como en la campanita)
+        if (session.needs_review) {
             row.classList.add('session-flag');
             row.querySelector('.session-origin').textContent = '⚠';
-            row.querySelector('.session-origin').title = POMO_AUTOCLOSE_NOTE;
+            row.querySelector('.session-origin').title = 'Por confirmar: llegó al tope de 8 h';
         }
         dayLogListEl.appendChild(row);
     });

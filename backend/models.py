@@ -418,6 +418,12 @@ class PomodoroSession(SQLModel, table=True):
     # scripts/migrate.py; las filas previas se rellenan con "timer", que es
     # la verdad para todo lo registrado hasta ahora.
     source: str = Field(default="timer", index=True)
+    # Por confirmar: un cronómetro que llegó al tope de 8 h (o se cerró solo al
+    # cerrar sesión) y nadie ha dicho cuánto se trabajó. La campanita lo avisa;
+    # corregir las horas o "Está bien" lo quitan. Se cuenta igual en totales y
+    # reportes, que dicen cuánto tiempo sin confirmar incluyen. Columna AÑADIDA:
+    # scripts/migrate.py, que marca una sola vez las de antes por su nota.
+    needs_review: bool = Field(default=False)
     # El sessionId que el cliente le puso al timer al arrancarlo. Si el mismo
     # POST llega dos veces (el navegador se cerró tras enviarlo y antes de
     # olvidarlo, o la respuesta se perdió y la cola lo reintentó), el segundo

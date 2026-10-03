@@ -132,6 +132,7 @@ def create_pomodoro_session(
         note=session_in.note,
         source=source,
         idempotency_key=key,
+        needs_review=bool(session_in.needs_review),
     )
     session.add(new_session)
     try:
@@ -177,6 +178,25 @@ def get_pomodoro_sessions(
     return PomodoroSessionListResponse(
         sessions=[PomodoroSessionResponse.model_validate(s) for s in sessions],
         total=len(sessions)
+    )
+
+
+@router.get("/review", response_model=PomodoroSessionListResponse)
+def get_sessions_to_review(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Las sesiones por confirmar (needs_review) del usuario, de cualquier fecha:
+    lo que cuenta la campanita. Las más recientes primero."""
+    sessions = session.exec(
+        select(PomodoroSession).where(
+            PomodoroSession.user_id == current_user.id,
+            PomodoroSession.needs_review == True,  # noqa: E712
+        ).order_by(PomodoroSession.started_at.desc())
+    ).all()
+    return PomodoroSessionListResponse(
+        sessions=[PomodoroSessionResponse.model_validate(s) for s in sessions],
+        total=len(sessions),
     )
 
 
@@ -275,6 +295,11 @@ def update_pomodoro_session(
 
     for field, value in update_data.items():
         setattr(pomodoro_session, field, value)
+
+    # Corregir horas o duración es contestar cuánto se trabajó: ya no está por
+    # confirmar (salvo que el PATCH diga explícitamente lo contrario)
+    if "needs_review" not in update_data and {"duration_seconds", "started_at", "ended_at"} & update_data.keys():
+        pomodoro_session.needs_review = False
 
     # Se valida el resultado del merge, no lo que vino en el cuerpo: un PATCH
     # parcial puede dejar la sesión inconsistente combinándose con lo que ya
