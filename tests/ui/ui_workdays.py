@@ -115,8 +115,29 @@ async def main():
             window.fetch = (u, o) => { if (String(u).startsWith('/api/days?')) window._daysFetches++; return f(u, o); };""")
         await b.js("document.getElementById('settingsBtn').click()")
         await b.wait_for("!document.getElementById('habitsSetupModal').classList.contains('hidden')")
-        st = await b.js("({open: document.getElementById('workCalendar').open, n: document.querySelectorAll('#workOfficialDays .work-day').length, fetches: window._daysFetches})")
-        check(st == {"open": True, "n": 1, "fetches": 0}, f"the section stays open and shows the saved holidays without asking ({st})")
+        st = await b.js("({menu: !document.getElementById('settingsMenu').hidden, title: document.getElementById('setupTitle').textContent})")
+        # Esta cuenta no tiene hábitos: abre la bienvenida en Hábitos, y ‹ lleva al menú
+        check(st == {"menu": False, "title": "¡Bienvenido! 👋"}, f"with no habits the gear opens the welcome on Hábitos ({st})")
+        await b.js("document.getElementById('settingsBack').click()")
+        st = await b.js("({menu: !document.getElementById('settingsMenu').hidden, title: document.getElementById('setupTitle').textContent})")
+        check(st == {"menu": True, "title": "Configuración"}, f"‹ shows the menu ({st})")
+        await b.shot("settings_menu", full=False)
+        await b.js("document.querySelector('#settingsMenu [data-open=holidays]').click()")
+        st = await b.js("({active: document.getElementById('workCalendar').classList.contains('active'), menu: !document.getElementById('settingsMenu').hidden,"
+                        " title: document.getElementById('setupTitle').textContent, back: !document.getElementById('settingsBack').hidden,"
+                        " n: document.querySelectorAll('#workOfficialDays .work-day').length, fetches: window._daysFetches})")
+        check(st == {"active": True, "menu": False, "title": "Días festivos y huso horario", "back": True, "n": 1, "fetches": 0},
+              f"its row slides to the page, with the saved holidays and without asking ({st})")
+        # ‹ y Escape vuelven al menú; Escape desde el menú cierra
+        await b.js("document.getElementById('settingsBack').click()")
+        check(await b.js("!document.getElementById('settingsMenu').hidden && document.getElementById('settingsBack').hidden"), "‹ goes back to the menu")
+        await b.js("document.querySelector('#settingsMenu [data-open=holidays]').click()")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
+        check(await b.js("!document.getElementById('settingsMenu').hidden"), "Escape goes back to the menu")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
+        await b.wait_for("document.getElementById('habitsSetupModal').classList.contains('hidden')")
+        check(True, "and from the menu it closes")
+        await b.js("openSettings('holidays')")
         await b.js("document.getElementById('workRefresh').click()")
         await b.wait_for("window._daysFetches === 1")
         check(True, "↻ asks for them again")

@@ -365,15 +365,13 @@ async function showHabitsSetup() {
     updateColorWarning();
     await loadPauses();
 
-    // La primera vez, sin hábitos, es la bienvenida: con Hábitos desplegado
+    // La primera vez, sin hábitos, es la bienvenida: abre directo en Hábitos
     const welcome = moduleEnabled('habits') && HABITS.length === 0;
-    document.getElementById('setupTitle').textContent = welcome ? '¡Bienvenido! 👋' : 'Configuración';
-    document.getElementById('setupWelcome').classList.toggle('hidden', !welcome);
 
     // Siempre al final: openHabitsSetup() toma la foto del dirty-check, así que
     // tiene que ver la lista ya pintada.
     openHabitsSetup();
-    // Secciones abiertas, pomodoro, módulos (settings.js, que carga después)
+    // Menú o página, título, pomodoro y módulos (settings.js, que carga después)
     if (typeof onSettingsOpened === 'function') onSettingsOpened({ welcome });
 }
 

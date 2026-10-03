@@ -65,6 +65,8 @@ async def main():
 
         # ⚙️: la pausa pasada no se lista; programar una desde hoy
         await b.js("document.getElementById('settingsBtn').click()")
+        await b.wait_for("!document.getElementById('settingsMenu').hidden && !document.getElementById('habitsSetupModal').classList.contains('hidden')")
+        await b.js("document.querySelector('#settingsMenu [data-open=vacations]').click()")
         await b.wait_for("document.getElementById('pauseStart').value", bool)
         check(await b.js(pause_items) == [], "a finished pause is not listed")
         await b.js(f"""(() => {{ const s = document.getElementById('pauseStart'), e = document.getElementById('pauseEnd');

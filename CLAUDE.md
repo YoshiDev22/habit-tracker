@@ -103,7 +103,7 @@ habit-tracker/
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── notifications.js       # La campanita de avisos: sesiones por confirmar
 ├── workdays.js            # Configuración › Días festivos y huso horario; festivos del calendario (🎉)
-├── settings.js            # ⚙️ Configuración: secciones plegables, cuáles quedan abiertas, pomodoro
+├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -511,11 +511,14 @@ scroll, y sus botones quedan inalcanzables — el `.modal` que lo envuelve es
 `position: fixed` y centrado, así que la página no llega a él. El de ⚙️ Configuración
 (`#habitsSetupModal`) va un paso más allá: `.setup-modal` es una columna flex con el
 cuerpo en `.setup-scroll` (que necesita `min-height: 0` para poder encoger) y el pie en
-`.setup-footer`, para que "Guardar Hábitos" no se vaya con el scroll. Su cuerpo son
-`<details class="settings-section" data-section="…">`: los de hábitos llevan
-`data-habits-only` (se ocultan con el módulo apagado) y el pie solo se ve con Hábitos
-abierto. Lo llena `showHabitsSetup()` (`habits.js`), que al final llama a
-`onSettingsOpened()` (`settings.js`); para abrir en una sección, `openSettings(nombre)`.
+`.setup-footer`, para que "Guardar Hábitos" no se vaya con el scroll. Su cuerpo es un menú
+(`#settingsMenu`, una fila por categoría con `data-open`) y una página por categoría
+(`<section class="settings-page" data-section="…">`), que se muestra con la clase
+`.active` y entra deslizándose; ‹ (`#settingsBack`) o Escape vuelven al menú. `hidden`
+queda para el módulo Hábitos apagado: las filas y páginas de hábitos llevan
+`data-habits-only`. El pie solo se ve en la página Hábitos. Lo llena `showHabitsSetup()`
+(`habits.js`), que al final llama a `onSettingsOpened()` (`settings.js`): abre el menú, o
+Hábitos como bienvenida si aún no hay hábitos; `openSettings(nombre)` abre directo una página.
 Mi perfil quedó solo con alias, nombre y apellido.
 
 Dos modales se abren **encima** de otro y devuelven una promesa en vez de cerrarse
@@ -602,8 +605,7 @@ del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar 
 `costs_project` (proyecto elegido en la hoja de Costos; se borra al cerrar sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
-el que se preguntó "¿Olvidaste anotar?"), `settings_open` (secciones de ⚙️ Configuración
-desplegadas, de este dispositivo), `work_calendar_cache` (huso, país y festivos por año, para
+el que se preguntó "¿Olvidaste anotar?"), `work_calendar_cache` (huso, país y festivos por año, para
 no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
 `text_size` (`large` | `xlarge`, en **Configuración › Pantalla**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
 los tamaños de texto nuevos van en `rem`, no en `px`—; el script inline del `<head>` lo

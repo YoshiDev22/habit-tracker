@@ -57,10 +57,10 @@ guardar, también te pregunta si quieres salir de todos modos.
 
 ## Configuración
 
-El **⚙️** de la barra superior abre *Configuración*, que reúne todo lo que se ajusta, en secciones que se despliegan
-tocando su título. La app recuerda en ese dispositivo cuáles dejaste abiertas. Los hábitos
-se guardan con **Guardar Hábitos** (el botón solo se ve con *Hábitos* abierto); todo lo
-demás, al tocarlo.
+El **⚙️** de la barra superior abre *Configuración*: un menú con todo lo que se ajusta.
+Toca una categoría para entrar en ella, y **‹** (o `Esc`) para volver al menú. La primera
+vez, si aún no sigues ningún hábito, abre directo en *Hábitos*. Los hábitos se guardan con
+**Guardar Hábitos**; todo lo demás, al tocarlo.
 
 - **Hábitos**: cuáles sigues, sus colores y sus emojis (ver más abajo).
 - **Días de descanso**: los días de la semana que no cortan la racha.

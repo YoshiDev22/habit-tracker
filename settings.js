@@ -2,51 +2,73 @@
 // ⚙️ Configuración
 // ============================================
 //
-// Un solo modal (#habitsSetupModal) con secciones que se despliegan: Hábitos,
-// Días de descanso, Vacaciones, Días festivos y huso horario, Módulos,
-// Pomodoro y Pantalla. showHabitsSetup() (habits.js) lo llena y lo muestra, y
-// al final llama a onSettingsOpened(). Cada sección guarda lo suyo: los hábitos
-// con "Guardar Hábitos" (el pie solo se ve con Hábitos abierto); lo demás, al
-// tocarlo. Qué secciones quedaron abiertas se recuerda en este dispositivo
-// (localStorage.settings_open).
+// Un solo modal (#habitsSetupModal): primero un menú (Hábitos, Días de
+// descanso, Vacaciones, Días festivos y huso horario, Módulos, Pomodoro y
+// Pantalla) y, al tocar una fila, su página, que entra deslizándose; ‹ (o
+// Escape) vuelve al menú. showHabitsSetup() (habits.js) lo llena y lo muestra,
+// y al final llama a onSettingsOpened(). Cada página guarda lo suyo: los
+// hábitos con "Guardar Hábitos" (el pie solo se ve en su página); lo demás, al
+// tocarlo. Las páginas se muestran con la clase .active, no con `hidden`: ese
+// lo usa el módulo Hábitos apagado ([data-habits-only], habits.js).
 
-const SETTINGS_OPEN_KEY = 'settings_open';
-const settingsSections = [...habitsSetupModal.querySelectorAll('.settings-section')];
+const settingsMenu = document.getElementById('settingsMenu');
+const settingsPages = [...habitsSetupModal.querySelectorAll('.settings-page')];
 const settingsFooter = habitsSetupModal.querySelector('.setup-footer');
+const settingsScroll = habitsSetupModal.querySelector('.setup-scroll');
+const settingsBack = document.getElementById('settingsBack');
+const settingsTitle = document.getElementById('setupTitle');
+const settingsWelcomeText = document.getElementById('setupWelcome');
+const SETTINGS_TITLE = 'Configuración';
 
-function readOpenSections() {
-    try {
-        const saved = JSON.parse(localStorage.getItem(SETTINGS_OPEN_KEY) || 'null');
-        return Array.isArray(saved) ? saved : ['habits'];
-    } catch (error) {
-        return ['habits'];
-    }
-}
-
-function saveOpenSections() {
-    const open = settingsSections.filter(section => section.open).map(section => section.dataset.section);
-    try {
-        localStorage.setItem(SETTINGS_OPEN_KEY, JSON.stringify(open));
-    } catch (error) {
-        // Sin almacenamiento: la próxima vez abre con lo de siempre
-    }
-}
-
-// "Guardar Hábitos" es solo de la sección Hábitos
-function updateSettingsFooter() {
-    const habits = habitsSetupModal.querySelector('[data-section="habits"]');
-    settingsFooter.hidden = !(habits.open && !habits.hidden);
-}
-
-function setOpenSections(names) {
-    // Sus eventos toggle vuelven a guardar lo mismo (más la sección que se pidió abrir)
-    settingsSections.forEach(section => { section.open = names.includes(section.dataset.section); });
-    updateSettingsFooter();
-}
-
-// Abre Configuración con una sección desplegada (y a la vista). La promesa se
-// cumple con todo ya lleno.
+let settingsPage = null;        // la página abierta, o null en el menú
+let settingsWelcome = false;    // primera vez sin hábitos: abre en Hábitos
 let settingsFocusSection = null;
+
+function settingsPageEl(name) {
+    return settingsPages.find(page => page.dataset.section === name);
+}
+
+// Reinicia la animación de entrada (la misma clase en dos visitas seguidas no
+// se volvería a animar)
+function slideIn(element, direction) {
+    element.classList.remove('slide-from-right', 'slide-from-left');
+    void element.offsetWidth;
+    element.classList.add(direction === 'back' ? 'slide-from-left' : 'slide-from-right');
+}
+
+function showSettingsPage(name, { animate = true } = {}) {
+    const page = settingsPageEl(name);
+    if (!page || page.hidden) {
+        showSettingsMenu({ animate: false });
+        return;
+    }
+    settingsPage = name;
+    settingsMenu.hidden = true;
+    settingsPages.forEach(p => p.classList.toggle('active', p === page));
+    settingsBack.hidden = false;
+    const welcome = settingsWelcome && name === 'habits';
+    settingsTitle.textContent = welcome ? '¡Bienvenido! 👋' : page.dataset.title;
+    settingsWelcomeText.classList.toggle('hidden', !welcome);
+    settingsFooter.hidden = name !== 'habits';
+    settingsScroll.scrollTop = 0;
+    if (animate) slideIn(page, 'forward');
+    // Festivos: lo guardado al instante, lo que falte de la red (workdays.js)
+    if (name === 'holidays' && typeof loadWorkCalendar === 'function') loadWorkCalendar();
+}
+
+function showSettingsMenu({ animate = true } = {}) {
+    settingsPage = null;
+    settingsMenu.hidden = false;
+    settingsPages.forEach(p => p.classList.remove('active'));
+    settingsBack.hidden = true;
+    settingsTitle.textContent = SETTINGS_TITLE;
+    settingsWelcomeText.classList.add('hidden');
+    settingsFooter.hidden = true;
+    settingsScroll.scrollTop = 0;
+    if (animate) slideIn(settingsMenu, 'back');
+}
+
+// Abre Configuración directo en una página. La promesa se cumple con todo ya lleno.
 function openSettings(section) {
     settingsFocusSection = section;
     return showHabitsSetup();
@@ -54,31 +76,41 @@ function openSettings(section) {
 
 // Lo llama showHabitsSetup() con el modal ya visible
 function onSettingsOpened({ welcome = false } = {}) {
-    let open = readOpenSections();
-    if (welcome && !open.includes('habits')) open = [...open, 'habits'];
-    if (settingsFocusSection && !open.includes(settingsFocusSection)) open = [...open, settingsFocusSection];
-    setOpenSections(open);
-    // Si ya estaba desplegada no hay toggle que la cargue (workdays.js)
-    if (open.includes('holidays') && typeof loadWorkCalendar === 'function') loadWorkCalendar();
+    settingsWelcome = welcome;
+    const target = settingsFocusSection || (welcome ? 'habits' : null);
+    settingsFocusSection = null;
+    if (target) showSettingsPage(target, { animate: false });
+    else showSettingsMenu({ animate: false });
     fillPomoSettings();
     syncModuleSettings();
-    if (settingsFocusSection) {
-        const target = habitsSetupModal.querySelector(`[data-section="${settingsFocusSection}"]`);
-        // Sin scrollIntoView(): desplazaría también las vistas de detrás (CLAUDE.md)
-        const scroller = habitsSetupModal.querySelector('.setup-scroll');
-        if (target) scroller.scrollTop += target.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-        settingsFocusSection = null;
-    }
 }
 
-settingsSections.forEach(section => {
-    section.addEventListener('toggle', () => {
-        if (section.dataset.section === 'habits') updateSettingsFooter();
-        saveOpenSections();
+settingsMenu.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-open]');
+    if (item) showSettingsPage(item.dataset.open);
+});
+settingsBack.addEventListener('click', () => showSettingsMenu());
+document.getElementById('settingsClose').addEventListener('click', closeHabitsSetup);
+
+// Escape: de una página vuelve al menú; desde el menú, cierra. Con el confirm o
+// el selector de emoji encima, el Escape es de ellos.
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || habitsSetupModal.classList.contains('hidden')) return;
+    const onTop = ['confirmModal', 'emojiPickerModal'].some(id => {
+        const modal = document.getElementById(id);
+        return modal && !modal.classList.contains('hidden');
     });
+    if (onTop) return;
+    event.preventDefault();
+    if (settingsPage) showSettingsMenu();
+    else closeHabitsSetup();
 });
 
-document.getElementById('settingsClose').addEventListener('click', closeHabitsSetup);
+// Apagar Hábitos (en Módulos) oculta sus filas del menú; si su página estaba
+// abierta, se vuelve al menú
+window.modulesChangedHooks.push(() => {
+    if (settingsPage && settingsPageEl(settingsPage).hidden) showSettingsMenu({ animate: false });
+});
 
 // ============================================
 // Pomodoro: duraciones de la cuenta (users.pomodoro_*_seconds, null = por defecto)
@@ -124,6 +156,3 @@ document.getElementById('configPomoForm').addEventListener('submit', async (even
     configPomoStatus.textContent = 'Guardado ✓';
     setTimeout(() => { configPomoStatus.textContent = ''; }, 2500);
 });
-
-// Apagar o encender Hábitos (en Módulos) muestra u oculta sus secciones y su pie
-window.modulesChangedHooks.push(updateSettingsFooter);

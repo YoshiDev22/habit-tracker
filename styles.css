@@ -5358,45 +5358,131 @@ button.day-log-date:focus-visible {
 }
 
 /* ============================================
-   ⚙️ Configuración: secciones que se despliegan (settings.js)
+   ⚙️ Configuración: menú y páginas que se deslizan (settings.js)
    ============================================ */
 
-.settings-section {
-    border-bottom: 1px solid var(--border-color);
+.settings-head {
+    position: relative;
+}
+
+.settings-back {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 0 10px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.settings-back:hover {
+    color: var(--accent);
+}
+
+.settings-head .modal-title {
+    padding: 0 36px;
+}
+
+.settings-menu:not([hidden]) {
+    display: flex;
+    flex-direction: column;
     text-align: left;
 }
 
-.settings-section > summary {
+.settings-item:not([hidden]) {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 12px 2px;
-    font-weight: 600;
-    font-size: 0.95rem;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 4px;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    background: none;
     color: var(--text-primary);
+    font: inherit;
+    text-align: left;
     cursor: pointer;
-    list-style: none;
 }
 
-.settings-section > summary::-webkit-details-marker {
-    display: none;
+.settings-item:last-child {
+    border-bottom: none;
 }
 
-.settings-section > summary::after {
-    content: '›';
+.settings-item:hover {
+    background: var(--bg-surface-2);
+}
+
+.settings-item-icon {
+    flex: 0 0 auto;
+    width: 1.6rem;
+    font-size: 1.15rem;
+    text-align: center;
+}
+
+.settings-item-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-item-text strong {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.settings-item-text small {
+    font-size: 0.78rem;
     color: var(--text-muted);
-    font-size: 1.2rem;
-    line-height: 1;
-    transition: transform 0.2s ease;
 }
 
-.settings-section[open] > summary::after {
-    transform: rotate(90deg);
+.settings-item-go {
+    color: var(--text-muted);
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+/* Las páginas se ven con .active; `hidden` es del módulo Hábitos apagado */
+.settings-page {
+    display: none;
+    text-align: left;
+}
+
+.settings-page.active {
+    display: block;
 }
 
 .settings-body {
     padding: 0 2px 16px;
+}
+
+.slide-from-right {
+    animation: settings-slide-right 0.22s ease-out;
+}
+
+.slide-from-left {
+    animation: settings-slide-left 0.22s ease-out;
+}
+
+@keyframes settings-slide-right {
+    from { transform: translateX(40px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+@keyframes settings-slide-left {
+    from { transform: translateX(-40px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slide-from-right,
+    .slide-from-left {
+        animation: none;
+    }
 }
 
 .work-refresh {

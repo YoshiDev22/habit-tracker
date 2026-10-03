@@ -57,7 +57,7 @@ async def main():
         await js("document.getElementById('configPomoOpen').click()")
         await b.wait_for(SETTINGS_OPEN)
         st = await js("""({organizar: !document.getElementById('boardConfigModal').classList.contains('hidden'),
-            pomoOpen: document.querySelector('#habitsSetupModal [data-section="pomodoro"]').open,
+            pomoOpen: document.querySelector('#habitsSetupModal [data-section="pomodoro"]').classList.contains('active'),
             fields: ['configPomoFocus','configPomoShort','configPomoLong'].map(id => [document.getElementById(id).value, document.getElementById(id).placeholder])})""")
         check(not st["organizar"] and st["pomoOpen"], f"Organizar's button opens Configuración › Pomodoro ({st})")
         check(st["fields"] == [["", "25"], ["", "5"], ["", "15"]], f"defaults as placeholders ({st['fields']})")

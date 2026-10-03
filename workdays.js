@@ -7,11 +7,11 @@
 // se descansan: los oficiales con "Descanso" marcado y los días libres propios).
 //
 // Se guardan en este dispositivo (localStorage.work_calendar_cache): al abrir
-// la sección o pintar el calendario no se vuelven a pedir. "↻ Actualizar
+// su página (settings.js llama a loadWorkCalendar) o pintar el calendario no se
+// vuelven a pedir. "↻ Actualizar
 // festivos" los pide de nuevo, y cualquier cambio los refresca. La primera vez
 // que la cuenta entra sin huso guardado, se guarda el del navegador.
 
-const workCalendarEl = document.getElementById('workCalendar');
 const workTimezoneEl = document.getElementById('workTimezone');
 const workCountryEl = document.getElementById('workCountry');
 const workYearLabel = document.getElementById('workYearLabel');
@@ -272,11 +272,6 @@ document.getElementById('workYearNext').addEventListener('click', () => { workSt
 document.getElementById('workRefresh').addEventListener('click', async () => {
     await loadWorkCalendar({ force: true });
     if (typeof renderCalendar === 'function') renderCalendar();
-});
-
-// Al desplegar la sección: lo guardado al instante, lo que falte de la red
-workCalendarEl.addEventListener('toggle', () => {
-    if (workCalendarEl.open) loadWorkCalendar();
 });
 
 fillTimezoneList();

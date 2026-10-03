@@ -464,22 +464,63 @@
     </div>
 
     <!-- Popup de Bienvenida / Configuración de Hábitos -->
-    <!-- ⚙️ Configuración (settings.js): todo lo que se ajusta, en secciones que se
-         despliegan. Recuerda en este dispositivo cuáles quedaron abiertas. La primera
-         vez, sin hábitos, se abre como bienvenida con Hábitos desplegado. Los hábitos
-         se guardan con su botón; lo demás, al tocarlo. -->
+    <!-- ⚙️ Configuración (settings.js): un menú, y cada categoría en su página, que
+         se desliza al tocarla (‹ vuelve). La primera vez, sin hábitos, abre directo
+         en Hábitos como bienvenida. Los hábitos se guardan con su botón (el pie solo
+         se ve en su página); lo demás, al tocarlo. -->
     <div id="habitsSetupModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal">
             <button class="modal-close" type="button" id="settingsClose" aria-label="Cerrar">&times;</button>
-            <h2 class="modal-title" id="setupTitle">Configuración</h2>
+            <div class="settings-head">
+                <button type="button" class="settings-back" id="settingsBack" aria-label="Volver a Configuración" hidden>‹</button>
+                <h2 class="modal-title" id="setupTitle">Configuración</h2>
+            </div>
             <p class="setup-subtitle hidden" id="setupWelcome">Empieza por los hábitos que quieres seguir.</p>
 
             <!-- Solo este bloque hace scroll: así el pie con Guardar Hábitos
                  sigue visible por muchos hábitos que haya. -->
             <div class="setup-scroll">
-                <details class="settings-section" data-section="habits" data-habits-only>
-                    <summary>Hábitos</summary>
+                <!-- El menú: cada fila desliza a su página (settings.js) -->
+                <nav class="settings-menu" id="settingsMenu" aria-label="Configuración">
+                    <button type="button" class="settings-item" data-open="habits" data-habits-only>
+                        <span class="settings-item-icon" aria-hidden="true">✅</span>
+                        <span class="settings-item-text"><strong>Hábitos</strong><small>Cuáles sigues, sus colores y emojis</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
+                    <button type="button" class="settings-item" data-open="rest" data-habits-only>
+                        <span class="settings-item-icon" aria-hidden="true">😴</span>
+                        <span class="settings-item-text"><strong>Días de descanso</strong><small>Los días de la semana que no cortan la racha</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
+                    <button type="button" class="settings-item" data-open="vacations">
+                        <span class="settings-item-icon" aria-hidden="true">🏖️</span>
+                        <span class="settings-item-text"><strong>Vacaciones</strong><small>Pausas de la racha, hasta 30 días</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
+                    <button type="button" class="settings-item" data-open="holidays">
+                        <span class="settings-item-icon" aria-hidden="true">🎉</span>
+                        <span class="settings-item-text"><strong>Días festivos y huso horario</strong><small>Festivos de tu país y tus días libres</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
+                    <button type="button" class="settings-item" data-open="modules">
+                        <span class="settings-item-icon" aria-hidden="true">🧩</span>
+                        <span class="settings-item-text"><strong>Módulos</strong><small>Qué partes de la app usas</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
+                    <button type="button" class="settings-item" data-open="pomodoro">
+                        <span class="settings-item-icon" aria-hidden="true">⏱</span>
+                        <span class="settings-item-text"><strong>Pomodoro</strong><small>Duración del enfoque y los descansos</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
+                    <button type="button" class="settings-item" data-open="display">
+                        <span class="settings-item-icon" aria-hidden="true">🔠</span>
+                        <span class="settings-item-text"><strong>Pantalla</strong><small>Tamaño del texto en este dispositivo</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
+                </nav>
+
+                <section class="settings-page" data-section="habits" data-habits-only data-title="Hábitos">
                     <div class="settings-body">
                         <!-- Se llena desde el backend en showHabitsSetup(): aquí solo
                              están los hábitos que sigues, no un catálogo. -->
@@ -509,10 +550,9 @@
                             <div class="archived-list" id="archivedHabitsList"></div>
                         </details>
                     </div>
-                </details>
+                </section>
 
-                <details class="settings-section" data-section="rest" data-habits-only>
-                    <summary>Días de descanso</summary>
+                <section class="settings-page" data-section="rest" data-habits-only data-title="Días de descanso">
                     <div class="settings-body">
                         <p class="module-hint">Cada semana, estos días congelan la racha: sin hábitos no la cortan ni suman. Se guarda al tocarlo.</p>
                             <div class="rest-days-options" id="restDaysOptions">
@@ -547,12 +587,11 @@
                             </div>
                         <p class="config-pomo-status" id="restDaysStatus" role="status"></p>
                     </div>
-                </details>
+                </section>
 
                 <!-- Vacaciones (habits.js, loadPauses): se guardan al momento. Hoy o
                      hacia adelante; hasta 30 días. También cuentan como días no hábiles. -->
-                <details class="settings-section" data-section="vacations">
-                    <summary>Vacaciones</summary>
+                <section class="settings-page" data-section="vacations" data-title="Vacaciones">
                     <div class="settings-body">
                         <p class="module-hint">Pausan la racha hasta 30 días, desde hoy o más adelante, y en los reportes no cuentan como días hábiles.</p>
                         <ul class="pause-list" id="pauseList"></ul>
@@ -563,13 +602,12 @@
                         </div>
                         <p class="form-error hidden" id="pauseError" role="alert"></p>
                     </div>
-                </details>
+                </section>
 
                 <!-- Festivos y huso horario (workdays.js), van juntos: deciden qué días son
                      hábiles y a qué hora local pasó cada sesión. Se guardan en este
                      dispositivo; ↻ los vuelve a pedir. -->
-                <details class="settings-section work-calendar" data-section="holidays" id="workCalendar">
-                    <summary>Días festivos y huso horario</summary>
+                <section class="settings-page work-calendar" data-section="holidays" id="workCalendar" data-title="Días festivos y huso horario">
                     <div class="settings-body">
                         <div class="work-calendar-row">
                     <label class="work-field">
@@ -601,10 +639,9 @@
                 <div id="workCalendarError" class="form-error hidden"></div>
                         <button type="button" class="link-btn work-refresh" id="workRefresh">↻ Actualizar festivos</button>
                     </div>
-                </details>
+                </section>
 
-                <details class="settings-section" data-section="modules">
-                    <summary>Módulos</summary>
+                <section class="settings-page" data-section="modules" data-title="Módulos">
                     <div class="settings-body">
                         <div id="moduleSettings">
                 <label class="module-option">
@@ -626,12 +663,11 @@
                 <div id="moduleError" class="form-error hidden"></div>
             </div>
                     </div>
-                </details>
+                </section>
 
                 <!-- Duraciones del pomodoro (settings.js), de la cuenta. Antes en
                      Organizar, que ahora trae aquí. -->
-                <details class="settings-section" data-section="pomodoro">
-                    <summary>Pomodoro</summary>
+                <section class="settings-page" data-section="pomodoro" data-title="Pomodoro">
                     <div class="settings-body">
                         <p class="config-hint">En minutos. Vacío = el valor por defecto. Un pomodoro que ya está corriendo termina con la duración con la que empezó.</p>
                 <form id="configPomoForm" class="pomo-settings">
@@ -645,11 +681,10 @@
                     </div>
                 </form>
                     </div>
-                </details>
+                </section>
 
                 <!-- De este dispositivo: se aplica al tocarlo y sobrevive al cierre de sesión -->
-                <details class="settings-section" data-section="display">
-                    <summary>Pantalla</summary>
+                <section class="settings-page" data-section="display" data-title="Pantalla">
                     <div class="settings-body">
                         <div class="device-setting-row">
                     <span id="textSizeLabel">Tamaño del texto</span>
@@ -661,7 +696,7 @@
                 </div>
                         <p class="module-hint">Se guarda en este dispositivo.</p>
                     </div>
-                </details>
+                </section>
             </div>
 
             <div class="setup-footer">

@@ -39,6 +39,8 @@ async def main():
         await b.js(f"localStorage.clear(); localStorage.setItem('access_token', {json.dumps(token)});")
         await b.goto(BASE + "/", wait=2.5)
         await b.js("document.getElementById('settingsBtn').click()")
+        await b.wait_for("!document.getElementById('settingsMenu').hidden && !document.getElementById('habitsSetupModal').classList.contains('hidden')")
+        await b.js("document.querySelector('#settingsMenu [data-open=habits]').click()")
         await b.wait_for("document.querySelectorAll('#habitsOptions .habit-option').length", lambda n: n == 2)
 
         # Tomados: azul y verde (activos) y morado (el oculto). El propio arranca en el primero libre
@@ -70,6 +72,8 @@ async def main():
 
         # Borrar el oculto: la confirmación dice cuánto baja la racha
         await b.js("document.getElementById('settingsBtn').click()")
+        await b.wait_for("!document.getElementById('settingsMenu').hidden && !document.getElementById('habitsSetupModal').classList.contains('hidden')")
+        await b.js("document.querySelector('#settingsMenu [data-open=habits]').click()")
         await b.wait_for("document.querySelectorAll('#archivedHabitsList .archived-row').length", lambda n: n == 1)
         await b.js("document.querySelector('#archivedHabitsList .archived-delete').click()")
         msg = await b.wait_for("(() => { const m = document.getElementById('confirmModal'); return m.classList.contains('hidden') ? '' : document.getElementById('confirmModalMessage').textContent; })()", bool)
