@@ -131,7 +131,7 @@ async def main():
             await flushPendingSessions();
         }})()""")
         await asyncio.sleep(1.0)
-        left = await b.js("JSON.parse(localStorage.getItem('pomodoro_pending') || '[]').map(p => p.duration_seconds)")
+        left = await b.js("JSON.parse(localStorage.getItem('pomodoro_pending') || '[]').map(p => (p.payload || p).duration_seconds)")
         s4 = sessions_for(TITLE)
         check(left == [90] and len(s4) == len(s3) + 1, f"what is queued during a flush stays queued ({left}, {len(s4) - len(s3)} sent)")
         await tab2.ws.close()

@@ -195,24 +195,24 @@ function setSoundEnabled(enabled) {
     } catch (e) {}
 }
 
-// Cola de reintento: si el POST falla (backend caído, sin red), se guarda
-// aquí y se reintenta al iniciar y tras cada envío exitoso.
-function queuePendingSession(payload) {
-    let pending = [];
-    try {
-        pending = JSON.parse(localStorage.getItem(POMO_PENDING_KEY) || '[]');
-    } catch (e) {
-        pending = [];
-    }
-    pending.push(payload);
+// Cola de reintento: si el POST falla (backend caído, sin red, token vencido),
+// se guarda aquí y se reintenta al iniciar y tras cada envío exitoso. Cada
+// entrada lleva su dueño ({owner, payload}): la cola sobrevive al cierre de
+// sesión, y solo la cuenta dueña la envía. Antes el logout la borraba entera,
+// y una sesión que no alcanzó a guardarse al cerrar sesión se perdía.
+function queuePendingSession(payload, owner = currentUser ? currentUser.id : null) {
+    const pending = readPendingSessions();
+    pending.push({ owner, payload });
     try {
         localStorage.setItem(POMO_PENDING_KEY, JSON.stringify(pending));
     } catch (e) {}
 }
 
+// Las entradas de antes de los dueños eran el payload solo: dueño desconocido
 function readPendingSessions() {
     try {
-        return JSON.parse(localStorage.getItem(POMO_PENDING_KEY) || '[]');
+        const raw = JSON.parse(localStorage.getItem(POMO_PENDING_KEY) || '[]');
+        return raw.map(item => (item && item.payload ? item : { owner: null, payload: item }));
     } catch (e) {
         return [];
     }
@@ -236,16 +236,18 @@ async function flushPendingNow() {
     // Sin sesión no hay a quién atribuir las sesiones y el POST daría 401. Se
     // quedan en la cola de localStorage hasta el próximo login, que es
     // justamente para lo que existe la cola.
-    if (!getToken()) return;
+    if (!getToken() || !currentUser) return;
 
-    const pending = readPendingSessions();
+    // Solo las de esta cuenta (y las de antes de los dueños, como siempre). Las
+    // de otra cuenta en este dispositivo esperan a que entre su dueño.
+    const pending = readPendingSessions().filter(item => item.owner === null || item.owner === currentUser.id);
     if (!pending.length) return;
 
     const sent = [];
-    for (const payload of pending) {
+    for (const item of pending) {
         try {
-            await apiFetch('/api/pomodoro', { method: 'POST', json: payload });
-            sent.push(JSON.stringify(payload));
+            await apiFetch('/api/pomodoro', { method: 'POST', json: item.payload });
+            sent.push(JSON.stringify(item));
         } catch (error) {
             // se queda en la cola
         }
@@ -253,8 +255,8 @@ async function flushPendingNow() {
 
     // Se relee la cola en vez de sobrescribirla: lo que se encoló mientras se
     // enviaba (otro POST que falló) se perdía.
-    const remaining = readPendingSessions().filter(payload => {
-        const index = sent.indexOf(JSON.stringify(payload));
+    const remaining = readPendingSessions().filter(item => {
+        const index = sent.indexOf(JSON.stringify(item));
         if (index === -1) return true;
         sent.splice(index, 1);
         return false;
@@ -1465,36 +1467,54 @@ pomodoroBar.addEventListener('click', () => {
 
 async function handlePomodoroLogout() {
     stopTicking();
+    const owner = currentUser ? currentUser.id : null;
+    const state = pomoState;
+    let payload = null;
 
-    if (pomoState.status === 'running' || pomoState.status === 'paused') {
+    if (state.status === 'running' || state.status === 'paused') {
         // El cronómetro deriva su tiempo de getElapsedMs; restar getRemainingMs
         // daría NaN, porque no tiene targetEpochMs.
-        const stopwatch = isStopwatch(pomoState);
+        const stopwatch = isStopwatch(state);
         const elapsedMs = stopwatch
-            ? getElapsedMs(pomoState)
-            : pomoState.plannedSeconds * 1000 - getRemainingMs(pomoState);
-        const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
-
-        if ((stopwatch || pomoState.mode === 'focus') && elapsedSeconds >= POMO_MIN_LOG_SECONDS) {
-            const payload = buildPayload(pomoState, pomoState.startedEpochMs, Date.now(), elapsedSeconds, stopwatch);
-            try {
-                await apiFetch('/api/pomodoro', { method: 'POST', json: payload });
-            } catch (error) {
-                console.error('No se pudo guardar la sesión de pomodoro al cerrar sesión:', error);
-            }
+            ? getElapsedMs(state)
+            : state.plannedSeconds * 1000 - getRemainingMs(state);
+        let elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
+        let endedEpochMs = Date.now();
+        let note = null;
+        // El tope de 8 h vale también aquí: antes se guardaba lo que marcara el
+        // reloj (15 h sin aviso) o, pasadas 24 h, el backend lo rechazaba y se
+        // perdía. Recortado, queda con la nota de cierre automático: por revisar.
+        if (stopwatch && elapsedSeconds > POMO_STOPWATCH_MAX_SECONDS) {
+            elapsedSeconds = POMO_STOPWATCH_MAX_SECONDS;
+            endedEpochMs = state.startedEpochMs + (state.pausedAccumMs || 0) + elapsedSeconds * 1000;
+            note = POMO_AUTOCLOSE_NOTE;
+        }
+        if ((stopwatch || state.mode === 'focus') && elapsedSeconds >= POMO_MIN_LOG_SECONDS) {
+            payload = buildPayload(state, state.startedEpochMs, endedEpochMs, elapsedSeconds, stopwatch, note);
         }
     }
 
-    // A diferencia de las preferencias de hábitos (que handleLogout conserva
-    // a propósito), un timer sin enviar pertenece a la cuenta que cierra
-    // sesión: dejarlo en localStorage haría que el próximo usuario en este
-    // dispositivo lo re-envíe bajo su propio user_id al rehidratar.
+    // El timer se suelta ya, antes del primer await: con el token vencido este
+    // POST da 401, que vuelve a llamar a handleLogout(), y esa segunda vuelta
+    // debe encontrarlo vacío (si no, lo enviaría otra vez, en bucle). El timer
+    // no se deja en localStorage: el próximo usuario lo rehidrataría como suyo.
     pomoState = createIdlePomoState();
     clearPomoState();
-    try { localStorage.removeItem(POMO_PENDING_KEY); } catch (e) {}
     try { localStorage.removeItem(POMO_ACTIVITY_KEY); } catch (e) {}
     if (!idleCheckModal.classList.contains('hidden')) closeIdleCheck();
     renderPomoUI();
+
+    if (payload) {
+        // apiFetch() arranca el POST en esta misma vuelta síncrona, con el token
+        // todavía puesto (ver appLogoutHooks en CLAUDE.md)
+        try {
+            await apiFetch('/api/pomodoro', { method: 'POST', json: payload });
+        } catch (error) {
+            // Sin perderla: a la cola, con su dueño, para cuando vuelva a entrar
+            console.error('No se pudo guardar la sesión al cerrar sesión; queda en la cola:', error);
+            queuePendingSession(payload, owner);
+        }
+    }
 }
 
 // ============================================

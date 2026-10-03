@@ -579,7 +579,13 @@ entre dispositivos.
 
 El pomodoro es **offline-first**: si el POST de una sesión falla, `queuePendingSession()`
 la guarda en `pomodoro_pending` y `flushPendingSessions()` la reintenta al iniciar. No
-romper esa cola.
+romper esa cola. Cada entrada es `{owner, payload}` (`owner` = id de la cuenta): la cola **sobrevive al
+cierre de sesión** y solo la envía su dueño, así que otra cuenta en el mismo dispositivo
+no la manda como suya (las entradas viejas, sin dueño, se envían como antes). El hook de
+logout (`handlePomodoroLogout()`) recorta el cronómetro al tope de 8 h con la nota de
+cierre automático, suelta el timer **antes** de su primer `await` (un 401 de su POST vuelve
+a llamar a `handleLogout()` y esa vuelta debe encontrarlo vacío) y, si el POST falla
+(token vencido), encola la sesión con su dueño en vez de perderla.
 
 **Varias pestañas abiertas comparten `pomodoro_state`, pero cada una lleva su copia en
 memoria.** Antes de guardar una sesión (terminar, detener, rehidratar), el camino que la
