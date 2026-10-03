@@ -103,7 +103,7 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
 
 ## Fases (cada una se despliega sola)
 
-1. **Export de hábitos (C).** CSV por rango (fecha, hábito, hecho, y si el día fue de
+1. **Export de hábitos (C)** ✅ (2026-10-03, sin publicar). CSV por rango (fecha, hábito, hecho, y si el día fue de
    descanso, vacaciones o cubierto por escudo), junto al "Exportar CSV" de Reportes. El
    export de tiempo por rango ya existe (*Personalizado*).
 2. **Sesiones por confirmar.** `needs_review` con su migración y relleno desde la nota; aviso
@@ -117,6 +117,8 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    - Necesita el huso horario y el país de cada usuario, y los festivos.
    - Reportes pasa a leer de aquí, con pruebas de que sus cifras no cambian.
 4. **Reportes guardados, sin IA.**
+   - **Cada reporte tiene su botón** ("Generar reporte de la semana / del mes") para
+     hacerlo cuando el usuario quiera, además del automático.
    - Tabla `reports` y un script `scripts/generate_reports.py`, disparado por un
      **systemd timer** (viernes y día 1). No va dentro de uvicorn: con reinicios o varios
      workers dispararía dos veces.
@@ -128,8 +130,10 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    enciende o apaga y ve el JSON exacto que se enviaría. Si el proveedor falla o se pasa del límite diario, el texto
    sale de las reglas. Respuesta en JSON validado, y se rechaza un texto que cite números
    que no venían en las métricas.
-6. **Costos del periodo (Maker).** Tipo de proyecto, precio, "presupuesto disponible" y
-   margen, y la sección "Costos del periodo" del reporte. Requiere filtrar
+6. **Reporte de costos (Maker), aparte (decidido 2026-10-03).** No se mezcla con el de
+   tiempo y hábitos: es **su propio reporte, con su propio botón** en la pestaña Costos
+   (horas, mano de obra, gastos, costo, presupuesto disponible y margen del periodo, por
+   proyecto y por moneda). Con él llegan el tipo de proyecto y el precio. Requiere filtrar
    `/api/costs/summary` por fechas (entrada 29).
 
 ## Esquema (borrador)

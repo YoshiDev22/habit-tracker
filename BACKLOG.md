@@ -400,12 +400,12 @@ CSV: cifras por código, texto opcional por IA (Cloudflare Workers AI, Gemini, O
 modelo local, a elegir por usuario, con una sola función de llamada), PDF desde el
 navegador.
 
-**Fases.** 1 export de hábitos · 2 sesiones por confirmar (`needs_review`, con
+**Fases.** 1 export de hábitos ✅ · 2 sesiones por confirmar (`needs_review`, con
 migración) · 3 capa de métricas con huso horario y festivos · 4 reportes guardados sin IA
 (systemd timer) · 5 IA para el texto · 6 costos del periodo, tipo de proyecto y precio
 (con migración).
 
-**Aceptación (de la Fase 1, no de la épica).** Desde Reportes se descarga un CSV de
-hábitos del rango elegido, con una fila por día y hábito, que se abre bien en Excel y
-Google Sheets.
+**Aceptación (de la Fase 2, no de la épica).** Un cronómetro cerrado a las 8 h queda
+marcado por confirmar (columna, no texto de la nota); la campanita de arriba lo cuenta y
+lleva a corregirlo; Reportes dice cuánto tiempo sin confirmar está contando.
 
