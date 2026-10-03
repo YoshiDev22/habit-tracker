@@ -54,6 +54,12 @@ MIGRATIONS = [
     # Sesión por confirmar (épica 30, Fase 2). Nace en 0; las de antes se marcan
     # con mark_sessions_to_review(), solo la vez que se añade la columna.
     {"table": "pomodoro_sessions", "column": "needs_review", "type": "BOOLEAN", "default": 0},
+    # Quién escribió el texto de un reporte guardado (épica 30, Fase 5). La tabla
+    # reports nació en la Fase 4 sin ellas: una base que ya la tenía las necesita.
+    # new_table: si la tabla aún no existe (producción antes de la 1.20) se salta,
+    # porque create_all() la crea ya completa al arrancar.
+    {"table": "reports", "column": "text_model", "type": "VARCHAR", "new_table": True},
+    {"table": "reports", "column": "text_note", "type": "VARCHAR", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado
@@ -211,6 +217,8 @@ def main():
             table, column = entry["table"], entry["column"]
 
             columns = existing_columns(connection, table)
+            if not columns and entry.get("new_table"):
+                continue
             if not columns:
                 sys.exit(f"No '{table}' table here. Start the app once to create the schema.")
             if column in columns:
