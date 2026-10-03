@@ -5740,6 +5740,16 @@ button.day-log-date:focus-visible {
     color: var(--accent);
 }
 
+/* Su propia clase: .report-review-note es la nota de Reportes */
+.ai-preview-warning {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+    font-size: 0.82rem;
+}
+
 .ai-preview-json {
     max-height: 320px;
     overflow: auto;
