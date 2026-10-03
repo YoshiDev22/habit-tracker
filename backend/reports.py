@@ -19,6 +19,8 @@ from sqlmodel import Session, select
 from backend.days import DEFAULT_TIMEZONE, user_settings, valid_timezone
 from backend.metrics import compute_metrics
 from backend.models import PomodoroSession, Report, User, utc_now_naive
+from backend.ai import AiError, ai_config
+from backend.report_ai import write_with_ai
 from backend.report_text import build_text
 
 KINDS = ("week", "month")
@@ -54,7 +56,7 @@ def local_today(session: Session, user: User) -> date_type:
     return datetime.now(ZoneInfo(zone)).date()
 
 
-def _previous_summary(metrics: dict) -> dict:
+def previous_summary(metrics: dict) -> dict:
     summary = {field: metrics[field] for field in PREVIOUS_FIELDS}
     summary["date_from"] = metrics["date_from"]
     summary["date_to"] = metrics["date_to"]
@@ -63,17 +65,46 @@ def _previous_summary(metrics: dict) -> dict:
     return summary
 
 
+def ai_enabled(session: Session, user: User) -> bool:
+    # Importado aquí: routers.auth importa la app de rutas, no al revés
+    from backend.routers.auth import user_modules
+    return user_modules(session, user.id)["ai"]["enabled"]
+
+
+def write_text(session: Session, user: User, report: Report, use_ai: bool) -> Report:
+    """
+    Pone el texto del reporte a partir de sus cifras: el de la IA si la cuenta
+    la tiene encendida y responde bien; si no, el de las reglas, con el motivo
+    en text_note cuando la IA debía escribirlo. No hace commit.
+    """
+    report.text = build_text(report.kind, report.metrics)
+    report.text_source, report.text_model, report.text_note = "rules", None, None
+    if not use_ai or not ai_enabled(session, user):
+        return report
+    config = ai_config()
+    if config is None:
+        report.text_note = "La IA no está configurada en este servidor"
+        return report
+    try:
+        report.text, report.text_model = write_with_ai(session, user, report.kind, report.metrics, config)
+        report.text_source = "ai"
+    except AiError as error:
+        report.text_note = str(error)
+    return report
+
+
 def generate_report(session: Session, user: User, kind: str, period_start: date_type,
-                    today: date_type, trigger: str = "manual") -> Report:
+                    today: date_type, trigger: str = "manual", use_ai: bool = True) -> Report:
     """
     Calcula y guarda el reporte del periodo que empieza en `period_start`. Si
     ya existía, lo reemplaza (mismo id): así se corrige un reporte después de
-    arreglar registros, y el timer no duplica.
+    arreglar registros, y el timer no duplica. Con la IA encendida, ella
+    escribe el texto (write_text).
     """
     start, end = period_bounds(kind, period_start)
     metrics = compute_metrics(session, user, start, end, today)
     prev_start, prev_end = previous_period(kind, start)
-    metrics["previous"] = _previous_summary(compute_metrics(session, user, prev_start, prev_end, today))
+    metrics["previous"] = previous_summary(compute_metrics(session, user, prev_start, prev_end, today))
 
     report = session.exec(select(Report).where(
         Report.user_id == user.id, Report.kind == kind, Report.period_start == start)).first()
@@ -82,8 +113,7 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     report.through = date_type.fromisoformat(metrics["through"])
     # Reasignar el dict entero: los JSON no son MutableDict (ver CLAUDE.md)
     report.metrics = metrics
-    report.text = build_text(kind, metrics)
-    report.text_source = "rules"
+    write_text(session, user, report, use_ai)
     report.trigger = trigger
     report.created_at = utc_now_naive()
     session.add(report)

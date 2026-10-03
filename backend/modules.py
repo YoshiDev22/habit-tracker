@@ -17,6 +17,10 @@ MODULES = {
     # Plan maker: costeo de proyectos para freelance y makers. Gratis, pero por
     # ahora solo para las cuentas con acceso (scripts/grant_module.py).
     "maker": {"enabled": False, "allowed": False},
+    # IA para el texto de los reportes (épica 30, Fase 5): solo para las cuentas
+    # con acceso, y apagada hasta que el usuario la enciende. El proveedor es
+    # uno por instancia, en backend/.env (backend/ai.py).
+    "ai": {"enabled": False, "allowed": False},
 }
 
 

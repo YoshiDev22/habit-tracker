@@ -21,7 +21,7 @@ def test_needs_the_maker_plan(seeded):
     # Con acceso pero apagado, tampoco; el mensaje dice cómo encenderlo
     assert grant("--email", "yoshi@test.com", "--module", "maker").returncode == 0
     s, body = api.call("GET", url)
-    assert s == 403 and "Mi perfil" in body["detail"]
+    assert s == 403 and "Configuración › Módulos" in body["detail"]
     api.call("PUT", "/api/auth/me/modules/maker", {"enabled": True}, expect=200)
     api.call("GET", url, expect=200)
 

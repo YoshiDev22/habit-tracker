@@ -503,6 +503,27 @@ class Report(SQLModel, table=True):
     through: date_type            # último día con datos: antes de period_end si se generó a medio periodo
     metrics: Dict = Field(default={}, sa_type=JSON)
     text: Dict = Field(default={}, sa_type=JSON)
-    text_source: str = Field(default="rules")   # rules (Fase 5: el proveedor de IA)
+    text_source: str = Field(default="rules")   # rules | ai
+    text_model: Optional[str] = Field(default=None)  # el modelo de IA que lo escribió
+    text_note: Optional[str] = Field(default=None)   # por qué no lo escribió la IA, si debía
     trigger: str = Field(default="manual")      # manual (botón) | auto (scripts/generate_reports.py)
     created_at: datetime = Field(default_factory=utc_now_naive)  # UTC naive
+
+
+class AiCall(SQLModel, table=True):
+    """
+    Cada llamada al proveedor de IA (backend/ai.py), salga bien o no: es lo que
+    cuenta el límite diario por cuenta y lo que deja ver el consumo. No guarda
+    lo que se envió ni lo que volvió. Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "ai_calls"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now_naive, index=True)  # UTC naive
+    purpose: str = Field(default="report")
+    model: str
+    ok: bool = Field(default=False)
+    error: Optional[str] = Field(default=None)       # motivo corto, sin datos del usuario
+    input_tokens: Optional[int] = Field(default=None)
+    output_tokens: Optional[int] = Field(default=None)

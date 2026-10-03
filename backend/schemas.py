@@ -1117,6 +1117,7 @@ class ReportCreate(SQLModel):
     kind: str
     period_start: date_type
     today: Optional[date_type] = None   # fecha LOCAL del cliente (resolve_client_today)
+    use_ai: bool = True                 # con la IA encendida, que ella escriba el texto
 
     @field_validator("kind")
     @classmethod
@@ -1136,6 +1137,8 @@ class ReportSummary(SQLModel):
     total_seconds: int
     trigger: str
     text_source: str
+    text_model: Optional[str] = None
+    text_note: Optional[str] = None
     created_at: datetime
 
 

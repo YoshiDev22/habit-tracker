@@ -16,7 +16,7 @@ def grant(*args):
 
 def test_defaults_come_with_the_user(api):
     _, created = api.call("POST", "/api/auth/register", {"email": "nuevo@test.com", "password": "secret123"}, expect=200)
-    expected = {"habits": {"enabled": True, "allowed": True}, "maker": {"enabled": False, "allowed": False}}
+    expected = {"habits": {"enabled": True, "allowed": True}, "maker": {"enabled": False, "allowed": False}, "ai": {"enabled": False, "allowed": False}}
     assert created["modules"] == expected, "register already returns them: the app uses it as currentUser"
     api.login("nuevo@test.com")
     _, me = api.call("GET", "/api/auth/me", expect=200)
@@ -81,8 +81,8 @@ def test_access_is_per_account(api):
     other.call("PUT", "/api/auth/me/modules/habits", {"enabled": False}, expect=200)
     _, mine = api.call("GET", "/api/auth/me", expect=200)
     _, theirs = other.call("GET", "/api/auth/me", expect=200)
-    assert mine["modules"] == {"habits": {"enabled": True, "allowed": True}, "maker": {"enabled": True, "allowed": True}}
-    assert theirs["modules"] == {"habits": {"enabled": False, "allowed": True}, "maker": {"enabled": False, "allowed": False}}
+    assert mine["modules"] == {"habits": {"enabled": True, "allowed": True}, "maker": {"enabled": True, "allowed": True}, "ai": {"enabled": False, "allowed": False}}
+    assert theirs["modules"] == {"habits": {"enabled": False, "allowed": True}, "maker": {"enabled": False, "allowed": False}, "ai": {"enabled": False, "allowed": False}}
 
 
 def test_grant_script_errors(api):

@@ -56,7 +56,7 @@ def require_module(session: Session, user: User, module: str) -> None:
     if not state["enabled"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=("Enciende este módulo en Mi perfil para usarlo." if state["allowed"]
+            detail=("Enciende este módulo en Configuración › Módulos para usarlo." if state["allowed"]
                     else "Tu cuenta todavía no tiene acceso a este módulo.")
         )
 

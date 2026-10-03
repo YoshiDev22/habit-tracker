@@ -174,3 +174,4 @@ def test_saved_reports(seeded):
                                                "today": date.today().isoformat()}, expect=200)
     assert other.call("GET", f"/api/reports/{rep['id']}")[0] == 404
     assert all(r["id"] != rep["id"] for r in other.call("GET", "/api/reports", expect=200)[1]["reports"])
+    assert other.call("POST", f"/api/reports/{rep['id']}/rewrite")[0] == 404
