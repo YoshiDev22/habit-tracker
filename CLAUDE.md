@@ -516,8 +516,9 @@ cuerpo en `.setup-scroll` (que necesita `min-height: 0` para poder encoger) y el
 (`<section class="settings-page" data-section="…">`: `habits`, `days` —descanso,
 vacaciones, festivos y huso, en grupos—, `modules`, `pomodoro`, `accessibility`), que se
 muestra con la clase `.active` y entra deslizándose; ‹ (`#settingsBack`) o Escape vuelven al menú. `hidden`
-queda para el módulo Hábitos apagado: la fila y la página de Hábitos, y el grupo de días de
-descanso, llevan `data-habits-only`. El menú es solo texto, sin emojis (como los ajustes de
+queda para el módulo Hábitos apagado: la fila y la página de Hábitos, el grupo de días de
+descanso y las frases de las ayudas que hablan de la racha llevan `data-habits-only`
+(vacaciones, festivos y huso siguen: los usan los reportes). El menú es solo texto, sin emojis (como los ajustes de
 Todoist o Linear). El pie solo se ve en la página Hábitos. Lo llena `showHabitsSetup()`
 (`habits.js`), que al final llama a `onSettingsOpened()` (`settings.js`): abre el menú, o
 Hábitos como bienvenida si aún no hay hábitos; `openSettings(nombre)` abre directo una página.

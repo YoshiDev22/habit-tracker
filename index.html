@@ -582,7 +582,8 @@
 
                         <div class="settings-group">
                             <h3 class="settings-group-title">Vacaciones</h3>
-                            <p class="module-hint">Pausan la racha hasta 30 días, desde hoy o más adelante, y en los reportes no cuentan como días hábiles.</p>
+                            <!-- Lo de la racha solo con el módulo Hábitos ([data-habits-only]) -->
+                            <p class="module-hint">Hasta 30 días, desde hoy o más adelante. En los reportes no cuentan como días hábiles.<span data-habits-only> Mientras duran, la racha se congela.</span></p>
                         <ul class="pause-list" id="pauseList"></ul>
                         <div class="pause-form">
                             <label>Desde <input type="date" id="pauseStart"></label>
@@ -595,7 +596,7 @@
                         <div class="settings-group work-calendar" id="workCalendar">
                             <h3 class="settings-group-title">Días festivos</h3>
                             <p class="module-hint">Días hábiles: de lunes a viernes, sin festivos oficiales de tu país, sin
-                                tus vacaciones y sin tus días libres. Los festivos que descansas tampoco cortan la racha.</p>
+                                tus vacaciones y sin tus días libres.<span data-habits-only> Los festivos que descansas tampoco cortan la racha.</span></p>
                             <label class="work-field work-country">
                                 <span>País</span>
                                 <input type="text" id="workCountry" maxlength="2" autocomplete="off" placeholder="MX">
