@@ -407,6 +407,29 @@ abre directo en Excel o en Google Sheets.
 día de la semana, hábito, si lo hiciste y el tipo de día: descanso, vacaciones, protegido
 por escudo u hoy en curso). Para un periodo largo, elige *Personalizado* (hasta un año).
 
+### Reportes guardados
+
+Un reporte es una foto del periodo: guarda las cifras como estaban al generarlo, con
+observaciones y recomendaciones, para leerlo después o compararlo.
+
+- **Generar reporte**, bajo el periodo (solo con *Semana* o *Mes*): hace el reporte de lo
+  que estás viendo y lo abre. Si ese periodo ya tiene uno, el botón dice **Ver reporte**.
+  Uno de la semana o el mes en curso llega hasta hoy.
+- **Solos**: cada lunes sale el de la semana anterior, y cada día 1 el del mes anterior, si
+  registraste tiempo en ese periodo. Si generaste uno a medias con el botón, el automático lo
+  completa.
+- **Regenerar**: si corriges un registro después, vuelve a calcular el reporte (reemplaza
+  al anterior, no se duplica).
+- **Reportes guardados**: la lista de todos, del más nuevo al más viejo.
+- **Imprimir / PDF**: imprime solo el reporte, en colores claros. Para un PDF, elige
+  "Guardar como PDF" en la ventana de impresión.
+
+Qué trae: el resumen comparado con el periodo anterior, el tiempo por día (los días no
+hábiles sombreados), por proyecto, las tareas con más tiempo, por etiqueta, tu horario
+habitual y ritmo, lo que conviene revisar (registros sin confirmar, de más de 4 h o que se
+enciman), observaciones, recomendaciones y un cierre. El texto lo escriben reglas fijas a
+partir de las cifras.
+
 ## Pomodoro y cronómetro
 
 El tiempo siempre se mide **en una tarea**, y se arranca desde ella:

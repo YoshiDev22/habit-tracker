@@ -71,6 +71,8 @@ habit-tracker/
 │   ├── days.py            # Calendario de trabajo: huso, país y qué días son hábiles
 │   ├── holidays.py        # Festivos oficiales de Nager.Date, en caché por país y año
 │   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
+│   ├── reports.py         # Reportes guardados: periodos, generación y cuáles faltan (épica 30)
+│   ├── report_text.py     # El texto de un reporte guardado, con reglas fijas
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -84,13 +86,16 @@ habit-tracker/
 │       ├── costs.py       # /api/costs/*      (gastos, categorías y resumen; plan maker)
 │       ├── days.py        # /api/days/*       (huso, país, festivos y días marcados)
 │       ├── metrics.py     # /api/metrics      (las cifras de un periodo)
+│       ├── reports.py     # /api/reports      (reportes guardados)
 │       └── pomodoro.py    # /api/pomodoro/*
 ├── docs/
 │   ├── specs/             # Specs de producto por fases (calendario-v2.md, modulos-y-costeo.md)
 │   └── referencias.md     # Investigación que sostiene las reglas de la racha (citable)
 ├── scripts/
 │   ├── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
-│   └── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan maker)
+│   ├── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan maker)
+│   └── generate_reports.py # Reportes automáticos: lo dispara el timer de systemd
+├── deploy/                # Plantillas genéricas del .service y el .timer de los reportes
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema, getDateKey
@@ -104,6 +109,7 @@ habit-tracker/
 ├── notifications.js       # La campanita de avisos: sesiones por confirmar
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
+├── saved-reports.js       # Reportes guardados: botón por periodo, lista, vista e impresión a PDF
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -424,7 +430,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los diez scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los doce scripts en orden y **el
 orden importa**:
 
 ```html
@@ -439,6 +445,7 @@ orden importa**:
 <script src="notifications.js"></script> <!-- la campanita: usa openLogTimeModal de pomodoro.js y el() de reports.js -->
 <script src="workdays.js"></script>     <!-- festivos y huso en Configuración: usa el() de reports.js -->
 <script src="settings.js"></script>     <!-- ⚙️ Configuración: usa habits.js (el modal) y workdays.js -->
+<script src="saved-reports.js"></script> <!-- reportes guardados: usa los helpers de reports.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -575,6 +582,22 @@ antepone `'` a lo que empiece por `= + - @` (un título así se ejecutaría como
 (los activos y los ocultos con registros en el rango), con `day_kind` (hoy, descanso,
 vacaciones, escudo) calculado con `_walk_streak()`, igual que el calendario. Hasta 366
 días por export.
+
+**Reportes guardados** (épica 30, Fase 4). Tabla `reports`, uno por (usuario, `kind`,
+`period_start`): semana de lunes a domingo o mes. Guarda las cifras de `compute_metrics()`
+**congeladas** al generarse, más `metrics.previous` (resumen del periodo anterior), y el
+`text` de `backend/report_text.py` (`summary`, `observations`, `recommendations`,
+`closing`), que solo lee esas cifras: en la Fase 5 la IA escribirá la misma forma.
+`POST /api/reports` genera o **reemplaza** (mismo id); un periodo en curso llega hasta hoy
+(`through`). No hay borrado: el timer volvería a crearlo. El automático lo hace
+`scripts/generate_reports.py` (fuera de uvicorn: con reinicios o varios workers dispararía
+dos veces), con un timer diario (`deploy/`): para cada cuenta, en su fecha **local**
+(`local_today()`), los periodos ya terminados con algún registro y sin reporte completo
+(`missing_reports()`, con 4 semanas y 2 meses de recuperación). Correrlo dos veces no
+duplica. La vista (`saved-reports.js`) pinta solo lo guardado, con los helpers de
+`reports.js`; `setRange()` le avisa el periodo con `syncSavedReportButton()`. Imprimir
+pone `body.saved-report-open` y `@media print` deja solo el modal, con los tokens del tema
+claro.
 
 Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 
@@ -828,6 +851,11 @@ Contexto para que Claude no proponga rutas ni patrones equivocados:
 
 **El deploy es manual.** No asumir CI/CD ni ejecutar comandos contra el VPS
 sin que Yoshio lo pida explícitamente.
+
+**Reportes automáticos**: `deploy/habit-reports.service` y `.timer` son plantillas; se
+copian a `/etc/systemd/system/` con el usuario y las rutas reales, y se activa el timer
+(`systemctl enable --now habit-reports.timer`). El script se prueba a mano con
+`--dry-run`; su salida queda en `journalctl -u habit-reports.service`.
 
 **Acceso al plan maker**, en el VPS y desde la raíz del repo, con el servicio ya en una
 versión que tenga `user_modules`: `python3 scripts/grant_module.py --email … --module maker`

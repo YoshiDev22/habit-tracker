@@ -402,10 +402,10 @@ navegador.
 
 **Fases.** 1 export de hábitos ✅ · 2 sesiones por confirmar (`needs_review`, con
 migración) ✅ · 3 capa de métricas con huso horario y festivos ✅ · 4 reportes guardados sin IA
-(systemd timer) · 5 IA para el texto · 6 costos del periodo, tipo de proyecto y precio
+(systemd timer) ✅ · 5 IA para el texto · 6 costos del periodo, tipo de proyecto y precio
 (con migración).
 
 **Aceptación (de la Fase 4, no de la épica).** Un botón genera el reporte de la semana o
-del mes y lo guarda; también se genera solo (systemd timer, viernes y día 1); la vista lo
+del mes y lo guarda; también se genera solo (systemd timer: lunes, la semana anterior, y día 1); la vista lo
 muestra con las secciones de los ejemplos y se imprime a PDF desde el navegador.
 

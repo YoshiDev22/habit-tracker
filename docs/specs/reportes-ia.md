@@ -119,12 +119,14 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
      libres propios.
    - La pestaña Reportes sigue con sus cálculos de siempre: pasará a leer de aquí cuando
      la vista de reportes guardados (Fase 4) use las mismas cifras.
-4. **Reportes guardados, sin IA.**
+4. **Reportes guardados, sin IA** ✅ (2026-10-03, sin publicar).
    - **Cada reporte tiene su botón** ("Generar reporte de la semana / del mes") para
      hacerlo cuando el usuario quiera, además del automático.
    - Tabla `reports` y un script `scripts/generate_reports.py`, disparado por un
-     **systemd timer** (viernes y día 1). No va dentro de uvicorn: con reinicios o varios
-     workers dispararía dos veces.
+     **systemd timer** diario (plantillas en `deploy/`). En la fecha local de cada cuenta,
+     el lunes sale la semana anterior (lunes a domingo) y el día 1 el mes anterior, solo si
+     hubo tiempo (decidido 2026-10-03: no el viernes). No va dentro de uvicorn: con
+     reinicios o varios workers dispararía dos veces.
    - Una vista nueva con las secciones de los ejemplos, gráficas SVG con los colores de
      cada proyecto e impresión a PDF.
    - El texto sale de reglas.
