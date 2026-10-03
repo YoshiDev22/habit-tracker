@@ -70,6 +70,10 @@ vez, si aún no sigues ningún hábito, abre directo en *Hábitos*. Los hábitos
   de descanso de Configuración y la tarjeta de hábitos de Reportes. **No se borra nada**: al
   encenderla vuelven tus hábitos, tus días marcados y tu racha tal como estaban. Se guarda
   en tu cuenta, así que vale en todos tus dispositivos.
+- **IA para los reportes** (solo si tu cuenta tiene acceso): una IA escribe el texto de
+  tus reportes guardados a partir de sus cifras. **Ver qué se envía** muestra exactamente
+  lo que recibe: las instrucciones y las cifras del reporte (en minutos), con los nombres de
+  tus proyectos, tareas y etiquetas; nunca tus registros uno por uno.
 - **Pomodoro**: las duraciones del enfoque y los descansos.
 - **Accesibilidad › Tamaño del texto**: agranda toda la app (Normal, Grande o Muy grande). Se
   aplica al momento y se queda en ese dispositivo, también en la app instalada y aunque
@@ -421,6 +425,11 @@ observaciones y recomendaciones, para leerlo después o compararlo.
 - **Regenerar**: si corriges un registro después, vuelve a calcular el reporte (reemplaza
   al anterior, no se duplica).
 - **Reportes guardados**: la lista de todos, del más nuevo al más viejo.
+- **Con IA** (si la encendiste en *Configuración › Módulos*): el texto lo escribe la IA,
+  y arriba dice «texto de IA» o «texto de reglas». Las cifras siempre las calcula la app;
+  si la IA falla, cita una cifra que no estaba o llegaste al límite del día, el reporte
+  usa las reglas y te dice por qué. **Reescribir con IA** vuelve a pedir el texto de un
+  reporte ya guardado, sin cambiar sus cifras.
 - **Imprimir / PDF**: imprime solo el reporte, en colores claros. Para un PDF, elige
   "Guardar como PDF" en la ventana de impresión.
 

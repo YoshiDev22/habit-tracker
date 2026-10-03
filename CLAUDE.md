@@ -73,6 +73,8 @@ habit-tracker/
 │   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
 │   ├── reports.py         # Reportes guardados: periodos, generación y cuáles faltan (épica 30)
 │   ├── report_text.py     # El texto de un reporte guardado, con reglas fijas
+│   ├── report_ai.py       # El texto escrito por la IA: qué se envía, validación y límite diario
+│   ├── ai.py              # El proveedor de IA (uno por instancia, en .env): una sola llamada
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -599,6 +601,25 @@ duplica. La vista (`saved-reports.js`) pinta solo lo guardado, con los helpers d
 pone `body.saved-report-open` y `@media print` deja solo el modal, con los tokens del tema
 claro.
 
+**IA para el texto** (épica 30, Fase 5). Módulo `ai`, con acceso como el plan maker
+(`grant_module.py --module ai`). Con él encendido, `write_text()` (`backend/reports.py`)
+pide el texto a la IA al generar (botón y timer) y, si algo falla, deja el de las reglas
+con el motivo en `Report.text_note`; `text_source` es `ai` o `rules` y `text_model` el
+modelo. El proveedor es **uno por instancia**, en `backend/.env` (`AI_PROVIDER`,
+`AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`, ver `.env.example`); `backend/ai.py` habla el
+formato *chat completions* de OpenAI con `urllib` (Cloudflare Workers AI, Gemini, OpenAI o
+local), y una URL con `<ACCOUNT_ID>` sin llenar cuenta como sin configurar. La IA recibe
+`ai_payload()` (`backend/report_ai.py`): las cifras del reporte en **minutos**, sin ids ni
+colores, nunca las sesiones. Lo que vuelve pasa por `validate_text()`: JSON con la forma
+de las reglas, textos con tope y **ninguna cifra que no esté en lo enviado** (o en su
+conversión a horas y minutos, `allowed_numbers()`); si cita otra, se rechaza. Cada intento
+queda en `ai_calls` (tabla nueva), que cuenta el límite diario por cuenta (`AI_DAILY_LIMIT`,
+10; día UTC). `POST /api/reports/{id}/rewrite` reescribe solo el texto (403 sin el módulo,
+503 sin proveedor, 502 si la IA falla, y el reporte no cambia); `GET /api/reports/ai-preview`
+enseña las instrucciones y el JSON exactos (Configuración › Módulos › *Ver qué se envía*).
+Las pruebas nunca llaman a un proveedor: los `conftest.py` vacían las `AI_*` y
+`test_report_ai.py` reemplaza `report_ai.chat_completion`.
+
 Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 
 - **Computadora (≥ 900 px):** mientras se ve, `body.board-wide` ensancha `.app-container`
@@ -860,7 +881,8 @@ copian a `/etc/systemd/system/` con el usuario y las rutas reales, y se activa e
 **Acceso al plan maker**, en el VPS y desde la raíz del repo, con el servicio ya en una
 versión que tenga `user_modules`: `python3 scripts/grant_module.py --email … --module maker`
 (`--revoke` lo quita, `--list` muestra quién lo tiene). Quitarlo apaga el módulo sin
-olvidar lo que el usuario había elegido.
+olvidar lo que el usuario había elegido. La IA de los reportes, igual con `--module ai`, y
+además el bloque `AI_*` en `backend/.env` del VPS (reiniciar el servicio para que lo lea).
 
 ## Cómo quiero que trabajes
 

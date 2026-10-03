@@ -130,7 +130,9 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    - Una vista nueva con las secciones de los ejemplos, gráficas SVG con los colores de
      cada proyecto e impresión a PDF.
    - El texto sale de reglas.
-5. **IA para el texto.** `backend/ai.py` con la función de llamada única, configurada por
+5. **IA para el texto** ✅ (2026-10-03, sin publicar; decidido ese día: también en los
+   automáticos, 10 al día por cuenta, con títulos y nombres, y botón "Reescribir con IA").
+   `backend/ai.py` con la función de llamada única, configurada por
    `backend/.env`, y el módulo `ai` con acceso. En *⚙️ Configuración › Módulos*, quien tiene acceso la
    enciende o apaga y ve el JSON exacto que se enviaría. Si el proveedor falla o se pasa del límite diario, el texto
    sale de las reglas. Respuesta en JSON validado, y se rechaza un texto que cite números
@@ -147,7 +149,9 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
 |---|---|---|---|
 | 2 | `pomodoro_sessions.needs_review` (bool), relleno desde la nota de cierre automático | Columna en tabla existente | **Sí**: `migrate.py` + `test_deploy.py` |
 | 3 ✅ | `user_settings` (`user_id` único, `timezone`, `country`) | Tabla nueva | No |
-| 5 | Módulo `ai` en `backend/modules.py` (usa `user_modules`, que ya existe) | Sin cambio de esquema | No |
+| 5 ✅ | Módulo `ai` en `backend/modules.py` (usa `user_modules`, que ya existe) | Sin cambio de esquema | No |
+| 5 ✅ | `ai_calls` (`user_id`, `created_at`, `model`, `ok`, `error`, tokens): el límite diario y el consumo | Tabla nueva | No |
+| 4–5 ✅ | `reports` con `text_model` y `text_note` (aún sin publicar: entran en su `create_all()`) | Tabla nueva | No |
 | 3 ✅ | `user_days` (`user_id`, `date`, `name`, `kind`: libre o laboral), único por (usuario, fecha) | Tabla nueva | No |
 | 3 ✅ | `holiday_cache` (`country`, `year`, JSON de Nager.Date, `fetched_at`) | Tabla nueva | No |
 | 4 | `reports` (`user_id`, `kind`: semanal o mensual, `period_start`, `period_end`, `metrics` JSON, `text` JSON, `text_source`: reglas o proveedor, `created_at`) | Tabla nueva | No |
