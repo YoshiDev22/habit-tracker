@@ -1,0 +1,18 @@
+# Generates the automatic weekly and monthly reports (scripts/generate_reports.py).
+# A template: replace the user, group and paths with your own, then
+#   sudo cp deploy/habit-reports.service deploy/habit-reports.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now habit-reports.timer
+# Run it once by hand:  sudo systemctl start habit-reports.service
+# Its output:           journalctl -u habit-reports.service
+
+[Unit]
+Description=Habit tracker: automatic weekly and monthly reports
+
+[Service]
+Type=oneshot
+User=CHANGE_ME
+Group=CHANGE_ME
+# The repo root: DATABASE_URL in backend/.env may be relative to it
+WorkingDirectory=/path/to/habit-tracker
+ExecStart=/path/to/habit-tracker/.venv/bin/python scripts/generate_reports.py

@@ -129,3 +129,26 @@ def test_text_rules():
     assert clock(9.5) == "09:30" and clock(24.5) == "00:30"
     empty = build_text("week", {"total_seconds": 0, "previous": {}})
     assert empty["summary"] == "No hubo tiempo registrado en la semana." and empty["recommendations"] == []
+
+
+def test_timer_script(api, capsys):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import generate_reports
+
+    project, task = setup(api, "script@test.com")
+    post(api, project, task, MON, 9, 60)
+    assert generate_reports.main(["--email", "script@test.com", "--today", TODAY.isoformat(), "--dry-run"]) == 0
+    assert f"would generate script@test.com: week from {MON.isoformat()}" in capsys.readouterr().out
+    assert api.call("GET", "/api/reports", expect=200)[1]["reports"] == []
+
+    assert generate_reports.main(["--email", "script@test.com", "--today", TODAY.isoformat()]) == 0
+    assert f"generated script@test.com: week from {MON.isoformat()}" in capsys.readouterr().out
+    _, lst = api.call("GET", "/api/reports", expect=200)
+    assert any(r["kind"] == "week" and r["period_start"] == MON.isoformat() and r["trigger"] == "auto"
+               for r in lst["reports"])
+    # La segunda vez no hay nada que hacer
+    assert generate_reports.main(["--email", "script@test.com", "--today", TODAY.isoformat()]) == 0
+    assert "0 report(s) generated." in capsys.readouterr().out
+    assert generate_reports.main(["--email", "nadie@test.com"]) == 1

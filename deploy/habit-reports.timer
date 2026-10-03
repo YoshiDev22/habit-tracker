@@ -1,0 +1,15 @@
+# Fires deploy/habit-reports.service once a day. The script itself decides, in
+# each account's local date, whether a week (Monday) or a month (day 1) just
+# ended, so a daily run is enough. 12:00 UTC is already Monday morning from
+# UTC-11 to UTC+11. Persistent=true runs a missed day after a reboot, and the
+# script also catches up on missed periods.
+
+[Unit]
+Description=Habit tracker: daily check for automatic reports
+
+[Timer]
+OnCalendar=*-*-* 12:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

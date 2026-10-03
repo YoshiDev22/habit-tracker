@@ -111,14 +111,14 @@ def due_periods(kind: str, today: date_type) -> List[date_type]:
     return sorted(starts)
 
 
-def generate_due_reports(session: Session, user: User, today: Optional[date_type] = None) -> List[Report]:
+def missing_reports(session: Session, user: User, today: date_type) -> List[Tuple[str, date_type]]:
     """
-    Los reportes automáticos que le faltan a un usuario: periodos ya terminados
-    (en su fecha local), con algún registro de tiempo y sin reporte completo.
-    Uno generado a medio periodo con el botón se rehace con el periodo entero.
+    Los reportes automáticos que le faltan a un usuario, como (tipo, inicio):
+    periodos ya terminados (en su fecha local), con algún registro de tiempo y
+    sin reporte completo. Uno generado a medio periodo con el botón cuenta
+    como faltante: se rehace con el periodo entero.
     """
-    today = today or local_today(session, user)
-    made = []
+    missing = []
     for kind in KINDS:
         for start in due_periods(kind, today):
             _, end = period_bounds(kind, start)
@@ -126,7 +126,13 @@ def generate_due_reports(session: Session, user: User, today: Optional[date_type
                 Report.user_id == user.id, Report.kind == kind, Report.period_start == start)).first()
             if existing is not None and existing.through >= end:
                 continue
-            if not _has_activity(session, user.id, start, end):
-                continue
-            made.append(generate_report(session, user, kind, start, today, trigger="auto"))
-    return made
+            if _has_activity(session, user.id, start, end):
+                missing.append((kind, start))
+    return missing
+
+
+def generate_due_reports(session: Session, user: User, today: Optional[date_type] = None) -> List[Report]:
+    """Genera los reportes que faltan (missing_reports) con la fecha local del usuario."""
+    today = today or local_today(session, user)
+    return [generate_report(session, user, kind, start, today, trigger="auto")
+            for kind, start in missing_reports(session, user, today)]
