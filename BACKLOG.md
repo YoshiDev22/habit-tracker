@@ -25,6 +25,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 27 | P3 | Reordenar las pestañas de secciones | pedido |
 | 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido |
 | 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | decisión pendiente |
+| 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
 
 ---
 
@@ -385,4 +386,26 @@ mes, por año, o con un selector (Mes / Año / Todo, como el rango de Reportes)?
 locales: `cost_date` de los gastos y `session_date` del tiempo). El margen de un proyecto
 compara con su presupuesto total, así que en un periodo parcial habría que decidir si se
 muestra o se oculta.
+
+---
+
+## 30 · P2 · Reportes automáticos (semanal y mensual) con IA opcional
+
+**Esto es una épica.** Plan, decisiones, fases y esquema en
+[docs/specs/reportes-ia.md](docs/specs/reportes-ia.md). Decidido con Yoshio el 2026-10-03, a
+partir de un brief suyo que no está en el repo (los ejemplos traen datos personales).
+
+**Idea.** Que la app genere y guarde sola los reportes que hoy arma Claude a partir del
+CSV: cifras por código, texto opcional por IA (Cloudflare Workers AI, Gemini, OpenAI o un
+modelo local, a elegir por usuario, con una sola función de llamada), PDF desde el
+navegador.
+
+**Fases.** 1 export de hábitos · 2 sesiones por confirmar (`needs_review`, con
+migración) · 3 capa de métricas con huso horario y festivos · 4 reportes guardados sin IA
+(systemd timer) · 5 IA para el texto · 6 costos del periodo, tipo de proyecto y precio
+(con migración).
+
+**Aceptación (de la Fase 1, no de la épica).** Desde Reportes se descarga un CSV de
+hábitos del rango elegido, con una fila por día y hábito, que se abre bien en Excel y
+Google Sheets.
 
