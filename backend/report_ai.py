@@ -29,7 +29,10 @@ MAX_RECOMMENDATIONS = 6
 # Cifras que se pueden escribir sin venir en las métricas: conteos chicos
 # ("dos días", "3 recomendaciones") y los umbrales que la app explica
 FREE_NUMBERS = set(range(0, 11)) | {16, 23, 24}
-NUMBER_RE = re.compile(r"(?<![\w.,])\d+(?:[.,]\d+)?")
+# Un número con separador de miles ("1 580", "1,580", "1.580") va entero: si no,
+# se leería como "1" y "580". Si no, entero o con decimales ("6.5", "6,5").
+THOUSANDS = r"\d{1,3}(?:[ \u00a0\u202f.,]\d{3})+(?![\d.,]\d)"
+NUMBER_RE = re.compile(rf"(?<![\w.,])(?:{THOUSANDS}|\d+(?:[.,]\d+)?)")
 
 SYSTEM_PROMPT = """Escribes el texto de un reporte personal de productividad: cuánto tiempo trabajó una persona en una semana o un mes, y en qué.
 
@@ -64,8 +67,9 @@ def _compact(value, key: str = ""):
         for k, v in value.items():
             if k in DROP_KEYS:
                 continue
-            if k == "seconds" or k.endswith("_seconds"):
-                out[k[:-len("seconds")] + "minutes"] = round(v / 60) if isinstance(v, (int, float)) else v
+            # total_seconds, avg_seconds_per_active_day, seconds_after_16h...
+            if "seconds" in k and (isinstance(v, (int, float)) or v is None):
+                out[k.replace("seconds", "minutes")] = round(v / 60) if v is not None else None
             else:
                 out[k] = _compact(v, k)
         return out
@@ -94,9 +98,19 @@ def ai_payload(kind: str, metrics: dict) -> dict:
 # Lo que vuelve
 # ============================================
 
-def _numbers_in(text: str) -> Iterable[float]:
+def _readings(match: str) -> Set[float]:
+    """Las formas de leer un número escrito: "1,580" puede ser 1580 o 1.58."""
+    readings = set()
+    if re.fullmatch(THOUSANDS, match):
+        readings.add(float(re.sub(r"\D", "", match)))
+    if re.fullmatch(r"\d+(?:[.,]\d+)?", match):
+        readings.add(float(match.replace(",", ".")))
+    return readings
+
+
+def _numbers_in(text: str) -> Iterable[Set[float]]:
     for match in NUMBER_RE.findall(text):
-        yield float(match.replace(",", "."))
+        yield _readings(match)
 
 
 def allowed_numbers(payload: dict) -> Set[float]:
@@ -115,8 +129,8 @@ def allowed_numbers(payload: dict) -> Set[float]:
                 allowed.update({float(minutes // 60), float(minutes % 60),
                                 round(minutes / 60, 1), float(round(minutes / 60))})
         elif isinstance(value, str):
-            for n in _numbers_in(value.replace("-", " ").replace(":", " ")):
-                allowed.add(n)
+            for readings in _numbers_in(value.replace("-", " ").replace(":", " ")):
+                allowed.update(readings)
         elif isinstance(value, dict):
             for k, v in value.items():
                 walk(v, k)
@@ -168,9 +182,10 @@ def validate_text(content: str, payload: dict) -> dict:
     allowed = allowed_numbers(payload)
     pieces = [text["summary"], text["closing"], *text["observations"], *text["recommendations"]]
     for piece in pieces:
-        for number in _numbers_in(piece):
-            if not any(abs(number - a) < 0.051 for a in allowed):
-                raise AiError(f"La IA citó una cifra que no venía en las métricas ({number:g})")
+        for readings in _numbers_in(piece):
+            if not any(abs(number - a) < 0.051 for number in readings for a in allowed):
+                shown = max(readings)
+                raise AiError(f"La IA citó una cifra que no venía en las métricas ({shown:g})")
     return text
 
 

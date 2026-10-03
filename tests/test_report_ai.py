@@ -172,3 +172,24 @@ def test_allowed_numbers():
     for n in (417, 6, 57, 7.0, 100, 9, 30, 18, 15, 29, 2026, 120, 248, 297):
         assert float(n) in allowed or any(abs(n - a) < 0.051 for a in allowed), n
     assert not any(abs(37 - a) < 0.051 for a in allowed)
+
+
+def test_numbers_with_thousands_and_minutes_everywhere():
+    metrics = {"total_seconds": 1580 * 60, "avg_seconds_per_active_day": 790 * 60,
+               "seconds_after_16h": 95 * 60, "median_seconds_per_active_day": None,
+               "by_project": [], "previous": {"total_seconds": 275 * 60}}
+    payload = report_ai.ai_payload("week", metrics)
+    m = payload["metrics"]
+    # Todo lo que era segundos llega en minutos, también a media palabra
+    assert m["total_minutes"] == 1580 and m["avg_minutes_per_active_day"] == 790
+    assert m["minutes_after_16h"] == 95 and m["median_minutes_per_active_day"] is None
+    assert "seconds" not in json.dumps(payload)
+
+    def text(summary):
+        return json.dumps({**GOOD, "summary": summary})
+    # "1 580", "1,580" y "1.580" son el total; "26 h 20 min" su conversión
+    for written in ("1 580 minutos", "1 580 minutos", "1,580 minutos", "1.580 minutos", "26 h 20 min", "475 %"):
+        assert report_ai.validate_text(text(f"Registraste {written}."), payload)
+    # Pero un número que no está, aunque lleve separador, no
+    with pytest.raises(AiError, match="2580"):
+        report_ai.validate_text(text("Registraste 2 580 minutos."), payload)
