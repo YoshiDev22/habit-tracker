@@ -1042,3 +1042,66 @@ class PomodoroStatsResponse(SQLModel):
     today_seconds: int
     by_project: Dict[str, int]
     by_date: Dict[str, int]
+
+
+# ==================== Calendario de trabajo (épica 30) ====================
+
+DAY_KINDS = ("libre", "laboral")
+
+
+class WorkSettingsResponse(SQLModel):
+    timezone: str
+    country: str
+    configured: bool          # False: aún no se guardó; valen los de por defecto
+
+
+class WorkSettingsUpdate(SQLModel):
+    timezone: Optional[str] = Field(default=None, max_length=64)
+    country: Optional[str] = Field(default=None, min_length=2, max_length=2)
+
+    @field_validator("country")
+    @classmethod
+    def validate_country(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.upper()
+        if not re.fullmatch(r"[A-Z]{2}", v):
+            raise ValueError("El país es un código de dos letras, como MX")
+        return v
+
+
+class UserDayCreate(SQLModel):
+    """Marcar un día a mano: libre (no se trabaja) o laboral (sí, aunque sea festivo)"""
+    date: date_type
+    kind: str = "libre"
+    name: Optional[str] = Field(default=None, max_length=80)
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v: str) -> str:
+        if v not in DAY_KINDS:
+            raise ValueError(f"kind debe ser uno de: {', '.join(DAY_KINDS)}")
+        return v
+
+
+class UserDayResponse(SQLModel):
+    id: int
+    date: date_type
+    kind: str
+    name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OfficialDay(SQLModel):
+    date: date_type
+    name: str
+    observed: bool = True     # False si el usuario lo marcó "laboral"
+
+
+class YearDaysResponse(SQLModel):
+    """Los festivos oficiales del año (de Nager.Date) y los días que marcó el usuario"""
+    year: int
+    country: str
+    official: List[OfficialDay]
+    own: List[UserDayResponse]

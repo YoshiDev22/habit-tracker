@@ -88,7 +88,8 @@ def ui_server(request):
     db = TMP / f"{request.node.name}.db"
     _prepare_db(db)
     env = {**os.environ, "DATABASE_URL": f"sqlite:///{db.as_posix()}",
-           "SECRET_KEY": "test-secret-key-not-for-production", "PYTHONIOENCODING": "utf-8"}
+           "SECRET_KEY": "test-secret-key-not-for-production", "PYTHONIOENCODING": "utf-8",
+           "HABIT_HOLIDAYS_OFFLINE": "1"}   # sin internet: festivos vacíos
     log = open(TMP / f"{request.node.name}.log", "w", encoding="utf-8")
     proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.main:app", "--port", str(PORT)],
                             cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)

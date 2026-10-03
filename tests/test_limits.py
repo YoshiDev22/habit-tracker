@@ -144,3 +144,17 @@ def test_costs_and_categories(api):
     assert api.call("POST", "/api/costs", {**ok, "cost_date": "ayer"})[0] == 422
     api.call("POST", "/api/costs", {**ok, "concept": "x" * 200, "note": "x" * 500, "quantity": 1_000_000,
                                     "unit_cost_cents": 100_000_000_000}, expect=201)
+
+
+def test_work_calendar(api):
+    api.login("calendario-tope@test.com")
+    assert api.call("PUT", "/api/days/settings", {"timezone": "x" * 65})[0] == 422
+    assert api.call("PUT", "/api/days/settings", {"timezone": "No/Existe"})[0] == 422
+    assert api.call("PUT", "/api/days/settings", {"country": "MEX"})[0] == 422
+    assert api.call("PUT", "/api/days/settings", {"country": "1X"})[0] == 422
+    day = date.today().isoformat()
+    assert api.call("POST", "/api/days", {"date": day, "name": "x" * 81})[0] == 422
+    assert api.call("POST", "/api/days", {"date": day, "kind": "otro"})[0] == 422
+    assert api.call("POST", "/api/days", {"date": "ayer"})[0] == 422
+    api.call("POST", "/api/days", {"date": day, "name": "x" * 80}, expect=201)
+    assert api.call("GET", "/api/days?year=1999")[0] == 422

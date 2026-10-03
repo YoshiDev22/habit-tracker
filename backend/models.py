@@ -60,6 +60,55 @@ class HabitEntry(SQLModel, table=True):
     habits_data: Dict = Field(default={}, sa_type=JSON)
 
 
+class UserSettings(SQLModel, table=True):
+    """
+    Calendario de trabajo del usuario (épica 30, Fase 3): huso horario para las
+    horas locales de las métricas (sesiones nocturnas, horario habitual) y país
+    para los festivos oficiales. Sin fila, los valores por defecto de
+    backend/days.py. Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "user_settings"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_user_settings_user"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id")
+    timezone: str                       # nombre IANA, p. ej. "America/Mexico_City"
+    country: str = Field(default="MX")  # ISO 3166-1 alfa-2, para Nager.Date
+
+
+class UserDay(SQLModel, table=True):
+    """
+    Un día que el usuario marca a mano: "libre" (no trabaja: un festivo local,
+    un puente) o "laboral" (sí trabaja aunque sea festivo oficial). Las
+    vacaciones no van aquí: son las pausas de la racha (StreakPause), y también
+    cuentan como días no hábiles. Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "user_days"
+    __table_args__ = (UniqueConstraint("user_id", "date", name="uq_user_days_user_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    date: date_type
+    kind: str            # libre | laboral
+    name: Optional[str] = Field(default=None)
+
+
+class HolidayCache(SQLModel, table=True):
+    """
+    Festivos oficiales de un país y año, tal como los dio Nager.Date
+    (backend/holidays.py). Se piden una vez por país y año. No es de ningún
+    usuario: los festivos de México son los mismos para todos. Tabla NUEVA.
+    """
+    __tablename__ = "holiday_cache"
+    __table_args__ = (UniqueConstraint("country", "year", name="uq_holiday_cache_country_year"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    country: str
+    year: int
+    days: List[dict] = Field(default=[], sa_type=JSON)   # [{"date": "AAAA-MM-DD", "name": ...}]
+    fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
 class StreakPause(SQLModel, table=True):
     """
     Pausa por vacaciones: del start_date al end_date (fechas LOCALES, incluidas)

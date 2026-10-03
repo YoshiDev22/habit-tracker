@@ -25,6 +25,9 @@ DB_PATH = TMP / "test.db"
 
 os.environ["DATABASE_URL"] = f"sqlite:///{DB_PATH.as_posix()}"
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
+# Los festivos oficiales no salen a internet (backend/holidays.py); las pruebas que
+# los necesitan reemplazan fetch_official con monkeypatch
+os.environ["HABIT_HOLIDAYS_OFFLINE"] = "1"
 sys.path.insert(0, str(ROOT))
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -33,6 +36,7 @@ from sqlmodel import SQLModel  # noqa: E402
 from backend.database import create_db_and_tables, engine  # noqa: E402
 from backend.main import app  # noqa: E402
 from backend import ratelimit  # noqa: E402
+from backend import holidays  # noqa: E402
 import bcrypt  # noqa: E402
 
 # Solo en las pruebas: bcrypt con costo 4 en vez de 12. Cada registro costaba
@@ -112,6 +116,7 @@ def fresh_db():
     contados: el límite vive en memoria y todas las pruebas llegan desde la
     misma "IP" del TestClient."""
     ratelimit.reset_all()
+    holidays._failed_until.clear()   # la pausa tras un fallo de Nager.Date, por prueba
     engine.dispose()
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
