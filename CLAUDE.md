@@ -705,8 +705,11 @@ una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudo
   al crear se preselecciona uno libre de `HABIT_PALETTE` (`pickFreeColor()`) y, si el
   usuario repite, se avisa pero se permite.
   Nunca usar el color para distinguir hábitos.
-- **Días de descanso, días protegidos y días de vacaciones congelan la racha**: no suman ni
-  la rompen. Un día de descanso o de vacaciones con algún hábito marcado cuenta normal, y
+- **Días de descanso, días protegidos, días de vacaciones y festivos que se descansan
+  congelan la racha**: no suman ni la rompen. Los festivos son los oficiales del país que el
+  usuario no marcó como trabajados más sus días libres propios (`_holiday_days()` en
+  `routers/habits.py`, sobre `holiday_rest_days()` de `backend/days.py`); en el calendario
+  llevan 🎉 y no el rayado de las vacaciones. Un día de descanso o de vacaciones con algún hábito marcado cuenta normal, y
   los hábitos ocultos también cuentan. La regla vive solo en `_walk_streak()`.
 - **Las vacaciones se programan hoy o hacia adelante, nunca para días pasados** (para eso
   están los escudos), hasta 30 días por pausa (`MAX_PAUSE_DAYS`), y son gratis: la tabla

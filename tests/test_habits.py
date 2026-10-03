@@ -395,3 +395,32 @@ def test_export_rows_and_day_kinds(api):
     # Otro usuario solo ve lo suyo
     other = api.as_user("ajeno-export@test.com")
     assert other.call("GET", url, expect=200)[1]["rows"] == []
+
+
+def test_rested_holidays_freeze_the_streak(api, monkeypatch):
+    """Un festivo que se descansa congela la racha como un día de descanso
+    (decisión 2026-10-03: Wood, Tam y Witt 2005; Silverman y Barasch 2023)."""
+    from backend import holidays
+    t = date.today()
+    d = lambda n: t - timedelta(days=n)
+    # Hace 3 días, festivo oficial; hace 2, día libre propio. Sin escudos ganados aún.
+    monkeypatch.setattr(holidays, "fetch_official",
+                        lambda country, year: [{"date": d(3).isoformat(), "name": "Festivo de prueba"}]
+                        if d(3).year == year else [])
+    api.login("festivos@test.com")
+    api.call("POST", "/api/habits/definitions", {"key": "leer", "label": "Leer"}, expect=201)
+    for n in (5, 4, 1):
+        api.call("POST", "/api/habits", {"date": d(n).isoformat(), "habits": {"leer": True}}, expect=200)
+    api.call("POST", "/api/days", {"date": d(2).isoformat(), "kind": "libre", "name": "Puente"}, expect=201)
+    q = f"?today={t.isoformat()}"
+    _, r = api.call("GET", f"/api/habits{q}", expect=200)
+    assert r["streak"] == 3, "the holiday and the free day freeze it: 3 done days in a row"
+    assert d(3).isoformat() not in r.get("paused_days", []), "holidays aren't striped like vacations"
+
+    _, out = api.call("GET", f"/api/habits/export?date_from={d(3).isoformat()}&date_to={d(2).isoformat()}&today={t.isoformat()}", expect=200)
+    assert {row["date"]: row["day_kind"] for row in out["rows"]} == {d(3).isoformat(): "festivo", d(2).isoformat(): "festivo"}
+
+    # Si el festivo se trabaja, deja de congelar: sin escudos, la racha se corta ahí
+    api.call("POST", "/api/days", {"date": d(3).isoformat(), "kind": "laboral"}, expect=201)
+    _, r = api.call("GET", f"/api/habits{q}", expect=200)
+    assert r["streak"] == 1, "a worked holiday is a normal day again"

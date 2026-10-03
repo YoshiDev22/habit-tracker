@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import date as date_type, timedelta
 from typing import Optional, Dict, List, Set
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from backend.database import get_session
@@ -31,6 +32,7 @@ from backend.schemas import (
 )
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
+from backend.days import holiday_rest_days
 
 router = APIRouter(tags=["habits"])
 
@@ -257,7 +259,8 @@ def get_habit_report(
         )
     today = resolve_client_today(today)
     rest_days = set(current_user.rest_days or [])
-    paused = _paused_days(session, current_user.id)
+    # Vacaciones y festivos que descansa: congelan la racha y no "tocaban"
+    paused = _frozen_days(session, current_user.id, today)
 
     # Todo el historial hasta hoy: el récord puede ser de hace meses
     entries = session.exec(
@@ -352,13 +355,14 @@ def export_habits(
 
     rest_days = set(current_user.rest_days or [])
     paused = _paused_days(session, current_user.id)
+    holidays = _holiday_days(session, current_user.id, today)
     # Todo el historial hasta hoy: los escudos se ganan desde el principio de la racha
     entries = session.exec(
         select(HabitEntry).where(HabitEntry.user_id == current_user.id, HabitEntry.entry_date <= today)
     ).all()
     by_date = {e.entry_date: (e.habits_data or {}) for e in entries}
     done_dates = {d for d, data in by_date.items() if _is_done_day(data)}
-    protected = set(_walk_streak(done_dates, rest_days, today, paused).protected)
+    protected = set(_walk_streak(done_dates, rest_days, today, paused | set(holidays)).protected)
 
     # Los activos, más los ocultos con algún registro en el rango (como el calendario)
     with_records = {
@@ -382,6 +386,8 @@ def export_habits(
             kind = "descanso"
         elif day in paused:
             kind = "vacaciones"
+        elif day in holidays:
+            kind = "festivo"
         elif day in protected:
             kind = "escudo"
         else:
@@ -613,7 +619,7 @@ def get_delete_impact(
         e.entry_date for e in entries
         if _is_done_day({k: v for k, v in (e.habits_data or {}).items() if k != habit.key})
     }
-    paused = _paused_days(session, current_user.id)
+    paused = _frozen_days(session, current_user.id, today)
     walk_before = _walk_streak(before, rest_days, today, paused)
     walk_after = _walk_streak(after, rest_days, today, paused)
     return DeleteImpact(
@@ -752,8 +758,9 @@ def calculate_streak(
 
     done_dates = {entry.entry_date for entry in entries if _is_done_day(entry.habits_data)}
     paused = _paused_days(session, user_id)
-    walk = _walk_streak(done_dates, rest_days, today, paused)
-    walk.paused = sorted(paused)
+    frozen = paused | set(_holiday_days(session, user_id, today))
+    walk = _walk_streak(done_dates, rest_days, today, frozen)
+    walk.paused = sorted(paused)   # el calendario raya solo las vacaciones; los festivos llevan 🎉
 
     # La racha de cada hábito por separado, con la misma regla (cada uno gana sus
     # propios escudos, como en el reporte). Solo las que siguen vivas.
@@ -763,10 +770,28 @@ def calculate_streak(
             if value:
                 done_by_key.setdefault(key, set()).add(entry.entry_date)
     for key, dates in done_by_key.items():
-        current = _walk_streak(dates, rest_days, today, paused).current
+        current = _walk_streak(dates, rest_days, today, frozen).current
         if current > 0:
             walk.habit_streaks[key] = current
     return walk
+
+
+def _holiday_days(session: Session, user_id: int, today: date_type) -> Dict[date_type, str]:
+    """Los festivos que el usuario descansa, desde su primer registro hasta hoy
+    (backend/days.py). Congelan la racha como un día de descanso: un festivo
+    cambia el contexto que dispara los hábitos (Wood, Tam y Witt 2005), y que
+    eso corte la racha desanima sin ser culpa de nadie (Silverman y Barasch
+    2023). Decisión del 2026-10-03, en docs/referencias.md."""
+    first = session.exec(select(func.min(HabitEntry.entry_date)).where(HabitEntry.user_id == user_id)).one()
+    if first is None or first > today:
+        return {}
+    return holiday_rest_days(session, user_id, first, today)
+
+
+def _frozen_days(session: Session, user_id: int, today: date_type) -> Set[date_type]:
+    """Los días que congelan la racha además de los de descanso semanal:
+    vacaciones (pausas) y festivos que descansa."""
+    return _paused_days(session, user_id) | set(_holiday_days(session, user_id, today))
 
 
 def _paused_days(session: Session, user_id: int) -> Set[date_type]:

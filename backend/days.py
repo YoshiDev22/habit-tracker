@@ -52,27 +52,40 @@ def user_settings(session: Session, user_id: int) -> Optional[UserSettings]:
     return session.exec(select(UserSettings).where(UserSettings.user_id == user_id)).first()
 
 
+def holiday_rest_days(session: Session, user_id: int, start: date_type, end: date_type) -> Dict[date_type, str]:
+    """
+    Los festivos que el usuario descansa entre dos fechas (incluidas), con su
+    motivo: los oficiales de su país que no marcó "laboral", más sus días
+    "libre". Cualquier día de la semana. Además de no ser hábiles, congelan la
+    racha como un día de descanso (routers/habits.py, decisión 2026-10-03).
+    """
+    settings = user_settings(session, user_id)
+    country = settings.country if settings else DEFAULT_COUNTRY
+    rest: Dict[date_type, str] = {
+        day: f"Festivo: {name}" for day, name in official_holidays_between(session, country, start, end).items()
+    }
+    for mark in session.exec(
+        select(UserDay).where(UserDay.user_id == user_id, UserDay.date >= start, UserDay.date <= end)
+    ).all():
+        if mark.kind == "laboral":
+            rest.pop(mark.date, None)
+        else:
+            rest[mark.date] = f"Día libre: {mark.name}" if mark.name else "Día libre"
+    return rest
+
+
 def work_calendar(session: Session, user_id: int, start: date_type, end: date_type) -> WorkCalendar:
     """El calendario del usuario entre dos fechas (incluidas)."""
     settings = user_settings(session, user_id)
     timezone = settings.timezone if settings and valid_timezone(settings.timezone) else DEFAULT_TIMEZONE
     country = settings.country if settings else DEFAULT_COUNTRY
 
-    off: Dict[date_type, str] = {}
-    for day, name in official_holidays_between(session, country, start, end).items():
-        off[day] = f"Festivo: {name}"
+    off: Dict[date_type, str] = dict(holiday_rest_days(session, user_id, start, end))
     for pause in session.exec(select(StreakPause).where(StreakPause.user_id == user_id)).all():
         day = max(pause.start_date, start)
         while day <= min(pause.end_date, end):
             off.setdefault(day, "Vacaciones")
             day += timedelta(days=1)
-    for mark in session.exec(
-        select(UserDay).where(UserDay.user_id == user_id, UserDay.date >= start, UserDay.date <= end)
-    ).all():
-        if mark.kind == "laboral":
-            off.pop(mark.date, None)
-        else:
-            off[mark.date] = f"Día libre: {mark.name}" if mark.name else "Día libre"
     # Solo importan entre semana: el sábado y el domingo ya no son hábiles
     off = {day: why for day, why in off.items() if day.weekday() < 5}
     return WorkCalendar(timezone=timezone, country=country, configured=settings is not None, off_days=off)

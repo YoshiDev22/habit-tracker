@@ -260,8 +260,8 @@ MAX_HABIT_EXPORT_DAYS = 366
 
 class HabitExportRow(SQLModel):
     """Un hábito en un día del export. `day_kind` dice por qué un día sin nada no
-    rompe la racha: descanso, vacaciones, escudo (protector), hoy (en curso), o
-    vacío si es un día normal."""
+    rompe la racha: descanso, vacaciones, festivo (que se descansa), escudo
+    (protector), hoy (en curso), o vacío si es un día normal."""
     date: date_type
     habit_key: str
     label: str

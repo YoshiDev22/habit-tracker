@@ -56,6 +56,40 @@ racha se repara); los días de descanso y la pausa por vacaciones (un corte que 
 de nadie no debe contar como fallo); y que ocultar o borrar un hábito no rompa la racha
 sin avisar.
 
+### Los hábitos dependen del contexto: un festivo los interrumpe
+**Wood, W., Tam, L. y Witt, M. G. (2005).** Changing circumstances, disrupting habits.
+*Journal of Personality and Social Psychology, 88*(6), 918–933.
+<https://doi.org/10.1037/0022-3514.88.6.918>
+
+Los hábitos los disparan señales del contexto (lugar, hora, compañía). En estudiantes que
+cambiaron de universidad, los hábitos de ejercicio, lectura del periódico y televisión solo
+sobrevivieron cuando algo del contexto en que los hacían siguió igual; si el contexto
+cambiaba, el hábito se interrumpía aunque la intención siguiera.
+
+**Verplanken, B., Walker, I., Davis, A. y Jurasek, M. (2008).** Context change and travel
+mode choice: Combining the habit discontinuity and self-activation hypotheses. *Journal of
+Environmental Psychology, 28*(2), 121–127. <https://doi.org/10.1016/j.jenvp.2007.10.005>
+
+Un cambio de contexto rompe la conducta automática y abre una ventana en la que la
+conducta se reconsidera a conciencia: sirve para retomar o empezar algo.
+
+**Dai, H., Milkman, K. L. y Riis, J. (2014).** The Fresh Start Effect: Temporal Landmarks
+Motivate Aspirational Behavior. *Management Science, 60*(10), 2563–2582.
+<https://doi.org/10.1287/mnsc.2014.1901>
+
+Después de los hitos del calendario (inicio de semana, mes o año, un cumpleaños, un
+festivo) aumentan las búsquedas de "dieta", las visitas al gimnasio y los compromisos con
+metas: la gente retoma sus metas con más ganas tras un "nuevo comienzo".
+
+**Sostienen:** que un festivo que se descansa congele la racha como un día de descanso. Un
+festivo cambia el contexto que dispara los hábitos (Wood et al. 2005), así que fallar ese
+día no es falta de constancia, y contarlo como corte desanima sin ser culpa de nadie
+(Silverman y Barasch 2023). Si ese día se hace algún hábito, cuenta normal; si el festivo
+se trabaja, es un día normal. Ningún estudio prueba directamente congelar en festivos: es
+una inferencia de estos, consistente con los días de descanso y las vacaciones. Verplanken
+2008 y Dai 2014 quedan para lo que viene: el día después de un festivo es un buen momento
+para retomar.
+
 ## Cómo lo resuelven otras apps
 
 Consultado el 2026-09-29. Sirve de contraste, no de modelo a copiar.
@@ -82,6 +116,7 @@ escudos: cobrar por salvar la racha es aprovechar el miedo a perderla.
 | Hoy sin marcar no corta la racha | Lally 2010 |
 | "¿Olvidaste anotar ayer?" y anotar tarde devuelve el escudo | Silverman y Barasch 2023 |
 | Días de descanso y pausa por vacaciones congelan la racha | Silverman y Barasch 2023; Apple, Todoist, Habitica |
+| Los festivos que se descansan (oficiales sin "trabajo" y días libres propios) congelan la racha (2026-10-03) | Wood, Tam y Witt 2005; Silverman y Barasch 2023 (inferencia: no hay estudio directo) |
 | La pausa se programa hoy o hacia adelante, nunca para días pasados | Para lo pasado ya están los escudos; una pausa retroactiva borraría los fallos del registro |
 | No hay escudos de pago | Silverman y Barasch 2023; contraste con Duolingo y Snapchat |
 | Ocultar un hábito no cambia la racha; borrar avisa cuánto baja | Silverman y Barasch 2023 |

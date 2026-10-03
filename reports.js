@@ -874,6 +874,7 @@ const DAY_KIND_LABEL = {
     hoy: 'Hoy (en curso)',
     descanso: 'Descanso',
     vacaciones: 'Vacaciones',
+    festivo: 'Festivo',
     escudo: 'Protegido por escudo',
 };
 
