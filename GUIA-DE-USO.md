@@ -62,6 +62,18 @@ Calendario, el ⚙️ de hábitos y la tarjeta de hábitos de Reportes. **No se 
 encenderla vuelven tus hábitos, tus días marcados y tu racha tal como estaban. Se guarda al
 tocarla, en tu cuenta, así que vale en todos tus dispositivos.
 
+### Calendario de trabajo
+
+En *Mi perfil*, **Calendario de trabajo** dice qué días trabajas, para que los reportes
+cuenten bien los días hábiles:
+
+- **Huso horario**: se guarda solo la primera vez, con el de tu dispositivo. Sirve para
+  saber a qué hora local trabajaste (por ejemplo, si te desvelaste).
+- **País**: de ahí salen los **festivos oficiales** del año. Si trabajas uno, marca
+  **Lo trabajo**.
+- **Tus días libres**: agrega los que no vienen en el calendario oficial, como un festivo
+  de tu ciudad o un puente. Tus vacaciones (las de la racha) ya cuentan como días libres.
+
 ### Tamaño del texto
 
 Al final de *Mi perfil*, **En este dispositivo › Tamaño del texto** agranda toda la app

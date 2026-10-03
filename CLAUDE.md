@@ -40,6 +40,8 @@ Versiones confirmadas en `requirements.txt` (no hay `pyproject.toml` en el repo)
   (sin `passlib`, que se quitó por no usarse).
 - `python-multipart==0.0.6` (requerido por FastAPI para leer el form-data de `OAuth2PasswordRequestForm` en `/api/auth/login`)
 - `python-dotenv==1.0.1` para cargar `backend/.env`
+- `tzdata` para que `zoneinfo` conozca los husos horarios en Windows (en Linux usa los del
+  sistema): las métricas pasan las horas UTC a la hora local de cada usuario
 - Frontend estático servido por la misma app (sin build step, sin dependencias JS)
 
 `requirements.txt` declara las dependencias directas; **`requirements.lock`** fija el árbol
@@ -66,6 +68,9 @@ habit-tracker/
 │   ├── ratelimit.py       # Límite de intentos en memoria (login y registro), por IP
 │   ├── modules.py         # MODULES: módulos por cuenta y sus valores por defecto (sin dependencias)
 │   ├── costing.py         # Dinero del plan maker: mano de obra, gastos, costo y margen (centavos)
+│   ├── days.py            # Calendario de trabajo: huso, país y qué días son hábiles
+│   ├── holidays.py        # Festivos oficiales de Nager.Date, en caché por país y año
+│   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -77,6 +82,8 @@ habit-tracker/
 │       ├── boards.py      # /api/boards/*      (+ /{id}/columns)
 │       ├── tags.py        # /api/tags/*
 │       ├── costs.py       # /api/costs/*      (gastos, categorías y resumen; plan maker)
+│       ├── days.py        # /api/days/*       (huso, país, festivos y días marcados)
+│       ├── metrics.py     # /api/metrics      (las cifras de un periodo)
 │       └── pomodoro.py    # /api/pomodoro/*
 ├── docs/
 │   ├── specs/             # Specs de producto por fases (calendario-v2.md, modulos-y-costeo.md)
@@ -95,6 +102,7 @@ habit-tracker/
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── notifications.js       # La campanita de avisos: sesiones por confirmar
+├── workdays.js            # Mi perfil › Calendario de trabajo (huso, país, festivos, días libres)
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -262,6 +270,10 @@ pytest -m ui      # pruebas de navegador (tests/ui): necesitan Edge o Chrome
 
 - **Nunca tocan tu base ni tu `.env`**: `tests/conftest.py` fija `DATABASE_URL` (SQLite
   temporal) y `SECRET_KEY` antes de importar la app. Cada prueba empieza con la base vacía.
+- **Ni salen a internet**: los dos `conftest.py` fijan `HABIT_HOLIDAYS_OFFLINE=1`, así que
+  los festivos oficiales llegan vacíos. Una prueba que los necesite reemplaza
+  `holidays.fetch_official` con `monkeypatch` (API) o mete el año en `holiday_cache`
+  (navegador, ver `ui_workdays.py`).
 - `api.call(método, ruta, body, expect=...)` devuelve `(status, json)`. `seeded` da una
   cuenta con datos típicos (proyecto con 5 tareas y 417 min, uno archivado, y otro usuario).
 - **Deploy**: `tests/fixtures/db_v1_9.sql` es una base de la 1.9 con datos inventados.
@@ -331,6 +343,19 @@ Lo que no se ve en Swagger:
   por moneda. Con presupuesto y sin tiempo, `is_quote` (no hay estados de proyecto). La
   ficha lleva el mismo bloque en `finance` solo si el plan está encendido. "Sin asignar" no
   se costea (409); borrar un proyecto borra su costeo y sus gastos.
+- **Calendario de trabajo y métricas** (épica 30, Fase 3). `backend/days.py` dice qué días
+  son hábiles: lunes a viernes, sin festivos oficiales (salvo los marcados `laboral`), sin
+  los días `libre` del usuario (`user_days`) y sin sus vacaciones (`streak_pauses`); los días
+  de descanso de los hábitos no cuentan. El huso (`user_settings.timezone`, IANA) y el país
+  viven en `user_settings`; sin fila, `America/Mexico_City` y MX, y el frontend
+  (`workdays.js`) guarda el huso del navegador la primera vez. Los festivos los trae
+  `backend/holidays.py` de **Nager.Date** (`date.nager.at/api/v3/PublicHolidays/{año}/{país}`,
+  solo nacionales, con `localName` en español) y quedan en `holiday_cache` por país y año; un
+  fallo no se guarda y no se reintenta en una hora. `GET /api/metrics` (`backend/metrics.py`)
+  calcula las cifras de un periodo **sin excluir nada**: lo dudoso (por confirmar, más de
+  4 h, solapes, duraciones raras) va en `to_review`. Las horas locales salen de
+  `started_at`/`ended_at` con el huso del usuario; el fin de un día se mide desde su
+  medianoche (una sesión que acaba a las 00:30 termina a las 24.5 h de su día).
 - **Gastos (pestaña Costos)**: `/api/costs` (router `costs.py`, todo tras `maker_user`, que
   es `require_module(..., "maker")` como dependencia). Un gasto (`project_costs`) tiene
   categoría, fecha, concepto, cantidad (decimal: no es dinero) y costo unitario en
@@ -396,7 +421,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los nueve scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los diez scripts en orden y **el
 orden importa**:
 
 ```html
@@ -409,6 +434,7 @@ orden importa**:
 <script src="project-overview.js"></script> <!-- la ficha: usa barList y summaryStat de reports.js -->
 <script src="costs.js"></script>    <!-- pestaña Costos: usa formatMoney y CURRENCIES de project-overview.js -->
 <script src="notifications.js"></script> <!-- la campanita: usa openLogTimeModal de pomodoro.js y el() de reports.js -->
+<script src="workdays.js"></script>     <!-- calendario de trabajo en Mi perfil: usa el() de reports.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.

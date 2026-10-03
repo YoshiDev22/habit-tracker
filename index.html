@@ -480,6 +480,39 @@
                 <p id="moduleStatus" class="module-status" role="status" hidden></p>
                 <div id="moduleError" class="form-error hidden"></div>
             </div>
+            <!-- Calendario de trabajo (workdays.js): huso horario, país y días no
+                 laborables. Lo usan las métricas y los reportes. Se guarda al tocarlo. -->
+            <details class="device-settings work-calendar" id="workCalendar">
+                <summary class="device-settings-title">Calendario de trabajo</summary>
+                <div class="work-calendar-row">
+                    <label class="work-field">
+                        <span>Huso horario</span>
+                        <input type="text" id="workTimezone" list="workTimezoneList" maxlength="64" autocomplete="off">
+                        <datalist id="workTimezoneList"></datalist>
+                    </label>
+                    <label class="work-field work-country">
+                        <span>País</span>
+                        <input type="text" id="workCountry" maxlength="2" autocomplete="off" placeholder="MX">
+                    </label>
+                </div>
+                <p class="module-hint">Días hábiles: de lunes a viernes, sin festivos oficiales de tu país, sin
+                    tus vacaciones y sin los días que marques aquí.</p>
+                <div class="work-year">
+                    <button type="button" class="nav-btn" id="workYearPrev" aria-label="Año anterior">&lt;</button>
+                    <strong id="workYearLabel"></strong>
+                    <button type="button" class="nav-btn" id="workYearNext" aria-label="Año siguiente">&gt;</button>
+                </div>
+                <p class="work-subtitle">Festivos oficiales</p>
+                <ul class="work-days" id="workOfficialDays"></ul>
+                <p class="work-subtitle">Tus días libres</p>
+                <ul class="work-days" id="workOwnDays"></ul>
+                <form class="work-add" id="workAddForm">
+                    <input type="date" id="workAddDate" required aria-label="Fecha del día libre">
+                    <input type="text" id="workAddName" maxlength="80" placeholder="Nombre (opcional)" aria-label="Nombre del día libre">
+                    <button type="submit" class="submit-btn">Agregar</button>
+                </form>
+                <div id="workCalendarError" class="form-error hidden"></div>
+            </details>
             <!-- No es del perfil: se guarda en este dispositivo y se aplica al
                  tocarlo, sin pasar por Guardar -->
             <div class="device-settings">
@@ -1073,5 +1106,6 @@
     <script src="project-overview.js"></script>
     <script src="costs.js"></script>
     <script src="notifications.js"></script>
+    <script src="workdays.js"></script>
 </body>
 </html>

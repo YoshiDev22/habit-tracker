@@ -75,14 +75,13 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    - Hoy "cerrada a las 8 h" solo vive en el texto de la nota (`POMO_AUTOCLOSE_NOTE`):
      pasa a ser una columna, `pomodoro_sessions.needs_review`.
 
-3. **Días hábiles con festivos por país.** Cada usuario tiene país (MX por defecto) y,
-   opcionalmente, estado. Los festivos oficiales salen de **Nager.Date** (gratis y sin
-   clave; su documentación da `GET /api/v4/Holidays/{país}/{año}` y trae `subdivisionCodes`
-   para los regionales; `date.nager.at` ahora redirige a `nagerholidays.com`: confirmar la
-   URL al implementar) y se guardan en caché por año. El usuario
-   agrega los suyos (p. ej. un festivo local de Morelia) y quita los que no aplican. Google
-   Calendar también publica calendarios de festivos, pero pide una clave de API: queda como
-   alternativa.
+3. **Días hábiles con festivos por país, sin estado (decidido 2026-10-03).** Cada usuario
+   tiene país (MX por defecto), sin estado ni ciudad: lo particular (un festivo local, un
+   puente, vacaciones) lo agrega cada quien como día libre. Los festivos oficiales salen de
+   **Nager.Date** (`https://date.nager.at/api/v3/PublicHolidays/{año}/{país}`, gratis y sin
+   clave; trae el nombre en español en `localName`; probado el 2026-10-03) y se guardan en
+   caché por año. Si el usuario trabaja un festivo, lo marca "Lo trabajo". Google Calendar
+   también publica festivos, pero pide una clave de API: queda como alternativa.
 
 4. **PDF lo más parecido al Word de hoy**, generado por el navegador: una vista del reporte
    con hoja de estilos de impresión y gráficas SVG ("Guardar como PDF" del navegador). Sin
@@ -109,13 +108,17 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
 2. **Sesiones por confirmar** ✅ (2026-10-03, sin publicar). `needs_review` con su migración y relleno desde la nota; aviso
    en la app; confirmar o corregir lo quita. Reportes dice cuánto tiempo sin confirmar está
    contando.
-3. **Capa de métricas** (`backend/metrics.py`, `GET /api/metrics?date_from&date_to`):
+3. **Capa de métricas** ✅ (2026-10-03, sin publicar) (`backend/metrics.py`,
+   `GET /api/metrics?date_from&date_to`):
    - Calcula horas reales y brutas, días con registro contra hábiles, promedio y mediana
      por día, duración media por sesión, % registrado a mano, pomodoros cortados, sesiones
      nocturnas (después de las 23 h, hora local), horas en fin de semana, tiempo por
      proyecto, tarea y etiqueta, horario habitual y la lista de lo que hay que revisar.
    - Necesita el huso horario y el país de cada usuario, y los festivos.
-   - Reportes pasa a leer de aquí, con pruebas de que sus cifras no cambian.
+   - Mi perfil › *Calendario de trabajo*: huso, país, festivos ("Lo trabajo") y días
+     libres propios.
+   - La pestaña Reportes sigue con sus cálculos de siempre: pasará a leer de aquí cuando
+     la vista de reportes guardados (Fase 4) use las mismas cifras.
 4. **Reportes guardados, sin IA.**
    - **Cada reporte tiene su botón** ("Generar reporte de la semana / del mes") para
      hacerlo cuando el usuario quiera, además del automático.
@@ -141,10 +144,10 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
 | Fase | Cambio | Tipo | Migración |
 |---|---|---|---|
 | 2 | `pomodoro_sessions.needs_review` (bool), relleno desde la nota de cierre automático | Columna en tabla existente | **Sí**: `migrate.py` + `test_deploy.py` |
-| 3 | `user_report_settings` (`user_id` único, `timezone`, `country`, `subdivision`) | Tabla nueva | No |
+| 3 ✅ | `user_settings` (`user_id` único, `timezone`, `country`) | Tabla nueva | No |
 | 5 | Módulo `ai` en `backend/modules.py` (usa `user_modules`, que ya existe) | Sin cambio de esquema | No |
-| 3 | `user_holidays` (`user_id`, `date`, `name`, `kind`: añadido o quitado) | Tabla nueva | No |
-| 3 | `holiday_cache` (`country`, `year`, JSON de Nager.Date, `fetched_at`) | Tabla nueva | No |
+| 3 ✅ | `user_days` (`user_id`, `date`, `name`, `kind`: libre o laboral), único por (usuario, fecha) | Tabla nueva | No |
+| 3 ✅ | `holiday_cache` (`country`, `year`, JSON de Nager.Date, `fetched_at`) | Tabla nueva | No |
 | 4 | `reports` (`user_id`, `kind`: semanal o mensual, `period_start`, `period_end`, `metrics` JSON, `text` JSON, `text_source`: reglas o proveedor, `created_at`) | Tabla nueva | No |
 | 6 | `project_finance.kind`, `project_finance.price_cents` | Columnas en tabla existente (desde la 1.18) | **Sí**: `migrate.py` + `test_deploy.py` |
 

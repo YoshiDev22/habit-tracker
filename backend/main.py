@@ -128,6 +128,12 @@ def notifications_js():
     return FileResponse(get_frontend_path("notifications.js"))
 
 
+@app.get("/workdays.js")
+def workdays_js():
+    """Serve workdays.js"""
+    return FileResponse(get_frontend_path("workdays.js"))
+
+
 # Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
 # cerrada, no por el nombre que pida la URL, para no servir otros archivos.
 APP_ICONS = {

@@ -5395,3 +5395,112 @@ button.day-log-date:focus-visible {
     color: var(--danger-fg);
     font-size: 0.82rem;
 }
+
+/* ============================================
+   Calendario de trabajo, en Mi perfil (workdays.js)
+   ============================================ */
+
+.work-calendar summary {
+    cursor: pointer;
+}
+
+.work-calendar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0 6px;
+}
+
+.work-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 200px;
+    min-width: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.work-field.work-country {
+    flex: 0 0 70px;
+}
+
+.work-field input,
+.work-add input {
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.work-year {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 10px 0 4px;
+}
+
+.work-subtitle {
+    margin: 10px 0 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.work-days {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+}
+
+.work-day {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-primary);
+}
+
+.work-day.worked .work-day-name {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.work-day-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.work-day-hint,
+.work-empty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.work-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.work-add input[type="text"] {
+    flex: 1 1 140px;
+}
+
+.work-add .submit-btn {
+    width: auto;
+    margin-top: 0;
+    padding: 7px 14px;
+}
