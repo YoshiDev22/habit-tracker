@@ -33,3 +33,6 @@ Thumbs.db
 
 # Pruebas
 .pytest_cache/
+
+# Briefs y reportes de ejemplo: traen datos personales y el repo es público
+docs/briefs/
