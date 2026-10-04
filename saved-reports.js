@@ -48,18 +48,13 @@ function savedPeriodLabel(report) {
     return `${shortDay(report.period_start)} – ${shortDay(report.period_end)} ${to.getFullYear()}`;
 }
 
-// 9.5 -> 09:30; 24.5 (pasada la medianoche) -> 00:30
-function clockFromHours(hours) {
-    const total = Math.round(hours * 60);
-    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-}
-
 function savedMetaText(report) {
     // created_at es UTC sin huso: se marca como UTC para verlo en hora local
     const made = new Date(`${report.created_at}Z`);
     const when = made.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    const parts = [`Generado el ${when}`, report.trigger === 'auto' ? 'automático' : 'a mano'];
-    if (report.through < report.period_end) parts.push(`con datos hasta el ${shortDay(report.through)}`);
+    const parts = [periodSentence(report)];
+    if (report.through < report.period_end) parts.push(`con corte al ${longDay(report.through)}`);
+    parts.push(`generado el ${when} (${report.trigger === 'auto' ? 'automático' : 'a mano'})`);
     parts.push(report.text_source === 'ai' ? `texto de IA (${report.text_model})` : 'texto de reglas');
     return parts.join(' · ');
 }
@@ -69,116 +64,347 @@ function aiOn() {
 }
 
 // ============================================
-// El reporte
+// El reporte (las secciones de los reportes de ejemplo)
 // ============================================
 
-function textCard(title, items, emptyText) {
-    if (!items || !items.length) {
-        return emptyText ? reportCard(title, el('p', 'saved-report-text muted', emptyText)) : null;
-    }
+// Horas en decimal, como los ejemplos: 14.3 h · 0.5 h · 0 h
+function hoursText(seconds) {
+    const value = Math.round((seconds || 0) / 360) / 10;
+    return value === 0 ? '0 h' : `${value.toFixed(1)} h`;
+}
+
+function weekdayShort(key) {
+    const name = WEEKDAY_NAMES[(dateFromKey(key).getDay() + 6) % 7];
+    return name.charAt(0).toUpperCase() + name.slice(1, 3);
+}
+
+function longDay(key) {
+    const d = dateFromKey(key);
+    return `${WEEKDAY_NAMES[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MONTH_NAMES[d.getMonth()]}`;
+}
+
+// "Semana del 28 de septiembre al 4 de octubre de 2026" · "Septiembre 2026"
+function periodSentence(report) {
+    if (report.kind === 'month') return savedPeriodLabel(report);
+    const from = dateFromKey(report.period_start);
+    const to = dateFromKey(report.period_end);
+    const left = from.getMonth() === to.getMonth() ? `${from.getDate()}` : `${from.getDate()} de ${MONTH_NAMES[from.getMonth()]}`;
+    return `Semana del ${left} al ${to.getDate()} de ${MONTH_NAMES[to.getMonth()]} de ${to.getFullYear()}`;
+}
+
+function rangeShort(fromKey, toKey) {
+    const from = dateFromKey(fromKey);
+    const to = dateFromKey(toKey);
+    return from.getMonth() === to.getMonth()
+        ? `${from.getDate()}–${to.getDate()} ${MONTH_SHORT[to.getMonth()]}`
+        : `${shortDay(fromKey)}–${shortDay(toKey)}`;
+}
+
+function para(text, className = 'saved-report-text') {
+    return text ? el('p', className, text) : null;
+}
+
+function listCard(title, items) {
+    if (!items || !items.length) return null;
     const list = el('ul', 'saved-report-points');
     items.forEach(item => list.appendChild(el('li', '', item)));
     return reportCard(title, list);
 }
 
-function savedSummary(report) {
-    const m = report.metrics;
-    const prev = (m.previous && m.previous.total_seconds) || 0;
-    const grid = el('div', 'report-stats');
-    grid.append(
-        summaryStat(formatDuration(m.total_seconds), 'tiempo total'),
-        summaryStat(`${m.active_workdays} de ${m.workdays}`, 'días hábiles con tiempo'),
-        summaryStat(m.avg_seconds_per_active_day ? formatDuration(m.avg_seconds_per_active_day) : '—', 'promedio por día con tiempo'),
-        summaryStat(m.median_seconds_per_active_day ? formatDuration(m.median_seconds_per_active_day) : '—', 'mediana por día con tiempo'),
-    );
-    const before = report.kind === 'week' ? 'la semana anterior' : 'el mes anterior';
-    let compare = null;
-    if (prev) {
-        const diff = m.total_seconds - prev;
-        compare = el('p', `report-compare ${diff >= 0 ? 'up' : 'down'}`,
-            Math.abs(diff) < 60 ? `Igual que ${before}`
-                : `${diff > 0 ? '+' : '−'}${formatDuration(Math.abs(diff))} vs. ${before} (${formatDuration(prev)})`);
+// El texto de un día que no tiene barra: "festivo", "sin registro", "pendiente"
+function dayNote(day) {
+    if (day.seconds) return '';
+    if (day.status === 'missing') return 'sin registro';
+    if (day.status === 'pending') return 'pendiente';
+    if (day.status === 'today') return 'hoy';
+    if (day.status === 'off' && day.reason && day.reason !== 'fin de semana') {
+        return day.reason === 'Vacaciones' ? 'vacaciones' : 'festivo';
     }
-    const lead = el('p', 'saved-report-text', report.text.summary);
-    const review = m.unconfirmed_seconds
-        ? el('p', 'report-review-note', `⚠ Incluye ${formatDuration(m.unconfirmed_seconds)} sin confirmar.`)
-        : null;
-    return reportCard('Resumen', grid, compare, lead, review);
+    return '';
 }
 
-// Barras por día; los días no hábiles (fin de semana, festivos, vacaciones) sombreados
-function savedByDay(m) {
-    const days = m.by_day;
-    if (!days.length) return null;
-    const peakHours = Math.max(1, Math.ceil(Math.max(...days.map(d => d.seconds)) / 3600));
-    const hourStep = peakHours <= 4 ? 1 : Math.ceil(peakHours / 4);
-    const maxHours = Math.ceil(peakHours / hourStep) * hourStep;
-    const W = Math.max(280, Math.min(760, (savedBody.clientWidth || 600) - 34));
-    const H = 190, L = 34, R = 6, T = 10, B = 34;
-    const plotW = W - L - R, plotH = H - T - B;
-    const step = plotW / days.length;
-    const barW = Math.max(3, Math.min(34, step * 0.62));
-    const y = seconds => T + plotH - (seconds / (maxHours * 3600)) * plotH;
-    const chart = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'report-chart', role: 'img',
-        'aria-label': 'Tiempo registrado por día' });
-    for (let h = 0; h <= maxHours; h += hourStep) {
-        chart.appendChild(svg('line', { x1: L, x2: W - R, y1: y(h * 3600), y2: y(h * 3600), class: 'chart-grid' }));
-        chart.appendChild(svgText({ x: L - 6, y: y(h * 3600) + 4, class: 'chart-axis', 'text-anchor': 'end' }, `${h}h`));
-    }
-    const labelEvery = days.length <= 14 ? 1 : 5;
-    days.forEach((day, i) => {
-        const date = dateFromKey(day.date);
-        const cx = L + step * i + step / 2;
-        if (!day.workday) {
-            chart.appendChild(svg('rect', { x: L + step * i + 1, y: T, width: Math.max(1, step - 2), height: plotH,
-                class: 'chart-rest' }));
-        }
-        if (day.seconds > 0) {
-            const top = y(day.seconds);
-            const bar = svg('rect', { x: cx - barW / 2, y: top, width: barW, height: T + plotH - top, rx: 3,
-                class: 'chart-bar' });
-            const tip = svg('title');
-            tip.textContent = `${shortDay(day.date)}: ${formatDuration(day.seconds)}`;
-            bar.appendChild(tip);
-            chart.appendChild(bar);
-        }
-        if (i % labelEvery === 0) {
-            const top = days.length <= 7 ? WEEKDAY_INITIALS[date.getDay()] : String(date.getDate());
-            chart.appendChild(svgText({ x: cx, y: H - B + 16, class: 'chart-axis', 'text-anchor': 'middle' }, top));
-            if (days.length <= 7) {
-                chart.appendChild(svgText({ x: cx, y: H - B + 29, class: 'chart-axis small', 'text-anchor': 'middle' },
-                    String(date.getDate())));
-            }
+// ---------- Métricas: la tabla, periodo anterior contra este ----------
+
+function daysNote(m) {
+    const notes = [];
+    const missing = m.missing_workdays || [];
+    // Uno o dos se nombran ("falta vie 25"); más, se cuentan
+    if (missing.length > 2) notes.push(`faltan ${missing.length}`);
+    else missing.forEach(d => notes.push(`falta ${weekdayShort(d).toLowerCase()} ${dateFromKey(d).getDate()}`));
+    (m.non_working_days || []).forEach(d => {
+        if (d.reason) {
+            const what = d.reason === 'Vacaciones' ? 'vacaciones' : 'festivo';
+            notes.push(`${weekdayShort(d.date).toLowerCase()} ${dateFromKey(d.date).getDate()} ${what}`);
         }
     });
-    let legend = null;
-    if (days.some(d => !d.workday)) {
-        legend = el('div', 'report-legend');
-        const item = el('span', 'legend-item');
-        item.append(el('i', 'legend-swatch rest'), document.createTextNode('Día no hábil'));
-        legend.appendChild(item);
-    }
-    return reportCard('Tiempo por día', chart, legend);
+    return notes.length ? ` (${notes.join('; ')})` : '';
 }
 
-function savedSchedule(m) {
-    const grid = el('div', 'report-stats');
-    if (m.schedule) {
-        grid.appendChild(summaryStat(`${clockFromHours(m.schedule.usual_start)} – ${clockFromHours(m.schedule.usual_end)}`,
-            'horario habitual (días hábiles)'));
+function metricsTable(report) {
+    const m = report.metrics;
+    const p = m.previous || {};
+    const hasPrev = 'avg_session_seconds' in p;
+    const partial = report.through < report.period_end;
+    const minutes = s => (s ? `${Math.round(s / 60)} min` : '—');
+    const pct = v => (v === null || v === undefined ? '—' : `${v}%`);
+    const avg = s => (s ? hoursText(s) : '—');
+    const rows = [
+        ['Horas totales', hoursText(p.total_seconds),
+            hoursText(m.total_seconds) + (m.unconfirmed_seconds
+                ? ` (${hoursText(m.total_seconds - m.unconfirmed_seconds)} sin lo no confirmado)` : '')],
+        ['Días con registro / hábiles', `${p.active_workdays} de ${p.workdays}${daysNote(p)}`,
+            `${m.active_workdays} de ${m.workdays}${partial ? ' hasta hoy' : ''}${daysNote(m)}`],
+        ['Promedio por día registrado', avg(p.avg_seconds_per_active_day), avg(m.avg_seconds_per_active_day)],
+        ['Duración media por sesión', minutes(p.avg_session_seconds), minutes(m.avg_session_seconds)],
+        ['Registrado a mano', pct(p.manual_pct), pct(m.manual_pct)],
+        ['Sesiones nocturnas (después de 23 h)', String(p.night_count ?? '—'), String(m.night_sessions.length)],
+        ['Fin de semana', hoursText(p.weekend_seconds), hoursText(m.weekend_seconds)],
+    ];
+    if (m.pomodoros || p.pomodoros) {
+        rows.push(['Pomodoros cortados', `${p.pomodoros_cut} de ${p.pomodoros}`, `${m.pomodoros_cut} de ${m.pomodoros}`]);
     }
-    grid.append(
-        summaryStat(String(m.night_sessions.length), m.night_sessions.length === 1 ? 'sesión nocturna' : 'sesiones nocturnas'),
-        summaryStat(formatDuration(m.weekend_seconds), 'en fin de semana'),
-        summaryStat(formatDuration(m.seconds_after_16h), 'después de las 16 h'),
-    );
-    if (m.manual_pct !== null) grid.appendChild(summaryStat(`${m.manual_pct}%`, 'registrado a mano'));
-    if (m.pomodoros) grid.appendChild(summaryStat(`${m.pomodoros_cut} de ${m.pomodoros}`, 'pomodoros cortados'));
-    return reportCard('Horario y ritmo', grid);
+    const table = el('table', 'saved-metrics');
+    const head = el('tr');
+    head.append(el('th', '', 'Métrica'));
+    if (hasPrev) head.append(el('th', '', rangeShort(p.date_from, p.date_to)));
+    head.append(el('th', '', `${rangeShort(report.period_start, report.period_end)}${partial ? ' (parcial)' : ''}`));
+    const thead = el('thead');
+    thead.appendChild(head);
+    const tbody = el('tbody');
+    rows.forEach(([label, before, now]) => {
+        const tr = el('tr');
+        tr.append(el('th', '', label));
+        if (hasPrev) tr.append(el('td', '', before));
+        tr.append(el('td', '', now));
+        tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+    const wrap = el('div', 'saved-metrics-wrap');
+    wrap.appendChild(table);
+    return wrap;
+}
+
+// ---------- Gráficas (SVG, colores del tema) ----------
+
+function chartFrame(maxSeconds, W, H, L, T, B, R) {
+    const peakHours = Math.max(1, Math.ceil(maxSeconds / 3600));
+    const step = peakHours <= 4 ? 1 : peakHours <= 10 ? 2 : Math.ceil(peakHours / 5);
+    const top = Math.ceil(peakHours / step) * step;
+    const plotH = H - T - B;
+    const y = seconds => T + plotH - (seconds / (top * 3600)) * plotH;
+    const chart = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'report-chart', role: 'img' });
+    for (let h = 0; h <= top; h += step) {
+        chart.appendChild(svg('line', { x1: L, x2: W - R, y1: y(h * 3600), y2: y(h * 3600), class: 'chart-grid' }));
+        chart.appendChild(svgText({ x: L - 6, y: y(h * 3600) + 4, class: 'chart-axis', 'text-anchor': 'end' }, `${h}`));
+    }
+    return { chart, y, base: T + plotH };
+}
+
+function chartWidthFor() {
+    return Math.max(300, Math.min(720, (savedBody.clientWidth || 600) - 34));
+}
+
+function legendOf(items) {
+    const legend = el('div', 'report-legend');
+    items.forEach(([cls, label]) => {
+        const item = el('span', 'legend-item');
+        item.append(el('i', `legend-swatch ${cls}`), document.createTextNode(label));
+        legend.appendChild(item);
+    });
+    return legend;
+}
+
+// La semana: dos barras por día, la semana anterior (tenue) y esta
+function weekDayChart(report) {
+    const m = report.metrics;
+    const days = m.days_detail || [];
+    if (!days.length) return null;
+    const prevDays = (m.previous && m.previous.by_day) || [];
+    const shown = days.map((d, i) => ({ ...d, prev: (prevDays[i] || {}).seconds || 0, index: i }))
+        .filter(d => d.index < 5 || d.seconds || d.prev);
+    const W = chartWidthFor(), H = 210, L = 30, R = 6, T = 18, B = 40;
+    const peak = Math.max(...shown.map(d => Math.max(d.seconds, d.prev)));
+    const { chart, y, base } = chartFrame(peak, W, H, L, T, B, R);
+    chart.setAttribute('aria-label', 'Horas por día, esta semana y la anterior');
+    const step = (W - L - R) / shown.length;
+    const barW = Math.max(6, Math.min(28, step * 0.32));
+    shown.forEach((day, i) => {
+        const cx = L + step * i + step / 2;
+        const bars = [
+            { seconds: day.prev, x: cx - barW - 1, cls: 'chart-bar-prev', label: 'semana anterior' },
+            { seconds: day.seconds, x: cx + 1, cls: 'chart-bar', label: 'esta semana' },
+        ];
+        bars.forEach(bar => {
+            if (!bar.seconds) return;
+            const top = y(bar.seconds);
+            const rect = svg('rect', { x: bar.x, y: top, width: barW, height: base - top, rx: 3, class: bar.cls });
+            const tip = svg('title');
+            tip.textContent = `${weekdayShort(day.date)} · ${bar.label}: ${hoursText(bar.seconds)}`;
+            rect.appendChild(tip);
+            chart.appendChild(rect);
+        });
+        if (day.seconds) {
+            chart.appendChild(svgText({ x: cx + 1 + barW / 2, y: y(day.seconds) - 5, class: 'chart-value', 'text-anchor': 'middle' },
+                (Math.round(day.seconds / 360) / 10).toFixed(1)));
+        }
+        const note = dayNote(day);
+        if (note) {
+            const nx = cx + 1 + barW / 2 + 4;
+            chart.appendChild(svgText({ x: nx, y: base - 4, class: 'chart-note', transform: `rotate(-90 ${nx} ${base - 4})` }, note));
+        }
+        chart.appendChild(svgText({ x: cx, y: H - B + 17, class: 'chart-axis', 'text-anchor': 'middle' }, weekdayShort(day.date)));
+        chart.appendChild(svgText({ x: cx, y: H - B + 30, class: 'chart-axis small', 'text-anchor': 'middle' },
+            String(dateFromKey(day.date).getDate())));
+    });
+    const p = m.previous || {};
+    const box = el('div', 'saved-chart');
+    box.append(el('p', 'saved-chart-title', 'Horas por día'), chart);
+    if (p.date_from) {
+        box.appendChild(legendOf([
+            ['prev', `Semana ${rangeShort(p.date_from, p.date_to)}`],
+            ['current', `Semana ${rangeShort(report.period_start, report.period_end)}`],
+        ]));
+    }
+    return box;
+}
+
+// El mes: una barra por semana, con su valor
+function monthWeekChart(report) {
+    const weeks = report.metrics.by_week || [];
+    if (!weeks.length) return null;
+    const W = chartWidthFor(), H = 210, L = 30, R = 6, T = 18, B = 44;
+    const { chart, y, base } = chartFrame(Math.max(...weeks.map(w => w.seconds)), W, H, L, T, B, R);
+    chart.setAttribute('aria-label', 'Horas por semana del mes');
+    const step = (W - L - R) / weeks.length;
+    const barW = Math.max(10, Math.min(60, step * 0.55));
+    weeks.forEach((week, i) => {
+        const cx = L + step * i + step / 2;
+        if (week.seconds) {
+            const top = y(week.seconds);
+            const rect = svg('rect', { x: cx - barW / 2, y: top, width: barW, height: base - top, rx: 3, class: 'chart-bar' });
+            const tip = svg('title');
+            tip.textContent = `${rangeShort(week.start, week.end)}: ${hoursText(week.seconds)}`;
+            rect.appendChild(tip);
+            chart.appendChild(rect);
+            chart.appendChild(svgText({ x: cx, y: top - 5, class: 'chart-value', 'text-anchor': 'middle' }, hoursText(week.seconds)));
+        }
+        chart.appendChild(svgText({ x: cx, y: H - B + 17, class: 'chart-axis', 'text-anchor': 'middle' },
+            rangeShort(week.start, week.end)));
+        let sub = '';
+        if (week.pending) sub = 'pendiente';
+        else if (week.workdays < 5) sub = `${week.workdays} ${week.workdays === 1 ? 'día hábil' : 'días hábiles'}`;
+        if (sub) chart.appendChild(svgText({ x: cx, y: H - B + 31, class: 'chart-axis small', 'text-anchor': 'middle' }, sub));
+    });
+    const box = el('div', 'saved-chart');
+    box.append(el('p', 'saved-chart-title', 'Horas por semana'), chart);
+    return box;
+}
+
+function arcPath(cx, cy, r, ir, a0, a1) {
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const p = (rad, a) => `${(cx + rad * Math.cos(a)).toFixed(2)} ${(cy + rad * Math.sin(a)).toFixed(2)}`;
+    return `M ${p(r, a0)} A ${r} ${r} 0 ${large} 1 ${p(r, a1)} L ${p(ir, a1)} A ${ir} ${ir} 0 ${large} 0 ${p(ir, a0)} Z`;
+}
+
+// Una dona con su leyenda (nombre, horas y %): la identidad no va solo en el color
+function donut(caption, rows, total) {
+    const box = el('div', 'saved-donut');
+    box.appendChild(el('p', 'saved-chart-title', caption));
+    if (!total) {
+        box.appendChild(el('p', 'saved-report-text muted', 'Sin tiempo registrado.'));
+        return box;
+    }
+    const size = 160, cx = 80, cy = 80, r = 76, ir = 46;
+    const chart = svg('svg', { viewBox: `0 0 ${size} ${size}`, class: 'saved-donut-chart', role: 'img', 'aria-label': caption });
+    let angle = -Math.PI / 2;
+    rows.forEach(row => {
+        if (!row.seconds) return;
+        const span = (row.seconds / total) * Math.PI * 2;
+        // Todo en un proyecto: un arco no puede cerrar el círculo; va un anillo
+        const slice = span >= Math.PI * 2 - 1e-6
+            ? svg('circle', { cx, cy, r: (r + ir) / 2, class: 'donut-ring', 'stroke-width': r - ir })
+            : svg('path', { d: arcPath(cx, cy, r, ir, angle, angle + span), class: 'donut-slice' });
+        if (slice.tagName === 'circle') slice.style.stroke = row.color || 'var(--text-muted)';
+        else slice.style.fill = row.color || 'var(--text-muted)';
+        const tip = svg('title');
+        tip.textContent = `${row.name}: ${hoursText(row.seconds)} (${row.pct}%)`;
+        slice.appendChild(tip);
+        chart.appendChild(slice);
+        angle += span;
+    });
+    const legend = el('ul', 'saved-donut-legend');
+    rows.forEach(row => {
+        const item = el('li');
+        const dot = el('i', 'report-bar-dot');
+        if (row.color) dot.style.background = row.color;
+        item.append(dot, el('span', '', row.name), el('span', 'saved-donut-value', `${hoursText(row.seconds)} (${row.pct}%)`));
+        legend.appendChild(item);
+    });
+    const body = el('div', 'saved-donut-body');
+    body.append(chart, legend);
+    box.appendChild(body);
+    return box;
+}
+
+function whereTimeWent(report) {
+    const m = report.metrics;
+    if (!m.total_seconds) return null;
+    const p = m.previous || {};
+    const donuts = el('div', 'saved-donuts');
+    if (p.by_project) {
+        donuts.appendChild(donut(`${rangeShort(p.date_from, p.date_to)} · ${hoursText(p.total_seconds)}`,
+            p.by_project, p.total_seconds));
+    }
+    donuts.appendChild(donut(`${rangeShort(report.period_start, report.period_end)} · ${hoursText(m.total_seconds)}`,
+        m.by_project, m.total_seconds));
+    const parts = [donuts];
+    if (m.top_tasks.length) {
+        parts.push(el('p', 'saved-chart-title', report.kind === 'week' ? 'Tareas principales de esta semana' : 'Tareas principales'));
+        parts.push(barList(m.top_tasks.map(task => ({ name: task.title, color: task.color, seconds: task.seconds })), null, hoursText));
+        // Leyenda de proyectos: el color de cada barra es el de su proyecto
+        const seen = new Map();
+        m.top_tasks.forEach(task => { if (task.project && !seen.has(task.project)) seen.set(task.project, task.color); });
+        if (seen.size > 1) {
+            const legend = el('div', 'report-legend');
+            seen.forEach((color, name) => {
+                const item = el('span', 'legend-item');
+                const swatch = el('i', 'legend-swatch');
+                if (color) swatch.style.background = color;
+                item.append(swatch, document.createTextNode(name));
+                legend.appendChild(item);
+            });
+            parts.push(legend);
+        }
+    }
+    return reportCard('¿En qué se fue el tiempo?', ...parts);
+}
+
+// El mes: el proyecto principal por etiqueta ("Tesis por actividad")
+function topProjectByTag(report) {
+    const t = report.metrics.top_project_tags;
+    if (report.kind !== 'month' || !t || !t.tags || t.tags.length < 2) return null;
+    const rows = t.tags.map(tag => ({ name: tag.name, color: tag.color, seconds: tag.seconds }));
+    if (t.untagged_seconds) rows.push({ name: 'Sin etiqueta', seconds: t.untagged_seconds, muted: true });
+    return reportCard(`${t.project} por actividad`, barList(rows, null, hoursText),
+        el('p', 'report-compare-small',
+            `Las horas suman más de ${hoursText(t.seconds)} porque una sesión cuenta en cada etiqueta de su tarea.`));
+}
+
+function closingCard(closing) {
+    if (!closing) return null;
+    if (typeof closing === 'string') return reportCard('Cierre', para(closing));   // reportes de antes
+    const box = el('div', 'saved-closing');
+    [['Bien hecho:', closing.well_done], ['Tip:', closing.tip]].forEach(([label, text]) => {
+        if (!text) return;
+        const item = el('p', 'saved-closing-item');
+        item.append(el('strong', '', label), document.createTextNode(` ${text}`));
+        box.appendChild(item);
+    });
+    return reportCard('Cierre', box);
 }
 
 function reviewLine(item) {
-    const parts = [`${shortDay(item.date)} ${item.start}–${item.end}`, formatDuration(item.seconds)];
+    const parts = [`${shortDay(item.date)} ${item.start}–${item.end}`, hoursText(item.seconds)];
     if (item.task) parts.push(item.task);
     return parts.join(' · ');
 }
@@ -199,28 +425,34 @@ function savedReview(m) {
         items.forEach(text => list.appendChild(el('li', '', text)));
         box.appendChild(list);
     });
-    return reportCard('A revisar', box);
+    return reportCard('Registros a revisar', box);
+}
+
+function nextStepsTitle(report) {
+    if (report.kind === 'week') return 'Para la próxima semana';
+    const end = dateFromKey(report.period_end);
+    return `Metas para ${MONTH_NAMES[(end.getMonth() + 1) % 12]}`;
 }
 
 function renderSavedReport(report) {
     const m = report.metrics;
-    const t = report.text;
-    const total = m.total_seconds;
+    const t = report.text || {};
+    const review = m.unconfirmed_seconds
+        ? el('p', 'report-review-note', `Incluye ${hoursText(m.unconfirmed_seconds)} sin confirmar.`)
+        : null;
     savedBody.replaceChildren(...[
-        savedSummary(report),
-        savedByDay(m),
-        m.by_project.length ? reportCard('Por proyecto', barList(m.by_project, total)) : null,
-        m.top_tasks.length ? reportCard('Tareas con más tiempo', barList(m.top_tasks.map(task => ({
-            name: task.title, color: task.color, seconds: task.seconds,
-            note: task.project ? ` · ${task.project}` : '',
-        })), total)) : null,
-        m.by_tag.length ? reportCard('Por etiqueta', barList(m.by_tag, null),
-            el('p', 'report-compare-small', 'Una sesión cuenta en cada etiqueta de su tarea: no se suman entre sí.')) : null,
-        total ? savedSchedule(m) : null,
+        reportCard('Resumen', para(t.summary), para(t.data_cleanup, 'saved-report-text muted'), review),
+        reportCard('Métricas', metricsTable(report), report.kind === 'month' ? monthWeekChart(report) : weekDayChart(report)),
+        whereTimeWent(report),
+        topProjectByTag(report),
+        listCard('Patrones', t.patterns),
+        listCard('Legibilidad y etiquetado', t.legibility),
+        t.comparison ? reportCard('Comparativa', para(t.comparison)) : null,
+        listCard('Observaciones', t.observations),
+        listCard(nextStepsTitle(report), t.next_steps),
+        listCard('Recomendaciones', t.recommendations),   // reportes de antes
+        closingCard(t.closing),
         savedReview(m),
-        textCard('Observaciones', t.observations),
-        textCard('Recomendaciones', t.recommendations, 'Nada que señalar en este periodo.'),
-        reportCard('Cierre', el('p', 'saved-report-text', t.closing)),
     ].filter(Boolean));
 }
 
@@ -245,7 +477,7 @@ function closeSavedModal() {
 
 function showSavedReport(report) {
     savedState.current = report;
-    savedTitle.textContent = `${KIND_TITLE[report.kind]} · ${savedPeriodLabel(report)}`;
+    savedTitle.textContent = `${KIND_TITLE[report.kind]} de tiempo`;
     savedMeta.textContent = savedMetaText(report);
     savedActions.hidden = false;
     savedRewrite.hidden = !aiOn();

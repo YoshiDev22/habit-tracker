@@ -36,8 +36,20 @@ async def main():
         await b.js("document.getElementById('savedReportBtn').click()")
         await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte semanal')")
         titles = await b.js(TITLES)
-        check("Resumen" in titles and "Tiempo por día" in titles and "Cierre" in titles,
-              f"the report shows its sections ({titles})")
+        check(titles[:3] == ["Resumen", "Métricas", "¿En qué se fue el tiempo?"] and "Patrones" in titles
+              and "Para la próxima semana" in titles and "Cierre" in titles,
+              f"the report has the sections of the examples ({titles})")
+        st = await b.js("""({rows: document.querySelectorAll('#savedReportBody .saved-metrics tbody tr').length,
+            cols: document.querySelectorAll('#savedReportBody .saved-metrics thead th').length,
+            bars: document.querySelectorAll('#savedReportBody .chart-bar').length,
+            donuts: document.querySelectorAll('#savedReportBody .saved-donut').length,
+            closing: [...document.querySelectorAll('.saved-closing-item strong')].map(s => s.textContent),
+            title: document.getElementById('savedReportTitle').textContent,
+            meta: document.getElementById('savedReportMeta').textContent})""")
+        check(st["rows"] >= 7 and st["cols"] == 3 and st["bars"] >= 1 and st["donuts"] == 2,
+              f"metrics table against the previous week, day bars and two donuts ({st})")
+        check(st["closing"] == ["Bien hecho:", "Tip:"] and st["title"] == "Reporte semanal de tiempo"
+              and st["meta"].startswith("Semana del"), f"title, period line and closing boxes ({st})")
         _, lst = call("GET", "/api/reports", expect=200)
         check(len(lst["reports"]) == 1 and lst["reports"][0]["kind"] == "week", f"it is saved ({lst['reports']})")
         st = await b.js("({back: !document.getElementById('savedReportBack').hidden, actions: !document.getElementById('savedReportActions').hidden,"

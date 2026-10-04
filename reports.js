@@ -497,8 +497,9 @@ function renderByDay({ sessions }) {
 // ============================================
 
 // rows: [{ name, color, seconds, note?, muted? }]. La barra es relativa a la
-// fila más larga; el porcentaje, al total que se pase (si se pasa).
-function barList(rows, total) {
+// fila más larga; el porcentaje, al total que se pase (si se pasa). `format`
+// escribe cada valor (los reportes guardados, horas en decimal).
+function barList(rows, total, format = formatDuration) {
     const max = Math.max(1, ...rows.map(r => r.seconds));
     const list = el('ul', 'report-bars');
     rows.forEach(row => {
@@ -509,7 +510,7 @@ function barList(rows, total) {
         if (row.color) dot.style.background = row.color;
         name.append(dot, document.createTextNode(row.name));
         if (row.note) name.appendChild(el('span', 'report-bar-note', row.note));
-        const value = el('span', 'report-bar-value', formatDuration(row.seconds));
+        const value = el('span', 'report-bar-value', format(row.seconds));
         if (row.estimateMinutes) {
             value.append(` de ${formatEstimate(row.estimateMinutes)}`);
             if (row.seconds > row.estimateMinutes * 60) value.classList.add('over-estimate');
