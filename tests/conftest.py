@@ -156,6 +156,13 @@ def utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
 
 
+def client_today():
+    """El "hoy" que manda el cliente (?today=), siempre aceptado por el servidor:
+    la fecha UTC. Con date.today() local, de noche en México ya es mañana en UTC
+    y "ayer" queda a dos días: resolve_client_today() lo rechaza."""
+    return utc_now().date()
+
+
 def log_time(api, project_id, task_id, seconds, day=None, source="manual", mode="focus", note=None, start=None):
     """Registra una sesión de `seconds` que termina ahora (o empieza en `start`)."""
     day = day or date.today()
@@ -193,7 +200,7 @@ def seeded(api):
     ]:
         _, t = api.call("POST", "/api/tasks", {"project_id": p["id"], "title": title}, expect=201)
         if done:
-            api.call("PATCH", f"/api/tasks/{t['id']}?today={date.today()}", {"is_done": True}, expect=200)
+            api.call("PATCH", f"/api/tasks/{t['id']}?today={client_today()}", {"is_done": True}, expect=200)
         if secs:
             log_time(api, p["id"], t["id"], secs)
         tasks[title] = t

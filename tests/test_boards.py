@@ -1,6 +1,8 @@
 """Tableros, columnas y cómo is_done / column_id / completed_at van juntos."""
 from datetime import date, timedelta
 
+from conftest import client_today
+
 
 def board_and_columns(api):
     _, bl = api.call("GET", "/api/boards", expect=200)
@@ -20,7 +22,7 @@ def test_new_task_goes_to_the_entry_column(seeded):
 def test_checkbox_and_columns_stay_in_sync(seeded):
     api = seeded["api"]
     _, col = board_and_columns(api)
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (client_today() - timedelta(days=1)).isoformat()
     pending = seeded["tasks"]["Revisión de idea para cambiar a kanban"]
     done = seeded["tasks"]["Corrección de Pomodoros"]
 
@@ -43,7 +45,7 @@ def test_checkbox_and_columns_stay_in_sync(seeded):
 def test_boards_own_their_columns(seeded):
     api = seeded["api"]
     board, col = board_and_columns(api)
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (client_today() - timedelta(days=1)).isoformat()
     _, school = api.call("POST", "/api/boards", {"name": "Escuela"}, expect=201)
     scol = {c["name"]: c for c in school["columns"]}
     assert list(scol) == ["Por hacer", "Haciendo", "Hecho"] and scol["Hecho"]["id"] != col["Hecho"]["id"]

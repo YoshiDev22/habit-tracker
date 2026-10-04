@@ -1,7 +1,7 @@
 """Registros de tiempo: el proyecto sigue a la tarea, filtros y el "Hoy"."""
 from datetime import date, timedelta
 
-from conftest import H, log_time, utc_now
+from conftest import H, client_today, log_time, utc_now
 
 
 def test_the_task_decides_the_project(seeded):
@@ -54,7 +54,7 @@ def test_edit_and_delete_a_session(seeded):
 
 def test_completed_range_filter(seeded):
     api = seeded["api"]
-    today = date.today()
+    today = client_today()
     _, t = api.call("POST", "/api/tasks", {"title": "de ayer"}, expect=201)
     api.call("PATCH", f"/api/tasks/{t['id']}?today={today - timedelta(days=1)}", {"is_done": True}, expect=200)
     _, done_today = api.call("GET", f"/api/tasks?completed_from={today}&completed_to={today}", expect=200)
