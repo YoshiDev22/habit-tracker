@@ -13,11 +13,18 @@ from test_metrics import MON, TUE, post
 
 TODAY = date.today()
 GOOD = {
-    "summary": "Registraste 3 h 30 min en 2 días.",
+    "summary": "Registraste 3.5 h en 2 días hábiles.",
+    "data_cleanup": "Limpieza de datos: no hay registros dudosos. No se excluyó nada.",
+    "patterns": ["Horario promedio de trabajo: 9 a 11 h."],
+    "legibility": [],
     "observations": ["Tesis se llevó todo el tiempo.", "El lunes trabajaste 2 h."],
-    "recommendations": [],
-    "closing": "Buen periodo.",
+    "comparison": "",
+    "next_steps": ["Mantén Tesis en 4 h o más."],
+    "closing": {"well_done": "Registraste dos días seguidos.", "tip": "Etiqueta tus tareas."},
 }
+# Sin cifras: para probar la validación con métricas inventadas
+PLAIN = {**GOOD, "summary": "Registraste tiempo.", "patterns": ["Trabajaste en la mañana."],
+         "observations": ["Tesis se llevó todo el tiempo."], "next_steps": ["Etiqueta tus tareas."]}
 
 
 def grant(email, enabled=True):
@@ -88,16 +95,16 @@ def test_invented_numbers_fall_back_to_rules(api, provider, monkeypatch):
     monkeypatch.setenv("AI_DAILY_LIMIT", "10")   # cuatro intentos aquí
     setup(api)
     grant("ia@test.com")
-    provider["reply"] = json.dumps({**GOOD, "closing": "Trabajaste 37 h este mes."})
+    provider["reply"] = json.dumps({**GOOD, "closing": {"well_done": "Trabajaste 37 h este mes.", "tip": "Sigue."}})
     rep = generate(api)
     assert rep["text_source"] == "rules" and "37" in rep["text_note"]
-    assert rep["text"]["summary"].startswith("Registraste 3 h 30 min")
+    assert rep["text"]["summary"].startswith("Registraste 3.5 h")
     # Texto con basura alrededor y bloque de código: se acepta si el JSON es bueno
     provider["reply"] = "Claro:\n```json\n" + json.dumps(GOOD) + "\n```"
     assert generate(api)["text_source"] == "ai"
     # Forma incorrecta
-    provider["reply"] = json.dumps({"summary": "Hola"})
-    assert "observations" in generate(api)["text_note"]
+    provider["reply"] = json.dumps({**GOOD, "patterns": "no es lista"})
+    assert "patterns" in generate(api)["text_note"]
     # El proveedor falla
     provider["reply"] = AiError("No se pudo conectar con el proveedor de IA")
     rep = generate(api)
@@ -186,10 +193,22 @@ def test_numbers_with_thousands_and_minutes_everywhere():
     assert "seconds" not in json.dumps(payload)
 
     def text(summary):
-        return json.dumps({**GOOD, "summary": summary})
+        return json.dumps({**PLAIN, "summary": summary})
     # "1 580", "1,580" y "1.580" son el total; "26 h 20 min" su conversión
     for written in ("1 580 minutos", "1 580 minutos", "1,580 minutos", "1.580 minutos", "26 h 20 min", "475 %"):
         assert report_ai.validate_text(text(f"Registraste {written}."), payload)
     # Pero un número que no está, aunque lleve separador, no
     with pytest.raises(AiError, match="2580"):
         report_ai.validate_text(text("Registraste 2 580 minutos."), payload)
+
+
+def test_goals_may_propose_whole_numbers():
+    payload = report_ai.ai_payload("week", {"total_seconds": 3600, "by_project": [], "previous": {}})
+    goal = json.dumps({**PLAIN, "next_steps": ["Mantén el proyecto en 4 h o menos y llega a 60 %."]})
+    assert report_ai.validate_text(goal, payload)["next_steps"]
+    # Pero un decimal inventado, ni en una meta
+    with pytest.raises(AiError, match="7.3"):
+        report_ai.validate_text(json.dumps({**PLAIN, "next_steps": ["Llega a 7.3 h."]}), payload)
+    # Y fuera de las metas, un entero inventado tampoco
+    with pytest.raises(AiError, match="75"):
+        report_ai.validate_text(json.dumps({**PLAIN, "observations": ["Llegaste a 75 %."]}), payload)

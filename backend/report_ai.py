@@ -22,10 +22,9 @@ from backend.models import AiCall, User
 
 KIND_NAME = {"week": "semana", "month": "mes"}
 DROP_KEYS = {"project_id", "task_id", "tag_id", "session_id", "color", "timezone"}
-MAX_SUMMARY = 700
+MAX_SUMMARY = 900
 MAX_ITEM = 400
-MAX_OBSERVATIONS = 8
-MAX_RECOMMENDATIONS = 6
+LIST_LIMITS = {"patterns": 6, "legibility": 4, "observations": 6, "next_steps": 5}
 # Cifras que se pueden escribir sin venir en las métricas: conteos chicos
 # ("dos días", "3 recomendaciones") y los umbrales que la app explica
 FREE_NUMBERS = set(range(0, 11)) | {16, 23, 24}
@@ -34,21 +33,29 @@ FREE_NUMBERS = set(range(0, 11)) | {16, 23, 24}
 THOUSANDS = r"\d{1,3}(?:[ \u00a0\u202f.,]\d{3})+(?![\d.,]\d)"
 NUMBER_RE = re.compile(rf"(?<![\w.,])(?:{THOUSANDS}|\d+(?:[.,]\d+)?)")
 
-SYSTEM_PROMPT = """Escribes el texto de un reporte personal de productividad: cuánto tiempo trabajó una persona en una semana o un mes, y en qué.
+SYSTEM_PROMPT = """Escribes el texto de un reporte personal de tiempo de trabajo: cuánto trabajó una persona en una semana o un mes, en qué, y qué conviene cambiar. Lo leerá ella misma.
 
-Recibes un JSON con métricas ya calculadas. Las duraciones vienen en minutos. "comparison" compara con el periodo anterior.
+Recibes un JSON con métricas ya calculadas por la app. Las duraciones vienen en minutos. "previous" es el periodo anterior completo; "comparison", el cambio del total. "days_detail" trae cada día con su estado: worked, missing (hábil sin registro), off (fin de semana, festivo o vacaciones, con su motivo), today (hoy, aún sin tiempo) o pending (todavía no llega). "projected_minutes" es una proyección al cierre si el periodo va a medias. "by_week" son las semanas del mes. "top_tasks" trae sesiones y días de cada tarea. "top_project_tags" es el proyecto principal por etiqueta (una sesión cuenta en cada etiqueta de su tarea: no se suman). "to_review" lista registros dudosos: se cuentan todos, nada se excluye.
 
-Reglas:
-1. Escribe en español de México, en segunda persona ("registraste"), con un tono sobrio: describe, no regañes ni celebres de más.
-2. Usa SOLO cifras que aparecen en el JSON. Puedes convertir minutos a horas y minutos ("417 minutos" -> "6 h 57 min"), pero no calcules promedios, sumas ni porcentajes nuevos.
+Reglas de las cifras:
+1. Usa SOLO cifras que aparecen en el JSON. Escribe las horas en decimal con un decimal ("858 minutos" -> "14.3 h") o en horas y minutos. No calcules sumas, promedios ni porcentajes nuevos: si comparas, usa los "pct" de cada periodo.
+2. Solo en "next_steps" puedes proponer metas con números enteros nuevos ("Mantén el Habit Tracker en 4 h o menos"), apoyadas en una cifra del JSON.
 3. No inventes causas, datos ni nombres. Usa los nombres de proyectos y tareas tal como vienen.
-4. "summary": dos o tres oraciones con lo principal del periodo y la comparación.
-5. "observations": de 2 a 6 observaciones concretas, una o dos oraciones cada una.
-6. "recommendations": solo si una cifra lo justifica (registros por revisar, días hábiles sin registro, sesiones nocturnas, pomodoros cortados); si no, lista vacía. Máximo 4.
-7. "closing": una oración de cierre.
+
+Estilo: español de México, en segunda persona ("llevas", "registraste"), concreto, sobrio y cálido; describe lo que pasó, no regañes ni celebres de más. Frases cortas.
+
+Secciones:
+- "summary": un párrafo. Horas y días hábiles con registro (di qué días fueron festivo, cuál sigue en curso o pendiente), horas por día comparadas con el periodo anterior y, si hay proyección, "cerrarías alrededor de X h (estimado)". En un mes, la tendencia por semana.
+- "data_cleanup": una oración que empieza con "Limpieza de datos:". Qué hay en to_review y que no se excluyó nada; si hay tiempo sin confirmar, cuánto sería sin él.
+- "patterns": de 2 a 5 viñetas: horario promedio y horas después de las 16 h; una tarea que se repite (sesiones en días); días sin registro; descanso (sesiones nocturnas, o que no te desvelaste); pomodoros o registro a mano si destacan.
+- "legibility": de 0 a 3 viñetas sobre tareas con nombres poco descriptivos ("Ajustes", "Tarea 08/09") y el uso de etiquetas. Vacía si no hay nada.
+- "observations": de 2 a 5 viñetas comparando con el periodo anterior (cómo cambió el % de cada proyecto) y lo que llame la atención.
+- "comparison": solo en un mes: una o dos oraciones contra el mes anterior; en una semana, cadena vacía.
+- "next_steps": de 1 a 4 viñetas accionables para el siguiente periodo, con metas medibles cuando se pueda.
+- "closing": {"well_done": un logro concreto del periodo, "tip": un consejo concreto y breve}.
 
 Responde SOLO con un objeto JSON, sin texto antes ni después y sin bloques de código:
-{"summary": "...", "observations": ["..."], "recommendations": ["..."], "closing": "..."}"""
+{"summary": "...", "data_cleanup": "...", "patterns": ["..."], "legibility": [], "observations": ["..."], "comparison": "", "next_steps": ["..."], "closing": {"well_done": "...", "tip": "..."}}"""
 
 
 # ============================================
@@ -155,7 +162,9 @@ def _extract_json(content: str) -> dict:
     return data
 
 
-def _text(value, limit: int, field: str) -> str:
+def _text(value, limit: int, field: str, allow_empty: bool = False) -> str:
+    if allow_empty and value in (None, ""):
+        return ""
     if not isinstance(value, str) or not value.strip():
         raise AiError(f"La IA dejó vacío «{field}»")
     value = " ".join(value.split())
@@ -173,19 +182,34 @@ def _items(value, limit: int, field: str) -> list:
 def validate_text(content: str, payload: dict) -> dict:
     """El texto listo para guardar, o AiError si no se puede confiar en él."""
     data = _extract_json(content)
+    closing = data.get("closing")
+    if not isinstance(closing, dict):
+        raise AiError("La IA no respetó «closing»")
     text = {
         "summary": _text(data.get("summary"), MAX_SUMMARY, "summary"),
-        "observations": _items(data.get("observations"), MAX_OBSERVATIONS, "observations"),
-        "recommendations": _items(data.get("recommendations"), MAX_RECOMMENDATIONS, "recommendations"),
-        "closing": _text(data.get("closing"), MAX_ITEM, "closing"),
+        "data_cleanup": _text(data.get("data_cleanup"), MAX_ITEM, "data_cleanup"),
+        **{field: _items(data.get(field), limit, field) for field, limit in LIST_LIMITS.items()},
+        "comparison": _text(data.get("comparison"), MAX_ITEM, "comparison", allow_empty=True),
+        "closing": {"well_done": _text(closing.get("well_done"), MAX_ITEM, "well_done"),
+                    "tip": _text(closing.get("tip"), MAX_ITEM, "tip")},
     }
     allowed = allowed_numbers(payload)
-    pieces = [text["summary"], text["closing"], *text["observations"], *text["recommendations"]]
-    for piece in pieces:
+    facts = [text["summary"], text["data_cleanup"], text["comparison"], *text["patterns"],
+             *text["legibility"], *text["observations"], text["closing"]["well_done"], text["closing"]["tip"]]
+
+    def check(piece: str, targets_ok: bool) -> None:
         for readings in _numbers_in(piece):
-            if not any(abs(number - a) < 0.051 for number in readings for a in allowed):
-                shown = max(readings)
-                raise AiError(f"La IA citó una cifra que no venía en las métricas ({shown:g})")
+            if any(abs(number - a) < 0.051 for number in readings for a in allowed):
+                continue
+            # Una meta puede proponer un entero nuevo ("4 h o menos"), no un decimal
+            if targets_ok and any(number == int(number) for number in readings):
+                continue
+            raise AiError(f"La IA citó una cifra que no venía en las métricas ({max(readings):g})")
+
+    for piece in facts:
+        check(piece, targets_ok=False)
+    for piece in text["next_steps"]:
+        check(piece, targets_ok=True)
     return text
 
 
@@ -206,7 +230,7 @@ def write_with_ai(session: Session, user: User, kind: str, metrics: dict, config
     payload = ai_payload(kind, metrics)
     call = AiCall(user_id=user.id, model=config.model)
     try:
-        reply = chat_completion(config, SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False))
+        reply = chat_completion(config, SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), max_tokens=8000)
         call.input_tokens, call.output_tokens = reply.input_tokens, reply.output_tokens
         text = validate_text(reply.content, payload)
         call.ok = True

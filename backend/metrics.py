@@ -131,12 +131,16 @@ def compute_metrics(session: Session, user: User, date_from: date_type, date_to:
     # En qué se fue el tiempo
     by_project = Counter()
     by_task = Counter()
+    task_sessions = Counter()
+    task_days: Dict[int, set] = defaultdict(set)
     by_tag = Counter()
     untagged = 0
     for s in sessions:
         by_project[s.project_id] += s.duration_seconds
         if s.task_id is not None:
             by_task[s.task_id] += s.duration_seconds
+            task_sessions[s.task_id] += 1
+            task_days[s.task_id].add(s.session_date)
         task_tags = tags_by_task.get(s.task_id, []) if s.task_id is not None else []
         if not task_tags:
             untagged += s.duration_seconds
@@ -167,11 +171,37 @@ def compute_metrics(session: Session, user: User, date_from: date_type, date_to:
             "project": project.name if project else None,
             "color": project.color if project else None,
             "seconds": seconds,
+            "sessions": task_sessions[task_id],   # "Asesor: 3 sesiones en 3 días"
+            "days": len(task_days[task_id]),
         })
     tags_out = [
         {"tag_id": tag_id, "name": tag_info[tag_id].name, "color": tag_info[tag_id].color, "seconds": seconds}
         for tag_id, seconds in by_tag.most_common()
     ]
+
+    # El proyecto principal por etiqueta ("Tesis por actividad"): una sesión
+    # cuenta en cada etiqueta de su tarea, así que no se suman entre sí
+    top_project_tags = None
+    if by_project:
+        top_id = by_project.most_common(1)[0][0]
+        top_tags = Counter()
+        top_untagged = 0
+        for s in sessions:
+            if s.project_id != top_id:
+                continue
+            task_tags = tags_by_task.get(s.task_id, []) if s.task_id is not None else []
+            if not task_tags:
+                top_untagged += s.duration_seconds
+            for tag in task_tags:
+                top_tags[tag.id] += s.duration_seconds
+        top = projects.get(top_id)
+        top_project_tags = {
+            "project": top.name if top else "Sin proyecto",
+            "seconds": by_project[top_id],
+            "tags": [{"name": tag_info[tag_id].name, "color": tag_info[tag_id].color, "seconds": seconds}
+                     for tag_id, seconds in top_tags.most_common()],
+            "untagged_seconds": top_untagged,
+        }
 
     # Para revisar: nada se excluye, se lista
     def describe(s: PomodoroSession, start: datetime, end: datetime) -> dict:
@@ -220,6 +250,7 @@ def compute_metrics(session: Session, user: User, date_from: date_type, date_to:
         "top_tasks": tasks_out,
         "by_tag": tags_out,
         "untagged_seconds": untagged,
+        "top_project_tags": top_project_tags,
         "to_review": {
             "unconfirmed": unconfirmed,
             "long_sessions": long_sessions,

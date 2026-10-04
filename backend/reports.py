@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, select
 
-from backend.days import DEFAULT_TIMEZONE, user_settings, valid_timezone
+from backend.days import DEFAULT_TIMEZONE, user_settings, valid_timezone, work_calendar
 from backend.metrics import compute_metrics
 from backend.models import PomodoroSession, Report, User, utc_now_naive
 from backend.ai import AiError, ai_config
@@ -26,10 +26,12 @@ from backend.report_text import build_text
 KINDS = ("week", "month")
 # Si el timer no corrió (servidor apagado), cuántos periodos hacia atrás pone al día
 CATCH_UP = {"week": 4, "month": 2}
-# Del periodo anterior se guarda solo lo que el reporte compara
+# Del periodo anterior se guarda lo que el reporte compara (la tabla de
+# métricas, las barras por día y la dona por proyecto)
 PREVIOUS_FIELDS = ("total_seconds", "days", "workdays", "active_days", "active_workdays",
-                   "avg_seconds_per_active_day", "median_seconds_per_active_day", "session_count")
-PREVIOUS_TOP_PROJECTS = 5
+                   "avg_seconds_per_active_day", "median_seconds_per_active_day", "session_count",
+                   "avg_session_seconds", "manual_pct", "pomodoros", "pomodoros_cut", "weekend_seconds",
+                   "unconfirmed_seconds", "missing_workdays", "non_working_days")
 
 
 def period_bounds(kind: str, day: date_type) -> Tuple[date_type, date_type]:
@@ -60,9 +62,68 @@ def previous_summary(metrics: dict) -> dict:
     summary = {field: metrics[field] for field in PREVIOUS_FIELDS}
     summary["date_from"] = metrics["date_from"]
     summary["date_to"] = metrics["date_to"]
-    summary["by_project"] = [{"name": p["name"], "seconds": p["seconds"]}
-                             for p in metrics["by_project"][:PREVIOUS_TOP_PROJECTS]]
+    summary["night_count"] = len(metrics["night_sessions"])
+    summary["night_sessions"] = metrics["night_sessions"]
+    summary["by_project"] = [{"name": p["name"], "color": p["color"], "seconds": p["seconds"], "pct": p["pct"]}
+                             for p in metrics["by_project"]]
+    summary["by_day"] = [{"date": d["date"], "seconds": d["seconds"]} for d in metrics["by_day"]]
     return summary
+
+
+def days_detail(session: Session, user: User, start: date_type, end: date_type, today: date_type,
+                by_day: dict) -> List[dict]:
+    """Cada día del periodo, con su estado: worked, today (hoy, sin tiempo aún),
+    missing (hábil y sin registro), off (fin de semana, festivo o vacaciones,
+    con el motivo) o pending (aún no llega)."""
+    calendar = work_calendar(session, user.id, start, end)
+    out = []
+    day = start
+    while day <= end:
+        seconds = by_day.get(day.isoformat(), 0)
+        reason = None
+        if day > today:
+            status = "pending"
+        elif not calendar.is_workday(day):
+            status = "off"
+            reason = calendar.off_days.get(day) or "fin de semana"
+        elif seconds:
+            status = "worked"
+        elif day == today:
+            status = "today"
+        else:
+            status = "missing"
+        out.append({"date": day.isoformat(), "seconds": seconds, "status": status, "reason": reason,
+                    "workday": calendar.is_workday(day)})
+        day += timedelta(days=1)
+    return out
+
+
+def weeks_of_month(days: List[dict], today: date_type) -> List[dict]:
+    """Las semanas (de lunes a domingo) del mes, recortadas al mes: horas y días
+    hábiles transcurridos de cada una ("28–30 sep, 2 días hábiles")."""
+    weeks: List[dict] = []
+    for day in days:
+        d = date_type.fromisoformat(day["date"])
+        if not weeks or d.weekday() == 0:
+            weeks.append({"start": day["date"], "end": day["date"], "seconds": 0, "workdays": 0, "pending": True})
+        week = weeks[-1]
+        week["end"] = day["date"]
+        week["seconds"] += day["seconds"]
+        if day["workday"] and d <= today:
+            week["workdays"] += 1
+        if d <= today:
+            week["pending"] = False
+    return weeks
+
+
+def projection(days: List[dict], total: int) -> Optional[int]:
+    """Con el periodo a medias: el total si los días hábiles que faltan siguen
+    el promedio de los días hábiles con registro. None si ya terminó o no hay base."""
+    remaining = sum(1 for d in days if d["status"] == "pending" and d["workday"])
+    worked = [d["seconds"] for d in days if d["workday"] and d["status"] == "worked"]
+    if not remaining or not worked:
+        return None
+    return total + round(sum(worked) / len(worked)) * remaining
 
 
 def ai_enabled(session: Session, user: User) -> bool:
@@ -105,6 +166,15 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     metrics = compute_metrics(session, user, start, end, today)
     prev_start, prev_end = previous_period(kind, start)
     metrics["previous"] = previous_summary(compute_metrics(session, user, prev_start, prev_end, today))
+    # Lo que solo usa el reporte (no GET /api/metrics): el estado de cada día,
+    # las semanas del mes, la proyección al cierre y el total sin lo dudoso
+    metrics["kind"] = kind
+    metrics["today"] = today.isoformat()
+    metrics["days_detail"] = days_detail(session, user, start, end, today,
+                                         {d["date"]: d["seconds"] for d in metrics["by_day"]})
+    metrics["by_week"] = weeks_of_month(metrics["days_detail"], today) if kind == "month" else None
+    metrics["projected_seconds"] = projection(metrics["days_detail"], metrics["total_seconds"])
+    metrics["total_without_unconfirmed_seconds"] = metrics["total_seconds"] - metrics["unconfirmed_seconds"]
 
     report = session.exec(select(Report).where(
         Report.user_id == user.id, Report.kind == kind, Report.period_start == start)).first()

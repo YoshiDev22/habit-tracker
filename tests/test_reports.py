@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from backend.database import engine
 from backend.models import Report, User
-from backend.report_text import build_text, clock, hours
+from backend.report_text import build_text, clock_hour, hours, is_vague
 from backend.reports import due_periods, generate_due_reports, period_bounds
 from test_metrics import MON, TUE, WED, SUN, post
 
@@ -47,8 +47,19 @@ def test_generate_list_and_replace(api):
     assert rep["total_seconds"] == 210 * 60 and rep["trigger"] == "manual" and rep["text_source"] == "rules"
     assert rep["metrics"]["previous"]["total_seconds"] == 3600
     assert rep["metrics"]["by_project"][0]["name"] == "Tesis"
-    assert rep["text"]["summary"].startswith("Registraste 3 h 30 min en 2 días")
-    assert "250 % más que la semana anterior (1 h)" in rep["text"]["summary"]
+    text = rep["text"]
+    assert text["summary"].startswith("Registraste 3.5 h en 2 días hábiles")
+    assert "más que la semana pasada (1.0 h)" in text["summary"]
+    assert text["data_cleanup"].startswith("Limpieza de datos: no hay")
+    assert text["closing"]["well_done"] and text["closing"]["tip"]
+    assert text["comparison"] == ""          # solo en un mes
+    m = rep["metrics"]
+    # El estado de cada día, y lo que el reporte compara del periodo anterior
+    assert [d["status"] for d in m["days_detail"]][:2] == ["worked", "worked"]
+    assert m["days_detail"][5]["status"] == "off" and m["days_detail"][5]["reason"] == "fin de semana"
+    assert m["previous"]["by_project"][0]["pct"] == 100 and len(m["previous"]["by_day"]) == 7
+    assert m["top_tasks"][0]["sessions"] == 2 and m["top_tasks"][0]["days"] == 2
+    assert m["top_project_tags"]["project"] == "Tesis" and m["projected_seconds"] is None
 
     # Regenerar reemplaza: mismo id, cifras nuevas
     post(api, project, task, WED, 9, 30)
@@ -59,7 +70,7 @@ def test_generate_list_and_replace(api):
     assert [r["id"] for r in lst["reports"]] == [rep["id"]]
     assert "metrics" not in lst["reports"][0]
     _, one = api.call("GET", f"/api/reports/{rep['id']}", expect=200)
-    assert one["total_seconds"] == 240 * 60 and one["text"]["observations"]
+    assert one["total_seconds"] == 240 * 60 and one["text"]["observations"] and one["text"]["patterns"]
 
 
 def test_current_period_goes_until_today(api):
@@ -69,6 +80,15 @@ def test_current_period_goes_until_today(api):
                                                "today": TODAY.isoformat()}, expect=200)
     assert rep["through"] == TODAY.isoformat()
     assert rep["period_end"] == period_bounds("month", TODAY)[1].isoformat()
+    m = rep["metrics"]
+    # Las semanas del mes, recortadas a él; los días que faltan, pendientes
+    assert m["by_week"][0]["start"] == TODAY.replace(day=1).isoformat()
+    assert sum(w["seconds"] for w in m["by_week"]) == 45 * 60
+    statuses = {d["date"]: d["status"] for d in m["days_detail"]}
+    tomorrow = TODAY + timedelta(days=1)
+    if tomorrow.month == TODAY.month:
+        assert statuses[tomorrow.isoformat()] == "pending"
+    assert "Llevas 0.8 h" in rep["text"]["summary"] or TODAY.weekday() >= 5
 
 
 def test_rejects_bad_periods(api):
@@ -125,10 +145,30 @@ def test_due_reports_for_the_timer(api):
 
 
 def test_text_rules():
-    assert hours(0) == "0 min" and hours(3 * 3600 + 300) == "3 h 05 min" and hours(7200) == "2 h"
-    assert clock(9.5) == "09:30" and clock(24.5) == "00:30"
+    assert hours(0) == "0 h" and hours(3 * 3600 + 300) == "3.1 h" and hours(3600) == "1.0 h"
+    assert clock_hour(9.0) == "9" and clock_hour(9.5) == "9:30" and clock_hour(24.5) == "0:30"
+    assert is_vague("Ajustes Habits") and is_vague("Tarea 08/09/26") and not is_vague("Deducción fórmula Fourier")
     empty = build_text("week", {"total_seconds": 0, "previous": {}})
-    assert empty["summary"] == "No hubo tiempo registrado en la semana." and empty["recommendations"] == []
+    assert empty["summary"] == "No registraste tiempo en la semana." and empty["next_steps"] == []
+
+
+def test_projection_and_comparison(api):
+    project, task = setup(api, "proyeccion@test.com")
+    with Session(engine) as session:
+        from backend.reports import projection
+        days = [{"date": f"2026-10-0{i}", "seconds": s, "status": st, "workday": True}
+                for i, (s, st) in enumerate([(3600, "worked"), (7200, "worked"), (0, "pending"), (0, "pending")], start=1)]
+        # 3 h en dos días hábiles: 1.5 h por día, y faltan dos
+        assert projection(days, 10800) == 10800 + 5400 * 2
+        assert projection(days[:2], 10800) is None
+    # Un mes con un mes anterior: la comparativa dice cuánto cambió
+    month_start = (TODAY.replace(day=1) - timedelta(days=1)).replace(day=1)
+    before = (month_start - timedelta(days=1)).replace(day=10)
+    post(api, project, task, month_start.replace(day=10), 9, 120)
+    post(api, project, task, before, 9, 60)
+    _, rep = api.call("POST", "/api/reports", {"kind": "month", "period_start": month_start.isoformat(),
+                                               "today": TODAY.isoformat()}, expect=200)
+    assert rep["text"]["comparison"] == "Frente al mes anterior (1.0 h): 1.0 h más (100 %)."
 
 
 def test_timer_script(api, capsys):
