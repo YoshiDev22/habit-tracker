@@ -433,11 +433,24 @@ observaciones y recomendaciones, para leerlo después o compararlo.
 - **Imprimir / PDF**: imprime solo el reporte, en colores claros. Para un PDF, elige
   "Guardar como PDF" en la ventana de impresión.
 
-Qué trae: el resumen comparado con el periodo anterior, el tiempo por día (los días no
-hábiles sombreados), por proyecto, las tareas con más tiempo, por etiqueta, tu horario
-habitual y ritmo, lo que conviene revisar (registros sin confirmar, de más de 4 h o que se
-enciman), observaciones, recomendaciones y un cierre. El texto lo escriben reglas fijas a
-partir de las cifras.
+Qué trae, con las horas en decimal (14.3 h):
+
+- **Resumen**: horas y días hábiles con registro (qué día fue festivo, cuál sigue en curso),
+  horas por día comparadas con el periodo anterior y, si va a medias, cuánto llevarías al
+  cerrar si mantienes el ritmo. Debajo, la **limpieza de datos**: qué registros dudosos hay;
+  nunca se excluye nada.
+- **Métricas**: una tabla del periodo anterior contra este, y las horas por día de las dos
+  semanas lado a lado (en el mensual, por semana). Bajo un día sin barra dice si fue
+  festivo, sin registro o pendiente.
+- **¿En qué se fue el tiempo?**: una dona por periodo con cada proyecto y su %, y tus
+  tareas principales del color de su proyecto. En el mensual, el proyecto principal por
+  etiqueta.
+- **Patrones**, **Legibilidad y etiquetado** (tareas con nombres poco claros, tiempo sin
+  etiqueta), **Observaciones**, **Comparativa** (el mensual), **Para la próxima semana** o
+  **Metas** del mes, y el **Cierre**: un *Bien hecho* y un *Tip*.
+- **Registros a revisar**: el detalle de los dudosos, si hay.
+
+El texto lo escriben reglas fijas a partir de las cifras, o la IA si la tienes.
 
 ## Pomodoro y cronómetro
 

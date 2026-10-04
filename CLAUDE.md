@@ -587,9 +587,17 @@ días por export.
 
 **Reportes guardados** (épica 30, Fase 4). Tabla `reports`, uno por (usuario, `kind`,
 `period_start`): semana de lunes a domingo o mes. Guarda las cifras de `compute_metrics()`
-**congeladas** al generarse, más `metrics.previous` (resumen del periodo anterior), y el
-`text` de `backend/report_text.py` (`summary`, `observations`, `recommendations`,
-`closing`), que solo lee esas cifras: en la Fase 5 la IA escribirá la misma forma.
+**congeladas** al generarse, más lo que solo usa el reporte (`backend/reports.py`):
+`previous` (el periodo anterior completo: por día, por proyecto con su %, sesión media…),
+`days_detail` (cada día: `worked`, `missing`, `off` con su motivo, `today`, `pending`),
+`by_week` (el mes), `projected_seconds` (proyección al cierre si va a medias) y
+`total_without_unconfirmed_seconds`. Sigue las secciones de los reportes de ejemplo de
+Yoshio (Word en `docs/briefs/`, fuera del repo por traer datos personales); el `text` de
+`backend/report_text.py` las escribe con reglas: `summary`, `data_cleanup`, `patterns`,
+`legibility`, `observations`, `comparison` (solo el mes), `next_steps` y
+`closing: {well_done, tip}`, con horas en decimal ("14.3 h"). Solo lee esas cifras, y la IA
+escribe la misma forma. La vista también pinta reportes de antes (con `recommendations` y
+`closing` de texto).
 `POST /api/reports` genera o **reemplaza** (mismo id); un periodo en curso llega hasta hoy
 (`through`). No hay borrado: el timer volvería a crearlo. El automático lo hace
 `scripts/generate_reports.py` (fuera de uvicorn: con reinicios o varios workers dispararía
@@ -612,7 +620,9 @@ local), y una URL con `<ACCOUNT_ID>` sin llenar cuenta como sin configurar. La I
 `ai_payload()` (`backend/report_ai.py`): las cifras del reporte en **minutos**, sin ids ni
 colores, nunca las sesiones. Lo que vuelve pasa por `validate_text()`: JSON con la forma
 de las reglas, textos con tope y **ninguna cifra que no esté en lo enviado** (o en su
-conversión a horas y minutos, `allowed_numbers()`); si cita otra, se rechaza. Cada intento
+conversión a horas y minutos, `allowed_numbers()`); si cita otra, se rechaza. Un número con
+separador de miles ("1 580") se lee entero. Solo en `next_steps` se aceptan enteros nuevos:
+una meta propone un número ("4 h o menos"); un decimal nuevo, nunca. Cada intento
 queda en `ai_calls` (tabla nueva), que cuenta el límite diario por cuenta (`AI_DAILY_LIMIT`,
 10; día UTC). `POST /api/reports/{id}/rewrite` reescribe solo el texto (403 sin el módulo,
 503 sin proveedor, 502 si la IA falla, y el reporte no cambia); `GET /api/reports/ai-preview`
