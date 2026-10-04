@@ -409,3 +409,18 @@ migración) ✅ · 3 capa de métricas con huso horario y festivos ✅ · 4 repo
 del mes y lo guarda; también se genera solo (systemd timer: lunes, la semana anterior, y día 1); la vista lo
 muestra con las secciones de los ejemplos y se imprime a PDF desde el navegador.
 
+## 31 · P3 · Límite diario de la IA ajustable por cuenta
+
+**Idea.** Hoy el límite de textos con IA es uno para toda la instancia (`AI_DAILY_LIMIT` en
+`backend/.env`, 10 por defecto, día UTC) y cada cuenta ve "te quedan N de 10" en el
+reporte. Pedido por Yoshio el 2026-10-03: dejarlo en 10 por ahora, pero poder cambiarlo por
+cuenta (más para quien lo use mucho, menos para una cuenta de prueba).
+
+**Cómo podría ser.** Una columna `daily_limit` (NULL = el de la instancia) en
+`user_modules` para el módulo `ai`, que `grant_module.py` ponga con `--limit N`
+(**migración**: columna en tabla existente). `calls_today()` y `/api/reports/ai-usage` ya
+cuentan por cuenta; solo cambia de dónde sale el tope. Quizá también contar el día en el
+huso del usuario y no en UTC.
+
+**Aceptación.** `grant_module.py --email … --module ai --limit 20` cambia el tope de esa
+cuenta, el reporte lo dice, y sin `--limit` sigue el de `AI_DAILY_LIMIT`.

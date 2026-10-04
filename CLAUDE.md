@@ -599,7 +599,11 @@ Yoshio (Word en `docs/briefs/`, fuera del repo por traer datos personales); el `
 escribe la misma forma. La vista también pinta reportes de antes (con `recommendations` y
 `closing` de texto).
 `POST /api/reports` genera o **reemplaza** (mismo id); un periodo en curso llega hasta hoy
-(`through`). No hay borrado: el timer volvería a crearlo. El automático lo hace
+(`through`). Entre dos generaciones a mano del mismo reporte (regenerar o reescribir con IA)
+hay una **espera** (`REPORT_COOLDOWN_SECONDS`, 30 s): antes, 429 con `Retry-After`; cada
+reporte trae `regenerate_in` y la vista dice cuánto falta sin mandar nada, para que los
+clics repetidos no gasten la IA. El timer no pasa por ella. La proyección al cierre pide
+al menos 3 días hábiles con registro (`PROJECTION_MIN_DAYS`). No hay borrado: el timer volvería a crearlo. El automático lo hace
 `scripts/generate_reports.py` (fuera de uvicorn: con reinicios o varios workers dispararía
 dos veces), con un timer diario (`deploy/`): para cada cuenta, en su fecha **local**
 (`local_today()`), los periodos ya terminados con algún registro y sin reporte completo
@@ -607,7 +611,10 @@ dos veces), con un timer diario (`deploy/`): para cada cuenta, en su fecha **loc
 duplica. La vista (`saved-reports.js`) pinta solo lo guardado, con los helpers de
 `reports.js`; `setRange()` le avisa el periodo con `syncSavedReportButton()`. Imprimir
 pone `body.saved-report-open` y `@media print` deja solo el modal, con los tokens del tema
-claro.
+claro. Las gráficas se dibujan al ancho de la pantalla, así que al imprimir
+(`beforeprint`/`afterprint`, también desde el menú del navegador) se vuelven a dibujar a
+`PRINT_CHART_WIDTH` (680): dibujadas en un teléfono salían enormes en la hoja. Las tarjetas
+sí se parten entre hojas (enteras dejaban medias hojas en blanco); sus piezas no.
 
 **IA para el texto** (épica 30, Fase 5). Módulo `ai`, con acceso como el plan maker
 (`grant_module.py --module ai`). Con él encendido, `write_text()` (`backend/reports.py`)
@@ -626,7 +633,9 @@ una meta propone un número ("4 h o menos"); un decimal nuevo, nunca. Cada inten
 queda en `ai_calls` (tabla nueva), que cuenta el límite diario por cuenta (`AI_DAILY_LIMIT`,
 10; día UTC). `POST /api/reports/{id}/rewrite` reescribe solo el texto (403 sin el módulo,
 503 sin proveedor, 502 si la IA falla, y el reporte no cambia); `GET /api/reports/ai-preview`
-enseña las instrucciones y el JSON exactos (Configuración › Módulos › *Ver qué se envía*).
+enseña las instrucciones y el JSON exactos (Configuración › Módulos › *Ver qué se envía*), y
+`GET /api/reports/ai-usage` cuántos quedan hoy ("IA: te quedan 7 de 10 textos hoy", en el
+reporte). Un límite por cuenta está en el BACKLOG (31).
 Las pruebas nunca llaman a un proveedor: los `conftest.py` vacían las `AI_*` y
 `test_report_ai.py` reemplaza `report_ai.chat_completion`.
 

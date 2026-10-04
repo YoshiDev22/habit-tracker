@@ -423,13 +423,16 @@ observaciones y recomendaciones, para leerlo después o compararlo.
   registraste tiempo en ese periodo. Si generaste uno a medias con el botón, el automático lo
   completa.
 - **Regenerar**: si corriges un registro después, vuelve a calcular el reporte (reemplaza
-  al anterior, no se duplica).
+  al anterior, no se duplica). Al terminar dice **Reporte generado ✓** con la hora. Después
+  hay que esperar unos segundos para volver a generarlo; si tocas antes, te dice cuánto
+  falta, sin gastar nada.
 - **Reportes guardados**: la lista de todos, del más nuevo al más viejo.
 - **Con IA** (si la encendiste en *Configuración › Módulos*): el texto lo escribe la IA,
   y arriba dice «texto de IA» o «texto de reglas». Las cifras siempre las calcula la app;
   si la IA falla, cita una cifra que no estaba o llegaste al límite del día, el reporte
   usa las reglas y te dice por qué. **Reescribir con IA** vuelve a pedir el texto de un
-  reporte ya guardado, sin cambiar sus cifras.
+  reporte ya guardado, sin cambiar sus cifras. Bajo los botones dice cuántos textos con IA
+  te quedan hoy (10 al día).
 - **Imprimir / PDF**: imprime solo el reporte, en colores claros. Para un PDF, elige
   "Guardar como PDF" en la ventana de impresión.
 
