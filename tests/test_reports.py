@@ -157,10 +157,12 @@ def test_projection_and_comparison(api):
     with Session(engine) as session:
         from backend.reports import projection
         days = [{"date": f"2026-10-0{i}", "seconds": s, "status": st, "workday": True}
-                for i, (s, st) in enumerate([(3600, "worked"), (7200, "worked"), (0, "pending"), (0, "pending")], start=1)]
-        # 3 h en dos días hábiles: 1.5 h por día, y faltan dos
-        assert projection(days, 10800) == 10800 + 5400 * 2
-        assert projection(days[:2], 10800) is None
+                for i, (s, st) in enumerate([(3600, "worked"), (7200, "worked"), (5400, "worked"),
+                                             (0, "pending"), (0, "pending")], start=1)]
+        # 4.5 h en tres días hábiles: 1.5 h por día, y faltan dos
+        assert projection(days, 16200) == 16200 + 5400 * 2
+        assert projection(days[:3], 16200) is None             # ya no falta nada
+        assert projection(days[1:], 12600) is None             # solo dos días: aún no hay base
     # Un mes con un mes anterior: la comparativa dice cuánto cambió
     month_start = (TODAY.replace(day=1) - timedelta(days=1)).replace(day=1)
     before = (month_start - timedelta(days=1)).replace(day=10)

@@ -116,12 +116,18 @@ def weeks_of_month(days: List[dict], today: date_type) -> List[dict]:
     return weeks
 
 
+# Días hábiles con registro antes de proyectar: con uno solo, un mes empezado
+# "cerraba" en 146 h (ese día por los 20 que faltaban)
+PROJECTION_MIN_DAYS = 3
+
+
 def projection(days: List[dict], total: int) -> Optional[int]:
     """Con el periodo a medias: el total si los días hábiles que faltan siguen
-    el promedio de los días hábiles con registro. None si ya terminó o no hay base."""
+    el promedio de los días hábiles con registro. None si ya terminó o aún no
+    hay base (menos de PROJECTION_MIN_DAYS días hábiles con registro)."""
     remaining = sum(1 for d in days if d["status"] == "pending" and d["workday"])
     worked = [d["seconds"] for d in days if d["workday"] and d["status"] == "worked"]
-    if not remaining or not worked:
+    if not remaining or len(worked) < PROJECTION_MIN_DAYS:
         return None
     return total + round(sum(worked) / len(worked)) * remaining
 
