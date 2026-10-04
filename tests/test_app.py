@@ -19,6 +19,16 @@ def test_frontend_files_are_served(client):
     assert client.get("/icons/icon-192.png").content[:8] == b"\x89PNG\r\n\x1a\n"
 
 
+def test_frontend_is_revalidated_after_a_deploy(client):
+    # Sin cabecera, el navegador (o Cloudflare) mezclaba board.js viejo con settings.js
+    # nuevo y la app no arrancaba. "no-cache" obliga a preguntar antes de usar la copia.
+    for path in ["/", "/index.html", "/styles.css", "/board.js", "/settings.js", "/manifest.webmanifest"]:
+        response = client.get(path)
+        assert response.headers.get("cache-control") == "no-cache", path
+        etag = response.headers.get("etag")
+        assert etag and client.get(path, headers={"If-None-Match": etag}).status_code == 304, path
+
+
 def test_nothing_else_from_the_repo_is_served(client):
     # La app solo sirve lo que tiene ruta: ni el .env, ni la base, ni el código
     for path in ["/backend/.env", "/habits.db", "/.git/config", "/CLAUDE.md", "/backend/main.py",

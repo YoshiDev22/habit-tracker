@@ -1,6 +1,6 @@
 import os
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, Response
 from dotenv import load_dotenv
 
 from backend.database import create_db_and_tables, check_pending_migrations
@@ -56,95 +56,120 @@ def get_frontend_path(filename: str = "index.html") -> str:
     return os.path.join(BASE_DIR, filename)
 
 
+# El frontend no tiene build ni nombres con hash: sin esta cabecera el navegador
+# (y Cloudflare, si está delante) guardaba board.js de una versión y settings.js
+# de otra, y la app se rompía tras un deploy. "no-cache" no impide guardarlos:
+# obliga a preguntar antes de usarlos, y si no cambiaron la respuesta es un 304.
+NO_CACHE = {"Cache-Control": "no-cache"}
+
+
+def frontend_file(filename: str, **kwargs) -> FileResponse:
+    return FileResponse(get_frontend_path(filename), headers=NO_CACHE, **kwargs)
+
+
+@app.middleware("http")
+async def not_modified(request: Request, call_next):
+    """304 cuando el navegador ya tiene esa versión (mismo ETag). FileResponse pone
+    el ETag, pero esta versión de Starlette no contesta If-None-Match: sin esto,
+    "no-cache" bajaría todos los archivos en cada carga."""
+    response = await call_next(request)
+    etag = response.headers.get("etag")
+    if request.method == "GET" and etag and request.headers.get("if-none-match") == etag:
+        headers = {name: response.headers[name] for name in ("etag", "cache-control", "last-modified")
+                   if name in response.headers}
+        return Response(status_code=304, headers=headers)
+    return response
+
+
 # Rutas del frontend
 @app.get("/")
 def root():
     """Serve frontend - raíz"""
-    return FileResponse(get_frontend_path("index.html"))
+    return frontend_file("index.html")
 
 
 @app.get("/index.html")
 def index_html():
     """Serve index.html"""
-    return FileResponse(get_frontend_path("index.html"))
+    return frontend_file("index.html")
 
 
 @app.get("/styles.css")
 def styles_css():
     """Serve styles.css"""
-    return FileResponse(get_frontend_path("styles.css"))
+    return frontend_file("styles.css")
 
 
 @app.get("/script.js")
 def script_js():
     """Serve script.js"""
-    return FileResponse(get_frontend_path("script.js"))
+    return frontend_file("script.js")
 
 
 @app.get("/habits.js")
 def habits_js():
     """Serve habits.js"""
-    return FileResponse(get_frontend_path("habits.js"))
+    return frontend_file("habits.js")
 
 
 @app.get("/projects.js")
 def projects_js():
     """Serve projects.js"""
-    return FileResponse(get_frontend_path("projects.js"))
+    return frontend_file("projects.js")
 
 
 @app.get("/board.js")
 def board_js():
     """Serve board.js"""
-    return FileResponse(get_frontend_path("board.js"))
+    return frontend_file("board.js")
 
 
 @app.get("/pomodoro.js")
 def pomodoro_js():
     """Serve pomodoro.js"""
-    return FileResponse(get_frontend_path("pomodoro.js"))
+    return frontend_file("pomodoro.js")
 
 
 @app.get("/reports.js")
 def reports_js():
     """Serve reports.js"""
-    return FileResponse(get_frontend_path("reports.js"))
+    return frontend_file("reports.js")
 
 
 @app.get("/project-overview.js")
 def project_overview_js():
     """Serve project-overview.js"""
-    return FileResponse(get_frontend_path("project-overview.js"))
+    return frontend_file("project-overview.js")
 
 
 @app.get("/costs.js")
 def costs_js():
     """Serve costs.js"""
-    return FileResponse(get_frontend_path("costs.js"))
+    return frontend_file("costs.js")
 
 
 @app.get("/notifications.js")
 def notifications_js():
     """Serve notifications.js"""
-    return FileResponse(get_frontend_path("notifications.js"))
+    return frontend_file("notifications.js")
 
 
 @app.get("/workdays.js")
 def workdays_js():
     """Serve workdays.js"""
-    return FileResponse(get_frontend_path("workdays.js"))
+    return frontend_file("workdays.js")
 
 
 @app.get("/settings.js")
 def settings_js():
     """Serve settings.js"""
-    return FileResponse(get_frontend_path("settings.js"))
+    return frontend_file("settings.js")
 
 
 @app.get("/saved-reports.js")
 def saved_reports_js():
     """Serve saved-reports.js"""
-    return FileResponse(get_frontend_path("saved-reports.js"))
+    return frontend_file("saved-reports.js")
 
 
 # Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
@@ -158,7 +183,7 @@ APP_ICONS = {
 @app.get("/manifest.webmanifest")
 def web_manifest():
     """Serve the web app manifest"""
-    return FileResponse(get_frontend_path("manifest.webmanifest"), media_type="application/manifest+json")
+    return frontend_file("manifest.webmanifest", media_type="application/manifest+json")
 
 
 @app.get("/icons/{name}")

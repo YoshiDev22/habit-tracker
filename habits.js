@@ -1132,7 +1132,6 @@ function renderCalendar() {
         ? restedHolidaysFor(currentDate.getFullYear(), renderCalendar)
         : new Map();
 
-    console.log('renderCalendar called', { daysGrid, habitsData });
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     
