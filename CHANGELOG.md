@@ -7,6 +7,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.20.1] — 2026-10-03
+
+### Correcciones
+- Después de actualizar, el navegador podía quedarse con archivos de la versión anterior
+  junto a los nuevos: los tableros no aparecían y Configuración se veía a medias. Ahora la
+  app pide siempre la versión vigente de sus archivos (si no cambiaron, no se vuelven a
+  descargar).
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: basta con `git pull` y reiniciar el
+servicio. Si Cloudflare está delante, purgar su caché una vez (*Caching › Purge Everything*)
+para que deje de servir los archivos de la 1.19; desde esta versión ya no hace falta.
+
 ## [1.20.0] — 2026-10-03
 
 Reportes que se guardan solos cada semana y cada mes, con IA opcional para el texto, y una
@@ -539,6 +552,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.20.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.1
 [1.20.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.0
 [1.19.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.19.0
 [1.18.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.18.0
