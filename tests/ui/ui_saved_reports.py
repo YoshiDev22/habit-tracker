@@ -1,6 +1,9 @@
 """Reportes guardados (épica 30, Fase 4): generar, ver, la lista e imprimir."""
 import asyncio
 import json
+import os
+import sqlite3
+from pathlib import Path
 
 import api
 from api import call, login
@@ -69,6 +72,22 @@ async def main():
         await b.js("document.getElementById('savedReportClose').click()")
         await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Ver reporte'")
         check(await b.js("!document.body.classList.contains('saved-report-open')"), "closing clears the print mode")
+
+        # Regenerar pone la hora de ahora: se envejece en la base y se comprueba que cambie
+        db = sqlite3.connect(Path(os.environ["HABIT_UI_TMP"]) / "test_saved_reports.db")
+        db.execute("UPDATE reports SET created_at = '2026-01-01 10:00:00', trigger = 'auto'")
+        db.commit()
+        db.close()
+        await b.js("document.getElementById('savedReportBtn').click()")
+        await b.wait_for("document.getElementById('savedReportMeta').textContent.includes('1 ene')")
+        meta = await b.js("document.getElementById('savedReportMeta').textContent")
+        check("automático" in meta, f"an aged automatic report shows its old time ({meta})")
+        await b.js("document.getElementById('savedReportRegenerate').click()")
+        # Mientras se genera, la línea queda vacía: se espera la nueva, no solo que se vaya la vieja
+        await b.wait_for("document.getElementById('savedReportMeta').textContent.includes('a mano')")
+        meta = await b.js("document.getElementById('savedReportMeta').textContent")
+        check("a mano" in meta and "1 ene" not in meta, f"regenerating updates the time and says 'a mano' ({meta})")
+        await b.js("document.getElementById('savedReportClose').click()")
 
         # La lista, y de ahí el reporte con ‹; Escape vuelve a la lista
         await b.js("document.getElementById('savedReportsListBtn').click()")

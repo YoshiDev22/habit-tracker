@@ -14,7 +14,7 @@ from backend.auth import get_current_user
 from backend.database import get_session
 from backend.dates import resolve_client_today
 from backend.metrics import compute_metrics
-from backend.models import Report, User
+from backend.models import Report, User, utc_now_naive
 from backend.report_ai import ai_preview, calls_today, write_with_ai
 from backend.reports import previous_summary, generate_report, is_period_start, period_bounds, previous_period
 from backend.routers.auth import require_module, user_modules
@@ -131,6 +131,9 @@ def rewrite_with_ai(report_id: int, session: Session = Depends(get_session),
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from None
     report.text = text
     report.text_source, report.text_model, report.text_note = "ai", model, None
+    # El texto es nuevo: la hora que enseña el reporte es la de esta escritura
+    report.created_at = utc_now_naive()
+    report.trigger = "manual"
     session.add(report)
     session.commit()
     session.refresh(report)

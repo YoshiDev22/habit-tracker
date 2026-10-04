@@ -212,3 +212,28 @@ def test_goals_may_propose_whole_numbers():
     # Y fuera de las metas, un entero inventado tampoco
     with pytest.raises(AiError, match="75"):
         report_ai.validate_text(json.dumps({**PLAIN, "observations": ["Llegaste a 75 %."]}), payload)
+
+
+def test_regenerate_and_rewrite_update_the_time(api, provider):
+    from datetime import datetime
+    from backend.models import Report
+    setup(api)
+    rep = generate(api)
+    old = datetime(2026, 1, 1, 10, 0)
+
+    def age_it():
+        with Session(engine) as session:
+            row = session.get(Report, rep["id"])
+            row.created_at, row.trigger = old, "auto"
+            session.add(row)
+            session.commit()
+
+    # Regenerar (sin IA) pone la hora de ahora y "a mano"
+    age_it()
+    again = generate(api)
+    assert again["id"] == rep["id"] and again["created_at"] > old.isoformat() and again["trigger"] == "manual"
+    # Reescribir con IA, también
+    grant("ia@test.com")
+    age_it()
+    _, rewritten = api.call("POST", f"/api/reports/{rep['id']}/rewrite", expect=200)
+    assert rewritten["created_at"] > old.isoformat() and rewritten["trigger"] == "manual"
