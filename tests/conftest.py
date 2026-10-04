@@ -32,6 +32,9 @@ os.environ["HABIT_HOLIDAYS_OFFLINE"] = "1"
 # pisa). Las pruebas de la IA reemplazan backend.report_ai.chat_completion
 for _name in ("AI_PROVIDER", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "AI_DAILY_LIMIT"):
     os.environ[_name] = ""
+# Sin espera entre regeneraciones: varias pruebas regeneran seguido. La que
+# prueba la espera la pone con monkeypatch
+os.environ["REPORT_COOLDOWN_SECONDS"] = "0"
 sys.path.insert(0, str(ROOT))
 
 from fastapi.testclient import TestClient  # noqa: E402

@@ -5660,6 +5660,17 @@ button.day-log-date:focus-visible {
     font-size: 0.875rem;
 }
 
+.saved-report-status {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.saved-report-ai {
+    margin: 6px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
 .saved-report-list {
     list-style: none;
     margin: 12px 0 0;
@@ -5941,8 +5952,36 @@ button.day-log-date:focus-visible {
         padding: 0;
     }
 
+    /* Una tarjeta larga sí se parte entre hojas (entera, saltaba a la siguiente y
+       dejaba media hoja en blanco); lo que no se parte son sus piezas */
     body.saved-report-open .report-card {
+        break-inside: auto;
+    }
+
+    body.saved-report-open .report-card-title,
+    body.saved-report-open .saved-chart-title {
+        break-after: avoid;
+    }
+
+    body.saved-report-open .saved-chart,
+    body.saved-report-open .saved-donut,
+    body.saved-report-open .report-bar-row,
+    body.saved-report-open .saved-metrics tr,
+    body.saved-report-open .saved-report-points li,
+    body.saved-report-open .saved-closing-item {
         break-inside: avoid;
+    }
+
+    /* El modal mide la pantalla: su alto dejaba una hoja en blanco al final */
+    body.saved-report-open,
+    body.saved-report-open #savedReportsModal {
+        height: auto;
+        min-height: 0;
+    }
+
+    body.saved-report-open .saved-report-ai,
+    body.saved-report-open .saved-report-status {
+        display: none;
     }
 
     body.saved-report-open .saved-metrics-wrap {

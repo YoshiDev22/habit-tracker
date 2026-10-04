@@ -87,6 +87,23 @@ async def main():
         await b.wait_for("document.getElementById('savedReportMeta').textContent.includes('a mano')")
         meta = await b.js("document.getElementById('savedReportMeta').textContent")
         check("a mano" in meta and "1 ene" not in meta, f"regenerating updates the time and says 'a mano' ({meta})")
+        status = await b.js("document.getElementById('savedReportStatus').textContent")
+        check(status.startswith("Reporte generado ✓"), f"regenerating says it worked ({status})")
+
+        # Un clic dentro de la espera no manda nada: dice cuánto falta
+        before = await b.js("document.getElementById('savedReportMeta').textContent")
+        await b.js("savedState.readyAt = Date.now() + 20000; document.getElementById('savedReportRegenerate').click()")
+        status = await b.js("document.getElementById('savedReportStatus').textContent")
+        after = await b.js("document.getElementById('savedReportMeta').textContent")
+        check("Espera 20 s" in status and before == after, f"a click during the wait says how long is left ({status})")
+
+        # Imprimir: las gráficas al ancho de una hoja, y de vuelta al terminar
+        await b.js("window.dispatchEvent(new Event('beforeprint'))")
+        printing = await b.js("document.querySelector('#savedReportBody .report-chart').getAttribute('viewBox')")
+        await b.js("window.dispatchEvent(new Event('afterprint'))")
+        screen = await b.js("document.querySelector('#savedReportBody .report-chart').getAttribute('viewBox')")
+        check(printing.startswith("0 0 680 ") and not screen.startswith("0 0 680 "),
+              f"charts are drawn at page width to print ({printing} / {screen})")
         await b.js("document.getElementById('savedReportClose').click()")
 
         # La lista, y de ahí el reporte con ‹; Escape vuelve a la lista

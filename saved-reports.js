@@ -20,6 +20,9 @@ const savedBack = document.getElementById('savedReportBack');
 const savedReportBtn = document.getElementById('savedReportBtn');
 const savedRegenerate = document.getElementById('savedReportRegenerate');
 const savedRewrite = document.getElementById('savedReportRewrite');
+const savedStatus = document.getElementById('savedReportStatus');
+const savedAiUsage = document.getElementById('savedReportAiUsage');
+const PRINT_CHART_WIDTH = 680;   // ancho de las gráficas al imprimir: el de una hoja, no el de la pantalla
 const KIND_TITLE = { week: 'Reporte semanal', month: 'Reporte mensual' };
 
 const savedState = {
@@ -27,6 +30,10 @@ const savedState = {
     loaded: false,
     current: null,     // el reporte abierto, completo
     fromList: false,   // se abrió desde la lista: ‹ vuelve a ella
+    readyAt: 0,        // Date.now() desde el que se puede volver a generar (regenerate_in)
+    busy: false,       // generando o reescribiendo: un clic más no manda otra petición
+    printing: false,   // dibujando para imprimir
+    statusTimer: null,
 };
 
 // ============================================
@@ -201,6 +208,7 @@ function chartFrame(maxSeconds, W, H, L, T, B, R) {
 }
 
 function chartWidthFor() {
+    if (savedState.printing) return PRINT_CHART_WIDTH;
     return Math.max(300, Math.min(720, (savedBody.clientWidth || 600) - 34));
 }
 
@@ -470,13 +478,41 @@ function openSavedModal() {
 }
 
 function closeSavedModal() {
+    clearTimeout(savedState.statusTimer);
+    savedStatus.textContent = '';
     hideModal(savedModal);
     document.body.classList.remove('saved-report-open');
     savedState.current = null;
 }
 
+// "Reporte generado ✓ 11:22 p.m." o "Espera 25 s…": se borra solo
+function showSavedStatus(text, ms = 6000) {
+    clearTimeout(savedState.statusTimer);
+    savedStatus.textContent = text;
+    if (ms) savedState.statusTimer = setTimeout(() => { savedStatus.textContent = ''; }, ms);
+}
+
+function secondsToWait() {
+    return Math.max(0, Math.ceil((savedState.readyAt - Date.now()) / 1000));
+}
+
+// Con la IA encendida: cuántos textos le quedan hoy a la cuenta
+async function refreshAiUsage() {
+    savedAiUsage.hidden = true;
+    if (!aiOn()) return;
+    try {
+        const usage = await apiFetch('/api/reports/ai-usage');
+        if (!usage.configured) return;
+        savedAiUsage.textContent = `IA: te quedan ${usage.remaining} de ${usage.limit} textos hoy.`;
+        savedAiUsage.hidden = false;
+    } catch (error) {
+        // Sin el dato no pasa nada: el servidor igual pone el límite
+    }
+}
+
 function showSavedReport(report) {
     savedState.current = report;
+    savedState.readyAt = Date.now() + (report.regenerate_in || 0) * 1000;
     savedTitle.textContent = `${KIND_TITLE[report.kind]} de tiempo`;
     savedMeta.textContent = savedMetaText(report);
     savedActions.hidden = false;
@@ -493,6 +529,7 @@ function showSavedReport(report) {
         showSavedError(`El texto salió de las reglas: ${note.charAt(0).toLowerCase()}${note.slice(1)}.`);
     }
     savedModal.querySelector('.modal-content').scrollTop = 0;
+    refreshAiUsage();
 }
 
 function showSavedLoading(text) {
@@ -565,19 +602,43 @@ async function openSavedReportById(id) {
 }
 
 // Genera (o regenera) el reporte de un periodo y lo muestra
+// Genera el reporte de un periodo. Si ya hay uno abierto (Regenerar), se queda
+// a la vista mientras tanto, y si falla (p. ej. la espera) no se pierde.
 async function generateSavedReport(kind, periodStart) {
+    const regenerating = Boolean(savedState.current);
     showSavedError(null);
-    showSavedLoading('Generando reporte…');
+    if (regenerating) {
+        savedState.busy = true;
+        savedRegenerate.disabled = true;
+        savedRegenerate.textContent = 'Generando…';
+    } else {
+        showSavedLoading('Generando reporte…');
+    }
     try {
         const report = await apiFetch('/api/reports', {
             method: 'POST',
             json: { kind, period_start: periodStart, today: getDateKey(new Date()) },
         });
         showSavedReport(report);
+        showSavedStatus(`Reporte generado ✓ ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
     } catch (error) {
-        showSavedError(error.message);
+        if (error.status === 429) showSavedStatus(error.message);
+        else showSavedError(error.message);
+    } finally {
+        savedState.busy = false;
+        savedRegenerate.disabled = false;
+        savedRegenerate.textContent = 'Regenerar';
     }
     await loadSavedList();
+}
+
+// Un clic dentro de la espera no manda nada: dice cuánto falta
+function blockedByCooldown() {
+    if (savedState.busy) return true;
+    const wait = secondsToWait();
+    if (!wait) return false;
+    showSavedStatus(`Acabas de generarlo. Espera ${wait} s para volver a hacerlo.`, 4000);
+    return true;
 }
 
 // ============================================
@@ -624,28 +685,47 @@ savedBack.addEventListener('click', () => {
 
 savedRegenerate.addEventListener('click', () => {
     const report = savedState.current;
-    if (!report) return;
+    if (!report || blockedByCooldown()) return;
     generateSavedReport(report.kind, report.period_start);
 });
 
 savedRewrite.addEventListener('click', async () => {
     const report = savedState.current;
-    if (!report) return;
+    if (!report || blockedByCooldown()) return;
     showSavedError(null);
+    savedState.busy = true;
     savedRewrite.disabled = true;
     savedRewrite.textContent = 'Escribiendo…';
     try {
         showSavedReport(await apiFetch(`/api/reports/${report.id}/rewrite`, { method: 'POST' }));
+        showSavedStatus(`Texto reescrito ✓ ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
     } catch (error) {
         // El reporte se queda como estaba
         savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir con IA otra vez' : 'Reescribir con IA';
-        showSavedError(error.message);
+        if (error.status === 429) showSavedStatus(error.message);
+        else showSavedError(error.message);
+        refreshAiUsage();
     } finally {
+        savedState.busy = false;
         savedRewrite.disabled = false;
     }
 });
 
-document.getElementById('savedReportPrint').addEventListener('click', () => window.print());
+// Imprimir: las gráficas se dibujan al ancho de una hoja (dibujadas al de la
+// pantalla, en el teléfono salían enormes y con las fechas encimadas) y se
+// vuelven a dibujar al terminar. También si se imprime desde el menú del navegador.
+function renderForPrint(printing) {
+    if (!savedState.current || savedState.printing === printing) return;
+    savedState.printing = printing;
+    renderSavedReport(savedState.current);
+}
+
+window.addEventListener('beforeprint', () => renderForPrint(true));
+window.addEventListener('afterprint', () => renderForPrint(false));
+document.getElementById('savedReportPrint').addEventListener('click', () => {
+    renderForPrint(true);
+    window.print();
+});
 document.getElementById('savedReportClose').addEventListener('click', closeSavedModal);
 savedModal.querySelector('.modal-overlay').addEventListener('click', closeSavedModal);
 document.addEventListener('keydown', (event) => {

@@ -237,3 +237,30 @@ def test_regenerate_and_rewrite_update_the_time(api, provider):
     age_it()
     _, rewritten = api.call("POST", f"/api/reports/{rep['id']}/rewrite", expect=200)
     assert rewritten["created_at"] > old.isoformat() and rewritten["trigger"] == "manual"
+
+
+def test_regenerating_waits_between_clicks(api, provider, monkeypatch):
+    monkeypatch.setenv("REPORT_COOLDOWN_SECONDS", "30")
+    setup(api)
+    rep = generate(api)                              # el primero no espera
+    assert 28 <= rep["regenerate_in"] <= 30
+    status, body = api.call("POST", "/api/reports", {"kind": "week", "period_start": MON.isoformat(),
+                                                     "today": TODAY.isoformat()})
+    assert status == 429 and "Espera" in body["detail"] and " s " in body["detail"]
+    grant("ia@test.com")
+    assert api.call("POST", f"/api/reports/{rep['id']}/rewrite")[0] == 429
+    assert provider["sent"] == []                    # ningún clic de más gastó la IA
+    # Otro periodo no espera, y sin espera configurada tampoco
+    monkeypatch.setenv("REPORT_COOLDOWN_SECONDS", "0")
+    assert generate(api)["regenerate_in"] == 0
+
+
+def test_ai_usage(api, provider):
+    setup(api)
+    assert api.call("GET", "/api/reports/ai-usage")[0] == 403
+    grant("ia@test.com")
+    _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
+    assert usage == {"configured": True, "limit": 3, "used_today": 0, "remaining": 3}
+    generate(api)
+    _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
+    assert usage["used_today"] == 1 and usage["remaining"] == 2

@@ -3,6 +3,7 @@ Reportes guardados (épica 30, Fase 4). El botón "Generar reporte" de la pesta�
 Reportes llama a POST; el timer usa scripts/generate_reports.py con la misma
 lógica (backend/reports.py). Todo filtra por el usuario de la sesión.
 """
+import os
 from typing import Optional
 from datetime import date as date_type
 
@@ -22,13 +23,41 @@ from backend.schemas import ReportCreate, ReportListResponse, ReportResponse, Re
 
 router = APIRouter(tags=["reports"])
 
+# Entre dos generaciones a mano del mismo reporte (regenerar o reescribir con
+# IA). Frena los clics repetidos, que gastaban el límite diario de la IA sin
+# cambiar nada. Se ajusta con REPORT_COOLDOWN_SECONDS en backend/.env; el
+# timer no pasa por aquí.
+DEFAULT_COOLDOWN_SECONDS = 30
+
+
+def cooldown_seconds() -> int:
+    try:
+        return max(0, int(os.getenv("REPORT_COOLDOWN_SECONDS", "")))
+    except ValueError:
+        return DEFAULT_COOLDOWN_SECONDS
+
+
+def regenerate_in(report: Report) -> int:
+    """Segundos que faltan para poder volver a generarlo (0 = ya se puede)."""
+    elapsed = (utc_now_naive() - report.created_at).total_seconds()
+    return max(0, int(cooldown_seconds() - elapsed + 0.999))
+
+
+def _check_cooldown(report: Optional[Report]) -> None:
+    wait = regenerate_in(report) if report is not None else 0
+    if wait:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail=f"Acabas de generar este reporte. Espera {wait} s para volver a generarlo.",
+                            headers={"Retry-After": str(wait)})
+
 
 def _summary_fields(report: Report) -> dict:
     return dict(id=report.id, kind=report.kind, period_start=report.period_start,
                 period_end=report.period_end, through=report.through,
                 total_seconds=(report.metrics or {}).get("total_seconds", 0),
                 trigger=report.trigger, text_source=report.text_source, text_model=report.text_model,
-                text_note=report.text_note, created_at=report.created_at)
+                text_note=report.text_note, created_at=report.created_at,
+                regenerate_in=regenerate_in(report))
 
 
 def _full(report: Report) -> ReportResponse:
@@ -60,8 +89,25 @@ def create_report(body: ReportCreate, session: Session = Depends(get_session),
     if body.period_start > today:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail="Ese periodo todavía no empieza")
+    start, _ = period_bounds(body.kind, body.period_start)
+    _check_cooldown(session.exec(select(Report).where(
+        Report.user_id == current_user.id, Report.kind == body.kind, Report.period_start == start)).first())
     report = generate_report(session, current_user, body.kind, body.period_start, today, use_ai=body.use_ai)
     return _full(report)
+
+
+@router.get("/ai-usage")
+def ai_usage(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> dict:
+    """Cuántos textos con IA lleva hoy la cuenta y cuántos le quedan (día UTC).
+    Para las cuentas con acceso al módulo."""
+    if not user_modules(session, current_user.id)["ai"]["allowed"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Tu cuenta todavía no tiene acceso a este módulo.")
+    config = ai_config()
+    used = calls_today(session, current_user.id)
+    limit = config.daily_limit if config else None
+    return {"configured": config is not None, "limit": limit, "used_today": used,
+            "remaining": max(0, limit - used) if config else None}
 
 
 @router.get("/ai-preview")
@@ -121,6 +167,7 @@ def rewrite_with_ai(report_id: int, session: Session = Depends(get_session),
     if report is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reporte no encontrado")
     require_module(session, current_user, "ai")
+    _check_cooldown(report)
     config = ai_config()
     if config is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

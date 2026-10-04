@@ -1140,6 +1140,7 @@ class ReportSummary(SQLModel):
     text_model: Optional[str] = None
     text_note: Optional[str] = None
     created_at: datetime
+    regenerate_in: int = 0      # segundos para poder volver a generarlo a mano
 
 
 class ReportListResponse(SQLModel):

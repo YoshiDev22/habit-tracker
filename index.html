@@ -879,7 +879,11 @@
                 <button type="button" class="submit-btn btn-neutral" id="savedReportRegenerate">Regenerar</button>
                 <button type="button" class="submit-btn btn-neutral" id="savedReportRewrite" hidden>Reescribir con IA</button>
                 <button type="button" class="submit-btn" id="savedReportPrint">Imprimir / PDF</button>
+                <!-- "Reporte generado ✓", o cuánto falta para poder regenerarlo -->
+                <span class="saved-report-status" id="savedReportStatus" role="status"></span>
             </div>
+            <!-- Con la IA encendida: cuántos textos quedan hoy (GET /api/reports/ai-usage) -->
+            <p class="saved-report-ai" id="savedReportAiUsage" hidden></p>
             <p class="form-error hidden" id="savedReportError" role="alert"></p>
             <ul class="saved-report-list" id="savedReportList"></ul>
             <div class="overview-body saved-report-body" id="savedReportBody"></div>
