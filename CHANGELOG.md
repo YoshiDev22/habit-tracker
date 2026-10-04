@@ -7,6 +7,64 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.20.0] — 2026-10-03
+
+Reportes que se guardan solos cada semana y cada mes, con IA opcional para el texto, y una
+Configuración nueva con todo en un solo lugar.
+
+### Nuevo
+- **Reportes guardados**: en Reportes, con *Semana* o *Mes*, **Generar reporte** hace el
+  reporte del periodo que ves (o **Ver reporte** si ya existe). Trae un resumen con la
+  limpieza de datos, una tabla de métricas contra el periodo anterior, las horas por día de
+  las dos semanas lado a lado (por semana en el mensual), en qué se fue el tiempo,
+  patrones, legibilidad, observaciones, próximos pasos o metas y un cierre con *Bien hecho*
+  y *Tip*. **Reportes guardados** los lista todos, y **Imprimir / PDF** imprime solo el
+  reporte.
+- **Reportes automáticos**: cada lunes sale el de la semana anterior y cada día 1 el del mes
+  anterior, si registraste tiempo.
+- **IA para el texto de los reportes** (solo para las cuentas con acceso): se enciende en
+  *Configuración › Módulos*. Las cifras siempre las calcula la app; la IA solo escribe el
+  texto, y si cita una cifra que no estaba o falla, el reporte usa el texto de reglas y te
+  dice por qué. **Ver qué se envía** muestra exactamente lo que recibe, y **Reescribir con
+  IA** vuelve a pedir el texto de un reporte ya guardado.
+- **Configuración**: el ⚙️ abre un menú con **Hábitos**, **Días y horario**, **Módulos**,
+  **Pomodoro** y **Accesibilidad**. Cada uno se desliza a su página; ‹ o `Esc` regresan.
+- **Días y horario**: tus días de descanso, tus vacaciones, los **festivos de tu país** y tu
+  huso horario en un solo lugar. Cada festivo trae la casilla **Descanso**; si lo trabajas,
+  desmárcala. Agrega tus propios días libres (un festivo local, un puente).
+- **Festivos en el calendario**: los que descansas llevan 🎉 y **no cortan tu racha**, igual
+  que los días de descanso.
+- **Sesiones por confirmar**: un cronómetro que llegó al tope de 8 h sin que dijeras cuánto
+  trabajaste queda marcado. La **campanita** de arriba los cuenta y te deja corregirlos o
+  confirmarlos, y Reportes dice cuánto tiempo sin confirmar incluye.
+- **Hábitos a CSV**: en Reportes, **⬇ Hábitos CSV** descarga un renglón por día y hábito.
+
+### Cambios
+- *Mi perfil* queda solo con alias, nombre y apellido. Los módulos, el pomodoro y el tamaño
+  del texto se mudaron a Configuración. El botón de pomodoro de *Organizar* lleva ahí.
+- Los días de descanso se guardan al tocarlos, sin *Guardar Hábitos*.
+
+### Correcciones
+- Cerrar sesión con el cronómetro corriendo ya no pierde ni infla el tiempo.
+- Registrar tiempo a mano ya no puede guardarse antes de que carguen las tareas (se perdía
+  la tarea del registro).
+
+### Para actualizar
+- **Dependencias**: hay una nueva (`tzdata`, los husos horarios). Instalar con
+  `pip install -r requirements.lock`.
+- **Base de datos**: correr `python3 scripts/migrate.py` **antes** de reiniciar el servicio.
+  Añade la marca de *por confirmar* a las sesiones y marca una sola vez las de 8 h que se
+  cerraron solas. Si se olvida, el servicio no arranca y el log dice qué falta. Las tablas
+  nuevas (reportes, festivos, calendario de trabajo, llamadas a la IA) las crea la app al
+  arrancar.
+- **Reportes automáticos** (opcional): `deploy/habit-reports.service` y `.timer` son
+  plantillas. Se ajustan con el usuario y las rutas reales, se copian a
+  `/etc/systemd/system/` y se activa el timer (`systemctl enable --now habit-reports.timer`).
+  `scripts/generate_reports.py --dry-run` muestra qué generaría sin guardar nada.
+- **IA** (opcional): agregar el bloque `AI_*` de `backend/.env.example` al `.env`, reiniciar,
+  y dar acceso a cada cuenta con
+  `python3 scripts/grant_module.py --email <correo> --module ai`.
+
 ## [1.19.0] — 2026-10-02
 
 Con el plan Maker, anota lo que cuesta cada proyecto además de tus horas, y compara lo que
@@ -481,6 +539,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.20.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.0
 [1.19.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.19.0
 [1.18.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.18.0
 [1.17.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.17.0
