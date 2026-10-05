@@ -7,6 +7,31 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.21.0] — 2026-10-05
+
+Regenerar un reporte ahora te dice que funcionó, y los PDF salen parejos desde cualquier
+pantalla.
+
+### Nuevo
+- **Reporte generado ✓**: al regenerar un reporte (o reescribirlo con IA) aparece la
+  confirmación con la hora, y el reporte se queda a la vista mientras se vuelve a generar.
+- **Espera entre regeneraciones**: después de generar un reporte hay que esperar unos
+  segundos para volver a hacerlo. Si tocas antes, te dice cuánto falta y no gasta nada.
+- **Textos con IA que te quedan**: bajo los botones del reporte, "IA: te quedan 7 de 10
+  textos hoy", si tienes la IA encendida.
+
+### Correcciones
+- El PDF de un reporte salía con medias hojas en blanco y, desde el celular, con las
+  gráficas enormes y las fechas encimadas. Ahora las gráficas salen a tamaño de hoja, las
+  tarjetas largas siguen en la página siguiente y ya no queda una hoja vacía al final.
+- La proyección al cierre ("cerrarías alrededor de…") ya no aparece con menos de tres días
+  hábiles con registro: con uno solo, un mes recién empezado decía 146 h.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: basta con `git pull` y reiniciar el
+servicio. La espera entre regeneraciones es de 30 s; se cambia con
+`REPORT_COOLDOWN_SECONDS` en `backend/.env`.
+
 ## [1.20.1] — 2026-10-03
 
 ### Correcciones
@@ -552,6 +577,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.21.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.21.0
 [1.20.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.1
 [1.20.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.0
 [1.19.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.19.0
