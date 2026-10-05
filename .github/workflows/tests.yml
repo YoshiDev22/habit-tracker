@@ -1,15 +1,19 @@
-# Pruebas de API en cada push (cualquier rama) y a mano desde la pestaña Actions.
+# Pruebas de API en cada push a una rama y a mano desde la pestaña Actions. Las
+# etiquetas no: el push de un release (main + vX.Y.Z) corría todo dos veces.
 # Las de navegador (pytest -m ui) se quedan fuera: tardan más de 10 minutos y
 # pytest.ini ya las deja fuera por defecto.
 name: tests
 
 on:
   push:
+    branches: ["**"]
   workflow_dispatch:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    # Fijo, no ubuntu-latest (pasa a Ubuntu 26 el 2026-10-19): el mismo sistema
+    # que el VPS, y que no cambie sin avisar
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
