@@ -1,5 +1,6 @@
 """Reportes guardados (épica 30, Fase 4): generar, ver, la lista e imprimir."""
 import asyncio
+import datetime as dt
 import json
 import os
 import sqlite3
@@ -22,6 +23,15 @@ def check(cond, label):
 
 async def main():
     login("yoshi@test.com")
+    # Tiempo de hoy: los datos del fixture son de ayer, que un lunes cae en la
+    # semana anterior y dejaba vacía la del reporte (sin barras ni donas)
+    _, task = call("POST", "/api/tasks", {"title": "Reporte de esta semana"}, expect=201)
+    start = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None, microsecond=0) - dt.timedelta(minutes=95)
+    call("POST", "/api/pomodoro", {
+        "project_id": task["project_id"], "task_id": task["id"], "session_date": dt.date.today().isoformat(),
+        "started_at": start.isoformat(), "ended_at": (start + dt.timedelta(minutes=90)).isoformat(),
+        "duration_seconds": 5400, "planned_seconds": 5400, "mode": "focus", "was_completed": True,
+        "source": "manual"}, expect=201)
     token = api.TOKEN
     b = Browser()
     await b.start()

@@ -114,9 +114,10 @@ async def main():
         await b.js("""(() => {
             const f = document.getElementById('cardCommentForm'); f.querySelector('textarea').value = 'Listo el backend'; f.requestSubmit();
         })()""")
-        await asyncio.sleep(1.0)
-        first = await b.js("document.querySelector('.card-comment .card-comment-body').textContent")
-        check(first == "Listo el backend", "new comment appears first")
+        # Se espera al repintado, no un tiempo fijo: con la máquina ocupada 1 s no alcanzaba
+        first = await b.wait_for("(document.querySelector('.card-comment .card-comment-body') || {}).textContent",
+                                 lambda v: v == "Listo el backend")
+        check(first == "Listo el backend", f"new comment appears first ({first})")
         await b.js("[...document.querySelectorAll('.card-comment')].find(c => c.innerText.includes('Investigar GTD')).querySelector('.card-comment-delete').click()")
         await confirm_yes()
         cm = await wait_api(f"/api/tasks/{t['id']}/comments", lambda body: len(body["comments"]) == 1)
