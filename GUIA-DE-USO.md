@@ -329,11 +329,17 @@ total de la tarjeta y con Reportes. También se abre con el **📊** de cada pro
 **Editar un proyecto**: desde su ficha, con **✎ Editar**.
 
 **Costeo (plan Maker)**: si tu cuenta tiene el plan Maker y lo enciendes en *⚙️ Configuración ›
-Módulos*, la ficha de cada proyecto trae una tarjeta **Costeo**: cliente,
-tarifa por hora, moneda y presupuesto (en dinero, en horas o los dos). Cada dato se guarda
-al cambiarlo. La tarjeta calcula la **mano de obra** (horas trabajadas × tarifa) y cuánto
-del presupuesto llevas; si un proyecto tiene presupuesto pero todavía no tiene tiempo, lo
-marca como **Cotización**.
+Módulos*, la ficha de cada proyecto trae una tarjeta **Costeo**: tipo
+(personal, producto o servicio), moneda, cliente, tarifa por hora, precio y presupuesto (en
+dinero, en horas o los dos). Cada dato se guarda al cambiarlo. La tarjeta calcula:
+
+- la **mano de obra** (horas trabajadas × tarifa) y el costo total con los gastos;
+- el **presupuesto disponible** (presupuesto − costo), o cuánto te pasaste;
+- el **margen** (precio − costo), o la pérdida si cuesta más de lo que cobras. Solo sale
+  con precio.
+
+Un proyecto **personal** no se cobra: no pide cliente ni precio, y no tiene margen. Si un
+proyecto tiene presupuesto pero todavía no tiene tiempo, se marca como **Cotización**.
 
 **Estimado contra real (plan Maker)**: si alguna tarea del proyecto tiene estimado, la
 ficha trae también esta tarjeta: cuánto tardas en total frente a lo que estimaste, en
@@ -366,13 +372,15 @@ Con el plan Maker encendido aparece una cuarta pestaña, **Costos**, para lo que
 cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
 
 - **Arriba, el resumen**: costo total, mano de obra, gastos y lo presupuestado; una tabla
-  con cada proyecto y su **margen** (presupuesto − costo, en rojo si te pasas), y la
-  gráfica **Costos**: una columna para la mano de obra y una por categoría, con su
+  con cada proyecto, su presupuesto **disponible** (presupuesto − costo), su **precio** y
+  su **margen** (precio − costo), en rojo si es negativo; y la gráfica **Costos**: una columna para la mano de obra y una por categoría, con su
   porcentaje, sobre un eje de montos a la izquierda que se ajusta solo (su tope queda
   siempre un poco arriba del gasto más alto). Debajo, cada nombre con su cifra exacta;
   tócalo para ocultar o mostrar su columna (solo en la gráfica, los totales no cambian) y
-  el eje se reajusta a las que quedan. En el teléfono la tabla enseña solo
-  costo y margen. Si tienes proyectos en monedas distintas, cada moneda va aparte: la app
+  el eje se reajusta a las que quedan. Arriba de la gráfica, **Proyecto** la limita a uno
+  solo (su mano de obra y sus gastos); la app recuerda cuál elegiste. En el teléfono la
+  tabla enseña solo costo, disponible y margen. El precio y el presupuesto se editan
+  tocando su cifra. Si tienes proyectos en monedas distintas, cada moneda va aparte: la app
   nunca las suma ni convierte.
 - **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
   en la lista). Se usa como una hoja de cálculo: escribe en las celdas y cada cambio se

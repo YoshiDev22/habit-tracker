@@ -32,6 +32,19 @@ const costsCategoryList = document.getElementById('costsCategoryList');
 const costsCategoryError = document.getElementById('costsCategoryError');
 const costsImportModal = document.getElementById('costsImportModal');
 const COSTS_PROJECT_KEY = 'costs_project';
+// La gráfica "Costos" filtrada por un proyecto ('' = todos), en este dispositivo
+const COSTS_CHART_PROJECT_KEY = 'costs_chart_project';
+
+function readChartProject() {
+    try { return localStorage.getItem(COSTS_CHART_PROJECT_KEY) || ''; } catch (error) { return ''; }
+}
+
+function saveChartProject(value) {
+    try {
+        if (value) localStorage.setItem(COSTS_CHART_PROJECT_KEY, value);
+        else localStorage.removeItem(COSTS_CHART_PROJECT_KEY);
+    } catch (error) { /* sin almacenamiento: vuelve a Todos al recargar */ }
+}
 
 function isCostsVisible() {
     return typeof currentViewId !== 'undefined' && currentViewId === 'costs';
@@ -147,24 +160,66 @@ function renderCostsSummary() {
         cards.push(reportCard('Por proyecto', costsProjectTable(summary.projects)));
     }
 
-    // Costos, por moneda: la mano de obra (horas × tarifa) como una columna
-    // más, y cada categoría de gasto
-    summary.totals.forEach(total => {
-        const rows = [];
-        if (total.labor_cents > 0) {
-            rows.push({ key: 'labor', name: 'Mano de obra', color: 'var(--accent)', cents: total.labor_cents });
-        }
-        summary.categories
-            .filter(c => c.currency === total.currency)
-            .forEach(c => rows.push({ key: `cat-${c.category_id}`, name: c.name, color: c.color, cents: c.cents }));
-        if (!rows.length) return;
-        const title = summary.totals.length > 1 ? `Costos · ${total.currency}` : 'Costos';
-        cards.push(reportCard(title, costsBreakdownChart(rows, total.currency)));
-    });
+    // Costos: la mano de obra (horas × tarifa) como una columna más, y cada
+    // categoría de gasto. De todos los proyectos (una gráfica por moneda) o
+    // de uno, elegido arriba de la gráfica
+    const withCosts = summary.projects.filter(p => (p.labor_cents || 0) > 0 || p.categories.length);
+    let chosen = withCosts.find(p => String(p.project_id) === readChartProject()) || null;
+    const filter = withCosts.length > 1 ? costsChartFilter(withCosts, chosen) : null;
+    if (chosen) {
+        const rows = projectBreakdownRows(chosen, summary.categories);
+        if (rows.length) cards.push(reportCard(`Costos · ${chosen.name}`, filter, costsBreakdownChart(rows, chosen.currency)));
+    } else {
+        summary.totals.forEach((total, i) => {
+            const rows = [];
+            if (total.labor_cents > 0) {
+                rows.push({ key: 'labor', name: 'Mano de obra', color: 'var(--accent)', cents: total.labor_cents });
+            }
+            summary.categories
+                .filter(c => c.currency === total.currency)
+                .forEach(c => rows.push({ key: `cat-${c.category_id}`, name: c.name, color: c.color, cents: c.cents }));
+            if (!rows.length) return;
+            const title = summary.totals.length > 1 ? `Costos · ${total.currency}` : 'Costos';
+            cards.push(reportCard(title, i === 0 ? filter : null, costsBreakdownChart(rows, total.currency)));
+        });
+    }
 
     // Tus estimados, de todos tus proyectos: la base del cotizador (Fase 5)
     if (costsState.estimates) cards.push(estimatesCard(costsState.estimates, 'Tus estimados'));
     costsSummaryEl.replaceChildren(...cards);
+}
+
+// Las columnas de un solo proyecto: su mano de obra y su gasto por categoría
+function projectBreakdownRows(project, categories) {
+    const info = new Map(categories.map(c => [c.category_id, c]));
+    const rows = [];
+    if ((project.labor_cents || 0) > 0) {
+        rows.push({ key: 'labor', name: 'Mano de obra', color: 'var(--accent)', cents: project.labor_cents });
+    }
+    project.categories.forEach(c => {
+        const cat = info.get(c.category_id);
+        if (cat) rows.push({ key: `cat-${c.category_id}`, name: cat.name, color: cat.color, cents: c.cents });
+    });
+    return rows;
+}
+
+// "Todos los proyectos" o uno: filtra solo la gráfica, no la tabla ni los totales
+function costsChartFilter(projects, chosen) {
+    const wrap = el('label', 'costs-chart-filter');
+    wrap.appendChild(el('span', 'costs-chart-filter-label', 'Proyecto'));
+    const select = document.createElement('select');
+    select.id = 'costsChartProject';
+    select.appendChild(new Option('Todos los proyectos', ''));
+    projects.forEach(p => select.appendChild(new Option(p.name, String(p.project_id))));
+    select.value = chosen ? String(chosen.project_id) : '';
+    select.addEventListener('change', () => {
+        saveChartProject(select.value);
+        renderCostsSummary();
+        const again = document.getElementById('costsChartProject');
+        if (again) again.focus();
+    });
+    wrap.appendChild(select);
+    return wrap;
 }
 
 // Ocultas de la gráfica (no de los totales), en esta sesión: "labor" o "cat-<id>"
@@ -290,8 +345,10 @@ function costsProjectTable(projects) {
     const wrap = el('div', 'costs-sheet-scroll');
     const table = el('table', 'costs-projects');
     const head = el('tr');
+    // Disponible = presupuesto − costo; Margen = precio − costo (solo con precio)
     [['Proyecto', ''], ['Horas', 'col-hide-narrow'], ['Mano de obra', 'col-hide-narrow'],
-        ['Gastos', 'col-hide-narrow'], ['Costo', ''], ['Presupuesto', 'col-hide-narrow'], ['Margen', '']]
+        ['Gastos', 'col-hide-narrow'], ['Costo', ''], ['Presupuesto', 'col-hide-narrow'], ['Disponible', ''],
+        ['Precio', 'col-hide-narrow'], ['Margen', '']]
         .forEach(([text, cls]) => head.appendChild(el('th', cls, text)));
     const thead = el('thead');
     thead.appendChild(head);
@@ -308,8 +365,17 @@ function costsProjectTable(projects) {
         if (!p.is_active) name.appendChild(el('span', 'report-bar-note', ' archivado'));
         if (p.is_quote) name.appendChild(el('span', 'costing-badge', 'Cotización'));
         const money = cents => (cents == null ? '—' : formatMoney(cents, p.currency));
-        const margin = el('td', p.margin_cents == null ? '' : (p.margin_cents < 0 ? 'negative' : 'positive'),
-            money(p.margin_cents));
+        const signed = cents => (cents == null ? '' : (cents < 0 ? 'negative' : 'positive'));
+        const left = el('td', signed(p.budget_left_cents), money(p.budget_left_cents));
+        // Un proyecto personal no se cobra: sin precio ni margen
+        const personal = p.kind === 'personal';
+        const margin = el('td', personal ? '' : signed(p.margin_cents), personal ? '—' : money(p.margin_cents));
+        const price = el('td', `col-hide-narrow${personal ? '' : ' costs-editable'}`, personal ? '—' : money(p.price_cents));
+        if (!personal) {
+            price.dataset.edit = 'price_cents';
+            price.dataset.value = p.price_cents == null ? '' : (p.price_cents / 100).toFixed(2);
+            price.title = 'Toca para cambiar el precio (lo que cobras)';
+        }
         // Mano de obra y presupuesto se editan tocándolos. La mano de obra se
         // calcula (horas × tarifa): lo que se cambia es la tarifa por hora.
         const labor = el('td', 'col-hide-narrow costs-editable', money(p.labor_cents));
@@ -329,6 +395,8 @@ function costsProjectTable(projects) {
             el('td', 'col-hide-narrow', money(p.costs_cents)),
             el('td', '', money(p.total_cost_cents)),
             budget,
+            left,
+            price,
             margin,
         );
         tbody.appendChild(row);
@@ -351,8 +419,11 @@ function startCostsCellEdit(td) {
     input.inputMode = 'decimal';
     input.className = 'costs-cell-input';
     input.value = td.dataset.value;
-    input.placeholder = field === 'hourly_rate_cents' ? 'Tarifa/h' : 'Presupuesto';
-    input.setAttribute('aria-label', field === 'hourly_rate_cents' ? 'Tarifa por hora' : 'Presupuesto');
+    const CELL_LABELS = { hourly_rate_cents: ['Tarifa/h', 'Tarifa por hora'], budget_cents: ['Presupuesto', 'Presupuesto'],
+        price_cents: ['Precio', 'Precio: lo que cobras'] };
+    const [placeholder, label] = CELL_LABELS[field] || ['', field];
+    input.placeholder = placeholder;
+    input.setAttribute('aria-label', label);
     td.replaceChildren(input);
     input.focus();
     input.select();
@@ -1010,7 +1081,10 @@ function resetCosts() {
     costsRows.replaceChildren();
     hideModal(costsImportModal);
     setViewVisible('costs', false);
-    try { localStorage.removeItem(COSTS_PROJECT_KEY); } catch (error) { /* nada que limpiar */ }
+    try {
+        localStorage.removeItem(COSTS_PROJECT_KEY);
+        localStorage.removeItem(COSTS_CHART_PROJECT_KEY);
+    } catch (error) { /* nada que limpiar */ }
 }
 
 window.appDataHooks.push(applyCostsModule);

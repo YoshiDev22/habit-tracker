@@ -2740,8 +2740,12 @@ body.board-wide .board-column {
     min-width: 0;
 }
 
-.costing-field:first-child {
+.costing-field.wide {
     grid-column: 1 / -1;   /* el cliente, a lo ancho */
+}
+
+.costing-field[hidden] {
+    display: none;
 }
 
 .costing-label {
@@ -5873,6 +5877,30 @@ button.day-log-date:focus-visible {
     background: var(--bg-surface-2);
     line-height: 1.45;
     color: var(--text-primary);
+}
+
+/* Costos: el filtro por proyecto de la gráfica */
+.costs-chart-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 10px;
+    font-size: 0.85rem;
+}
+
+.costs-chart-filter-label {
+    color: var(--text-muted);
+}
+
+.costs-chart-filter select {
+    min-width: 0;
+    max-width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
 }
 
 /* Mi perfil: menú de desglose (drilldown.js); páginas de la cuenta (account.js) */

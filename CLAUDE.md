@@ -367,7 +367,12 @@ Lo que no se ve en Swagger:
   float; la mano de obra (`labor_cents` = segundos × tarifa ÷ 3600) se calcula al pedirla,
   no se guarda. Una moneda por proyecto y nunca se convierte: un total entre proyectos va
   por moneda. Con presupuesto y sin tiempo, `is_quote` (no hay estados de proyecto). La
-  ficha lleva el mismo bloque en `finance` solo si el plan está encendido. "Sin asignar" no
+  ficha lleva el mismo bloque en `finance` solo si el plan está encendido. **Fase 6 (épica 30):**
+  `project_finance.kind` (`personal | product | service`) y `price_cents` (columnas en
+  `migrate.py`). `budget_left_cents` es el **presupuesto disponible** (presupuesto − costo) y
+  `margin_cents` el **margen** (precio − costo, `margin_cents()` en `costing.py`), solo con
+  precio; antes `margin_cents` era lo que hoy es `budget_left_cents`. Un proyecto `personal`
+  no se cobra: la ficha oculta cliente y precio (`[data-hide-personal]`) y no muestra margen. "Sin asignar" no
   se costea (409); borrar un proyecto borra su costeo y sus gastos.
 - **Calendario de trabajo y métricas** (épica 30, Fase 3). `backend/days.py` dice qué días
   son hábiles: lunes a viernes, sin festivos oficiales (salvo los marcados `laboral`), sin
@@ -422,7 +427,9 @@ Lo que no se ve en Swagger:
   (`COSTS_AXIS_HEADROOM`), redondeado a un paso de 1, 2, 2.5 o 5 × 10ⁿ. Su leyenda (con la
   cifra exacta) oculta columnas solo de la gráfica (`hiddenBreakdown`) y el eje se reajusta
   a las que quedan; como el alto no cambia, ocultar no mueve lo que hay debajo. No volver a
-  barras horizontales.
+  barras horizontales. Con más de un proyecto con costos, un selector la limita a uno
+  (`costsChartFilter()`): sus columnas salen de `categories` de su fila en
+  `/api/costs/summary`, en su moneda; se recuerda en `localStorage.costs_chart_project`.
 - **Nunca `scrollIntoView()` dentro de una vista**: también desplaza en horizontal
   `#viewsViewport` (con `overflow: hidden` sigue siendo desplazable por código) y la vista
   queda corrida. Desplazar con `window.scrollTo()`. `projects.js` además devuelve el
@@ -697,6 +704,7 @@ tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión), `card_comments_hidden`
 (comentarios plegados en el detalle de tarjeta, de este dispositivo) y
 `costs_project` (proyecto elegido en la hoja de Costos; se borra al cerrar sesión),
+`costs_chart_project` (proyecto de la gráfica Costos; se borra al cerrar sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?"), `work_calendar_cache` (huso, país y festivos por año, para

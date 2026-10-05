@@ -136,6 +136,30 @@ async def main():
         check(fin["currency"] == "USD" and f"{fin['budget_time_pct']} %" in bar, f"budget in hours shows its progress ({bar})")
         labor = await b.js("document.querySelector('.costing-labor').textContent")
         check("US$" in labor or "USD" in labor, f"money follows the project's currency ({labor})")
+        # Tipo y precio (Fase 6): con precio sale el margen; un personal no pide cliente ni precio
+        await b.js("""(() => {
+            const k = document.querySelector('.costing-card [data-field="kind"]');
+            k.value = 'service'; k.dispatchEvent(new Event('change', {bubbles: true}));
+        })()""")
+        await wait_api(f"/api/projects/{ht['id']}/finance", lambda body: body["kind"] == "service")
+        await b.js("""(() => {
+            const p = document.querySelector('.costing-card [data-field="price_cents"]');
+            p.value = '1000'; p.dispatchEvent(new Event('change', {bubbles: true}));
+        })()""")
+        fin = await wait_api(f"/api/projects/{ht['id']}/finance", lambda body: body["price_cents"] == 100000)
+        line = await b.wait_for("[...document.querySelectorAll('.costing-margin')].map(l => l.textContent).join(' | ')",
+                                lambda t: "Margen" in t or "Pérdida" in t)
+        check(("Margen" in line or "Pérdida" in line) and fin["margin_cents"] == 100000 - fin["total_cost_cents"],
+              f"a price shows the margin ({line})")
+        await b.js("""(() => {
+            const k = document.querySelector('.costing-card [data-field="kind"]');
+            k.value = 'personal'; k.dispatchEvent(new Event('change', {bubbles: true}));
+        })()""")
+        await wait_api(f"/api/projects/{ht['id']}/finance", lambda body: body["kind"] == "personal")
+        hidden = await b.wait_for("""[...document.querySelectorAll('.costing-card [data-hide-personal]')].map(f => f.hidden)""",
+                                  lambda v: v == [True, True])
+        line = await b.js("[...document.querySelectorAll('.costing-margin')].map(l => l.textContent).join(' | ')")
+        check(hidden == [True, True] and "Margen" not in line, f"a personal project hides client, price and margin ({hidden}, {line})")
         wide = await b.js("document.documentElement.scrollWidth")
         check(wide <= 390, f"no horizontal overflow on a phone ({wide}px)")
         await b.shot("maker_costing_mobile", full=False)

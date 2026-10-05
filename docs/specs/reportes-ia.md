@@ -137,7 +137,10 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    enciende o apaga y ve el JSON exacto que se enviaría. Si el proveedor falla o se pasa del límite diario, el texto
    sale de las reglas. Respuesta en JSON validado, y se rechaza un texto que cite números
    que no venían en las métricas.
-6. **Reporte de costos (Maker), aparte (decidido 2026-10-03).** No se mezcla con el de
+6. **Tipo, precio y margen** ✅ (2026-10-05, sin publicar): tipo de proyecto, precio,
+   "presupuesto disponible" aparte del margen (precio − costo) y la gráfica Costos filtrable
+   por proyecto. **Falta el reporte de costos por periodo**, junto con la entrada 29.
+   **Reporte de costos (Maker), aparte (decidido 2026-10-03).** No se mezcla con el de
    tiempo y hábitos: es **su propio reporte, con su propio botón** en la pestaña Costos
    (horas, mano de obra, gastos, costo, presupuesto disponible y margen del periodo, por
    proyecto y por moneda). Con él llegan el tipo de proyecto y el precio. Requiere filtrar

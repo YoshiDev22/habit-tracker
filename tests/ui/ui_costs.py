@@ -120,9 +120,30 @@ async def main():
         # El resumen cuadra con la API, margen incluido
         _, sm = api.call("GET", "/api/costs/summary", expect=200)
         row = next(r for r in sm["projects"] if r["project_id"] == ht["id"])
-        await b.wait_for(f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]').textContent.includes('{row['margin_cents'] // 100:,}')")
+        await b.wait_for(f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]').textContent.includes('{row['budget_left_cents'] // 100:,}')")
         text = await b.js(f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]').textContent")
-        check(f"{row['total_cost_cents'] / 100:,.2f}" in text, f"summary row shows cost and margin ({text})")
+        check(f"{row['total_cost_cents'] / 100:,.2f}" in text, f"summary row shows cost and budget left ({text})")
+        heads = await b.js("[...document.querySelectorAll('.costs-projects th')].map(t => t.textContent)")
+        check("Disponible" in heads and "Margen" in heads and "Precio" in heads, f"budget left and margin are separate ({heads})")
+
+        # Filtrar la gráfica por proyecto: con un segundo proyecto con gastos aparece el selector
+        import datetime as _dt
+        _, other = api.call("POST", "/api/projects", {"name": "Otro proyecto"}, expect=201)
+        api.call("POST", "/api/costs", {"project_id": other["id"], "category_id": cats["categories"][0]["id"],
+                                        "cost_date": _dt.date.today().isoformat(), "concept": "Algo", "quantity": 1,
+                                        "unit_cost_cents": 5000}, expect=201)
+        await b.js("loadCosts()")
+        await b.wait_for("!!document.getElementById('costsChartProject')")
+        if await b.js("!!document.getElementById('costsChartProject')"):
+            await b.js(f"""(() => {{ const s = document.getElementById('costsChartProject'); s.value = '{ht['id']}';
+                s.dispatchEvent(new Event('change', {{bubbles: true}})); }})()""")
+            title = await b.wait_for("[...document.querySelectorAll('#costsSummary .report-card-title')].map(t => t.textContent).find(t => t.startsWith('Costos')) || ''",
+                                     lambda t: ht["name"] in t)
+            check(ht["name"] in title and await b.js("localStorage.getItem('costs_chart_project')") == str(ht["id"]),
+                  f"the chart can show one project, and remembers it ({title})")
+            await b.js("""(() => { const s = document.getElementById('costsChartProject'); s.value = '';
+                s.dispatchEvent(new Event('change', {bubbles: true})); })()""")
+            await b.wait_for("!localStorage.getItem('costs_chart_project')")
 
         # Gráfica "Costos": la mano de obra es una columna más, y la leyenda
         # oculta o muestra cada una. El eje de montos se reajusta a las que

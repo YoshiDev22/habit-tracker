@@ -230,6 +230,13 @@ function costingInput(field, type, value, attrs = {}) {
     return input;
 }
 
+// Tipo de proyecto (Fase 6): uno personal no se cobra, así que no pide cliente ni precio
+const PROJECT_KINDS = [['', 'Sin tipo'], ['personal', 'Personal'], ['product', 'Producto'], ['service', 'Servicio']];
+
+function applyProjectKind(card, kind) {
+    card.querySelectorAll('[data-hide-personal]').forEach(field => { field.hidden = kind === 'personal'; });
+}
+
 function renderCosting(finance) {
     const card = el('section', 'report-card costing-card');
     const head = el('div', 'costing-head');
@@ -243,14 +250,27 @@ function renderCosting(finance) {
     CURRENCIES.forEach(code => currency.appendChild(new Option(code, code)));
     currency.value = finance.currency;
 
+    const kind = document.createElement('select');
+    kind.dataset.field = 'kind';
+    PROJECT_KINDS.forEach(([value, label]) => kind.appendChild(new Option(label, value)));
+    kind.value = finance.kind || '';
+
     const money = cents => (cents == null ? '' : (cents / 100).toFixed(2));
+    const client = costingField('Cliente', costingInput('client_name', 'text', finance.client_name || '',
+        { maxlength: '120', placeholder: 'Opcional' }));
+    const price = costingField('Precio', costingInput('price_cents', 'number', money(finance.price_cents),
+        { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Lo que cobras' }));
+    client.dataset.hidePersonal = '';
+    client.classList.add('wide');   // el cliente, a lo ancho
+    price.dataset.hidePersonal = '';
     const fields = el('div', 'costing-fields');
     fields.append(
-        costingField('Cliente', costingInput('client_name', 'text', finance.client_name || '',
-            { maxlength: '120', placeholder: 'Opcional' })),
+        costingField('Tipo', kind),
+        costingField('Moneda', currency),
+        client,
         costingField('Tarifa por hora', costingInput('hourly_rate_cents', 'number', money(finance.hourly_rate_cents),
             { min: '0', step: '0.01', inputmode: 'decimal', placeholder: '0.00' })),
-        costingField('Moneda', currency),
+        price,
         costingField('Presupuesto', costingInput('budget_cents', 'number', money(finance.budget_cents),
             { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Opcional' })),
         costingField('Presupuesto en horas', costingInput('budget_minutes', 'number',
@@ -261,6 +281,7 @@ function renderCosting(finance) {
     const result = el('div', 'costing-result');
     const error = el('div', 'form-error hidden');
     card.append(head, result, fields, error);
+    applyProjectKind(card, finance.kind);
     paintCostingResult(card, finance);
 
     fields.addEventListener('change', (event) => saveCostingField(card, event.target));
@@ -288,11 +309,20 @@ function paintCostingResult(card, finance) {
         parts.push(el('p', 'costing-line',
             `+ ${formatMoney(finance.costs_cents, currency)} de gastos = ${formatMoney(finance.total_cost_cents, currency)} de costo total`));
     }
-    if (finance.margin_cents != null) {
+    // Presupuesto disponible: presupuesto − costo
+    if (finance.budget_left_cents != null) {
+        const left = el('p', `costing-line costing-margin${finance.budget_left_cents < 0 ? ' negative' : ''}`);
+        left.textContent = finance.budget_left_cents < 0
+            ? `Te pasaste del presupuesto por ${formatMoney(-finance.budget_left_cents, currency)}`
+            : `Presupuesto disponible: ${formatMoney(finance.budget_left_cents, currency)}`;
+        parts.push(left);
+    }
+    // Margen: precio − costo, solo con precio (y no en un proyecto personal)
+    if (finance.margin_cents != null && finance.kind !== 'personal') {
         const margin = el('p', `costing-line costing-margin${finance.margin_cents < 0 ? ' negative' : ''}`);
         margin.textContent = finance.margin_cents < 0
-            ? `Te pasas del presupuesto por ${formatMoney(-finance.margin_cents, currency)}`
-            : `Margen: ${formatMoney(finance.margin_cents, currency)}`;
+            ? `Pérdida: ${formatMoney(-finance.margin_cents, currency)} (cobras ${formatMoney(finance.price_cents, currency)})`
+            : `Margen: ${formatMoney(finance.margin_cents, currency)} de ${formatMoney(finance.price_cents, currency)}`;
         parts.push(margin);
     }
 
@@ -335,6 +365,7 @@ async function saveCostingField(card, input) {
     let value;
     if (field === 'client_name') value = input.value.trim() || null;
     else if (field === 'currency') value = input.value;
+    else if (field === 'kind') value = input.value || null;
     else if (field === 'budget_minutes') value = input.value === '' ? null : Math.round(Number(input.value) * 60);
     else value = centsFromInput(input.value);
 
@@ -345,6 +376,7 @@ async function saveCostingField(card, input) {
             method: 'PUT',
             json: { [field]: value },
         });
+        applyProjectKind(card, finance.kind);
         paintCostingResult(card, finance);
     } catch (err) {
         showError(error, err.message);
