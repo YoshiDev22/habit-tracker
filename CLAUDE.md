@@ -75,6 +75,7 @@ habit-tracker/
 │   ├── report_text.py     # El texto de un reporte guardado, con reglas fijas
 │   ├── report_ai.py       # El texto escrito por la IA: qué se envía, validación y límite diario
 │   ├── ai.py              # El proveedor de IA (uno por instancia, en .env): una sola llamada
+│   ├── accounts.py        # Borrar una cuenta (ya, o programada a 30 días) y todo lo suyo
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -96,7 +97,8 @@ habit-tracker/
 ├── scripts/
 │   ├── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
 │   ├── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan maker)
-│   └── generate_reports.py # Reportes automáticos: lo dispara el timer de systemd
+│   ├── generate_reports.py # Reportes automáticos: lo dispara el timer de systemd
+│   └── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
 ├── deploy/                # Plantillas genéricas del .service y el .timer de los reportes
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
@@ -112,6 +114,7 @@ habit-tracker/
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
 ├── saved-reports.js       # Reportes guardados: botón por periodo, lista, vista e impresión a PDF
+├── account.js             # Mi perfil › Cambiar contraseña y Borrar mi cuenta
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -322,6 +325,19 @@ Lo que no se ve en Swagger:
 
 - `POST /api/auth/login` recibe **form-data** (`username`, `password`), no JSON — es
   `OAuth2PasswordRequestForm`. El resto de la API es JSON.
+- **Cuenta** (BACKLOG 26, parte sin correo; `account.js` en *Mi perfil*).
+  `POST /api/auth/me/password` cambia la contraseña con la actual; `POST /api/auth/me/delete`
+  con `mode=later` programa el borrado a 30 días (`users.delete_after`, `GRACE_DAYS` en
+  `backend/accounts.py`) y `mode=now` borra al momento (pide `confirm: "BORRAR"`); los dos
+  piden la contraseña y su error cuenta en el **mismo límite de intentos que el login**. Con
+  `logout_others`, `users.token_version` sube: cada token lleva su versión en `tv` y
+  `get_current_user` rechaza la que no coincide (los tokens de antes no la traen y cuentan
+  como 0). `purge_user()` borra **cada tabla con `user_id`** y al final al usuario: una tabla
+  nueva de un usuario queda cubierta sola, y `test_accounts.py` comprueba que no quede nada.
+  Con el borrado programado se entra normal y `account.js` pregunta si conservarla
+  (`POST /api/auth/me/keep`). Las vencidas las borra `scripts/purge_accounts.py`, desde el
+  mismo `.service` diario de los reportes (segundo `ExecStart`), que no genera reportes de
+  cuentas que se van.
 - **Login y registro tienen límite por IP** (`backend/ratelimit.py`, en memoria): 10
   contraseñas equivocadas cada 15 min y 5 cuentas creadas por hora; al pasarse, 429 con
   `Retry-After` y el motivo en español, que el formulario muestra tal cual. Los logins
@@ -432,7 +448,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los doce scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los trece scripts en orden y **el
 orden importa**:
 
 ```html
@@ -448,6 +464,7 @@ orden importa**:
 <script src="workdays.js"></script>     <!-- festivos y huso en Configuración: usa el() de reports.js -->
 <script src="settings.js"></script>     <!-- ⚙️ Configuración: usa habits.js (el modal) y workdays.js -->
 <script src="saved-reports.js"></script> <!-- reportes guardados: usa los helpers de reports.js -->
+<script src="account.js"></script>      <!-- contraseña y borrar la cuenta: usa confirmDialog y handleLogout -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.

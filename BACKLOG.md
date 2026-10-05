@@ -21,7 +21,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
 | 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
-| 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | pendiente de revisar |
+| 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | parte sin correo hecha |
 | 27 | P3 | Reordenar las pestañas de secciones | pedido |
 | 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido |
 | 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | decisión pendiente |
@@ -286,8 +286,13 @@ todos y desvío solo con Maker, tope de 100 h, qué tareas cuentan, mínimo de 3
 
 ## 26 · P2 · Correo de confirmación al registrarse y recuperación de cuenta
 
-**Pendiente de revisar con Yoshio (anotado el 2026-09-30).** Todavía no hay decisión de
-cómo hacerlo; esto deja escrito qué falta y qué hay que decidir antes de escribir código.
+**Parte sin correo, hecha (2026-10-05):** cambiar la contraseña estando dentro y borrar la
+cuenta, ya o a 30 días, con la opción de cerrar las otras sesiones (`users.token_version`,
+que resolvió el punto 3 de abajo) — ver CLAUDE.md, *Cuenta*. **Falta lo que necesita correo**:
+recuperar la contraseña, verificar el correo y un registro que no revele qué correos tienen
+cuenta. Para eso sigue pendiente decidir el punto 1 (cómo se envían).
+
+**Anotado el 2026-09-30.**
 
 **Síntoma.**
 

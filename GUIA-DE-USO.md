@@ -55,6 +55,25 @@ modal de perfil.
 Guardar pregunta antes de aplicar el cambio, y si cierras el modal con algo editado sin
 guardar, también te pregunta si quieres salir de todos modos.
 
+### Cambiar la contraseña
+
+Al final de *Mi perfil*, **Cambiar contraseña**: la actual y la nueva dos veces (mínimo 6
+caracteres). La casilla **Cerrar sesión en mis otros dispositivos** viene marcada: si la
+dejas, quien tuviera tu sesión abierta en otro lado tiene que volver a entrar. Aquí sigues
+dentro.
+
+### Borrar tu cuenta
+
+Al final de *Mi perfil*, **Borrar mi cuenta**. Se borra todo: hábitos, tableros, tareas,
+tiempo, costos y reportes. Si quieres conservar algo, descárgalo antes desde Reportes
+(⬇ Tiempo CSV y ⬇ Hábitos CSV). Hay dos formas:
+
+- **Irme 30 días**: tu cuenta se borra dentro de 30 días y se cierra la sesión. Si entras
+  antes de esa fecha, la app te pregunta si quieres conservarla, y todo sigue como estaba.
+  Mientras tanto no se generan tus reportes automáticos.
+- **Borrar ahora**: se borra todo al momento. Pide tu contraseña y escribir **BORRAR**. No se
+  puede deshacer.
+
 ## Configuración
 
 El **⚙️** de la barra superior abre *Configuración*: un menú con todo lo que se ajusta.
