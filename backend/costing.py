@@ -87,8 +87,16 @@ def finance_response(project_id: int, row: Optional[ProjectFinance], total_secon
         is_quote=bool(budget_cents or budget_minutes) and total_seconds == 0,
         costs_cents=costs_cents,
         total_cost_cents=total_cost,
-        margin_cents=budget_cents - total_cost if budget_cents is not None else None,
+        budget_left_cents=budget_cents - total_cost if budget_cents is not None else None,
+        kind=row.kind if row else None,
+        price_cents=row.price_cents if row else None,
+        margin_cents=margin_cents(row.price_cents if row else None, total_cost),
     )
+
+
+def margin_cents(price_cents: Optional[int], total_cost_cents: int) -> Optional[int]:
+    """Margen: lo que se cobra menos lo que costó. Sin precio, no hay margen."""
+    return price_cents - total_cost_cents if price_cents is not None else None
 
 
 # ==================== Estimado contra real ====================

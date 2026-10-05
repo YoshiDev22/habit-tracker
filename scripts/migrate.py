@@ -64,6 +64,10 @@ MIGRATIONS = [
     # token_version nace en 0: ninguna sesión abierta se cierra al migrar.
     {"table": "users", "column": "token_version", "type": "INTEGER", "default": 0},
     {"table": "users", "column": "delete_after", "type": "DATETIME"},
+    # Tipo y precio del proyecto (épica 30, Fase 6). project_finance existe desde
+    # la 1.18; una base anterior aún no la tiene y create_all() la crea completa.
+    {"table": "project_finance", "column": "kind", "type": "VARCHAR", "new_table": True},
+    {"table": "project_finance", "column": "price_cents", "type": "INTEGER", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

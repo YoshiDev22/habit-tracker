@@ -114,7 +114,13 @@ def test_summary_finance_and_margin(api):
     # La ficha suma los gastos
     _, fin = api.call("GET", f"/api/projects/{p['id']}/finance", expect=200)
     assert (fin["labor_cents"], fin["costs_cents"], fin["total_cost_cents"]) == (60000, 181000, 241000)
-    assert fin["margin_cents"] == 1_000_000 - 241000 and fin["budget_money_pct"] == 24
+    assert fin["budget_left_cents"] == 1_000_000 - 241000 and fin["budget_money_pct"] == 24
+    # Sin precio no hay margen; con precio, margen = precio − costo (Fase 6)
+    assert fin["margin_cents"] is None and fin["kind"] is None
+    _, fin = api.call("PUT", f"/api/projects/{p['id']}/finance", {"kind": "service", "price_cents": 300000}, expect=200)
+    assert (fin["kind"], fin["price_cents"], fin["margin_cents"]) == ("service", 300000, 300000 - 241000)
+    _, fin = api.call("PUT", f"/api/projects/{p['id']}/finance", {"price_cents": 200000}, expect=200)
+    assert fin["margin_cents"] == -41000                        # pérdida
 
     # Otro proyecto en USD, y uno archivado sin costeo que no aparece
     _, usd = api.call("POST", "/api/projects", {"name": "App cliente"}, expect=201)
@@ -127,7 +133,13 @@ def test_summary_finance_and_margin(api):
     rows = {r["name"]: r for r in sm["projects"]}
     assert "Viejo" not in rows and "Sin asignar" not in rows
     lamp = rows["Lámpara"]
-    assert (lamp["labor_cents"], lamp["costs_cents"], lamp["total_cost_cents"], lamp["margin_cents"]) == (60000, 181000, 241000, 759000)
+    assert (lamp["labor_cents"], lamp["costs_cents"], lamp["total_cost_cents"], lamp["budget_left_cents"]) == (60000, 181000, 241000, 759000)
+    assert (lamp["kind"], lamp["price_cents"], lamp["margin_cents"]) == ("service", 200000, -41000)
+    # Su gasto por categoría, para filtrar la gráfica por proyecto
+    assert lamp["categories"] == [{"category_id": cats["Material"], "cents": 150000},
+                                  {"category_id": cats["IA"], "cents": 31000}]
+    assert rows["App cliente"]["categories"] == [{"category_id": cats["Licencia / software"], "cents": 9900}]
+    assert rows["App cliente"]["margin_cents"] is None
     assert rows["App cliente"]["currency"] == "USD" and rows["App cliente"]["is_quote"] is True
     totals = {t["currency"]: t for t in sm["totals"]}
     assert totals["MXN"]["total_cost_cents"] == 241000 and totals["USD"]["costs_cents"] == 9900, "never mixed"

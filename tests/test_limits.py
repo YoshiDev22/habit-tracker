@@ -175,3 +175,20 @@ def test_account_password_and_delete(api):
     assert api.call("POST", "/api/auth/me/password", {"current_password": conftest.PASSWORD, "new_password": "x" * 129})[0] == 422
     assert api.call("POST", "/api/auth/me/delete", {"password": conftest.PASSWORD, "mode": "luego"})[0] == 422
     assert api.call("POST", "/api/auth/me/delete", {"password": conftest.PASSWORD, "mode": "now", "confirm": "x" * 21})[0] == 422
+
+
+def test_project_kind_and_price(api):
+    api.login("tipo-precio@test.com")
+    api.call("PUT", "/api/auth/me/modules/maker", {"enabled": True})
+    from backend.database import engine
+    from backend.models import User, UserModule
+    from sqlmodel import Session, select
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == "tipo-precio@test.com")).one()
+        session.add(UserModule(user_id=user.id, module="maker", allowed=True, enabled=True))
+        session.commit()
+    _, p = api.call("POST", "/api/projects", {"name": "Con tipo"}, expect=201)
+    assert api.call("PUT", f"/api/projects/{p['id']}/finance", {"kind": "otro"})[0] == 422
+    assert api.call("PUT", f"/api/projects/{p['id']}/finance", {"price_cents": -1})[0] == 422
+    assert api.call("PUT", f"/api/projects/{p['id']}/finance", {"price_cents": 10 ** 13})[0] == 422
+    api.call("PUT", f"/api/projects/{p['id']}/finance", {"kind": "personal", "price_cents": 0}, expect=200)

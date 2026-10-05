@@ -276,6 +276,9 @@ class ProjectFinance(SQLModel, table=True):
     currency: str = Field(default="MXN")                # una por proyecto: no se convierte
     budget_cents: Optional[int] = Field(default=None)   # presupuesto en dinero...
     budget_minutes: Optional[int] = Field(default=None) # ...y/o en tiempo
+    # Épica 30, Fase 6. Columnas AÑADIDAS (migrate.py). NULL = sin decir.
+    kind: Optional[str] = Field(default=None)           # personal | product | service
+    price_cents: Optional[int] = Field(default=None)    # lo que se cobra: margen = precio − costo
 
 
 class CostCategory(SQLModel, table=True):

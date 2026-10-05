@@ -533,6 +533,10 @@ MAX_MONEY_CENTS = 100_000_000_000      # mil millones en la unidad de la moneda
 MAX_BUDGET_MINUTES = 1_000_000         # ~16,600 horas
 
 
+# Un proyecto personal no se cobra: sin cliente ni precio (los guarda, no los pide)
+PROJECT_KINDS = ("personal", "product", "service")
+
+
 class ProjectFinanceUpdate(SQLModel):
     """Costeo de un proyecto (PUT parcial): solo cambia lo que se manda, y null
     borra ese dato."""
@@ -541,12 +545,21 @@ class ProjectFinanceUpdate(SQLModel):
     currency: Optional[str] = None
     budget_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     budget_minutes: Optional[int] = Field(default=None, ge=0, le=MAX_BUDGET_MINUTES)
+    kind: Optional[str] = None
+    price_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
 
     @field_validator("currency")
     @classmethod
     def validate_currency(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in CURRENCIES:
             raise ValueError(f"Moneda no válida. Usa una de: {', '.join(CURRENCIES)}")
+        return v
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in PROJECT_KINDS:
+            raise ValueError(f"Tipo no válido. Usa uno de: {', '.join(PROJECT_KINDS)}")
         return v
 
 
@@ -653,8 +666,13 @@ class CostsProjectSummary(SQLModel):
     costs_cents: int
     total_cost_cents: int                 # mano de obra (si hay tarifa) + gastos
     budget_cents: Optional[int] = None
-    margin_cents: Optional[int] = None    # presupuesto − costo, con presupuesto en dinero
+    budget_left_cents: Optional[int] = None   # presupuesto disponible: presupuesto − costo
+    kind: Optional[str] = None
+    price_cents: Optional[int] = None
+    margin_cents: Optional[int] = None        # precio − costo, solo con precio
     is_quote: bool = False
+    # Gasto por categoría de este proyecto, para filtrar la gráfica "Costos"
+    categories: List[Dict[str, int]] = []
 
 
 class CostsCategorySummary(SQLModel):
@@ -699,7 +717,11 @@ class ProjectFinanceResponse(SQLModel):
     # Fase 3: los gastos del proyecto y lo que suman con la mano de obra
     costs_cents: int = 0
     total_cost_cents: int = 0                 # mano de obra (si hay tarifa) + gastos
-    margin_cents: Optional[int] = None        # presupuesto − costo, con presupuesto en dinero
+    budget_left_cents: Optional[int] = None   # presupuesto disponible: presupuesto − costo
+    # Fase 6 (épica 30): tipo y precio; el margen es precio − costo, solo con precio
+    kind: Optional[str] = None
+    price_cents: Optional[int] = None
+    margin_cents: Optional[int] = None
 
 
 # ==================== Estimado contra real (épica 24, Fase 4) ====================

@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.auth import get_current_user
-from backend.costing import costs_cents_by_project, estimates_for_tasks, labor_cents, line_total_cents
+from backend.costing import costs_cents_by_project, estimates_for_tasks, labor_cents, line_total_cents, margin_cents
 from backend.database import get_session
 from backend.models import CostCategory, PomodoroSession, Project, ProjectCost, ProjectFinance, User
 from backend.routers.auth import require_module
@@ -268,17 +268,28 @@ def get_costs_summary(session: Session = Depends(get_session), user: User = Depe
             project_id=p.id, name=p.name, color=p.color, is_active=p.is_active, currency=currency,
             total_seconds=total_seconds, hourly_rate_cents=rate, labor_cents=labor,
             costs_cents=costs_cents, total_cost_cents=total_cost, budget_cents=budget,
-            margin_cents=budget - total_cost if budget is not None else None,
+            budget_left_cents=budget - total_cost if budget is not None else None,
+            kind=finance.kind if finance else None,
+            price_cents=finance.price_cents if finance else None,
+            margin_cents=margin_cents(finance.price_cents if finance else None, total_cost),
             is_quote=bool(budget or budget_minutes) and total_seconds == 0,
         ))
 
     categories = {c.id: c for c in session.exec(select(CostCategory).where(CostCategory.user_id == user.id)).all()}
     by_category: Dict[tuple, int] = {}
+    by_project_category: Dict[int, Dict[int, int]] = {}
     for cost in costs:
         if cost.project_id not in currency_of:
             continue
+        cents = line_total_cents(cost.quantity, cost.unit_cost_cents)
         key = (cost.category_id, currency_of[cost.project_id])
-        by_category[key] = by_category.get(key, 0) + line_total_cents(cost.quantity, cost.unit_cost_cents)
+        by_category[key] = by_category.get(key, 0) + cents
+        per_project = by_project_category.setdefault(cost.project_id, {})
+        per_project[cost.category_id] = per_project.get(cost.category_id, 0) + cents
+    for row in rows:
+        row.categories = [{"category_id": cid, "cents": cents}
+                          for cid, cents in sorted(by_project_category.get(row.project_id, {}).items(),
+                                                   key=lambda item: -item[1])]
     category_rows = sorted(
         (CostsCategorySummary(category_id=cid, name=categories[cid].name, color=categories[cid].color,
                               currency=currency, cents=cents)
