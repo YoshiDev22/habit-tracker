@@ -5875,6 +5875,75 @@ button.day-log-date:focus-visible {
     color: var(--text-primary);
 }
 
+/* Mi perfil › Cambiar contraseña y Borrar mi cuenta (account.js) */
+.account-section {
+    margin-top: 14px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+    text-align: left;
+}
+
+.account-section > summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+
+.account-danger > summary {
+    color: var(--danger-fg);
+}
+
+.account-form {
+    margin-top: 10px;
+}
+
+.account-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 4px 0 10px;
+}
+
+.account-check[hidden] {
+    display: none;
+}
+
+.account-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.account-choices[hidden] {
+    display: none;
+}
+
+.account-choices .submit-btn {
+    width: auto;
+    padding: 8px 16px;
+}
+
+.account-explain {
+    margin: 0 0 10px;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+
+.account-status {
+    margin: 0 0 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.account-status:empty {
+    display: none;
+}
+
 /* Configuración › Módulos › Ver qué se envía (la IA) */
 .ai-preview {
     margin-top: 10px;

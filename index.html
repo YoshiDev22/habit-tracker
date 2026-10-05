@@ -466,6 +466,60 @@
             </form>
             <p class="module-hint profile-settings-hint">Módulos, días festivos, pomodoro y tamaño del texto
                 están en <strong>⚙️ Configuración</strong>.</p>
+
+            <!-- Contraseña y borrar la cuenta (account.js) -->
+            <details class="account-section" id="passwordSection">
+                <summary>Cambiar contraseña</summary>
+                <form id="passwordForm" class="auth-form account-form">
+                    <div class="form-group">
+                        <label for="passwordCurrent">Contraseña actual</label>
+                        <input type="password" id="passwordCurrent" autocomplete="current-password" maxlength="128" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="passwordNew">Contraseña nueva</label>
+                        <input type="password" id="passwordNew" autocomplete="new-password" minlength="6" maxlength="128" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="passwordRepeat">Repite la nueva</label>
+                        <input type="password" id="passwordRepeat" autocomplete="new-password" minlength="6" maxlength="128" required>
+                    </div>
+                    <label class="account-check"><input type="checkbox" id="passwordLogoutOthers" checked>
+                        Cerrar sesión en mis otros dispositivos</label>
+                    <div id="passwordError" class="form-error hidden" role="alert"></div>
+                    <p class="account-status" id="passwordStatus" role="status"></p>
+                    <button type="submit" class="submit-btn">Cambiar contraseña</button>
+                </form>
+            </details>
+
+            <details class="account-section account-danger" id="deleteSection">
+                <summary>Borrar mi cuenta</summary>
+                <div class="account-form">
+                    <p class="module-hint">Se borra todo: hábitos, tableros, tareas, tiempo, costos y reportes.
+                        Si quieres conservar algo, descárgalo antes desde Reportes (⬇ Tiempo CSV y ⬇ Hábitos CSV).</p>
+                    <div class="account-choices" id="deleteChoices">
+                        <button type="button" class="submit-btn btn-neutral" id="leaveLaterBtn">Irme 30 días</button>
+                        <button type="button" class="submit-btn btn-danger" id="deleteNowBtn">Borrar ahora</button>
+                    </div>
+                    <form id="deleteForm" class="auth-form" hidden>
+                        <p class="account-explain" id="deleteExplain"></p>
+                        <div class="form-group">
+                            <label for="deletePassword">Tu contraseña</label>
+                            <input type="password" id="deletePassword" autocomplete="current-password" maxlength="128" required>
+                        </div>
+                        <div class="form-group" id="deleteConfirmGroup">
+                            <label for="deleteConfirm">Escribe BORRAR para confirmar</label>
+                            <input type="text" id="deleteConfirm" maxlength="20" autocomplete="off">
+                        </div>
+                        <label class="account-check" id="deleteLogoutGroup"><input type="checkbox" id="deleteLogoutOthers" checked>
+                            Cerrar sesión en mis otros dispositivos</label>
+                        <div id="deleteError" class="form-error hidden" role="alert"></div>
+                        <div class="account-choices">
+                            <button type="submit" class="submit-btn btn-danger" id="deleteSubmit">Confirmar</button>
+                            <button type="button" class="submit-btn btn-neutral" id="deleteCancel">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </details>
         </div>
     </div>
 
@@ -1207,5 +1261,6 @@
     <script src="workdays.js"></script>
     <script src="settings.js"></script>
     <script src="saved-reports.js"></script>
+    <script src="account.js"></script>
 </body>
 </html>

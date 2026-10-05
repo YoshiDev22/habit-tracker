@@ -172,6 +172,12 @@ def saved_reports_js():
     return frontend_file("saved-reports.js")
 
 
+@app.get("/account.js")
+def account_js():
+    """Serve account.js"""
+    return frontend_file("account.js")
+
+
 # Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
 # cerrada, no por el nombre que pida la URL, para no servir otros archivos.
 APP_ICONS = {
