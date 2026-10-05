@@ -1,6 +1,10 @@
 // ============================================
-// Tu cuenta: cambiar la contraseña e irte (Mi perfil)
+// Mi perfil: el menú, cambiar la contraseña e irte
 // ============================================
+//
+// Mi perfil es un menú de desglose (createDrillDown, drilldown.js): Datos
+// personales (el formulario de script.js), Cambiar contraseña y Borrar mi
+// cuenta, cada una en su página.
 //
 // BACKLOG 26, la parte que no necesita correo. "Irme 30 días" programa el
 // borrado (POST /api/auth/me/delete, mode=later) y cierra esta sesión; al
@@ -15,6 +19,19 @@ const deleteForm = document.getElementById('deleteForm');
 const deleteChoices = document.getElementById('deleteChoices');
 const deleteError = document.getElementById('deleteError');
 const deleteState = { mode: null };   // later | now
+const profileModalEl = document.getElementById('profileModal');
+
+const profileNav = createDrillDown({
+    modal: profileModalEl,
+    menu: document.getElementById('profileMenu'),
+    back: document.getElementById('profileBack'),
+    title: document.getElementById('profileTitle'),
+    rootTitle: 'Mi perfil',
+    onPage: (name) => {
+        if (name === 'password') document.getElementById('passwordCurrent').focus();
+    },
+    onClose: () => closeProfileModal(),
+});
 
 function formatDeleteDate(iso) {
     // UTC sin huso: se marca como UTC para verla en hora local
@@ -92,7 +109,7 @@ deleteForm.addEventListener('submit', async (event) => {
                 logout_others: document.getElementById('deleteLogoutOthers').checked,
             },
         });
-        hideModal(document.getElementById('profileModal'));
+        hideModal(profileModalEl);
         if (mode === 'later') {
             await confirmDialog(`Tu cuenta se borrará el ${formatDeleteDate(result.delete_after)}. `
                 + 'Si cambias de opinión, entra antes de esa fecha y podrás conservarla.',
@@ -109,20 +126,22 @@ deleteForm.addEventListener('submit', async (event) => {
     handleLogout();
 });
 
-// Al cerrar Mi perfil, lo de la cuenta vuelve a su estado inicial
+// Al abrir Mi perfil se ve el menú; al cerrarlo, lo de la cuenta vuelve a su estado inicial
 function resetAccountSections() {
     hideDeleteForm();
     passwordForm.reset();
     document.getElementById('passwordLogoutOthers').checked = true;
     passwordError.classList.add('hidden');
     passwordStatus.textContent = '';
-    document.getElementById('passwordSection').open = false;
-    document.getElementById('deleteSection').open = false;
 }
 
+let profileWasOpen = false;
 new MutationObserver(() => {
-    if (document.getElementById('profileModal').classList.contains('hidden')) resetAccountSections();
-}).observe(document.getElementById('profileModal'), { attributes: true, attributeFilter: ['class'] });
+    const open = !profileModalEl.classList.contains('hidden');
+    if (open && !profileWasOpen) profileNav.showMenu({ animate: false });
+    if (!open && profileWasOpen) resetAccountSections();
+    profileWasOpen = open;
+}).observe(profileModalEl, { attributes: true, attributeFilter: ['class'] });
 
 // ---------- Al entrar con el borrado programado ----------
 

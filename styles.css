@@ -5875,28 +5875,13 @@ button.day-log-date:focus-visible {
     color: var(--text-primary);
 }
 
-/* Mi perfil › Cambiar contraseña y Borrar mi cuenta (account.js) */
-.account-section {
+/* Mi perfil: menú de desglose (drilldown.js); páginas de la cuenta (account.js) */
+#profileModal .settings-page {
+    margin-top: 6px;
+}
+
+#profileModal .settings-menu .profile-settings-hint {
     margin-top: 14px;
-    border-top: 1px solid var(--border-color);
-    padding-top: 10px;
-    text-align: left;
-}
-
-.account-section > summary {
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.92rem;
-    color: var(--text-secondary);
-    padding: 4px 0;
-}
-
-.account-danger > summary {
-    color: var(--danger-fg);
-}
-
-.account-form {
-    margin-top: 10px;
 }
 
 .account-check {

@@ -114,7 +114,8 @@ habit-tracker/
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
 ├── saved-reports.js       # Reportes guardados: botón por periodo, lista, vista e impresión a PDF
-├── account.js             # Mi perfil › Cambiar contraseña y Borrar mi cuenta
+├── account.js             # Mi perfil: su menú, Cambiar contraseña y Borrar mi cuenta
+├── drilldown.js           # createDrillDown(): el menú de desglose de todo menú de opciones
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -448,11 +449,12 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los trece scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los catorce scripts en orden y **el
 orden importa**:
 
 ```html
 <script src="script.js"></script>   <!-- primero: define los hooks y apiFetch -->
+<script src="drilldown.js"></script> <!-- createDrillDown(): solo una función, la usan los menús -->
 <script src="habits.js"></script>   <!-- sus hooks de datos van antes que los demás -->
 <script src="projects.js"></script> <!-- define projectsState y projectsChangedHooks -->
 <script src="board.js"></script>    <!-- usa los dos; su loadBoard corre antes que los selects del pomodoro -->
@@ -548,7 +550,16 @@ descanso y las frases de las ayudas que hablan de la racha llevan `data-habits-o
 Todoist o Linear). El pie solo se ve en la página Hábitos. Lo llena `showHabitsSetup()`
 (`habits.js`), que al final llama a `onSettingsOpened()` (`settings.js`): abre el menú, o
 Hábitos como bienvenida si aún no hay hábitos; `openSettings(nombre)` abre directo una página.
-Mi perfil quedó solo con alias, nombre y apellido.
+
+**Todo menú de opciones es de desglose (drill-down), nunca un acordeón** (pedido por Yoshio,
+2026-10-05): una lista de filas de solo texto con una línea de ayuda y "›"; cada fila
+desliza a su página, el título del modal pasa a ser el de la página y ‹ o Escape vuelven a
+la lista. Uno nuevo se hace con `createDrillDown()` (`drilldown.js`) y las mismas clases
+(`.settings-menu`, `.settings-item`, `.settings-page` con `data-section` y `data-title`,
+`.settings-back`); así está **Mi perfil** (`account.js`: Datos personales, Cambiar
+contraseña, Borrar mi cuenta). Configuración es anterior y lleva su propia copia en
+`settings.js`, con las mismas clases. `<details>` queda para listas plegables dentro de
+una página (p. ej. *Anteriores u ocultos*), no para navegar entre opciones.
 
 Dos modales se abren **encima** de otro y devuelven una promesa en vez de cerrarse
 solos: `#confirmModal` (`confirmDialog()`) y `#emojiPickerModal` (`pickEmoji()`).

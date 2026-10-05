@@ -23,10 +23,11 @@ async def enter(b, token):
     await b.goto(BASE + "/", wait=2.5)
 
 
-async def open_section(b, section):
+async def open_section(b, page):
+    """Mi perfil es un menú de desglose: se abre en el menú y la fila lleva a su página."""
     await b.js("document.getElementById('userEmail').click()")
-    await asyncio.sleep(0.3)
-    await b.js(f"document.getElementById('{section}').open = true")
+    await b.wait_for("!document.getElementById('profileMenu').hidden && !document.getElementById('profileModal').classList.contains('hidden')")
+    await b.js(f"document.querySelector('#profileMenu [data-open={page}]').click()")
 
 
 async def main():
@@ -39,7 +40,20 @@ async def main():
         login("yoshi@test.com")
         await enter(b, api.TOKEN)
         await b.js(CLOSE_WELCOME)
-        await open_section(b, "passwordSection")
+        await b.js("document.getElementById('userEmail').click()")
+        await b.wait_for("!document.getElementById('profileModal').classList.contains('hidden')")
+        st = await b.js("({menu: !document.getElementById('profileMenu').hidden, title: document.getElementById('profileTitle').textContent,"
+                        " rows: [...document.querySelectorAll('#profileMenu [data-open]')].map(r => r.dataset.open)})")
+        check(st == {"menu": True, "title": "Mi perfil", "rows": ["profile", "password", "delete"]},
+              f"Mi perfil opens on its menu ({st})")
+        await b.shot("profile_menu", full=False)
+        await b.js("document.querySelector('#profileMenu [data-open=password]').click()")
+        st = await b.js("({menu: document.getElementById('profileMenu').hidden, title: document.getElementById('profileTitle').textContent,"
+                        " back: !document.getElementById('profileBack').hidden})")
+        check(st == {"menu": True, "title": "Cambiar contraseña", "back": True}, f"a row slides into its page ({st})")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
+        check(await b.js("!document.getElementById('profileMenu').hidden"), "Escape goes back to the menu")
+        await b.js("document.querySelector('#profileMenu [data-open=password]').click()")
         fill = """(() => {{ document.getElementById('passwordCurrent').value = {0};
             document.getElementById('passwordNew').value = {1};
             document.getElementById('passwordRepeat').value = {2};
@@ -61,7 +75,7 @@ async def main():
         # Irme 30 días: se cierra la sesión
         await enter(b, api.TOKEN)
         await b.js(CLOSE_WELCOME)
-        await open_section(b, "deleteSection")
+        await open_section(b, "delete")
         await b.js("document.getElementById('leaveLaterBtn').click()")
         st = await b.js("({form: !document.getElementById('deleteForm').hidden, confirm: document.getElementById('deleteConfirmGroup').hidden,"
                         " logout: !document.getElementById('deleteLogoutGroup').hidden})")
@@ -94,7 +108,7 @@ async def main():
         login("se-va@test.com")
         await enter(b, api.TOKEN)
         await b.js(CLOSE_WELCOME)
-        await open_section(b, "deleteSection")
+        await open_section(b, "delete")
         await b.js("document.getElementById('deleteNowBtn').click()")
         await b.js("document.getElementById('deletePassword').value = 'secret123'; document.getElementById('deleteConfirm').value = 'nop';"
                    " document.getElementById('deleteForm').requestSubmit()")

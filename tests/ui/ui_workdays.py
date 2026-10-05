@@ -41,7 +41,9 @@ async def main():
     try:
         await b.viewport(390, 844, mobile=True)
         await b.goto(BASE + "/")
-        await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});")
+        # Limpio: el navegador se reusa entre pruebas, y otra en el mismo puerto
+        # pudo dejar festivos (vacíos, sin internet) en work_calendar_cache
+        await b.js(f"localStorage.clear(); localStorage.setItem('access_token', {json.dumps(token)});")
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
 

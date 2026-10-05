@@ -442,35 +442,55 @@
     </div>
 
     <!-- Perfil: alias y nombre, todo opcional -->
+    <!-- Mi perfil: un menú de desglose (drilldown.js, account.js), como Configuración.
+         Cada fila desliza a su página; ‹ o Escape vuelven al menú. -->
     <div id="profileModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <button class="modal-close" data-close-modal>&times;</button>
-            <h2 class="modal-title">Mi perfil</h2>
-            <form id="profileForm" class="auth-form">
-                <p class="form-hint" id="profileEmail"></p>
-                <div class="form-group">
-                    <label for="profileDisplayName">Alias</label>
-                    <input type="text" id="profileDisplayName" name="displayName" placeholder="Cómo quieres que te llamemos" maxlength="40">
-                </div>
-                <div class="form-group">
-                    <label for="profileFirstName">Nombre</label>
-                    <input type="text" id="profileFirstName" name="firstName" placeholder="Tu nombre" maxlength="60">
-                </div>
-                <div class="form-group">
-                    <label for="profileLastName">Apellido</label>
-                    <input type="text" id="profileLastName" name="lastName" placeholder="Tus apellidos" maxlength="60">
-                </div>
-                <div id="profileError" class="form-error hidden"></div>
-                <button type="submit" class="submit-btn">Guardar</button>
-            </form>
-            <p class="module-hint profile-settings-hint">Módulos, días festivos, pomodoro y tamaño del texto
-                están en <strong>⚙️ Configuración</strong>.</p>
+            <div class="settings-head">
+                <button type="button" class="settings-back" id="profileBack" aria-label="Volver a Mi perfil" hidden>‹</button>
+                <h2 class="modal-title" id="profileTitle">Mi perfil</h2>
+            </div>
+            <p class="form-hint" id="profileEmail"></p>
+            <nav class="settings-menu" id="profileMenu" aria-label="Mi perfil">
+                <button type="button" class="settings-item" data-open="profile">
+                    <span class="settings-item-text"><strong>Datos personales</strong><small>Alias, nombre y apellido</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
+                <button type="button" class="settings-item" data-open="password">
+                    <span class="settings-item-text"><strong>Cambiar contraseña</strong><small>Con la actual y una nueva</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
+                <button type="button" class="settings-item" data-open="delete">
+                    <span class="settings-item-text"><strong>Borrar mi cuenta</strong><small>Irte 30 días o borrarla ya</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
+                <p class="module-hint profile-settings-hint">Módulos, días festivos, pomodoro y tamaño del texto
+                    están en <strong>⚙️ Configuración</strong>.</p>
+            </nav>
 
-            <!-- Contraseña y borrar la cuenta (account.js) -->
-            <details class="account-section" id="passwordSection">
-                <summary>Cambiar contraseña</summary>
-                <form id="passwordForm" class="auth-form account-form">
+            <section class="settings-page" data-section="profile" data-title="Datos personales">
+                <form id="profileForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="profileDisplayName">Alias</label>
+                        <input type="text" id="profileDisplayName" name="displayName" placeholder="Cómo quieres que te llamemos" maxlength="40">
+                    </div>
+                    <div class="form-group">
+                        <label for="profileFirstName">Nombre</label>
+                        <input type="text" id="profileFirstName" name="firstName" placeholder="Tu nombre" maxlength="60">
+                    </div>
+                    <div class="form-group">
+                        <label for="profileLastName">Apellido</label>
+                        <input type="text" id="profileLastName" name="lastName" placeholder="Tus apellidos" maxlength="60">
+                    </div>
+                    <div id="profileError" class="form-error hidden"></div>
+                    <button type="submit" class="submit-btn">Guardar</button>
+                </form>
+            </section>
+
+            <section class="settings-page" data-section="password" data-title="Cambiar contraseña">
+                <form id="passwordForm" class="auth-form">
                     <div class="form-group">
                         <label for="passwordCurrent">Contraseña actual</label>
                         <input type="password" id="passwordCurrent" autocomplete="current-password" maxlength="128" required>
@@ -489,10 +509,9 @@
                     <p class="account-status" id="passwordStatus" role="status"></p>
                     <button type="submit" class="submit-btn">Cambiar contraseña</button>
                 </form>
-            </details>
+            </section>
 
-            <details class="account-section account-danger" id="deleteSection">
-                <summary>Borrar mi cuenta</summary>
+            <section class="settings-page" data-section="delete" data-title="Borrar mi cuenta">
                 <div class="account-form">
                     <p class="module-hint">Se borra todo: hábitos, tableros, tareas, tiempo, costos y reportes.
                         Si quieres conservar algo, descárgalo antes desde Reportes (⬇ Tiempo CSV y ⬇ Hábitos CSV).</p>
@@ -519,7 +538,7 @@
                         </div>
                     </form>
                 </div>
-            </details>
+            </section>
         </div>
     </div>
 
@@ -1250,6 +1269,7 @@
     </div>
 
     <script src="script.js"></script>
+    <script src="drilldown.js"></script>
     <script src="habits.js"></script>
     <script src="projects.js"></script>
     <script src="board.js"></script>

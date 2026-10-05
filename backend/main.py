@@ -178,6 +178,12 @@ def account_js():
     return frontend_file("account.js")
 
 
+@app.get("/drilldown.js")
+def drilldown_js():
+    """Serve drilldown.js"""
+    return frontend_file("drilldown.js")
+
+
 # Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
 # cerrada, no por el nombre que pida la URL, para no servir otros archivos.
 APP_ICONS = {

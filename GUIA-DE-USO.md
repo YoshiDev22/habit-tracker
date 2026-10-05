@@ -40,7 +40,9 @@ La sesión dura **7 días**. Pasado ese plazo la app te devuelve a la pantalla d
 ## Tu perfil y el alias
 
 Arriba a la derecha, tu nombre aparece subrayado con puntitos. **Haz clic en él** para
-abrir *Mi perfil* y cambiar alias, nombre o apellido cuando quieras.
+abrir *Mi perfil*: un menú con **Datos personales** (alias, nombre y apellido), **Cambiar
+contraseña** y **Borrar mi cuenta**. Toca una opción para entrar y **‹** (o `Esc`) para
+volver.
 
 Si no pones nada, la app te llama por la parte de tu correo anterior a la `@`, para no
 enseñar la dirección completa. El orden que sigue es:
@@ -57,14 +59,14 @@ guardar, también te pregunta si quieres salir de todos modos.
 
 ### Cambiar la contraseña
 
-Al final de *Mi perfil*, **Cambiar contraseña**: la actual y la nueva dos veces (mínimo 6
+En *Mi perfil › Cambiar contraseña*: la actual y la nueva dos veces (mínimo 6
 caracteres). La casilla **Cerrar sesión en mis otros dispositivos** viene marcada: si la
 dejas, quien tuviera tu sesión abierta en otro lado tiene que volver a entrar. Aquí sigues
 dentro.
 
 ### Borrar tu cuenta
 
-Al final de *Mi perfil*, **Borrar mi cuenta**. Se borra todo: hábitos, tableros, tareas,
+En *Mi perfil › Borrar mi cuenta*. Se borra todo: hábitos, tableros, tareas,
 tiempo, costos y reportes. Si quieres conservar algo, descárgalo antes desde Reportes
 (⬇ Tiempo CSV y ⬇ Hábitos CSV). Hay dos formas:
 
