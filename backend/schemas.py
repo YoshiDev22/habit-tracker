@@ -53,6 +53,8 @@ class UserResponse(SQLModel):
     pomodoro_long_break_seconds: Optional[int] = None
     # Todos los de backend/modules.py, por nombre ("habits", "maker")
     modules: Dict[str, ModuleState] = {}
+    # Borrado programado ("irme unos días"): la app ofrece conservar la cuenta
+    delete_after: Optional[datetime] = None
 
 
 POMODORO_FIELDS = ("pomodoro_focus_seconds", "pomodoro_short_break_seconds", "pomodoro_long_break_seconds")
@@ -92,6 +94,37 @@ class Token(SQLModel):
     """Esquema para token de acceso"""
     access_token: str
     token_type: str
+
+
+class PasswordChange(SQLModel):
+    """Cambiar la contraseña estando dentro: la actual y la nueva"""
+    current_password: str = Field(max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
+    logout_others: bool = True      # cerrar la sesión en los otros dispositivos
+
+
+DELETE_MODES = ("later", "now")
+DELETE_CONFIRMATION = "BORRAR"
+
+
+class AccountDelete(SQLModel):
+    """Irse: 'later' programa el borrado (30 días); 'now' borra todo ya"""
+    password: str = Field(max_length=128)
+    mode: str
+    confirm: Optional[str] = Field(default=None, max_length=20)   # "BORRAR", para 'now'
+    logout_others: bool = True
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        if v not in DELETE_MODES:
+            raise ValueError(f"mode debe ser uno de: {', '.join(DELETE_MODES)}")
+        return v
+
+
+class DeletionScheduled(SQLModel):
+    delete_after: datetime
+    access_token: Optional[str] = None   # el de esta sesión si se cerraron las otras
 
 
 class TokenData(SQLModel):
@@ -252,8 +285,10 @@ class HabitReportResponse(SQLModel):
     best_streak: int
     streak_shields: int = 0           # protectores de la racha general
     habits: List[HabitReportItem]
-
-
+
+
+
+
 # Rango máximo de un export de hábitos: un año (cada día × cada hábito es una fila)
 MAX_HABIT_EXPORT_DAYS = 366
 

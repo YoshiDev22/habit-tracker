@@ -45,7 +45,8 @@ def main(argv=None) -> int:
 
     made = failed = 0
     with Session(engine) as session:
-        query = select(User).where(User.is_active == True)  # noqa: E712
+        # Sin las que se van: con el borrado programado no se les generan reportes
+        query = select(User).where(User.is_active == True, User.delete_after.is_(None))  # noqa: E712
         if args.email:
             query = query.where(User.email == args.email)
         users = session.exec(query.order_by(User.id)).all()

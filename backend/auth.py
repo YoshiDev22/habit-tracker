@@ -87,5 +87,15 @@ def get_current_user(
     
     if user is None:
         raise credentials_exception
-    
+    # Otra versión: se cerraron las sesiones (cambio de contraseña o "irme").
+    # Los tokens de antes de la versión no la traen y cuentan como 0.
+    if payload.get("tv", 0) != (user.token_version or 0):
+        raise credentials_exception
+
     return user
+
+
+def token_for(user: User) -> str:
+    """El token de una sesión de esta cuenta, con su versión."""
+    return create_access_token(data={"sub": user.email, "tv": user.token_version or 0},
+                               expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))

@@ -29,6 +29,14 @@ class User(SQLModel, table=True):
     pomodoro_short_break_seconds: Optional[int] = Field(default=None)
     pomodoro_long_break_seconds: Optional[int] = Field(default=None)
 
+    # Sube al cambiar la contraseña o al irse si el usuario pide cerrar sus otras
+    # sesiones: un token con otra versión deja de valer (backend/auth.py). Los
+    # tokens de antes no la traen y cuentan como 0. Columna AÑADIDA: migrate.py.
+    token_version: int = Field(default=0)
+    # "Irme unos días": cuándo se borra la cuenta (UTC naive). NULL = no se va.
+    # La borra scripts/purge_accounts.py (backend/accounts.py). Columna AÑADIDA.
+    delete_after: Optional[datetime] = Field(default=None)
+
 
 class UserModule(SQLModel, table=True):
     """

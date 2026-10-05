@@ -5,6 +5,7 @@ siguen a los maxlength de los formularios, así que usando la app nunca se alcan
 """
 from datetime import date, timedelta
 
+import conftest
 from conftest import log_time, utc_now
 
 
@@ -166,3 +167,11 @@ def test_saved_report(api):
     assert api.call("POST", "/api/reports", {"kind": "anual", "period_start": monday.isoformat()})[0] == 422
     assert api.call("POST", "/api/reports", {"kind": "week", "period_start": "lunes"})[0] == 422
     assert api.call("POST", "/api/reports", {"kind": "week", "period_start": (monday + timedelta(days=2)).isoformat()})[0] == 422
+
+
+def test_account_password_and_delete(api):
+    api.login("tope-cuenta@test.com")
+    assert api.call("POST", "/api/auth/me/password", {"current_password": conftest.PASSWORD, "new_password": "corta"})[0] == 422
+    assert api.call("POST", "/api/auth/me/password", {"current_password": conftest.PASSWORD, "new_password": "x" * 129})[0] == 422
+    assert api.call("POST", "/api/auth/me/delete", {"password": conftest.PASSWORD, "mode": "luego"})[0] == 422
+    assert api.call("POST", "/api/auth/me/delete", {"password": conftest.PASSWORD, "mode": "now", "confirm": "x" * 21})[0] == 422

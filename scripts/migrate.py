@@ -60,6 +60,10 @@ MIGRATIONS = [
     # porque create_all() la crea ya completa al arrancar.
     {"table": "reports", "column": "text_model", "type": "VARCHAR", "new_table": True},
     {"table": "reports", "column": "text_note", "type": "VARCHAR", "new_table": True},
+    # Cuentas (BACKLOG 26): cerrar las otras sesiones y borrado programado.
+    # token_version nace en 0: ninguna sesión abierta se cierra al migrar.
+    {"table": "users", "column": "token_version", "type": "INTEGER", "default": 0},
+    {"table": "users", "column": "delete_after", "type": "DATETIME"},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

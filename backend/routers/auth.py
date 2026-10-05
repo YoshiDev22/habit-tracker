@@ -1,6 +1,5 @@
 import os
-from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -8,14 +7,15 @@ from sqlmodel import Session, select
 from backend.database import get_session
 from backend.models import User, UserModule
 from backend.modules import MODULES, resolve as resolve_module
-from backend.schemas import UserCreate, UserUpdate, UserResponse, ModuleState, ModuleUpdate, Token, POMODORO_FIELDS
+from backend.schemas import (UserCreate, UserUpdate, UserResponse, ModuleState, ModuleUpdate, Token, POMODORO_FIELDS,
+                             PasswordChange, AccountDelete, DeletionScheduled, DELETE_CONFIRMATION)
 from backend.auth import (
     verify_password, 
     get_password_hash, 
-    create_access_token,
     get_current_user,
-    ACCESS_TOKEN_EXPIRE_MINUTES
+    token_for,
 )
+from backend.accounts import purge_user, schedule_deletion
 from backend import ratelimit
 
 router = APIRouter(tags=["auth"])
@@ -143,14 +143,8 @@ def login(
             detail="Usuario inactivo"
         )
     
-    # Crear token de acceso
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, 
-        expires_delta=access_token_expires
-    )
-    
-    return {"access_token": access_token, "token_type": "bearer"}
+    # Con el borrado programado sí entra: la app le ofrece conservar la cuenta
+    return {"access_token": token_for(user), "token_type": "bearer"}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -188,6 +182,73 @@ def update_current_user(
     session.commit()
     session.refresh(current_user)
 
+    return user_response(session, current_user)
+
+
+def _check_password(request: Request, user: User, password: str) -> None:
+    """La contraseña actual, con el mismo límite de intentos que el login: sin
+    él, una sesión robada probaría contraseñas aquí sin freno."""
+    ip = ratelimit.client_ip(request)
+    ratelimit.ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.")
+    if not verify_password(password, user.hashed_password):
+        ratelimit.failed_logins.hit(ip)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La contraseña no es correcta")
+
+
+@router.post("/me/password", response_model=Token)
+def change_password(body: PasswordChange, request: Request, session: Session = Depends(get_session),
+                    current_user: User = Depends(get_current_user)):
+    """
+    Cambia la contraseña con la actual. Con `logout_others`, las sesiones de los
+    otros dispositivos dejan de valer (token_version); esta sigue con el token
+    nuevo que se devuelve.
+    """
+    _check_password(request, current_user, body.current_password)
+    if body.new_password == body.current_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="La contraseña nueva es igual a la actual")
+    current_user.hashed_password = get_password_hash(body.new_password)
+    if body.logout_others:
+        current_user.token_version = (current_user.token_version or 0) + 1
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return {"access_token": token_for(current_user), "token_type": "bearer"}
+
+
+@router.post("/me/delete", response_model=DeletionScheduled,
+             responses={204: {"description": "Cuenta borrada (mode=now)"}})
+def delete_account(body: AccountDelete, request: Request, session: Session = Depends(get_session),
+                   current_user: User = Depends(get_current_user)):
+    """
+    Irse. `later` programa el borrado para dentro de 30 días (entrar antes deja
+    conservar la cuenta); `now` borra la cuenta y todo lo suyo al momento, y pide
+    escribir "BORRAR". Las dos piden la contraseña.
+    """
+    _check_password(request, current_user, body.password)
+    if body.mode == "now":
+        if (body.confirm or "").strip().upper() != DELETE_CONFIRMATION:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"Para borrar la cuenta ya, escribe {DELETE_CONFIRMATION}")
+        purge_user(session, current_user)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    schedule_deletion(current_user)
+    if body.logout_others:
+        current_user.token_version = (current_user.token_version or 0) + 1
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return DeletionScheduled(delete_after=current_user.delete_after,
+                             access_token=token_for(current_user) if body.logout_others else None)
+
+
+@router.post("/me/keep", response_model=UserResponse)
+def keep_account(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    """Cancela el borrado programado: la cuenta sigue como estaba."""
+    current_user.delete_after = None
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
     return user_response(session, current_user)
 
 

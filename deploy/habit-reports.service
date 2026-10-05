@@ -1,4 +1,6 @@
-# Generates the automatic weekly and monthly reports (scripts/generate_reports.py).
+# Daily maintenance of Habit Tracker: generates the automatic weekly and monthly
+# reports (scripts/generate_reports.py) and deletes the accounts whose scheduled
+# deletion is due (scripts/purge_accounts.py).
 # A template: replace the user, group and paths with your own, then
 #   sudo cp deploy/habit-reports.service deploy/habit-reports.timer /etc/systemd/system/
 #   sudo systemctl daemon-reload
@@ -7,7 +9,7 @@
 # Its output:           journalctl -u habit-reports.service
 
 [Unit]
-Description=Habit tracker: automatic weekly and monthly reports
+Description=Habit tracker: automatic reports and scheduled account deletions
 
 [Service]
 Type=oneshot
@@ -16,3 +18,4 @@ Group=CHANGE_ME
 # The repo root: DATABASE_URL in backend/.env may be relative to it
 WorkingDirectory=/path/to/habit-tracker
 ExecStart=/path/to/habit-tracker/.venv/bin/python scripts/generate_reports.py
+ExecStart=/path/to/habit-tracker/.venv/bin/python scripts/purge_accounts.py
