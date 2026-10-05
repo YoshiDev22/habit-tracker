@@ -7,6 +7,40 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.22.0] — 2026-10-05
+
+Tu cuenta, en tus manos: cambia la contraseña o bórrala cuando quieras. Y en el plan Maker,
+cada proyecto distingue el presupuesto que te queda del margen que ganas.
+
+### Nuevo
+- **Cambiar contraseña**, en *Mi perfil*: pide la actual y, si quieres, cierra la sesión
+  en tus otros dispositivos.
+- **Borrar mi cuenta**, en *Mi perfil*, de dos formas: **irte 30 días** (puedes volver a
+  entrar y conservarla; pasado el plazo se borra sola) o **borrar ahora**, al momento y sin
+  vuelta atrás. Las dos piden tu contraseña. Se borra todo lo tuyo: hábitos, tableros,
+  tiempo, costos y reportes.
+- **Plan Maker — tipo y precio del proyecto**: en la ficha, *Costeo* pide si el proyecto es
+  personal, un producto o un servicio, y su **precio** (lo que cobras). Un proyecto
+  personal no pide cliente ni precio.
+- **Margen de verdad**: el margen ahora es precio − costo (o la pérdida, si cuesta más de
+  lo que cobras). Lo que antes se llamaba margen (presupuesto − costo) ahora es el
+  **presupuesto disponible**.
+- **Costos**: la tabla trae las columnas *Disponible*, *Precio* (se edita tocando la cifra)
+  y *Margen*, y la gráfica *Costos* se puede **filtrar por proyecto**; la app recuerda cuál
+  elegiste.
+
+### Cambios
+- *Mi perfil* es un menú como el de Configuración: cada opción se abre en su propia
+  pantalla y ‹ vuelve a la lista.
+
+### Para actualizar
+- Correr `python3 scripts/migrate.py` **antes** de reiniciar: agrega a `users` las columnas
+  de las sesiones y del borrado programado, y a `project_finance` el tipo y el precio. Sin
+  eso, la app no arranca.
+- El servicio diario de los reportes ahora también borra las cuentas vencidas: volver a
+  copiar `deploy/habit-reports.service` (tiene un segundo `ExecStart`, con tu usuario y tus
+  rutas) y hacer `sudo systemctl daemon-reload`. El timer no cambia.
+
 ## [1.21.0] — 2026-10-05
 
 Regenerar un reporte ahora te dice que funcionó, y los PDF salen parejos desde cualquier
@@ -577,6 +611,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.22.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.0
 [1.21.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.21.0
 [1.20.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.1
 [1.20.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.0
