@@ -1402,6 +1402,9 @@ body.has-pomodoro-bar {
 
 .modal-close {
     position: absolute;
+    /* Above the headers that come after it and are position: relative
+       (.settings-head, .saved-report-head): they were covering it */
+    z-index: 2;
     top: 16px;
     right: 16px;
     background: none;
