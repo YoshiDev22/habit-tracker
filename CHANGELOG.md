@@ -7,6 +7,20 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.22.1] — 2026-10-07
+
+### Correcciones
+- La **×** para cerrar Configuración, Mi perfil y Reportes guardados no respondía al tocarla
+  en el centro, solo en su borde derecho (en el teléfono, a veces ni ahí). Ahora responde
+  en todo el botón.
+- Un reporte guardado dice si se generó **manualmente** o **automáticamente** ("generado
+  manualmente el 7 oct, 03:06 p.m."), en vez del "(a mano)" que parecía una nota sobre la
+  hora.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: basta con `git pull` y reiniciar el
+servicio.
+
 ## [1.22.0] — 2026-10-05
 
 Tu cuenta, en tus manos: cambia la contraseña o bórrala cuando quieras. Y en el plan Maker,
@@ -611,6 +625,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.22.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.1
 [1.22.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.0
 [1.21.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.21.0
 [1.20.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.20.1
