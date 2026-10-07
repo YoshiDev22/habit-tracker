@@ -5,6 +5,7 @@ require_module(..., "maker"): sin el plan encendido, 403.
 
 Las rutas literales (/categories, /summary, /import) van antes que /{cost_id}.
 """
+from datetime import date as date_type
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,18 +14,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.auth import get_current_user
-from backend.costing import costs_cents_by_project, estimates_for_tasks, labor_cents, line_total_cents, margin_cents
+from backend.costing import costs_summary, estimates_for_tasks, line_total_cents
 from backend.database import get_session
-from backend.models import CostCategory, PomodoroSession, Project, ProjectCost, ProjectFinance, User
+from backend.models import CostCategory, Project, ProjectCost, ProjectFinance, User
 from backend.routers.auth import require_module
 from backend.schemas import (
     CostCategoryCreate,
     CostCategoryListResponse,
     CostCategoryResponse,
     CostCategoryUpdate,
-    CostsCategorySummary,
-    CostsCurrencyTotal,
-    CostsProjectSummary,
     CostsSummaryResponse,
     EstimateDeviation,
     ProjectCostCreate,
@@ -228,85 +226,17 @@ def delete_cost_category(category_id: int, session: Session = Depends(get_sessio
 # ==================== Resumen ====================
 
 @router.get("/summary", response_model=CostsSummaryResponse)
-def get_costs_summary(session: Session = Depends(get_session), user: User = Depends(maker_user)):
+def get_costs_summary(date_from: Optional[date_type] = None, date_to: Optional[date_type] = None,
+                      session: Session = Depends(get_session), user: User = Depends(maker_user)):
     """
     Resumen de la pestaña Costos: cada proyecto activo (y los archivados con
     costeo o gastos) con horas, mano de obra, gastos, costo, presupuesto y
     margen; el gasto por categoría; y los totales por moneda. Nunca se suman
-    monedas distintas.
+    monedas distintas. Con date_from/date_to, el tiempo y los gastos de ese
+    rango (el reporte de costos y la entrada 29 del BACKLOG).
     """
     ensure_cost_categories(session, user.id)
-    projects = session.exec(
-        select(Project).where(Project.user_id == user.id, Project.is_system == False)  # noqa: E712
-        .order_by(Project.order, Project.id)
-    ).all()
-    finances = {f.project_id: f for f in session.exec(select(ProjectFinance).where(ProjectFinance.user_id == user.id)).all()}
-    costs = session.exec(select(ProjectCost).where(ProjectCost.user_id == user.id)).all()
-    seconds = dict(session.exec(
-        select(PomodoroSession.project_id, func.sum(PomodoroSession.duration_seconds))
-        .where(PomodoroSession.user_id == user.id, PomodoroSession.mode == "focus")
-        .group_by(PomodoroSession.project_id)
-    ).all())
-    costs_by_project = costs_cents_by_project(session, user.id)
-
-    rows: List[CostsProjectSummary] = []
-    currency_of: Dict[int, str] = {}
-    for p in projects:
-        finance = finances.get(p.id)
-        costs_cents = costs_by_project.get(p.id, 0)
-        if not p.is_active and finance is None and not costs_cents:
-            continue
-        currency = finance.currency if finance else "MXN"
-        currency_of[p.id] = currency
-        total_seconds = seconds.get(p.id, 0) or 0
-        rate = finance.hourly_rate_cents if finance else None
-        labor = labor_cents(total_seconds, rate)
-        total_cost = (labor or 0) + costs_cents
-        budget = finance.budget_cents if finance else None
-        budget_minutes = finance.budget_minutes if finance else None
-        rows.append(CostsProjectSummary(
-            project_id=p.id, name=p.name, color=p.color, is_active=p.is_active, currency=currency,
-            total_seconds=total_seconds, hourly_rate_cents=rate, labor_cents=labor,
-            costs_cents=costs_cents, total_cost_cents=total_cost, budget_cents=budget,
-            budget_left_cents=budget - total_cost if budget is not None else None,
-            kind=finance.kind if finance else None,
-            price_cents=finance.price_cents if finance else None,
-            margin_cents=margin_cents(finance.price_cents if finance else None, total_cost),
-            is_quote=bool(budget or budget_minutes) and total_seconds == 0,
-        ))
-
-    categories = {c.id: c for c in session.exec(select(CostCategory).where(CostCategory.user_id == user.id)).all()}
-    by_category: Dict[tuple, int] = {}
-    by_project_category: Dict[int, Dict[int, int]] = {}
-    for cost in costs:
-        if cost.project_id not in currency_of:
-            continue
-        cents = line_total_cents(cost.quantity, cost.unit_cost_cents)
-        key = (cost.category_id, currency_of[cost.project_id])
-        by_category[key] = by_category.get(key, 0) + cents
-        per_project = by_project_category.setdefault(cost.project_id, {})
-        per_project[cost.category_id] = per_project.get(cost.category_id, 0) + cents
-    for row in rows:
-        row.categories = [{"category_id": cid, "cents": cents}
-                          for cid, cents in sorted(by_project_category.get(row.project_id, {}).items(),
-                                                   key=lambda item: -item[1])]
-    category_rows = sorted(
-        (CostsCategorySummary(category_id=cid, name=categories[cid].name, color=categories[cid].color,
-                              currency=currency, cents=cents)
-         for (cid, currency), cents in by_category.items() if cid in categories),
-        key=lambda c: (c.currency, -c.cents, c.name),
-    )
-
-    totals: Dict[str, CostsCurrencyTotal] = {}
-    for row in rows:
-        t = totals.setdefault(row.currency, CostsCurrencyTotal(
-            currency=row.currency, labor_cents=0, costs_cents=0, total_cost_cents=0, budget_cents=0))
-        t.labor_cents += row.labor_cents or 0
-        t.costs_cents += row.costs_cents
-        t.total_cost_cents += row.total_cost_cents
-        t.budget_cents += row.budget_cents or 0
-    return CostsSummaryResponse(projects=rows, categories=category_rows,
-                                totals=sorted(totals.values(), key=lambda t: t.currency))
+    return costs_summary(session, user.id, date_from, date_to)
 
 
 @router.get("/estimates", response_model=EstimateDeviation)

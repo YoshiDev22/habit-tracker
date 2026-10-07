@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 DEFAULT_DAILY_LIMIT = 10
+# Los reportes de costos llevan su propio contador (AI_COSTS_DAILY_LIMIT)
+DEFAULT_COSTS_DAILY_LIMIT = 10
 DEFAULT_TIMEOUT = 60
 
 
@@ -39,6 +41,7 @@ class AiConfig:
     model: str
     daily_limit: int
     timeout: int
+    costs_daily_limit: int = DEFAULT_COSTS_DAILY_LIMIT
 
     @property
     def uses_training_free_tier(self) -> bool:
@@ -67,6 +70,7 @@ def ai_config() -> Optional[AiConfig]:
         model=model,
         daily_limit=_int_env("AI_DAILY_LIMIT", DEFAULT_DAILY_LIMIT),
         timeout=_int_env("AI_TIMEOUT", DEFAULT_TIMEOUT) or DEFAULT_TIMEOUT,
+        costs_daily_limit=_int_env("AI_COSTS_DAILY_LIMIT", DEFAULT_COSTS_DAILY_LIMIT),
     )
 
 

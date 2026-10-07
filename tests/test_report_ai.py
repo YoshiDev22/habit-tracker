@@ -260,7 +260,7 @@ def test_ai_usage(api, provider):
     assert api.call("GET", "/api/reports/ai-usage")[0] == 403
     grant("ia@test.com")
     _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
-    assert usage == {"configured": True, "limit": 3, "used_today": 0, "remaining": 3}
+    assert usage == {"pool": "report", "configured": True, "limit": 3, "used_today": 0, "remaining": 3}
     generate(api)
     _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
     assert usage["used_today"] == 1 and usage["remaining"] == 2

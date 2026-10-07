@@ -1166,7 +1166,7 @@ class YearDaysResponse(SQLModel):
 
 # ==================== Reportes guardados (épica 30, Fase 4) ====================
 
-REPORT_KINDS = ("week", "month")
+from backend.report_kinds import KINDS as REPORT_KINDS  # noqa: E402  (tiempo, hábitos y costos)
 
 
 class ReportCreate(SQLModel):
@@ -1188,6 +1188,8 @@ class ReportSummary(SQLModel):
     """Una fila de la lista: sin cifras ni texto"""
     id: int
     kind: str
+    subject: str = "time"       # time | habits | costs (backend/report_kinds.py)
+    headline: str = ""          # la cifra de la fila: "12h 30m", "82 % de cumplimiento", "$1,250.00 MXN"
     period_start: date_type
     period_end: date_type
     through: date_type

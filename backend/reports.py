@@ -8,6 +8,10 @@ Periodos: la semana va de lunes a domingo, como la pestaña Reportes, y el mes
 del día 1 al último. El automático sale cuando el periodo ya terminó en la
 fecha LOCAL del usuario: el lunes, el de la semana anterior; el día 1, el del
 mes anterior.
+
+Temas (1.23, backend/report_kinds.py): tiempo (las cifras de metrics.py),
+hábitos (habit_report.py) y costos (cost_report.py). Cada uno pone sus cifras
+y su texto de reglas; guardar, la IA y el timer son lo mismo para los tres.
 """
 import calendar as calendar_module
 from datetime import date as date_type, datetime, timedelta
@@ -16,14 +20,16 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, select
 
+from backend.cost_report import build_costs_text, cost_metrics, has_cost_activity
 from backend.days import DEFAULT_TIMEZONE, user_settings, valid_timezone, work_calendar
+from backend.habit_report import build_habit_text, habit_metrics, has_habit_activity, weeks_of_month as habit_weeks
 from backend.metrics import compute_metrics
 from backend.models import PomodoroSession, Report, User, utc_now_naive
 from backend.ai import AiError, ai_config
 from backend.report_ai import write_with_ai
+from backend.report_kinds import KINDS, MODULE, period_of, subject_of
 from backend.report_text import build_text
 
-KINDS = ("week", "month")
 # Si el timer no corrió (servidor apagado), cuántos periodos hacia atrás pone al día
 CATCH_UP = {"week": 4, "month": 2}
 # Del periodo anterior se guarda lo que el reporte compara (la tabla de
@@ -36,7 +42,7 @@ PREVIOUS_FIELDS = ("total_seconds", "days", "workdays", "active_days", "active_w
 
 def period_bounds(kind: str, day: date_type) -> Tuple[date_type, date_type]:
     """El periodo de ese tipo que contiene `day`: (inicio, fin), los dos incluidos."""
-    if kind == "week":
+    if period_of(kind) == "week":
         start = day - timedelta(days=day.weekday())
         return start, start + timedelta(days=6)
     start = day.replace(day=1)
@@ -132,10 +138,24 @@ def projection(days: List[dict], total: int) -> Optional[int]:
     return total + round(sum(worked) / len(worked)) * remaining
 
 
-def ai_enabled(session: Session, user: User) -> bool:
+def _modules(session: Session, user: User) -> dict:
     # Importado aquí: routers.auth importa la app de rutas, no al revés
     from backend.routers.auth import user_modules
-    return user_modules(session, user.id)["ai"]["enabled"]
+    return user_modules(session, user.id)
+
+
+def ai_enabled(session: Session, user: User) -> bool:
+    return _modules(session, user)["ai"]["enabled"]
+
+
+def rules_text(kind: str, metrics: dict) -> dict:
+    """El texto con reglas del tema del reporte."""
+    subject = subject_of(kind)
+    if subject == "habits":
+        return build_habit_text(period_of(kind), metrics)
+    if subject == "costs":
+        return build_costs_text(metrics)
+    return build_text(kind, metrics)
 
 
 def write_text(session: Session, user: User, report: Report, use_ai: bool) -> Report:
@@ -144,7 +164,7 @@ def write_text(session: Session, user: User, report: Report, use_ai: bool) -> Re
     la tiene encendida y responde bien; si no, el de las reglas, con el motivo
     en text_note cuando la IA debía escribirlo. No hace commit.
     """
-    report.text = build_text(report.kind, report.metrics)
+    report.text = rules_text(report.kind, report.metrics)
     report.text_source, report.text_model, report.text_note = "rules", None, None
     if not use_ai or not ai_enabled(session, user):
         return report
@@ -169,18 +189,7 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     escribe el texto (write_text).
     """
     start, end = period_bounds(kind, period_start)
-    metrics = compute_metrics(session, user, start, end, today)
-    prev_start, prev_end = previous_period(kind, start)
-    metrics["previous"] = previous_summary(compute_metrics(session, user, prev_start, prev_end, today))
-    # Lo que solo usa el reporte (no GET /api/metrics): el estado de cada día,
-    # las semanas del mes, la proyección al cierre y el total sin lo dudoso
-    metrics["kind"] = kind
-    metrics["today"] = today.isoformat()
-    metrics["days_detail"] = days_detail(session, user, start, end, today,
-                                         {d["date"]: d["seconds"] for d in metrics["by_day"]})
-    metrics["by_week"] = weeks_of_month(metrics["days_detail"], today) if kind == "month" else None
-    metrics["projected_seconds"] = projection(metrics["days_detail"], metrics["total_seconds"])
-    metrics["total_without_unconfirmed_seconds"] = metrics["total_seconds"] - metrics["unconfirmed_seconds"]
+    metrics = report_metrics(session, user, kind, start, end, today)
 
     report = session.exec(select(Report).where(
         Report.user_id == user.id, Report.kind == kind, Report.period_start == start)).first()
@@ -198,7 +207,32 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     return report
 
 
-def _has_activity(session: Session, user_id: int, start: date_type, end: date_type) -> bool:
+def report_metrics(session: Session, user: User, kind: str, start: date_type, end: date_type,
+                   today: date_type) -> dict:
+    """Las cifras que congela el reporte, según su tema."""
+    subject = subject_of(kind)
+    if subject == "habits":
+        metrics = habit_metrics(session, user, start, end, today)
+        metrics["by_week"] = habit_weeks(metrics) if period_of(kind) == "month" else None
+    elif subject == "costs":
+        metrics = cost_metrics(session, user, start, end, today)
+    else:
+        metrics = compute_metrics(session, user, start, end, today)
+        prev_start, prev_end = previous_period(kind, start)
+        metrics["previous"] = previous_summary(compute_metrics(session, user, prev_start, prev_end, today))
+        # Lo que solo usa el reporte (no GET /api/metrics): el estado de cada día,
+        # las semanas del mes, la proyección al cierre y el total sin lo dudoso
+        metrics["days_detail"] = days_detail(session, user, start, end, today,
+                                             {d["date"]: d["seconds"] for d in metrics["by_day"]})
+        metrics["by_week"] = weeks_of_month(metrics["days_detail"], today) if kind == "month" else None
+        metrics["projected_seconds"] = projection(metrics["days_detail"], metrics["total_seconds"])
+        metrics["total_without_unconfirmed_seconds"] = metrics["total_seconds"] - metrics["unconfirmed_seconds"]
+    metrics["kind"] = kind
+    metrics["today"] = today.isoformat()
+    return metrics
+
+
+def _has_time(session: Session, user_id: int, start: date_type, end: date_type) -> bool:
     return session.exec(select(PomodoroSession.id).where(
         PomodoroSession.user_id == user_id,
         PomodoroSession.mode == "focus",
@@ -207,11 +241,21 @@ def _has_activity(session: Session, user_id: int, start: date_type, end: date_ty
     ).limit(1)).first() is not None
 
 
+def _has_activity(session: Session, user_id: int, kind: str, start: date_type, end: date_type) -> bool:
+    """¿Hay algo que reportar? Tiempo registrado, un hábito marcado o un gasto."""
+    subject = subject_of(kind)
+    if subject == "habits":
+        return has_habit_activity(session, user_id, start, end)
+    if subject == "costs":
+        return has_cost_activity(session, user_id, start, end)
+    return _has_time(session, user_id, start, end)
+
+
 def due_periods(kind: str, today: date_type) -> List[date_type]:
     """Inicios de los últimos periodos ya terminados, del más viejo al más nuevo."""
     starts = []
     start, _ = period_bounds(kind, today)
-    for _ in range(CATCH_UP[kind]):
+    for _ in range(CATCH_UP[period_of(kind)]):
         start, _ = previous_period(kind, start)
         starts.append(start)
     return sorted(starts)
@@ -220,19 +264,24 @@ def due_periods(kind: str, today: date_type) -> List[date_type]:
 def missing_reports(session: Session, user: User, today: date_type) -> List[Tuple[str, date_type]]:
     """
     Los reportes automáticos que le faltan a un usuario, como (tipo, inicio):
-    periodos ya terminados (en su fecha local), con algún registro de tiempo y
-    sin reporte completo. Uno generado a medio periodo con el botón cuenta
-    como faltante: se rehace con el periodo entero.
+    periodos ya terminados (en su fecha local), con algo que reportar y sin
+    reporte completo. Uno generado a medio periodo con el botón cuenta como
+    faltante: se rehace con el periodo entero. Los de hábitos y costos, solo
+    con su módulo encendido.
     """
     missing = []
+    modules = _modules(session, user)
     for kind in KINDS:
+        module = MODULE[subject_of(kind)]
+        if module and not modules[module]["enabled"]:
+            continue
         for start in due_periods(kind, today):
             _, end = period_bounds(kind, start)
             existing = session.exec(select(Report).where(
                 Report.user_id == user.id, Report.kind == kind, Report.period_start == start)).first()
             if existing is not None and existing.through >= end:
                 continue
-            if _has_activity(session, user.id, start, end):
+            if _has_activity(session, user.id, kind, start, end):
                 missing.append((kind, start))
     return missing
 

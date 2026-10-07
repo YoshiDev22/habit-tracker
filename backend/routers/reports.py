@@ -16,7 +16,9 @@ from backend.database import get_session
 from backend.dates import resolve_client_today
 from backend.metrics import compute_metrics
 from backend.models import Report, User, utc_now_naive
-from backend.report_ai import ai_preview, calls_today, write_with_ai
+from backend.cost_report import money
+from backend.report_ai import ai_preview, ai_usage as usage_of, calls_today, write_with_ai
+from backend.report_kinds import AI_POOL, subject_of
 from backend.reports import previous_summary, generate_report, is_period_start, period_bounds, previous_period
 from backend.routers.auth import require_module, user_modules
 from backend.schemas import ReportCreate, ReportListResponse, ReportResponse, ReportSummary
@@ -51,8 +53,29 @@ def _check_cooldown(report: Optional[Report]) -> None:
                             headers={"Retry-After": str(wait)})
 
 
+def _headline(report: Report) -> str:
+    """La cifra que enseña la fila de la lista, según el tema."""
+    m = report.metrics or {}
+    subject = subject_of(report.kind)
+    if subject == "habits":
+        pct = m.get("completion_pct")
+        return f"{pct} % de cumplimiento" if pct is not None else "Sin hábitos que marcar"
+    if subject == "costs":
+        totals = [money(t["total_cost_cents"], t["currency"]) for t in m.get("currencies") or []]
+        return " · ".join(totals) or "Sin costos"
+    seconds = m.get("total_seconds", 0)
+    return f"{seconds // 3600}h {seconds % 3600 // 60:02d}m"
+
+
+def _require_subject(session: Session, user: User, kind: str) -> None:
+    """Los de costos son del plan Maker: el acceso se comprueba aquí, no solo en la UI."""
+    if subject_of(kind) == "costs":
+        require_module(session, user, "maker")
+
+
 def _summary_fields(report: Report) -> dict:
-    return dict(id=report.id, kind=report.kind, period_start=report.period_start,
+    return dict(id=report.id, kind=report.kind, subject=subject_of(report.kind), headline=_headline(report),
+                period_start=report.period_start,
                 period_end=report.period_end, through=report.through,
                 total_seconds=(report.metrics or {}).get("total_seconds", 0),
                 trigger=report.trigger, text_source=report.text_source, text_model=report.text_model,
@@ -78,10 +101,12 @@ def list_reports(session: Session = Depends(get_session), current_user: User = D
 def create_report(body: ReportCreate, session: Session = Depends(get_session),
                   current_user: User = Depends(get_current_user)):
     """
-    Genera el reporte de una semana (desde su lunes) o un mes (desde su día 1).
-    Si ya había uno de ese periodo, lo reemplaza. Un periodo en curso se
-    calcula hasta hoy; uno que aún no empieza no se puede generar.
+    Genera el reporte de una semana (desde su lunes) o un mes (desde su día 1),
+    de tiempo, hábitos o costos (`kind`). Si ya había uno de ese periodo, lo
+    reemplaza. Un periodo en curso se calcula hasta hoy; uno que aún no empieza
+    no se puede generar.
     """
+    _require_subject(session, current_user, body.kind)
     today = resolve_client_today(body.today)
     if not is_period_start(body.kind, body.period_start):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -97,17 +122,18 @@ def create_report(body: ReportCreate, session: Session = Depends(get_session),
 
 
 @router.get("/ai-usage")
-def ai_usage(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> dict:
-    """Cuántos textos con IA lleva hoy la cuenta y cuántos le quedan (día UTC).
-    Para las cuentas con acceso al módulo."""
+def ai_usage(subject: str = "time", session: Session = Depends(get_session),
+             current_user: User = Depends(get_current_user)) -> dict:
+    """Cuántos textos con IA lleva hoy la cuenta y cuántos le quedan (día UTC),
+    en el contador de ese tema: tiempo y hábitos comparten uno, costos tiene el
+    suyo. Para las cuentas con acceso al módulo."""
     if not user_modules(session, current_user.id)["ai"]["allowed"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Tu cuenta todavía no tiene acceso a este módulo.")
-    config = ai_config()
-    used = calls_today(session, current_user.id)
-    limit = config.daily_limit if config else None
-    return {"configured": config is not None, "limit": limit, "used_today": used,
-            "remaining": max(0, limit - used) if config else None}
+    if subject not in AI_POOL:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"subject debe ser uno de: {', '.join(AI_POOL)}")
+    return usage_of(session, current_user.id, AI_POOL[subject], ai_config())
 
 
 @router.get("/ai-preview")
@@ -166,6 +192,7 @@ def rewrite_with_ai(report_id: int, session: Session = Depends(get_session),
     report = session.exec(select(Report).where(Report.id == report_id, Report.user_id == current_user.id)).first()
     if report is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reporte no encontrado")
+    _require_subject(session, current_user, report.kind)
     require_module(session, current_user, "ai")
     _check_cooldown(report)
     config = ai_config()
