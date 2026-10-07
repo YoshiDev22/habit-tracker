@@ -91,12 +91,12 @@ async def main():
         await b.js("document.getElementById('savedReportBtn').click()")
         await b.wait_for("document.getElementById('savedReportMeta').textContent.includes('1 ene')")
         meta = await b.js("document.getElementById('savedReportMeta').textContent")
-        check("automático" in meta, f"an aged automatic report shows its old time ({meta})")
+        check("generado automáticamente" in meta, f"an aged automatic report shows its old time ({meta})")
         await b.js("document.getElementById('savedReportRegenerate').click()")
         # Mientras se genera, la línea queda vacía: se espera la nueva, no solo que se vaya la vieja
-        await b.wait_for("document.getElementById('savedReportMeta').textContent.includes('a mano')")
+        await b.wait_for("document.getElementById('savedReportMeta').textContent.includes('manualmente')")
         meta = await b.js("document.getElementById('savedReportMeta').textContent")
-        check("a mano" in meta and "1 ene" not in meta, f"regenerating updates the time and says 'a mano' ({meta})")
+        check("generado manualmente" in meta and "1 ene" not in meta, f"regenerating updates the time and says 'manualmente' ({meta})")
         status = await b.js("document.getElementById('savedReportStatus').textContent")
         check(status.startswith("Reporte generado ✓"), f"regenerating says it worked ({status})")
 

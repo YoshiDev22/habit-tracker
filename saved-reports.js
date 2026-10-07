@@ -61,7 +61,8 @@ function savedMetaText(report) {
     const when = made.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     const parts = [periodSentence(report)];
     if (report.through < report.period_end) parts.push(`con corte al ${longDay(report.through)}`);
-    parts.push(`generado el ${when} (${report.trigger === 'auto' ? 'automático' : 'a mano'})`);
+    // Quién hizo la última generación: el timer, o el usuario (generar, regenerar o reescribir)
+    parts.push(`generado ${report.trigger === 'auto' ? 'automáticamente' : 'manualmente'} el ${when}`);
     parts.push(report.text_source === 'ai' ? `texto de IA (${report.text_model})` : 'texto de reglas');
     return parts.join(' · ');
 }
