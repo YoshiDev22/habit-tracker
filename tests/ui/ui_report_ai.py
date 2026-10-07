@@ -70,6 +70,19 @@ async def main():
         st = await b.js("({note: document.getElementById('savedReportError').textContent,"
                         " cards: document.querySelectorAll('#savedReportBody .report-card').length})")
         check("no está configurada" in st["note"] and st["cards"] >= 3, f"rewriting without a provider says so and keeps the report ({st})")
+
+        # Con proveedor (simulado: las pruebas no tienen), el reporte dice cuántos textos quedan hoy
+        await b.js("""(() => {
+            const real = window.apiFetch;
+            window.apiFetch = (path, options) => path === '/api/reports/ai-usage'
+                ? Promise.resolve({configured: true, limit: 10, used_today: 3, remaining: 7})
+                : real(path, options);
+        })()""")
+        await b.js("refreshAiUsage()")
+        await b.wait_for("!document.getElementById('savedReportAiUsage').hidden")
+        st = await b.js("({text: document.getElementById('savedReportAiUsage').textContent,"
+                        " seen: document.getElementById('savedReportAiUsage').offsetHeight > 0})")
+        check(st["text"] == "IA: te quedan 7 de 10 textos hoy." and st["seen"], f"the report says how many AI texts are left today ({st})")
     finally:
         await b.close()
 
