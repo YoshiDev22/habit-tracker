@@ -180,6 +180,10 @@ def write_text(session: Session, user: User, report: Report, use_ai: bool) -> Re
     return report
 
 
+class AiTextFailed(Exception):
+    """Regenerar a mano con la IA falló: el reporte guardado no se tocó."""
+
+
 def generate_report(session: Session, user: User, kind: str, period_start: date_type,
                     today: date_type, trigger: str = "manual", use_ai: bool = True) -> Report:
     """
@@ -187,18 +191,33 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     ya existía, lo reemplaza (mismo id): así se corrige un reporte después de
     arreglar registros, y el timer no duplica. Con la IA encendida, ella
     escribe el texto (write_text).
+
+    Al regenerar a mano uno que ya existe, si la IA debía escribirlo y falló,
+    no se guarda nada (ni cifras, ni texto, ni fecha) y se lanza AiTextFailed:
+    la fecha de "generado" dice siempre cuándo salió bien. Uno nuevo, o el del
+    timer, se guarda con el texto de reglas y el motivo en text_note.
     """
     start, end = period_bounds(kind, period_start)
     metrics = report_metrics(session, user, kind, start, end, today)
+    metrics_through = date_type.fromisoformat(metrics["through"])
 
+    # El texto se escribe en un borrador fuera de la sesión: la llamada a la IA
+    # hace commit (ai_calls) y no debe arrastrar cambios a medias del reporte
+    draft = Report(user_id=user.id, kind=kind, period_start=start, period_end=end,
+                   through=metrics_through, metrics=metrics)
+    write_text(session, user, draft, use_ai)
     report = session.exec(select(Report).where(
         Report.user_id == user.id, Report.kind == kind, Report.period_start == start)).first()
+    if (report is not None and trigger == "manual" and draft.text_source == "rules" and draft.text_note
+            and ai_config() is not None):
+        raise AiTextFailed(draft.text_note)
     if report is None:
         report = Report(user_id=user.id, kind=kind, period_start=start, period_end=end, through=start)
-    report.through = date_type.fromisoformat(metrics["through"])
+    report.through = metrics_through
     # Reasignar el dict entero: los JSON no son MutableDict (ver CLAUDE.md)
     report.metrics = metrics
-    write_text(session, user, report, use_ai)
+    report.text = draft.text
+    report.text_source, report.text_model, report.text_note = draft.text_source, draft.text_model, draft.text_note
     report.trigger = trigger
     report.created_at = utc_now_naive()
     session.add(report)

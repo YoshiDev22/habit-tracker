@@ -155,8 +155,9 @@ def test_time_and_habits_share_a_counter_costs_has_its_own(api, provider, monkey
     assert generate(api, "habits-week", MON)["text_source"] == "ai"
     first = generate(api, "costs-month", TODAY.replace(day=1))
     assert first["text_source"] == "ai"
-    again = generate(api, "costs-month", TODAY.replace(day=1))
-    assert again["text_source"] == "rules" and "costos" in again["text_note"]
+    status, err = api.call("POST", "/api/reports", {"kind": "costs-month", "period_start": TODAY.replace(day=1).isoformat(),
+                                                    "today": TODAY.isoformat()})
+    assert status == 502 and "costos" in err["detail"]
 
     _, time_usage = api.call("GET", "/api/reports/ai-usage?subject=habits", expect=200)
     _, costs_usage = api.call("GET", "/api/reports/ai-usage?subject=costs", expect=200)
@@ -166,6 +167,15 @@ def test_time_and_habits_share_a_counter_costs_has_its_own(api, provider, monkey
     # Each subject sends its own instructions
     assert provider["sent"][0]["report"] == "habits" and provider["sent"][1]["report"] == "costs"
     assert "total_cost_amount" in json.dumps(provider["sent"][1])
+
+
+def test_ai_may_leave_the_warning_empty(api, provider):  # noqa: F811
+    """Hábitos y costos piden «data_cleanup» vacío si no hay nada que advertir."""
+    provider["reply"] = json.dumps({**PLAIN, "data_cleanup": ""}, ensure_ascii=False)
+    costs_setup(api, "vacio@test.com")
+    grant("vacio@test.com")
+    rep = generate(api, "costs-month", TODAY.replace(day=1))
+    assert rep["text_source"] == "ai" and rep["text"]["data_cleanup"] == ""
 
 
 def test_days_before_any_habit_do_not_count(api):

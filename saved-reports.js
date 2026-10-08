@@ -24,6 +24,7 @@ const savedBack = document.getElementById('savedReportBack');
 const savedReportBtn = document.getElementById('savedReportBtn');
 const savedRegenerate = document.getElementById('savedReportRegenerate');
 const savedRewrite = document.getElementById('savedReportRewrite');
+const savedRules = document.getElementById('savedReportRules');
 const savedStatus = document.getElementById('savedReportStatus');
 const savedAiUsage = document.getElementById('savedReportAiUsage');
 const PRINT_CHART_WIDTH = 680;   // ancho de las gráficas al imprimir: el de una hoja, no el de la pantalla
@@ -75,8 +76,15 @@ function savedMetaText(report) {
     if (report.through < report.period_end) parts.push(`con corte al ${longDay(report.through)}`);
     // Quién hizo la última generación: el timer, o el usuario (generar, regenerar o reescribir)
     parts.push(`generado ${report.trigger === 'auto' ? 'automáticamente' : 'manualmente'} el ${when}`);
-    parts.push(report.text_source === 'ai' ? `texto de IA (${report.text_model})` : 'texto de reglas');
     return parts.join(' · ');
+}
+
+// "✨ Texto de IA" o "Texto de reglas": que se vea de un vistazo quién escribió el texto
+function sourceBadge(report) {
+    const ai = report.text_source === 'ai';
+    const badge = el('span', `saved-source ${ai ? 'ai' : 'rules'}`, ai ? '✨ Texto de IA' : 'Texto de reglas');
+    if (ai && report.text_model) badge.title = report.text_model;
+    return badge;
 }
 
 function aiOn() {
@@ -743,8 +751,9 @@ function showSavedReport(report) {
     savedState.current = report;
     savedState.readyAt = Date.now() + (report.regenerate_in || 0) * 1000;
     savedTitle.textContent = reportTitle(report.kind);
-    savedMeta.textContent = savedMetaText(report);
+    savedMeta.replaceChildren(document.createTextNode(`${savedMetaText(report)} `), sourceBadge(report));
     savedActions.hidden = false;
+    savedRules.hidden = true;
     savedRewrite.hidden = !aiOn();
     savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir con IA otra vez' : 'Reescribir con IA';
     savedBack.hidden = !savedState.fromList;
@@ -813,7 +822,7 @@ function renderSavedList() {
         button.dataset.id = String(report.id);
         const text = el('span', 'saved-report-row-text');
         text.append(el('strong', '', savedPeriodLabel(report)),
-            el('small', '', `${reportTitle(report.kind)} · ${report.headline}`));
+            el('small', '', `${reportTitle(report.kind)} · ${report.headline} · ${report.text_source === 'ai' ? '✨ IA' : 'reglas'}`));
         button.append(text, el('span', 'settings-item-go', '›'));
         item.appendChild(button);
         return item;
@@ -845,7 +854,7 @@ async function openSavedReportById(id) {
 // Genera (o regenera) el reporte de un periodo y lo muestra
 // Genera el reporte de un periodo. Si ya hay uno abierto (Regenerar), se queda
 // a la vista mientras tanto, y si falla (p. ej. la espera) no se pierde.
-async function generateSavedReport(kind, periodStart) {
+async function generateSavedReport(kind, periodStart, useAi = true) {
     const regenerating = Boolean(savedState.current);
     showSavedError(null);
     if (regenerating) {
@@ -858,13 +867,18 @@ async function generateSavedReport(kind, periodStart) {
     try {
         const report = await apiFetch('/api/reports', {
             method: 'POST',
-            json: { kind, period_start: periodStart, today: getDateKey(new Date()) },
+            json: { kind, period_start: periodStart, today: getDateKey(new Date()), use_ai: useAi },
         });
         showSavedReport(report);
         showSavedStatus(`Reporte generado ✓ ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
     } catch (error) {
         if (error.status === 429) showSavedStatus(error.message);
         else showSavedError(error.message);
+        // La IA falló al regenerar: el reporte de antes sigue igual (su fecha también)
+        if (error.status === 502 && regenerating) {
+            savedRules.hidden = false;
+            refreshAiUsage(kindSubject(kind));
+        }
     } finally {
         savedState.busy = false;
         savedRegenerate.disabled = false;
@@ -971,6 +985,12 @@ savedRegenerate.addEventListener('click', () => {
     const report = savedState.current;
     if (!report || blockedByCooldown()) return;
     generateSavedReport(report.kind, report.period_start);
+});
+
+savedRules.addEventListener('click', () => {
+    const report = savedState.current;
+    if (!report || blockedByCooldown()) return;
+    generateSavedReport(report.kind, report.period_start, false);
 });
 
 savedRewrite.addEventListener('click', async () => {

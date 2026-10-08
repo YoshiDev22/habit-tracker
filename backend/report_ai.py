@@ -261,7 +261,8 @@ def validate_text(content: str, payload: dict) -> dict:
         raise AiError("La IA no respetó «closing»")
     text = {
         "summary": _text(data.get("summary"), MAX_SUMMARY, "summary"),
-        "data_cleanup": _text(data.get("data_cleanup"), MAX_ITEM, "data_cleanup"),
+        # Vacía vale: hábitos y costos la piden vacía cuando no hay nada que advertir
+        "data_cleanup": _text(data.get("data_cleanup"), MAX_ITEM, "data_cleanup", allow_empty=True),
         **{field: _items(data.get(field), limit, field) for field, limit in LIST_LIMITS.items()},
         "comparison": _text(data.get("comparison"), MAX_ITEM, "comparison", allow_empty=True),
         "closing": {"well_done": _text(closing.get("well_done"), MAX_ITEM, "well_done"),

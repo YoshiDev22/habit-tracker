@@ -96,19 +96,27 @@ def test_invented_numbers_fall_back_to_rules(api, provider, monkeypatch):
     setup(api)
     grant("ia@test.com")
     provider["reply"] = json.dumps({**GOOD, "closing": {"well_done": "Trabajaste 37 h este mes.", "tip": "Sigue."}})
+    # Un reporte nuevo se guarda con las reglas y dice por qué
     rep = generate(api)
     assert rep["text_source"] == "rules" and "37" in rep["text_note"]
     assert rep["text"]["summary"].startswith("Registraste 3.5 h")
     # Texto con basura alrededor y bloque de código: se acepta si el JSON es bueno
     provider["reply"] = "Claro:\n```json\n" + json.dumps(GOOD) + "\n```"
-    assert generate(api)["text_source"] == "ai"
-    # Forma incorrecta
+    good = generate(api)
+    assert good["text_source"] == "ai"
+    # Al regenerar, si la IA falla el reporte no cambia (ni su fecha) y dice por qué
+    body = {"kind": "week", "period_start": MON.isoformat(), "today": TODAY.isoformat()}
     provider["reply"] = json.dumps({**GOOD, "patterns": "no es lista"})
-    assert "patterns" in generate(api)["text_note"]
-    # El proveedor falla
+    status, err = api.call("POST", "/api/reports", body)
+    assert status == 502 and "patterns" in err["detail"] and "no cambió" in err["detail"]
     provider["reply"] = AiError("No se pudo conectar con el proveedor de IA")
-    rep = generate(api)
-    assert rep["text_source"] == "rules" and rep["text_note"] == "No se pudo conectar con el proveedor de IA"
+    status, err = api.call("POST", "/api/reports", body)
+    assert status == 502 and "no se pudo conectar" in err["detail"]
+    kept = api.call("GET", f"/api/reports/{good['id']}", expect=200)[1]
+    assert kept["text_source"] == "ai" and kept["created_at"] == good["created_at"]
+    # Sin IA, a propósito: sale con las reglas
+    plain = api.call("POST", "/api/reports", {**body, "use_ai": False}, expect=200)[1]
+    assert plain["text_source"] == "rules" and plain["text_note"] is None
 
 
 def test_daily_limit_and_calls_log(api, provider):
@@ -116,8 +124,9 @@ def test_daily_limit_and_calls_log(api, provider):
     grant("ia@test.com")
     for _ in range(3):
         assert generate(api)["text_source"] == "ai"
-    rep = generate(api)
-    assert rep["text_source"] == "rules" and "límite de 3" in rep["text_note"]
+    status, err = api.call("POST", "/api/reports", {"kind": "week", "period_start": MON.isoformat(),
+                                                    "today": TODAY.isoformat()})
+    assert status == 502 and "límite de 3" in err["detail"]
     assert len(provider["sent"]) == 3
     with Session(engine) as session:
         calls = session.exec(select(AiCall)).all()

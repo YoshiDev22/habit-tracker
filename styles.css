@@ -5698,6 +5698,23 @@ button.day-log-date:focus-visible {
     color: var(--text-muted);
 }
 
+/* Quién escribió el texto del reporte guardado */
+.saved-source {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.saved-source.ai {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 .saved-metrics td.negative {
     color: var(--danger-fg);
     font-weight: 600;

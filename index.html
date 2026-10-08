@@ -961,6 +961,8 @@
             <div class="saved-report-actions" id="savedReportActions" hidden>
                 <button type="button" class="submit-btn btn-neutral" id="savedReportRegenerate">Regenerar</button>
                 <button type="button" class="submit-btn btn-neutral" id="savedReportRewrite" hidden>Reescribir con IA</button>
+                <!-- Solo cuando regenerar con IA falló: el reporte no cambió y se puede rehacer con reglas -->
+                <button type="button" class="submit-btn btn-neutral" id="savedReportRules" hidden>Regenerar con reglas</button>
                 <button type="button" class="submit-btn" id="savedReportPrint">Imprimir / PDF</button>
                 <!-- "Reporte generado ✓", o cuánto falta para poder regenerarlo -->
                 <span class="saved-report-status" id="savedReportStatus" role="status"></span>

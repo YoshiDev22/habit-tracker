@@ -19,7 +19,8 @@ from backend.models import Report, User, utc_now_naive
 from backend.cost_report import money
 from backend.report_ai import ai_preview, ai_usage as usage_of, calls_today, write_with_ai
 from backend.report_kinds import AI_POOL, subject_of
-from backend.reports import previous_summary, generate_report, is_period_start, period_bounds, previous_period
+from backend.reports import (AiTextFailed, previous_summary, generate_report, is_period_start, period_bounds,
+                             previous_period)
 from backend.routers.auth import require_module, user_modules
 from backend.schemas import ReportCreate, ReportListResponse, ReportResponse, ReportSummary
 
@@ -117,7 +118,13 @@ def create_report(body: ReportCreate, session: Session = Depends(get_session),
     start, _ = period_bounds(body.kind, body.period_start)
     _check_cooldown(session.exec(select(Report).where(
         Report.user_id == current_user.id, Report.kind == body.kind, Report.period_start == start)).first())
-    report = generate_report(session, current_user, body.kind, body.period_start, today, use_ai=body.use_ai)
+    try:
+        report = generate_report(session, current_user, body.kind, body.period_start, today, use_ai=body.use_ai)
+    except AiTextFailed as error:
+        reason = str(error)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail=f"La IA no pudo escribir el texto ({reason[:1].lower()}{reason[1:]}). "
+                                   "El reporte no cambió.") from None
     return _full(report)
 
 

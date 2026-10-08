@@ -63,13 +63,32 @@ async def main():
         st = await b.js("({meta: document.getElementById('savedReportMeta').textContent,"
                         " note: document.getElementById('savedReportError').textContent,"
                         " rewrite: !document.getElementById('savedReportRewrite').hidden})")
-        check("texto de reglas" in st["meta"] and "no está configurada" in st["note"] and st["rewrite"],
+        check("Texto de reglas" in st["meta"] and "no está configurada" in st["note"] and st["rewrite"],
               f"the report says its text came from the rules, and why ({st})")
         await b.js("document.getElementById('savedReportRewrite').click()")
         await b.wait_for("document.getElementById('savedReportRewrite').textContent === 'Reescribir con IA'")
         st = await b.js("({note: document.getElementById('savedReportError').textContent,"
                         " cards: document.querySelectorAll('#savedReportBody .report-card').length})")
         check("no está configurada" in st["note"] and st["cards"] >= 3, f"rewriting without a provider says so and keeps the report ({st})")
+
+        # Regenerar con la IA fallando (simulado): el reporte no cambia y ofrece las reglas
+        meta_before = await b.js("document.getElementById('savedReportMeta').textContent")
+        await b.js("""(() => {
+            const real = window.apiFetch;
+            window.apiFetch = (path, options) => path === '/api/reports' && options && options.method === 'POST' && options.json.use_ai
+                ? Promise.reject(new ApiError('La IA no pudo escribir el texto (no se pudo conectar). El reporte no cambió.', 502))
+                : real(path, options);
+            savedState.readyAt = 0;
+        })()""")
+        await b.js("document.getElementById('savedReportRegenerate').click()")
+        await b.wait_for("!document.getElementById('savedReportRules').hidden")
+        st = await b.js("({meta: document.getElementById('savedReportMeta').textContent,"
+                        " note: document.getElementById('savedReportError').textContent})")
+        check(st["meta"] == meta_before and "no cambió" in st["note"],
+              f"a failed AI regeneration keeps the report and its date, and says why ({st})")
+        await b.js("savedState.readyAt = 0; document.getElementById('savedReportRules').click()")
+        await b.wait_for("document.getElementById('savedReportRules').hidden && document.getElementById('savedReportStatus').textContent.startsWith('Reporte generado')")
+        check(True, "Regenerar con reglas generates it without the AI")
 
         # Con proveedor (simulado: las pruebas no tienen), el reporte dice cuántos textos quedan hoy
         await b.js("""(() => {
