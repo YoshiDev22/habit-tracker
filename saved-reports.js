@@ -734,12 +734,15 @@ function secondsToWait() {
 // del tema (tiempo y hábitos comparten uno; costos tiene el suyo)
 const AI_POOL_NAME = { time: 'reportes de tiempo y hábitos', habits: 'reportes de tiempo y hábitos', costs: 'reportes de costos' };
 
+let aiUsageRequest = 0;   // solo la última petición escribe: dos a la vez no se pisan
+
 async function refreshAiUsage(subject = 'time') {
+    const request = ++aiUsageRequest;
     savedAiUsage.hidden = true;
     if (!aiOn()) return;
     try {
         const usage = await apiFetch(`/api/reports/ai-usage?subject=${subject}`);
-        if (!usage.configured) return;
+        if (request !== aiUsageRequest || !usage.configured) return;
         savedAiUsage.textContent = `IA: te quedan ${usage.remaining} de ${usage.limit} textos hoy (${AI_POOL_NAME[subject]}).`;
         savedAiUsage.hidden = false;
     } catch (error) {
@@ -773,6 +776,9 @@ function showSavedReport(report) {
 function showSavedLoading(text) {
     savedTitle.textContent = text;
     savedMeta.textContent = '';
+    // El contador del reporte de antes no se queda a la vista (puede ser de otro tema)
+    aiUsageRequest++;
+    savedAiUsage.hidden = true;
     savedActions.hidden = true;
     savedBack.hidden = true;
     savedList.hidden = true;
@@ -798,6 +804,8 @@ function listedReports() {
 
 function renderSavedList() {
     savedState.current = null;
+    aiUsageRequest++;
+    savedAiUsage.hidden = true;
     const costs = savedState.scope === 'costs';
     document.body.classList.remove('saved-report-open');
     savedTitle.textContent = costs ? 'Reportes de costos' : 'Reportes guardados';
@@ -1008,7 +1016,7 @@ savedRewrite.addEventListener('click', async () => {
         savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir con IA otra vez' : 'Reescribir con IA';
         if (error.status === 429) showSavedStatus(error.message);
         else showSavedError(error.message);
-        refreshAiUsage();
+        refreshAiUsage(kindSubject(report.kind));
     } finally {
         savedState.busy = false;
         savedRewrite.disabled = false;

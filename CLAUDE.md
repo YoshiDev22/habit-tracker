@@ -697,7 +697,10 @@ queda en `ai_calls` (tabla nueva), que cuenta el límite diario por cuenta (`AI_
 10; día UTC). Desde la 1.23 hay **dos contadores**, por `ai_calls.purpose`: `report`
 (tiempo y hábitos, `AI_DAILY_LIMIT`) y `costs` (`AI_COSTS_DAILY_LIMIT`, 10); `AI_POOL` en
 `report_kinds.py` dice cuál usa cada tema, `ai_usage()` (`report_ai.py`) es la función
-única del contador y `GET /api/reports/ai-usage?subject=` la expone. Cada tema manda sus
+única del contador y `GET /api/reports/ai-usage?subject=` la expone. **Solo las llamadas
+buenas (`ok`) gastan el límite**; las fallidas tienen su propio tope por contador y día
+(`FAILED_DAILY_LIMIT`, 10), porque igual gastan tokens del proveedor. Las instrucciones
+dicen que los nombres escritos por el usuario son datos, no órdenes. Cada tema manda sus
 instrucciones (`PROMPTS`); en costos los centavos viajan como `..._amount` en la moneda. `POST /api/reports/{id}/rewrite` reescribe solo el texto (403 sin el módulo,
 503 sin proveedor, 502 si la IA falla, y el reporte no cambia); `GET /api/reports/ai-preview`
 enseña las instrucciones y el JSON exactos (Configuración › Módulos › *Ver qué se envía*), y

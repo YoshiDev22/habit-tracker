@@ -146,7 +146,8 @@ def test_rewrite_and_preview(api, provider):
 
     _, pv = api.call("GET", "/api/reports/ai-preview", expect=200)
     assert pv["configured"] and pv["provider"] == "cloudflare" and pv["model"] == "modelo-de-prueba"
-    assert pv["daily_limit"] == 3 and pv["used_today"] == 2 and pv["training_warning"] is False
+    # Una reescritura buena y una fallida: solo la buena gasta el límite
+    assert pv["daily_limit"] == 3 and pv["used_today"] == 1 and pv["training_warning"] is False
     assert pv["payload"]["metrics"]["total_minutes"] == 210 and "Responde SOLO" in pv["system"]
 
 
@@ -269,7 +270,30 @@ def test_ai_usage(api, provider):
     assert api.call("GET", "/api/reports/ai-usage")[0] == 403
     grant("ia@test.com")
     _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
-    assert usage == {"pool": "report", "configured": True, "limit": 3, "used_today": 0, "remaining": 3}
+    assert usage == {"pool": "report", "configured": True, "limit": 3, "used_today": 0, "remaining": 3,
+                     "failed_today": 0}
     generate(api)
+    _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
+    assert usage["used_today"] == 1 and usage["remaining"] == 2
+
+
+def test_failed_calls_do_not_spend_the_limit(api, provider, monkeypatch):
+    monkeypatch.setattr(report_ai, "FAILED_DAILY_LIMIT", 2)
+    setup(api)
+    grant("ia@test.com")
+    provider["reply"] = AiError("No se pudo conectar con el proveedor de IA")
+    rep = generate(api)                                  # nuevo: sale con las reglas
+    assert rep["text_source"] == "rules"
+    _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
+    assert usage["used_today"] == 0 and usage["remaining"] == 3 and usage["failed_today"] == 1
+    # Los fallos tienen su propio tope: al llegar, ya no se llama al proveedor
+    api.call("POST", f"/api/reports/{rep['id']}/rewrite")
+    sent = len(provider["sent"])
+    status, err = api.call("POST", f"/api/reports/{rep['id']}/rewrite")
+    assert status == 502 and "falló 2 veces" in err["detail"] and len(provider["sent"]) == sent
+    # Y un texto bueno sí gasta el límite
+    monkeypatch.setattr(report_ai, "FAILED_DAILY_LIMIT", 10)
+    provider["reply"] = json.dumps(GOOD, ensure_ascii=False)
+    api.call("POST", f"/api/reports/{rep['id']}/rewrite", expect=200)
     _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
     assert usage["used_today"] == 1 and usage["remaining"] == 2
