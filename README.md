@@ -122,6 +122,30 @@ al importar `backend/main.py`. No hay migraciones ni pasos extra. El archivo `ha
 queda en la **raíz del repo**, no en `backend/`, porque el `DATABASE_URL` por defecto
 (`sqlite:///./habits.db`) es relativo al directorio desde el que arrancas el server.
 
+### Reportes automáticos y borrado de cuentas (opcional, en el servidor)
+
+La app genera reportes con el botón sin nada más. Para que además salgan **solos** (cada
+lunes los de la semana anterior y cada día 1 los del mes anterior: tiempo, hábitos y, con
+el plan Maker, costos) y para que se borren las cuentas cuyo borrado programado ya venció,
+hace falta un timer de systemd que corra una vez al día. No vive dentro de uvicorn: con
+reinicios o varios workers dispararía dos veces.
+
+`deploy/habit-reports.service` y `deploy/habit-reports.timer` son plantillas. Cambia en el
+`.service` el usuario, el grupo y la ruta del repo (`CHANGE_ME` y `/path/to/habit-tracker`),
+y luego:
+
+```bash
+sudo cp deploy/habit-reports.service deploy/habit-reports.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now habit-reports.timer
+```
+
+Para probarlo sin guardar nada: `.venv/bin/python scripts/generate_reports.py --dry-run`
+(y lo mismo con `scripts/purge_accounts.py`). Correrlo ya: `sudo systemctl start
+habit-reports.service`; lo que hizo: `journalctl -u habit-reports.service`. Correrlo dos
+veces no duplica reportes. Si una versión cambia la plantilla, su CHANGELOG lo dice en
+*Para actualizar*: hay que volver a copiarla y hacer `daemon-reload`.
+
 ## Pruebas
 
 ```bash
@@ -202,13 +226,17 @@ habit-tracker/
 │   ├── boards.py          # "Sin asignar" y columnas de las tareas de cada usuario
 │   ├── modules.py         # Módulos de cada cuenta y sus valores por defecto
 │   ├── costing.py         # Dinero del plan Maker: mano de obra, gastos, costo, margen, estimados
+│   ├── reports.py         # Reportes guardados (tiempo, hábitos y costos) y cuáles faltan
 │   ├── ratelimit.py       # Límite de intentos de login y registro, por IP
 │   ├── .env.example       # Plantilla del .env (el .env real no se versiona)
 │   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro, costs
 ├── docs/                  # Specs por fases y referencias de la racha
 ├── scripts/
 │   ├── migrate.py         # Columnas nuevas en tablas existentes (correr antes de reiniciar)
-│   └── grant_module.py    # Da o quita a una cuenta el acceso al plan Maker
+│   ├── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan Maker, IA)
+│   ├── generate_reports.py # Reportes automáticos (lo corre el timer de systemd)
+│   └── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
+├── deploy/                # Plantillas del .service y el .timer de los reportes automáticos
 ├── tests/                 # pytest: API, y tests/ui/ en navegador
 ├── index.html             # Única página: las vistas y todos los modales
 ├── styles.css             # Variables de tema en :root / [data-theme]
@@ -239,7 +267,7 @@ montado, así que un archivo JS nuevo necesita su propia ruta o devuelve 404.
 - **Pruebas y CI.** `pytest` (API) corre en GitHub Actions en cada push; las de navegador
   (`pytest -m ui`) se corren en local.
 - **Deploy manual** sobre un VPS Ubuntu con Caddy como reverse proxy y systemd para el
-  servicio.
+  servicio y para el timer diario (ver *Reportes automáticos* arriba).
 - Rotar el `SECRET_KEY` invalida todos los tokens emitidos: los usuarios tienen que volver
   a hacer login.
 
