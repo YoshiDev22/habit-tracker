@@ -24,9 +24,10 @@ transparente: sabes cuándo escribió el texto y un intento fallido ya no te cue
   gráfica por categoría, una dona con la parte de cada proyecto, los gastos más grandes y
   el presupuesto disponible y el margen de cada proyecto, acumulados al cierre del mes.
   **Reportes de costos** los lista.
-- Los dos salen **solos**, como los de tiempo: cada lunes y cada día 1 los de hábitos (si
-  marcaste alguno) y cada día 1 el de costos (si hubo gastos o tiempo en proyectos con
-  costeo). Con la IA encendida, ella escribe el texto.
+- Los dos se generan **automáticamente**, como los de tiempo: cada lunes el de hábitos de
+  la semana anterior, y cada día 1 los de hábitos y de costos del mes anterior, en la
+  mañana. Solo si hubo algo que reportar: hábitos marcados, o gastos o tiempo en proyectos
+  con costeo. Con la IA encendida, ella escribe el texto.
 - **✨ Texto de IA** o **Texto de reglas**: una etiqueta en cada reporte, y en cada fila de
   la lista, dice quién escribió el texto.
 
@@ -52,7 +53,9 @@ transparente: sabes cuándo escribió el texto y un intento fallido ya no te cue
 Sin cambios en la base de datos ni en las dependencias: basta con `git pull` y reiniciar el
 servicio. Opcional: el límite diario de textos con IA de los reportes de costos se cambia
 con `AI_COSTS_DAILY_LIMIT` en `backend/.env` (10 si no se pone). El servicio diario de los
-reportes no cambia: ya genera también los de hábitos y costos.
+reportes no cambia: ya genera también los de hábitos y costos. Si aún no lo instalaste
+(llegó en la 1.20.0, con sus plantillas en `deploy/`), sin él los reportes solo se generan
+con el botón.
 
 ## [1.22.1] — 2026-10-07
 
