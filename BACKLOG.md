@@ -26,6 +26,8 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido |
 | 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | decisión pendiente |
 | 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
+| 31 | P3 | Límite diario de la IA ajustable por cuenta | pedido |
+| 32 | P2 | Panel de administración y "Reportar un problema" | épica, después de la 1.24 |
 
 ---
 
@@ -434,3 +436,28 @@ huso del usuario y no en UTC.
 
 **Aceptación.** `grant_module.py --email … --module ai --limit 20` cambia el tope de esa
 cuenta, el reporte lo dice, y sin `--limit` sigue el de `AI_DAILY_LIMIT`.
+
+---
+
+## 32 · P2 · Panel de administración y "Reportar un problema"
+
+**Esto es una épica.** Pedida por Yoshio el 2026-10-07; va después de la 1.24 (gastos
+recurrentes y repartidos). El plan completo está en
+[`docs/specs/panel-admin.md`](docs/specs/panel-admin.md).
+
+**Idea.** Un panel para gestionar y monitorear la app sin entrar al VPS: cuentas, última
+actividad, módulos, uso de la IA y los problemas que reporten los usuarios desde un
+"Reportar un problema" en *Mi perfil*. **Gestión, no vigilancia:** nunca enseña lo que
+escribe cada persona.
+
+**Decisiones.** En este repo, pero como un segundo proceso (`backend/admin_main.py`) que
+escucha solo en `127.0.0.1` y al que se llega por un Cloudflare Tunnel con Cloudflare
+Access; la app pública no monta sus rutas. La app valida además el JWT de Access y una
+lista de correos en `.env`.
+
+**Fases.** 1: "Reportar un problema" y el panel de solo lectura. 2: acciones (módulos, más
+textos de IA, desactivar cuentas, estado de los problemas) con bitácora. 3: tunnel y Access
+(Yoshio, con una guía). El panel no se despliega antes de la fase 3.
+
+**Aceptación.** Las de cada fase en el spec; en todas, que el dominio público no tenga
+rutas de admin y que ninguna respuesta del panel traiga contenido de usuario.
