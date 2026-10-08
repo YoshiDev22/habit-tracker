@@ -28,6 +28,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
 | 31 | P3 | Límite diario de la IA ajustable por cuenta | pedido |
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, después de la 1.24 |
+| 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | pedido |
 
 ---
 
@@ -461,3 +462,36 @@ textos de IA, desactivar cuentas, estado de los problemas) con bitácora. 3: tun
 
 **Aceptación.** Las de cada fase en el spec; en todas, que el dominio público no tenga
 rutas de admin y que ninguna respuesta del panel traiga contenido de usuario.
+
+---
+
+## 33 · P3 · Lugar donde se trabajó, y la duración de ciertos hábitos
+
+**Pedido por Yoshio el 2026-10-08**, como cambio menor para después de la 1.24.
+
+**Idea.** Poder decir **dónde** se hizo cada tiempo registrado: Escuela, Oficina, Casa,
+Lugar público u Otro (la lista se puede editar, como las categorías de gastos). Para qué:
+
+- Ver dónde trabaja más la persona, y cuánto tiempo pasa en casa contra fuera.
+- Ver si trabaja fuera de su horario habitual y en qué lugar (p. ej. trabajo de oficina que
+  se lleva a casa de noche): ayuda a no sobresaturarse y a separar el trabajo de la vida
+  personal.
+- Separar los lugares en Reportes (tiempo por lugar, como por proyecto o etiqueta) y en los
+  reportes guardados, con su texto.
+
+**Y en los hábitos**, una duración y un lugar por defecto para los que se miden en tiempo:
+capoeira suele ser 2 h (lo que dura la clase), gym 1 h, ejercicio fuera de casa. Al marcar
+el hábito, la app podría registrar ese tiempo sola. Con las metas (épica 17) eso daría
+"tiempo de ejercicio" automático hacia una meta como bajar de peso, y permitiría también un
+ejercicio más libre: 30 min de cuerda en series (7 de 2 min con 1 min de descanso), quizá
+con un timer de intervalos.
+
+**Cómo podría ser.** Una tabla nueva de lugares por cuenta (con los cinco de inicio, como
+las categorías de gastos); el lugar en la sesión (`pomodoro_sessions.place_id`, columna en
+tabla existente: **migración**), con uno por defecto en la tarea o en el tablero para no
+tener que elegirlo cada vez. En los hábitos, `habits.default_minutes` y `habits.place_id`
+(**migración**). El cruce lugar × hora sale de la capa de métricas (`backend/metrics.py`),
+que ya tiene las horas locales de cada sesión.
+
+**Por decidir.** Si el lugar va en la sesión, en la tarea o en los dos; si registrar tiempo
+al marcar un hábito es automático o se pregunta; y cómo encaja con las metas de la 17.
