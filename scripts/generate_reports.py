@@ -28,7 +28,9 @@ from sqlmodel import Session, select  # noqa: E402
 
 from backend.database import check_pending_migrations, create_db_and_tables, engine  # noqa: E402
 from backend.models import User  # noqa: E402
+from backend.recurring_costs import generate_due  # noqa: E402
 from backend.reports import generate_report, local_today, missing_reports  # noqa: E402
+from backend.routers.auth import user_modules  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -55,6 +57,11 @@ def main(argv=None) -> int:
             return 1
         for user in users:
             today = args.today or local_today(session, user)
+            # Los cobros de los gastos recurrentes que ya llegaron (plan Maker, 1.24),
+            # antes de los reportes: el de costos del mes ya los cuenta
+            if not args.dry_run and user_modules(session, user.id)["maker"]["enabled"]:
+                for cost in generate_due(session, user.id, today):
+                    print(f"recurring cost {user.email}: {cost.concept} on {cost.cost_date.isoformat()}")
             for kind, start in missing_reports(session, user, today):
                 label = f"{user.email}: {kind} from {start.isoformat()}"
                 if args.dry_run:

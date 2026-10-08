@@ -643,8 +643,121 @@ class ProjectCostResponse(SQLModel):
     concept: str
     quantity: float
     unit_cost_cents: int
-    total_cents: int          # cantidad × costo unitario, redondeado al centavo
+    total_cents: int          # lo de este proyecto: su parte si está repartido
     note: Optional[str] = None
+    # Repartido (1.24): su porcentaje en puntos base, el total del gasto entero y
+    # con qué proyectos se reparte ([{project_id, name, bp}], este incluido)
+    split_id: Optional[int] = None
+    split_bp: Optional[int] = None
+    group_total_cents: Optional[int] = None
+    split_with: List[Dict] = []
+    recurring_id: Optional[int] = None    # 🔁 lo generó un gasto recurrente
+
+
+# Un gasto se reparte entre hasta 10 proyectos de la misma moneda
+MAX_SPLIT_PROJECTS = 10
+RECURRING_FREQUENCIES = ("monthly", "yearly")
+
+
+class CostAllocation(SQLModel):
+    """La parte de un proyecto en un gasto, en puntos base (6500 = 65 %)"""
+    project_id: int
+    bp: int = Field(ge=1, le=10000)
+
+
+def _validate_allocations(v: Optional[List[CostAllocation]]) -> Optional[List[CostAllocation]]:
+    if v is None:
+        return v
+    if not 1 <= len(v) <= MAX_SPLIT_PROJECTS:
+        raise ValueError(f"Reparte entre 1 y {MAX_SPLIT_PROJECTS} proyectos")
+    if len({a.project_id for a in v}) != len(v):
+        raise ValueError("Un proyecto aparece dos veces en el reparto")
+    if sum(a.bp for a in v) != 10000:
+        raise ValueError("Los porcentajes del reparto tienen que sumar 100 %")
+    return v
+
+
+class CostSplitUpdate(SQLModel):
+    """Repartir un gasto (o cambiar su reparto). Con un solo proyecto al 100 %,
+    deja de estar repartido."""
+    allocations: List[CostAllocation]
+
+    @field_validator("allocations")
+    @classmethod
+    def validate_allocations(cls, v):
+        return _validate_allocations(v)
+
+
+class RecurringCostFields(SQLModel):
+    category_id: int
+    concept: str = Field(min_length=1, max_length=200)
+    quantity: float = Field(default=1, gt=0, le=MAX_COST_QUANTITY)
+    unit_cost_cents: int = Field(default=0, ge=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=500)
+    frequency: str = "monthly"
+    start_date: date_type
+    end_date: Optional[date_type] = None
+    allocations: List[CostAllocation]
+
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v: str) -> str:
+        if v not in RECURRING_FREQUENCIES:
+            raise ValueError(f"frequency debe ser uno de: {', '.join(RECURRING_FREQUENCIES)}")
+        return v
+
+    @field_validator("allocations")
+    @classmethod
+    def validate_allocations(cls, v):
+        return _validate_allocations(v)
+
+
+class RecurringCostUpdate(SQLModel):
+    """Cambiar un recurrente: solo afecta a los cobros siguientes"""
+    category_id: Optional[int] = None
+    concept: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    quantity: Optional[float] = Field(default=None, gt=0, le=MAX_COST_QUANTITY)
+    unit_cost_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=500)
+    frequency: Optional[str] = None
+    start_date: Optional[date_type] = None
+    end_date: Optional[date_type] = None
+    paused: Optional[bool] = None
+    allocations: Optional[List[CostAllocation]] = None
+
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in RECURRING_FREQUENCIES:
+            raise ValueError(f"frequency debe ser uno de: {', '.join(RECURRING_FREQUENCIES)}")
+        return v
+
+    @field_validator("allocations")
+    @classmethod
+    def validate_allocations(cls, v):
+        return _validate_allocations(v)
+
+
+class RecurringCostResponse(SQLModel):
+    id: int
+    category_id: int
+    concept: str
+    quantity: float
+    unit_cost_cents: int
+    total_cents: int
+    note: Optional[str] = None
+    frequency: str
+    start_date: date_type
+    end_date: Optional[date_type] = None
+    paused: bool
+    next_date: Optional[date_type] = None   # el siguiente cobro (None: ya terminó)
+    generated: int                          # cobros ya generados
+    currency: str
+    allocations: List[Dict]                 # [{project_id, name, bp}]
+
+
+class RecurringCostListResponse(SQLModel):
+    recurring: List[RecurringCostResponse]
 
 
 class ProjectCostListResponse(SQLModel):

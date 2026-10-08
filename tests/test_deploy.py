@@ -137,3 +137,39 @@ def test_a_preexisting_sin_asignar_project_is_adopted():
         _, pl = other.call("GET", "/api/projects?include_inactive=true", expect=200)
         named = [p for p in pl["projects"] if p["name"] == "Sin asignar"]
         assert len(named) == 1 and named[0]["is_system"] and named[0]["is_active"], named
+
+
+def test_costs_from_before_splits_and_recurring_get_their_columns():
+    """Producción tiene project_costs desde la 1.18, sin las columnas de la 1.24:
+    migrate.py se las añade (y el índice de los recurrentes), los gastos de antes
+    quedan igual (sin repartir, sin recurrente) y la app arranca."""
+    db = TMP / "costs_1_23.db"
+    load_sql_fixture(db, "db_v1_9")
+    assert run_migrate(db).returncode == 0
+    conn = sqlite3.connect(db)
+    # project_costs tal como la creaba la 1.23
+    conn.execute("""CREATE TABLE project_costs (
+        id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, project_id INTEGER NOT NULL,
+        category_id INTEGER NOT NULL, cost_date DATE NOT NULL, concept VARCHAR NOT NULL,
+        quantity FLOAT NOT NULL, unit_cost_cents INTEGER NOT NULL, note VARCHAR)""")
+    conn.execute("INSERT INTO project_costs VALUES (1, 1, 1, 1, '2026-10-01', 'Dominio', 1, 25000, NULL)")
+    conn.commit()
+    conn.close()
+    env = {**os.environ, "DATABASE_URL": f"sqlite:///{db.as_posix()}", "PYTHONIOENCODING": "utf-8"}
+    started = subprocess.run([sys.executable, "-c", "import backend.main"], cwd=ROOT, env=env,
+                             capture_output=True, text=True, encoding="utf-8")
+    assert started.returncode != 0 and "project_costs.split_id" in started.stderr
+
+    first = run_migrate(db)
+    assert first.returncode == 0, first.stderr
+    for added in ("project_costs.split_id", "project_costs.split_bp", "project_costs.share_cents",
+                  "project_costs.recurring_id", "index uq_project_costs_recurring", "index ix_project_costs_split_id"):
+        assert added in first.stdout
+    assert "nothing, already up to date" in run_migrate(db).stdout
+    conn = sqlite3.connect(db)
+    assert conn.execute("SELECT concept, unit_cost_cents, split_id, share_cents, recurring_id FROM project_costs").fetchall() \
+        == [("Dominio", 25000, None, None, None)]
+    conn.close()
+    started = subprocess.run([sys.executable, "-c", "import backend.main"], cwd=ROOT, env=env,
+                             capture_output=True, text=True, encoding="utf-8")
+    assert started.returncode == 0, started.stderr

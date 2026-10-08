@@ -234,6 +234,9 @@ def report_metrics(session: Session, user: User, kind: str, start: date_type, en
         metrics = habit_metrics(session, user, start, end, today)
         metrics["by_week"] = habit_weeks(metrics) if period_of(kind) == "month" else None
     elif subject == "costs":
+        # Los cobros recurrentes que ya llegaron entran antes de contar (1.24)
+        from backend.recurring_costs import generate_due
+        generate_due(session, user.id, today)
         metrics = cost_metrics(session, user, start, end, today)
     else:
         metrics = compute_metrics(session, user, start, end, today)

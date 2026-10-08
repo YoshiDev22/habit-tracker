@@ -307,6 +307,9 @@ class ProjectCost(SQLModel, table=True):
     Tabla NUEVA: create_all(), sin migración.
     """
     __tablename__ = "project_costs"
+    # Un cobro de un recurrente se genera una vez por fecha y proyecto (1.24)
+    # Index con nombre (no UniqueConstraint): así lo crea y lo comprueba migrate.py
+    __table_args__ = (Index("uq_project_costs_recurring", "recurring_id", "cost_date", "project_id", unique=True),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
@@ -318,6 +321,47 @@ class ProjectCost(SQLModel, table=True):
     quantity: float = Field(default=1)        # no es dinero: 2.5 m de tela, 3 licencias
     unit_cost_cents: int = Field(default=0)   # dinero: centavos enteros
     note: Optional[str] = Field(default=None)
+
+    # 1.24. Columnas AÑADIDAS (migrate.py); NULL en los gastos de antes.
+    # Un gasto repartido entre proyectos es una fila por proyecto, todas con los
+    # mismos datos del gasto y el mismo split_id (el id de la primera). Cada una
+    # guarda su parte: split_bp en puntos base (6500 = 65 %) y share_cents, que
+    # se reparte al guardar para que las partes sumen exacto el total.
+    split_id: Optional[int] = Field(default=None, index=True)
+    split_bp: Optional[int] = Field(default=None)
+    share_cents: Optional[int] = Field(default=None)
+    # El gasto recurrente que lo generó (🔁); NULL si se escribió a mano
+    recurring_id: Optional[int] = Field(default=None, foreign_key="recurring_costs.id")
+
+
+class RecurringCost(SQLModel, table=True):
+    """
+    Un gasto que se repite (1.24): suscripciones, hosting, dominios. Cada mes o
+    cada año, en el día de start_date (el 31 cae en el último día de un mes
+    más corto), se convierte en un gasto real en project_costs, con
+    recurring_id. Cambiarlo solo afecta a los cobros siguientes; los ya
+    generados se editan o se borran como cualquier gasto, y uno borrado no
+    vuelve. Puede ir repartido entre proyectos de la misma moneda
+    (allocations). Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "recurring_costs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    category_id: int = Field(foreign_key="cost_categories.id")
+    concept: str
+    quantity: float = Field(default=1)
+    unit_cost_cents: int = Field(default=0)
+    note: Optional[str] = Field(default=None)
+    frequency: str = Field(default="monthly")      # monthly | yearly
+    start_date: date_type                          # el primer cobro; su día marca los siguientes
+    end_date: Optional[date_type] = Field(default=None)
+    paused: bool = Field(default=False)
+    # [{"project_id": 3, "bp": 6500}, ...]; los bp suman 10000
+    allocations: List[Dict] = Field(default=[], sa_type=JSON)
+    generated: int = Field(default=0)              # cobros ya generados (o saltados al pausar)
+    # utc_now_naive se define más abajo: el lambda la busca al crear la fila
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
 class Task(SQLModel, table=True):

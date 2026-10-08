@@ -15,7 +15,7 @@ from typing import List, Optional
 
 from sqlmodel import Session, select
 
-from backend.costing import costs_summary, line_total_cents
+from backend.costing import cost_total_cents, costs_summary
 from backend.models import CostCategory, PomodoroSession, ProjectCost, ProjectFinance, User
 
 MONTHS = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
@@ -69,7 +69,7 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
     costs = session.exec(select(ProjectCost).where(
         ProjectCost.user_id == user.id, ProjectCost.cost_date >= start, ProjectCost.cost_date <= through)).all()
     names = {p["project_id"]: (p["name"], p["currency"]) for p in projects}
-    top = sorted(costs, key=lambda c: -line_total_cents(c.quantity, c.unit_cost_cents))[:TOP_COSTS]
+    top = sorted(costs, key=lambda c: -cost_total_cents(c))[:TOP_COSTS]
 
     metrics = {
         "date_from": start.isoformat(), "date_to": end.isoformat(), "through": through.isoformat(),
@@ -85,7 +85,7 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
                        "project": names.get(c.project_id, ("", ""))[0],
                        "category": category_names.get(c.category_id, "Sin categoría"),
                        "currency": names.get(c.project_id, ("", "MXN"))[1],
-                       "cents": line_total_cents(c.quantity, c.unit_cost_cents)}
+                       "cents": cost_total_cents(c)}
                       for c in top if c.project_id in names],
         "no_rate": [p["name"] for p in projects if p["total_seconds"] and p["hourly_rate_cents"] is None],
         "previous": None,

@@ -68,6 +68,12 @@ MIGRATIONS = [
     # la 1.18; una base anterior aún no la tiene y create_all() la crea completa.
     {"table": "project_finance", "column": "kind", "type": "VARCHAR", "new_table": True},
     {"table": "project_finance", "column": "price_cents", "type": "INTEGER", "new_table": True},
+    # Gastos repartidos y recurrentes (1.24). project_costs existe desde la 1.18;
+    # una base anterior aún no la tiene y create_all() la crea completa.
+    {"table": "project_costs", "column": "split_id", "type": "INTEGER", "new_table": True},
+    {"table": "project_costs", "column": "split_bp", "type": "INTEGER", "new_table": True},
+    {"table": "project_costs", "column": "share_cents", "type": "INTEGER", "new_table": True},
+    {"table": "project_costs", "column": "recurring_id", "type": "INTEGER", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado
@@ -82,6 +88,10 @@ STOPWATCH_CAP_SECONDS = 8 * 3600
 INDEXES = [
     {"name": "uq_pomodoro_sessions_user_key", "table": "pomodoro_sessions",
      "columns": ["user_id", "idempotency_key"], "unique": True},
+    # Un cobro de un recurrente, una vez por fecha y proyecto (1.24)
+    {"name": "uq_project_costs_recurring", "table": "project_costs",
+     "columns": ["recurring_id", "cost_date", "project_id"], "unique": True},
+    {"name": "ix_project_costs_split_id", "table": "project_costs", "columns": ["split_id"]},
 ]
 
 # El icono que pone el modelo cuando nadie manda uno. Un `habits.icon` con este
@@ -241,6 +251,9 @@ def main():
             applied.append(f"{table}.{column}")
 
         for index in INDEXES:
+            # Tabla que aún no existe: create_all() la crea con sus índices
+            if not existing_columns(connection, index["table"]):
+                continue
             if index["name"] in existing_indexes(connection, index["table"]):
                 continue
             # Todo sale de las constantes de arriba, no de entrada externa

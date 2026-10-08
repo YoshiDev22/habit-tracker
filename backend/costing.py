@@ -34,6 +34,31 @@ def line_total_cents(quantity: float, unit_cost_cents: int) -> int:
     return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
+def cost_total_cents(cost: ProjectCost) -> int:
+    """Lo que un renglón de gasto le cuesta a su proyecto: su parte si el gasto
+    está repartido (1.24), o cantidad × costo unitario si no."""
+    if cost.share_cents is not None:
+        return cost.share_cents
+    return line_total_cents(cost.quantity, cost.unit_cost_cents)
+
+
+BP_TOTAL = 10000   # puntos base: 6500 = 65 %
+
+
+def split_shares(total_cents: int, bps: List[int], base: int = BP_TOTAL) -> List[int]:
+    """Reparte un total en partes que suman exacto (método del mayor resto):
+    cada una se lleva el piso de su proporción (bp / base), y las unidades que
+    sobran van a las de mayor resto (a igual resto, a la primera). Nunca se
+    pierde un centavo."""
+    exact = [total_cents * bp for bp in bps]
+    shares = [value // base for value in exact]
+    left = total_cents - sum(shares)
+    order = sorted(range(len(bps)), key=lambda i: (-(exact[i] % base), i))
+    for i in order[:left]:
+        shares[i] += 1
+    return shares
+
+
 def labor_cents(total_seconds: int, hourly_rate_cents: Optional[int]) -> Optional[int]:
     """Horas × tarifa, redondeado al centavo; None sin tarifa"""
     if hourly_rate_cents is None:
@@ -54,7 +79,7 @@ def costs_cents_by_project(session: Session, user_id: int, project_ids: Optional
         query = query.where(ProjectCost.project_id.in_(list(project_ids)))
     totals: Dict[int, int] = {}
     for cost in session.exec(query).all():
-        totals[cost.project_id] = totals.get(cost.project_id, 0) + line_total_cents(cost.quantity, cost.unit_cost_cents)
+        totals[cost.project_id] = totals.get(cost.project_id, 0) + cost_total_cents(cost)
     return totals
 
 
@@ -213,8 +238,7 @@ def costs_summary(session: Session, user_id: int, date_from: Optional[date_type]
     ).all())
     costs_by_project: Dict[int, int] = {}
     for cost in costs:
-        costs_by_project[cost.project_id] = costs_by_project.get(cost.project_id, 0) + line_total_cents(
-            cost.quantity, cost.unit_cost_cents)
+        costs_by_project[cost.project_id] = costs_by_project.get(cost.project_id, 0) + cost_total_cents(cost)
 
     rows: List[CostsProjectSummary] = []
     currency_of: Dict[int, str] = {}
@@ -248,7 +272,7 @@ def costs_summary(session: Session, user_id: int, date_from: Optional[date_type]
     for cost in costs:
         if cost.project_id not in currency_of:
             continue
-        cents = line_total_cents(cost.quantity, cost.unit_cost_cents)
+        cents = cost_total_cents(cost)
         key = (cost.category_id, currency_of[cost.project_id])
         by_category[key] = by_category.get(key, 0) + cents
         per_project = by_project_category.setdefault(cost.project_id, {})

@@ -192,3 +192,28 @@ def test_project_kind_and_price(api):
     assert api.call("PUT", f"/api/projects/{p['id']}/finance", {"price_cents": -1})[0] == 422
     assert api.call("PUT", f"/api/projects/{p['id']}/finance", {"price_cents": 10 ** 13})[0] == 422
     api.call("PUT", f"/api/projects/{p['id']}/finance", {"kind": "personal", "price_cents": 0}, expect=200)
+
+
+def test_split_and_recurring_costs(api):
+    from test_finance import maker_on
+    api.login("topes-gastos@test.com")
+    maker_on(api, "topes-gastos@test.com")
+    _, p = api.call("POST", "/api/projects", {"name": "P"}, expect=201)
+    _, cats = api.call("GET", "/api/costs/categories", expect=200)
+    cat = cats["categories"][0]["id"]
+    _, cost = api.call("POST", "/api/costs", {"project_id": p["id"], "category_id": cat, "cost_date": "2026-10-01",
+                                              "concept": "x", "unit_cost_cents": 100}, expect=201)
+    split = f"/api/costs/{cost['id']}/split"
+    # Reparto: de 1 a 10 proyectos, cada parte de 1 a 10000 puntos base
+    assert api.call("PUT", split, {"allocations": []})[0] == 422
+    assert api.call("PUT", split, {"allocations": [{"project_id": i, "bp": 909} for i in range(11)]})[0] == 422
+    assert api.call("PUT", split, {"allocations": [{"project_id": p["id"], "bp": 10001}]})[0] == 422
+    assert api.call("PUT", split, {"allocations": [{"project_id": p["id"], "bp": 0}]})[0] == 422
+    body = {"category_id": cat, "concept": "Hosting", "unit_cost_cents": 100, "frequency": "monthly",
+            "start_date": "2026-10-01", "allocations": [{"project_id": p["id"], "bp": 10000}]}
+    assert api.call("POST", "/api/costs/recurring", {**body, "concept": "x" * 201})[0] == 422
+    assert api.call("POST", "/api/costs/recurring", {**body, "note": "x" * 501})[0] == 422
+    assert api.call("POST", "/api/costs/recurring", {**body, "quantity": 0})[0] == 422
+    assert api.call("POST", "/api/costs/recurring", {**body, "unit_cost_cents": 10 ** 12})[0] == 422
+    assert api.call("POST", "/api/costs/recurring", {**body, "frequency": "daily"})[0] == 422
+    assert api.call("POST", "/api/costs/recurring", {**body, "concept": "x" * 200}, expect=201)[0] == 201
