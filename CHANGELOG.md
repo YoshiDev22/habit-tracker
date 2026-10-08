@@ -10,7 +10,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 ## [1.23.0] — 2026-10-08
 
 Reportes de hábitos y de costos, con el mismo formato que los de tiempo, y la IA más
-transparente: sabes cuándo escribió el texto y un intento fallido ya no te cuesta.
+transparente: sabes si el texto lo escribió ella, y un intento fallido ya no se descuenta
+de tus textos del día.
 
 ### Nuevo
 - **Reporte de hábitos**: en Reportes, con *Semana* o *Mes*, **Generar reporte de hábitos**
