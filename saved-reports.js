@@ -892,7 +892,7 @@ function showSavedReport(report) {
     savedActions.hidden = false;
     savedRules.hidden = true;
     savedRewrite.hidden = !aiOn();
-    savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir con IA otra vez' : 'Reescribir con IA';
+    savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir el texto con IA otra vez' : 'Reescribir el texto con IA';
     savedBack.hidden = !savedState.fromList;
     savedList.replaceChildren();
     savedList.hidden = true;
@@ -1147,7 +1147,7 @@ savedRewrite.addEventListener('click', async () => {
         showSavedStatus(`Texto reescrito ✓ ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
     } catch (error) {
         // El reporte se queda como estaba
-        savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir con IA otra vez' : 'Reescribir con IA';
+        savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir el texto con IA otra vez' : 'Reescribir el texto con IA';
         if (error.status === 429) showSavedStatus(error.message);
         else showSavedError(error.message);
         refreshAiUsage(kindSubject(report.kind));

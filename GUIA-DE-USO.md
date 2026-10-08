@@ -468,8 +468,9 @@ observaciones y recomendaciones, para leerlo después o compararlo.
 - **Con IA** (si la encendiste en *Configuración › Módulos*): el texto lo escribe la IA,
   y arriba dice «texto de IA» o «texto de reglas». Las cifras siempre las calcula la app;
   si la IA falla, cita una cifra que no estaba o llegaste al límite del día, el reporte
-  usa las reglas y te dice por qué. **Reescribir con IA** vuelve a pedir el texto de un
-  reporte ya guardado, sin cambiar sus cifras. Bajo los botones dice cuántos textos con IA
+  usa las reglas y te dice por qué. **Reescribir el texto con IA** vuelve a pedir el texto de un
+  reporte ya guardado, sin cambiar sus cifras: si corregiste registros o la app trae cifras
+  nuevas, usa **Regenerar**. Bajo los botones dice cuántos textos con IA
   te quedan hoy: los reportes de tiempo y de hábitos comparten 10 al día, y los de costos
   tienen los suyos.
 - **Imprimir / PDF**: imprime solo el reporte, en colores claros. Para un PDF, elige

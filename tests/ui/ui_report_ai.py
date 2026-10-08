@@ -66,7 +66,7 @@ async def main():
         check("Texto de reglas" in st["meta"] and "no está configurada" in st["note"] and st["rewrite"],
               f"the report says its text came from the rules, and why ({st})")
         await b.js("document.getElementById('savedReportRewrite').click()")
-        await b.wait_for("document.getElementById('savedReportRewrite').textContent === 'Reescribir con IA'")
+        await b.wait_for("document.getElementById('savedReportRewrite').textContent === 'Reescribir el texto con IA'")
         st = await b.js("({note: document.getElementById('savedReportError').textContent,"
                         " cards: document.querySelectorAll('#savedReportBody .report-card').length})")
         check("no está configurada" in st["note"] and st["cards"] >= 3, f"rewriting without a provider says so and keeps the report ({st})")

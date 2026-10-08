@@ -106,6 +106,12 @@ async def main():
         check(wide <= 390, f"nothing overflows the phone width ({wide})")
         await b.shot("subject_costs_report", full=False)
 
+        # Un reporte guardado sin las horas por moneda (antes de la 1.23 final) las saca de sus proyectos
+        table = await b.js("(() => { const r = JSON.parse(JSON.stringify(savedState.current));"
+                           " r.metrics.currencies.forEach(c => delete c.total_seconds);"
+                           " return costsMetricsTable(r, 'MXN').textContent; })()")
+        check("7.0 h" in table, f"an older cost report still shows the month's hours ({table[:160]})")
+
         # Los gastos más grandes llevan el color de su categoría (no el de acento)
         fills = await b.js("[...document.querySelectorAll('#savedReportBody .report-bar-fill')].map(f => f.style.background)")
         check(fills and all(fills), f"the largest expenses take their category color ({fills})")
