@@ -232,6 +232,12 @@ Lo que no se deduce leyendo los modelos:
   🛡️) y `missed_yesterday`: si ayer quedó vacío y había racha, `habits.js`
   (`askMissedYesterday`) pregunta al abrir "¿Olvidaste anotar ayer?", una vez por día en
   cada dispositivo.
+- **Notas por día (1.25)**: `habit_notes`, una por (usuario, `habit_key`, fecha), aparte de
+  `habit_entries`: nunca cambia la racha ni el cumplimiento. `PUT /api/habits/notes/{fecha}/{clave}`
+  (vacía la borra) y `GET /api/habits/notes` por rango; `habits.js` las pide por mes
+  (`monthNotesCache`), las edita con el ✎ de cada fila del popover (fuera del botón del
+  hábito, porque marcarlo cierra el popover) y pinta `.day-note-dot`. Salen en el CSV y en
+  el reporte de hábitos (`metrics.notes`); la IA las recibe como datos, no instrucciones.
 - **Marcar o desmarcar toca un solo par (hábito, día)**: `PATCH /api/habits/day/{fecha}`
   con `{habit_key, done}`, que cambia esa clave sobre lo guardado (`markHabitOnDay()` en
   `habits.js`). `POST /api/habits` reemplaza el día entero y la pantalla ya no lo usa:

@@ -1155,6 +1155,7 @@ function renderCalendar() {
 
     const monthHabits = habitsForMonth(year, month);
     loadMonthHabits(year, month);
+    loadMonthNotes(year, month);
     
     // Limpiar grid
     daysGrid.innerHTML = '';
@@ -1224,6 +1225,14 @@ function renderCalendar() {
             dayCell.appendChild(mark);
         }
         
+        // Un día con alguna nota lleva un punto en la esquina (1.25)
+        if (Object.keys(notesForDate(dateKey)).length) {
+            const noteDot = document.createElement('span');
+            noteDot.className = 'day-note-dot';
+            noteDot.setAttribute('aria-label', 'Tiene notas');
+            dayCell.appendChild(noteDot);
+        }
+
         // Número del día
         const dayNumber = document.createElement('span');
         dayNumber.className = 'day-number';
@@ -1535,6 +1544,112 @@ async function loadMonthHabits(year, month) {
     }
 }
 
+// ============================================
+// Notas por día (1.25)
+// ============================================
+// Una nota corta por hábito y día, solo para control propio: no marca el hábito
+// ni cambia la racha. GET /api/habits/notes por mes, en caché "AAAA-MM" ->
+// {fecha: {clave: texto}}; PUT /api/habits/notes/{fecha}/{clave} la guarda
+// (vacía la borra).
+const monthNotesCache = {};
+const monthNotesLoading = new Set();
+
+function notesForDate(dateKey) {
+    const month = monthNotesCache[dateKey.slice(0, 7)];
+    return (month && month[dateKey]) || {};
+}
+
+async function loadMonthNotes(year, month) {
+    const key = monthKeyOf(year, month);
+    if (monthNotesCache[key] || monthNotesLoading.has(key) || !getToken()) return;
+    monthNotesLoading.add(key);
+    const last = new Date(year, month + 1, 0).getDate();
+    try {
+        const data = await apiFetch(`/api/habits/notes?date_from=${key}-01&date_to=${key}-${String(last).padStart(2, '0')}`);
+        const byDate = {};
+        (data.notes || []).forEach(n => { (byDate[n.date] = byDate[n.date] || {})[n.habit_key] = n.text; });
+        monthNotesCache[key] = byDate;
+        if (currentDate.getFullYear() === year && currentDate.getMonth() === month) renderCalendar();
+    } catch (error) {
+        console.error('Error cargando las notas del mes:', error);
+    } finally {
+        monthNotesLoading.delete(key);
+    }
+}
+
+function clearMonthNotes() {
+    Object.keys(monthNotesCache).forEach(key => delete monthNotesCache[key]);
+}
+
+async function saveHabitNote(dateKey, habit, text) {
+    const saved = await apiFetch(`/api/habits/notes/${dateKey}/${encodeURIComponent(habit)}`,
+        { method: 'PUT', json: { text } });
+    const month = monthNotesCache[dateKey.slice(0, 7)] || (monthNotesCache[dateKey.slice(0, 7)] = {});
+    const day = month[dateKey] || (month[dateKey] = {});
+    if (saved && saved.text) day[habit] = saved.text;
+    else delete day[habit];
+    if (!Object.keys(day).length) delete month[dateKey];
+    return saved ? saved.text : '';
+}
+
+// La nota de un hábito en el popover: su texto debajo (si hay) y el ✎ que la
+// abre en una línea para escribir. Enter o salir del campo la guarda; Escape
+// cancela. Fuera del botón del hábito: marcarlo cierra el popover.
+function buildNoteControls(row, dateKey, habit) {
+    const text = notesForDate(dateKey)[habit] || '';
+    const pencil = document.createElement('button');
+    pencil.type = 'button';
+    pencil.className = 'habit-note-btn';
+    pencil.textContent = '✎';
+    pencil.title = text ? 'Editar la nota' : 'Agregar una nota';
+    pencil.setAttribute('aria-label', `${text ? 'Editar' : 'Agregar'} nota de ${HABIT_LABELS[habit] || habit}`);
+    row.appendChild(pencil);
+
+    const shown = document.createElement('p');
+    shown.className = 'habit-note-text';
+    shown.textContent = text;
+    shown.hidden = !text;
+    row.appendChild(shown);
+
+    pencil.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (row.querySelector('.habit-note-input')) return;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'habit-note-input';
+        input.maxLength = 200;
+        input.placeholder = 'Nota del día (solo para ti)';
+        input.value = notesForDate(dateKey)[habit] || '';
+        input.setAttribute('aria-label', `Nota de ${HABIT_LABELS[habit] || habit}`);
+        shown.hidden = true;
+        row.appendChild(input);
+        input.focus();
+        let done = false;
+        const finish = async (save) => {
+            if (done) return;
+            done = true;
+            const value = input.value.trim();
+            input.remove();
+            if (save && value !== (notesForDate(dateKey)[habit] || '')) {
+                try {
+                    shown.textContent = await saveHabitNote(dateKey, habit, value);
+                } catch (error) {
+                    console.error('No se pudo guardar la nota:', error);
+                }
+                renderCalendar();
+            }
+            shown.textContent = notesForDate(dateKey)[habit] || '';
+            shown.hidden = !shown.textContent;
+            pencil.title = shown.textContent ? 'Editar la nota' : 'Agregar una nota';
+        };
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+    });
+}
+
 // Función para renderizar los botones del popover dinámicamente
 function renderHabitPopoverButtons(dateKey) {
     const habitsList = document.getElementById('habitsList');
@@ -1574,8 +1689,17 @@ function renderHabitPopoverButtons(dateKey) {
 
         // Evento click
         btn.addEventListener('click', () => toggleHabit(habit));
-        
-        habitsList.appendChild(btn);
+
+        // Con sesión, cada hábito lleva su nota del día (1.25)
+        if (dateKey && getToken()) {
+            const row = document.createElement('div');
+            row.className = 'habit-row';
+            row.appendChild(btn);
+            buildNoteControls(row, dateKey, habit);
+            habitsList.appendChild(row);
+        } else {
+            habitsList.appendChild(btn);
+        }
     });
 }
 
@@ -1829,6 +1953,7 @@ function clearHabitsState() {
     currentStreak = null;
     streakInfo = null;
     habitsData = {};
+    clearMonthNotes();
     habitsLoaded = false;
     setViewVisible('calendar', true);
     habitsSetupModal.querySelectorAll('[data-habits-only]').forEach(section => { section.hidden = false; });

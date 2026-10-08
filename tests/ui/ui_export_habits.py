@@ -52,7 +52,7 @@ async def main():
         check(text.startswith("﻿"), "starts with a UTF-8 BOM for Excel")
         rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
         header, body = rows[0], rows[1:]
-        check(header == ["Fecha", "Día", "Hábito", "Hecho", "Tipo de día"], f"header ({header})")
+        check(header == ["Fecha", "Día", "Hábito", "Hecho", "Tipo de día", "Nota"], f"header ({header})")
         check(len(body) == days * 2, f"one row per day up to today and habit ({len(body)} / {days * 2})")
         first = {r[2]: r for r in body if r[0] == monday.isoformat()}
         check(first.get("💪 Gym", [None] * 5)[1:4] == ["Lun", "💪 Gym", "Sí"], f"Monday's gym is done ({first})")

@@ -871,7 +871,7 @@ reportsExportBtn.addEventListener('click', exportReportCsv);
 // la misma regla que el calendario.
 
 const reportsExportHabitsBtn = document.getElementById('reportsExportHabits');
-const HABITS_CSV_HEADER = ['Fecha', 'Día', 'Hábito', 'Hecho', 'Tipo de día'];
+const HABITS_CSV_HEADER = ['Fecha', 'Día', 'Hábito', 'Hecho', 'Tipo de día', 'Nota'];
 const WEEKDAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DAY_KIND_LABEL = {
     hoy: 'Hoy (en curso)',
@@ -890,6 +890,7 @@ function buildHabitsCsv(rows) {
             habitDisplayName(r.icon, r.label),
             r.done ? 'Sí' : 'No',
             DAY_KIND_LABEL[r.day_kind] || '',
+            r.note || '',   // la nota de ese hábito ese día (1.25); csvCell la protege como el resto
         ];
     });
     return '\uFEFF' + [HABITS_CSV_HEADER, ...lines].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';

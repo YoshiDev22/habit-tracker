@@ -139,6 +139,12 @@ La pestaña **Calendario** es la vista de inicio.
   (vacío si no lo hiciste, relleno si sí). Tócalos para marcar o desmarcar; solo cambia el
   que tocas. Abajo dice cuántos llevas ("2 de 3 hoy") y, si el día no cuenta como fallado,
   por qué: descanso, escudo, vacaciones o festivo.
+- **Notas del día**: el **✎** a la derecha de cada hábito abre una línea para anotar algo de
+  ese día, como "cuerda 20 min" o "bici a la escuela" (sirve, por ejemplo, para un hábito
+  amplio como *Ejercicio*). Enter la guarda y queda debajo del hábito; vaciarla la borra.
+  Es solo para ti: **no marca el hábito ni cambia la racha**. Un día con notas lleva un
+  punto pequeño en la esquina de abajo. Las notas salen en el CSV de hábitos y en el
+  reporte de hábitos.
 - **Cómo se ve cada tipo de día**: descanso, atenuado; cubierto por un escudo, con fondo
   azulado y 🛡️ en la esquina; de vacaciones, rayado; festivo que descansas, con 🎉.
 - **"¿Olvidaste anotar ayer?"**: si ayer quedó vacío y tenías racha, al abrir la app te lo

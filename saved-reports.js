@@ -700,6 +700,8 @@ function renderHabitsReport(report) {
             kindPeriod(report.kind) === 'month' ? habitMonthChart(report) : habitWeekChart(report)),
         habitsBreakdown(report),
         habitWeekdayChart(report),
+        // Las notas del periodo (1.25): lo que escribiste en cada día
+        listCard('Tus notas', (report.metrics.notes || []).map(n => `${weekdayShort(n.date)} ${dateFromKey(n.date).getDate()} · ${n.habit}: ${n.text}`)),
         listCard('Patrones', t.patterns),
         t.comparison ? reportCard('Comparativa', para(t.comparison)) : null,
         listCard('Observaciones', t.observations),

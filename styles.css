@@ -857,6 +857,8 @@ body.has-pomodoro-bar {
     box-shadow: var(--shadow-lg);
     z-index: 100;
     min-width: 180px;
+    /* Una nota larga hace saltos de línea en vez de estirarlo */
+    max-width: min(260px, calc(100vw - 24px));
     transform: translateX(-50%);
 }
 
@@ -1174,6 +1176,61 @@ body.has-pomodoro-bar {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+
+/* Un día con notas (1.25): un punto en la esquina de abajo */
+.day-note-dot {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-muted);
+}
+
+/* Cada hábito del popover con su nota: el botón, el ✎ y el texto debajo */
+.habit-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 2px;
+}
+
+.habit-note-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.habit-note-btn:hover {
+    background: var(--hover-color);
+    color: var(--accent);
+}
+
+.habit-note-text {
+    grid-column: 1 / -1;
+    margin: -4px 0 4px 34px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+.habit-note-input {
+    grid-column: 1 / -1;
+    margin: 0 0 6px 34px;
+    padding: 6px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
 }
 
 .day-shield {
