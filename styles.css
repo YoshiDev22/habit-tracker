@@ -5169,6 +5169,16 @@ button.day-log-date:focus-visible {
     color: var(--text-secondary);
 }
 
+.recurring-warning {
+    margin: 0;
+    padding: 8px 10px;
+    border-left: 3px solid var(--danger-fg);
+    border-radius: 6px;
+    background: var(--danger-bg);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+}
+
 .allocation-editor {
     display: flex;
     flex-direction: column;

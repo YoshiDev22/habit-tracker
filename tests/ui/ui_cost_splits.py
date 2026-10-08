@@ -118,6 +118,16 @@ async def main():
         await asyncio.sleep(0.3)
         await b.shot("cost_recurring", full=False)
 
+        # Con cobros anotados, editar enseña "Siguiente cobro", desde el día después del último
+        await b.js("document.querySelector('#recurringList [data-action=edit]').click()")
+        await b.wait_for("!document.getElementById('recurringModal').classList.contains('hidden')")
+        st = await b.js("""({label: document.getElementById('recurringStartLabel').textContent,
+            min: document.getElementById('recurringForm').elements.start_date.min,
+            disabled: document.getElementById('recurringForm').elements.start_date.disabled})""")
+        check(st["label"] == "Siguiente cobro" and st["min"] > today and not st["disabled"],
+              f"with charges, the date is the next charge and can be moved ({st})")
+        await b.js("document.getElementById('recurringCancel').click()")
+
         # Pausar y dejar de cobrarlo
         await b.js("document.querySelector('#recurringList [data-action=pause]').click()")
         await b.wait_for("document.querySelector('#recurringList .recurring-item.paused')")
@@ -125,6 +135,10 @@ async def main():
         await b.js("document.querySelector('#recurringList [data-action=delete]').click()")
         await b.wait_for("!document.getElementById('confirmModal').classList.contains('hidden')")
         await b.js("document.getElementById('confirmModalConfirmBtn').click()")
+        # Segunda pregunta: sus gastos anotados se conservan o se borran
+        await b.wait_for("document.getElementById('confirmModalTitle').textContent === 'Sus gastos anotados'"
+                         " && !document.getElementById('confirmModal').classList.contains('hidden')")
+        await b.js("document.getElementById('confirmModalCancelBtn').click()")
         await b.wait_for("document.querySelectorAll('#recurringList .recurring-item').length === 0")
         check(all(r["recurring_id"] is None for r in sheet(tesis)), "its charges stay, without the 🔁")
 
@@ -151,6 +165,15 @@ async def main():
                     hint: !document.getElementById('recurringFromHint').hidden}; })()""")
         check(st["title"] == "Hacer recurrente" and st["concept"] == "Dominio" and st["cost"] == "300.00"
               and st["start"] > today and st["hint"], f"the form comes filled in, first charge next month ({st})")
+        # Otro día del mismo mes del gasto: avisa que se repetiría (no bloquea)
+        same_month = today[:8] + ("28" if today[8:] != "28" else "27")
+        await b.js(f"""(() => {{ const i = document.getElementById('recurringForm').elements.start_date;
+            i.value = '{same_month}'; i.dispatchEvent(new Event('input')); }})()""")
+        warn = await b.js("document.getElementById('recurringWarning').hidden ? '' : document.getElementById('recurringWarning').textContent")
+        check("repetiría" in warn, f"a first charge in the same month warns it would repeat ({warn[:90]})")
+        await b.js(f"""(() => {{ const i = document.getElementById('recurringForm').elements.start_date;
+            i.value = '{st["start"]}'; i.dispatchEvent(new Event('input')); }})()""")
+        check(await b.js("document.getElementById('recurringWarning').hidden"), "next month: no warning")
         await b.js("document.getElementById('recurringForm').requestSubmit()")
         await b.wait_for("document.getElementById('recurringModal').classList.contains('hidden')")
         await b.wait_for(f"{row} && {row}.querySelector('.cost-tag') && !{row}.querySelector('.cost-make-recurring')")

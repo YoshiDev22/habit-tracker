@@ -20,6 +20,7 @@ import calendar
 from datetime import date as date_type
 from typing import Dict, List, Optional
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -112,6 +113,15 @@ def generate_due(session: Session, user_id: int, today: date_type) -> List[Proje
             due = next_date(rc)
             if due is None or due > today:
                 break
+            # Ya hay un gasto suyo en esa fecha (p. ej. el que se volvió recurrente):
+            # cuenta como ese cobro. Generarlo chocaría con el índice único y el
+            # recurrente se quedaría atascado sin avanzar.
+            if session.exec(select(ProjectCost.id).where(
+                    ProjectCost.user_id == user_id, ProjectCost.recurring_id == rc.id,
+                    ProjectCost.cost_date == due).limit(1)).first() is not None:
+                rc.generated += 1
+                session.add(rc)
+                continue
             fields = dict(category_id=rc.category_id, cost_date=due, concept=rc.concept,
                           quantity=rc.quantity, unit_cost_cents=rc.unit_cost_cents, note=rc.note)
             created += create_cost_rows(session, user_id, fields, allocations, recurring_id=rc.id)
@@ -125,6 +135,12 @@ def generate_due(session: Session, user_id: int, today: date_type) -> List[Proje
             session.rollback()
             return []
     return created
+
+
+def last_charge(session: Session, rc: RecurringCost) -> Optional[date_type]:
+    """La fecha del último gasto anotado por este recurrente (None si ninguno)."""
+    return session.exec(select(func.max(ProjectCost.cost_date)).where(
+        ProjectCost.user_id == rc.user_id, ProjectCost.recurring_id == rc.id)).one()
 
 
 def skip_past(rc: RecurringCost, today: date_type) -> None:

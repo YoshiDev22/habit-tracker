@@ -146,8 +146,13 @@ def test_recurring_generates_what_is_due_once(api):
     amounts = sorted(r["total_cents"] for r in sheet(api, tesis)["costs"])
     assert amounts.count(25000) == len(due) - 1 and amounts.count(30000) >= 1
 
-    # El primer cobro y la frecuencia ya no se cambian
-    assert api.call("PATCH", f"/api/costs/recurring/{rc['id']}", {"frequency": "yearly"})[0] == 409
+    # Con cobros anotados, la fecha es "el siguiente cobro": antes del último, no
+    last = max(r["cost_date"] for r in sheet(api, tesis)["costs"])
+    status, err = api.call("PATCH", f"/api/costs/recurring/{rc['id']}", {"start_date": last})
+    assert status == 409 and "después del último" in err["detail"]
+    later = date.fromisoformat(last) + timedelta(days=10)
+    _, moved = api.call("PATCH", f"/api/costs/recurring/{rc['id']}", {"start_date": later.isoformat()}, expect=200)
+    assert moved["next_date"] == later.isoformat() and moved["last_charge"] == last
 
     # Borrarlo deja sus gastos, sin el 🔁
     api.call("DELETE", f"/api/costs/recurring/{rc['id']}", expect=204)
@@ -259,3 +264,30 @@ def test_make_an_expense_recurring(api):
     _, cats = api.call("GET", "/api/costs/categories", expect=200)
     assert api.call("POST", "/api/costs/recurring", {**recurring_body(mine, cats["categories"][0], next_month),
                                                      "from_cost_id": cost["id"]})[0] == 404
+
+
+def test_an_expense_on_a_later_charge_date_is_that_charge(api):
+    """Volver recurrente un gasto cuya fecha cae en un cobro que no es el primero:
+    ese gasto es ese cobro (no se duplica) y la serie no se atasca."""
+    tesis, ht, cat = setup(api)
+    start = TODAY - timedelta(days=70)
+    second = occurrence(start, "monthly", 1)
+    cost = add(api, tesis, cat, 25000, concept="Hostinger", day=second)
+    _, rc = api.call("POST", "/api/costs/recurring", {**recurring_body(tesis, cat, start), "from_cost_id": cost["id"]},
+                     expect=201)
+    dates = sorted(r["cost_date"] for r in sheet(api, tesis)["costs"])
+    due = [occurrence(start, "monthly", n).isoformat() for n in range(5) if occurrence(start, "monthly", n) <= TODAY]
+    assert dates == due                                   # una vez cada fecha, el gasto incluido
+    assert rc["generated"] == len(due)
+
+
+def test_deleting_a_recurring_can_take_its_charges(api):
+    tesis, ht, cat = setup(api)
+    start = TODAY - timedelta(days=40)
+    _, rc = api.call("POST", "/api/costs/recurring", recurring_body(tesis, cat, start), expect=201)
+    _, keep = api.call("POST", "/api/costs/recurring", {**recurring_body(tesis, cat, start), "concept": "Dominio"}, expect=201)
+    assert rc["last_charge"] is not None
+    api.call("DELETE", f"/api/costs/recurring/{rc['id']}?delete_costs=true", expect=204)
+    api.call("DELETE", f"/api/costs/recurring/{keep['id']}", expect=204)
+    concepts = {r["concept"] for r in sheet(api, tesis)["costs"]}
+    assert concepts == {"Dominio"}                     # los del primero se fueron; los del segundo se quedan

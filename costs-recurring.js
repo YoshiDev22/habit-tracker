@@ -236,9 +236,18 @@ recurringList.addEventListener('click', async (event) => {
     else if (button.dataset.action === 'pause') {
         recurringAction(() => apiFetch(`/api/costs/recurring/${rc.id}`, { method: 'PATCH', json: { paused: !rc.paused } }));
     } else if (button.dataset.action === 'delete') {
-        const ok = await confirmDialog(`¿Dejar de cobrar "${rc.concept}"? Los gastos que ya generó se quedan en la hoja.`,
-            { confirmLabel: 'Dejar de cobrarlo', danger: true });
-        if (ok) recurringAction(() => apiFetch(`/api/costs/recurring/${rc.id}`, { method: 'DELETE' }));
+        const ok = await confirmDialog(`¿Dejar de cobrar "${rc.concept}"?`, { confirmLabel: 'Dejar de cobrarlo', danger: true });
+        if (!ok) return;
+        // Lo ya anotado: se queda (dejar de pagarlo) o se borra (se creó mal y se rehace)
+        let deleteCosts = false;
+        if (rc.last_charge) {
+            deleteCosts = await confirmDialog(
+                `¿Qué hago con los gastos que ya anotó (el último, el ${dayText(rc.last_charge)})? Si lo creaste con la fecha `
+                + 'equivocada, bórralos y vuelve a crearlo; si solo dejas de pagarlo, consérvalos.',
+                { title: 'Sus gastos anotados', confirmLabel: 'Borrarlos también', cancelLabel: 'Conservarlos', danger: true });
+        }
+        recurringAction(() => apiFetch(`/api/costs/recurring/${rc.id}${deleteCosts ? '?delete_costs=true' : ''}`,
+            { method: 'DELETE' }));
     }
 });
 
@@ -281,14 +290,18 @@ function openRecurringForm(rc = null, prefill = null, fromCost = null) {
     f.quantity.value = src ? String(src.quantity) : '1';
     f.unit_cost.value = src ? money2(src.unit_cost_cents) : '';
     f.frequency.value = src ? src.frequency : 'monthly';
-    f.start_date.value = src ? src.start_date : getDateKey(new Date());
     f.end_date.value = src && src.end_date ? src.end_date : '';
     f.note.value = src && src.note ? src.note : '';
-    // Con cobros hechos, el primer cobro y la frecuencia quedan fijos
-    const locked = Boolean(rc && rc.generated);
-    f.start_date.disabled = locked;
-    f.frequency.disabled = locked;
-    document.getElementById('recurringLockedHint').hidden = !locked;
+    // Con cobros anotados, la fecha es la del siguiente cobro: se puede mover,
+    // pero después del último ya anotado (el backend lo comprueba también)
+    const charged = Boolean(rc && rc.last_charge);
+    f.start_date.value = charged ? (rc.next_date || rc.start_date) : (src ? src.start_date : getDateKey(new Date()));
+    f.start_date.min = charged ? addDaysKey(rc.last_charge, 1) : '';
+    recurringState.shownStart = f.start_date.value;
+    recurringState.shownFrequency = f.frequency.value;
+    document.getElementById('recurringStartLabel').textContent = charged ? 'Siguiente cobro' : 'Primer cobro';
+    document.getElementById('recurringLockedHint').hidden = !charged;
+    paintRecurringWarning();
 
     const current = src ? src.allocations.map(a => ({ project_id: a.project_id, bp: a.bp }))
         : costsState.projectId ? [{ project_id: costsState.projectId, bp: 10000 }] : [];
@@ -300,6 +313,41 @@ function openRecurringForm(rc = null, prefill = null, fromCost = null) {
     showModal(recurringModal);
     f.concept.focus();
 }
+
+function addDaysKey(key, days) {
+    const d = dateFromKey(key);
+    return getDateKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+}
+
+// Avisa, sin bloquear: un primer cobro en el mismo mes (o año) que el gasto del
+// que sale, en otra fecha, lo anotaría dos veces; y uno en el pasado anota los
+// cobros atrasados hasta hoy
+function paintRecurringWarning() {
+    const f = recurringForm.elements;
+    const warning = document.getElementById('recurringWarning');
+    const notes = [];
+    const start = f.start_date.value;
+    const cost = recurringState.fromCost;
+    if (cost && start && start !== cost.cost_date) {
+        const sameMonth = start.slice(0, 7) === cost.cost_date.slice(0, 7);
+        const sameYear = start.slice(0, 4) === cost.cost_date.slice(0, 4);
+        if (f.frequency.value === 'monthly' ? sameMonth : sameYear) {
+            notes.push(`Ya está anotado este gasto el ${dayText(cost.cost_date)}: un cobro el ${dayText(start)} lo `
+                + 'repetiría en el mismo periodo. Usa su misma fecha (cuenta como el primer cobro) o el periodo siguiente; '
+                + 'si lo guardas así, puedes borrar después el que sobre.');
+        }
+    }
+    const today = getDateKey(new Date());
+    const editing = recurringState.editing;
+    if (start && start < today && !(editing && editing.last_charge)) {
+        notes.push(`El primer cobro ya pasó: se anotarán los cobros desde el ${dayText(start)} hasta hoy.`);
+    }
+    warning.textContent = notes.join(' ');
+    warning.hidden = !notes.length;
+}
+
+recurringForm.elements.start_date.addEventListener('input', paintRecurringWarning);
+recurringForm.elements.frequency.addEventListener('change', paintRecurringWarning);
 
 function closeRecurringForm() {
     hideModal(recurringModal);
@@ -325,9 +373,17 @@ recurringForm.addEventListener('submit', async (event) => {
         allocations,
     };
     const rc = recurringState.editing;
-    if (!rc || !rc.generated) {
+    if (!rc || !rc.last_charge) {
         body.frequency = f.frequency.value;
         body.start_date = f.start_date.value;
+    } else {
+        // Con cobros anotados, solo si cambió: mover el siguiente cobro (o la
+        // frecuencia) hace que la serie cuente desde esa fecha
+        if (f.start_date.value !== recurringState.shownStart) body.start_date = f.start_date.value;
+        if (f.frequency.value !== recurringState.shownFrequency) {
+            body.frequency = f.frequency.value;
+            body.start_date = f.start_date.value;
+        }
     }
     if (!rc && recurringState.fromCost) body.from_cost_id = recurringState.fromCost.id;
     try {

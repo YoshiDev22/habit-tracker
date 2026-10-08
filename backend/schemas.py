@@ -755,6 +755,7 @@ class RecurringCostResponse(SQLModel):
     paused: bool
     next_date: Optional[date_type] = None   # el siguiente cobro (None: ya terminó)
     generated: int                          # cobros ya generados
+    last_charge: Optional[date_type] = None # el último gasto anotado: el siguiente va después
     currency: str
     allocations: List[Dict]                 # [{project_id, name, bp}]
 

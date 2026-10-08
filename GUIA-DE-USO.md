@@ -416,11 +416,15 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   cada año (hosting, suscripciones, dominios), con su primer cobro y, si quieres, cuándo
   termina; también puede ir repartido. En su fecha se anota solo en la hoja, con 🔁, y ahí lo
   corriges si ese mes cambió. Cambiarlo afecta a los cobros siguientes, no a los ya
-  anotados: para cambiar su **precio**, **Editar** en la tarjeta. Un gasto que ya está en la
+  anotados: para cambiar su **precio** o mover el **siguiente cobro**, **Editar** en la
+  tarjeta (el siguiente cobro va después del último ya anotado). Un gasto que ya está en la
   hoja se vuelve recurrente con su **🔁**: abre el formulario con sus datos y su reparto, y
   el primer cobro el mes siguiente (el gasto queda marcado con 🔁; si eliges su misma fecha,
   cuenta como el primer cobro y no se duplica). **Pausar** lo detiene (al reanudarlo, lo de la pausa no se cobra) y **×** lo
-  termina: lo ya anotado se queda.
+  termina: la app pregunta si conservas lo que ya anotó o lo borras también (si lo creaste
+  con la fecha equivocada, bórralo con sus gastos y vuelve a crearlo). Al crearlo desde un
+  gasto, si el primer cobro cae en el mismo mes que ese gasto, la app avisa que se
+  repetiría.
 - **Categorías**: vienen cinco (material, licencia/software, servicio, IA y otro) y son
   tuyas: en **Categorías**, al final de la pestaña, las renombras, les cambias el color, las
   ordenas o creas más. Una categoría con gastos no se borra hasta pasar sus gastos a otra.

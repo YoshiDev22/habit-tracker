@@ -437,8 +437,12 @@ Lo que no se ve en Swagger:
   en el día de `start_date`, con el fin de mes recortado) genera gastos reales con
   `recurring_id` en `generate_due()`: al pedir la hoja, el resumen o la lista, al generar un
   reporte de costos y en el timer. `generated` cuenta los cobros hechos: uno borrado no
-  vuelve, cambiarlo solo afecta a los siguientes, el primer cobro y la frecuencia no cambian
-  tras el primero (409), y al reanudarlo se saltan los de la pausa. "Hacer recurrente" (🔁 de
+  vuelve, cambiarlo solo afecta a los siguientes, y al reanudarlo se saltan los de la pausa.
+  Con cobros anotados, `start_date` en el PATCH es "el siguiente cobro": tiene que ir después
+  de `last_charge()` (409) y la serie vuelve a contar desde ahí (`generated = 0`). Si ya hay
+  un gasto suyo en una fecha de la serie, `generate_due()` lo cuenta como ese cobro (sin eso
+  chocaba con el índice único y el recurrente se atascaba). Borrarlo con
+  `?delete_costs=true` borra también lo que anotó (para rehacer uno creado mal). "Hacer recurrente" (🔁 de
   la fila) crea uno con `from_cost_id`: esas filas toman su `recurring_id` y, si el primer
   cobro es su fecha, `generated` empieza en 1 (no se duplica). El índice único
   `uq_project_costs_recurring` frena la doble generación; las columnas e índices están en

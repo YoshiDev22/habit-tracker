@@ -18,7 +18,7 @@ from backend.auth import get_current_user
 from backend.costing import cost_total_cents, costs_summary, estimates_for_tasks, line_total_cents
 from backend.database import get_session
 from backend.models import CostCategory, Project, ProjectCost, ProjectFinance, RecurringCost, User
-from backend.recurring_costs import create_cost_rows, generate_due, next_date, reshare, skip_past
+from backend.recurring_costs import create_cost_rows, generate_due, last_charge, next_date, reshare, skip_past
 from backend.routers.auth import require_module
 from backend.schemas import (
     CostCategoryCreate,
@@ -379,6 +379,7 @@ def _recurring_response(session: Session, user_id: int, rc: RecurringCost) -> Re
         unit_cost_cents=rc.unit_cost_cents, total_cents=line_total_cents(rc.quantity, rc.unit_cost_cents),
         note=rc.note, frequency=rc.frequency, start_date=rc.start_date, end_date=rc.end_date,
         paused=rc.paused, next_date=None if rc.paused else next_date(rc), generated=rc.generated,
+        last_charge=last_charge(session, rc),
         currency=_project_currency(session, user_id, first) if first else "MXN", allocations=allocations,
     )
 
@@ -436,15 +437,21 @@ def create_recurring_cost(body: RecurringCostFields, session: Session = Depends(
 def update_recurring_cost(recurring_id: int, body: RecurringCostUpdate, session: Session = Depends(get_session),
                           user: User = Depends(maker_user)):
     """Cambia un recurrente. Solo afecta a los cobros siguientes: los ya
-    generados se quedan como fueron. El primer cobro y la frecuencia ya no se
-    cambian una vez que hubo cobros (crea otro). Al reanudarlo, los cobros del
-    tiempo en pausa no se generan."""
+    generados se quedan como fueron. Con cobros ya anotados, start_date es "el
+    siguiente cobro": la serie vuelve a contar desde ahí (con la frecuencia que
+    traiga), y tiene que ser después del último gasto anotado. Al reanudarlo,
+    los cobros del tiempo en pausa no se generan."""
     rc = _own_recurring(session, user.id, recurring_id)
     changes = body.model_dump(exclude_unset=True)
-    if rc.generated and (("start_date" in changes and changes["start_date"] != rc.start_date)
-                         or ("frequency" in changes and changes["frequency"] != rc.frequency)):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Ya hubo cobros: el primer cobro y la frecuencia no se cambian. Termínalo y crea otro.")
+    reanchor = rc.generated and (("start_date" in changes and changes["start_date"] != rc.start_date)
+                                 or ("frequency" in changes and changes["frequency"] != rc.frequency))
+    if reanchor:
+        last = last_charge(session, rc)
+        new_next = changes.get("start_date") or next_date(rc) or rc.start_date
+        if last is not None and new_next <= last:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=f"El siguiente cobro tiene que ser después del último ya anotado ({last.isoformat()})")
+        changes["start_date"] = new_next
     for field in ("category_id", "concept", "quantity", "unit_cost_cents", "frequency", "start_date",
                   "paused", "allocations"):
         if field in changes and changes[field] is None:
@@ -462,6 +469,8 @@ def update_recurring_cost(recurring_id: int, body: RecurringCostUpdate, session:
     resuming = rc.paused and changes.get("paused") is False
     for field, value in changes.items():
         setattr(rc, field, value)
+    if reanchor:
+        rc.generated = 0   # la serie cuenta desde el nuevo siguiente cobro
     _check_dates(rc.start_date, rc.end_date)
     if resuming:
         skip_past(rc, _today(session, user))
@@ -473,13 +482,19 @@ def update_recurring_cost(recurring_id: int, body: RecurringCostUpdate, session:
 
 
 @router.delete("/recurring/{recurring_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_recurring_cost(recurring_id: int, session: Session = Depends(get_session), user: User = Depends(maker_user)):
-    """Deja de cobrarlo. Los gastos que ya generó se quedan (sin el 🔁)."""
+def delete_recurring_cost(recurring_id: int, delete_costs: bool = False, session: Session = Depends(get_session),
+                          user: User = Depends(maker_user)):
+    """Deja de cobrarlo. Los gastos que ya anotó se quedan (sin el 🔁), salvo
+    con delete_costs=true: entonces se borran también (para corregir un
+    recurrente creado con la fecha equivocada)."""
     rc = _own_recurring(session, user.id, recurring_id)
     for cost in session.exec(select(ProjectCost).where(
             ProjectCost.user_id == user.id, ProjectCost.recurring_id == rc.id)).all():
-        cost.recurring_id = None
-        session.add(cost)
+        if delete_costs:
+            session.delete(cost)
+        else:
+            cost.recurring_id = None
+            session.add(cost)
     session.delete(rc)
     session.commit()
 

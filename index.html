@@ -1075,14 +1075,16 @@
                         <option value="yearly">Cada año</option>
                     </select>
                 </label>
-                <label class="recurring-field">Primer cobro
+                <label class="recurring-field"><span id="recurringStartLabel">Primer cobro</span>
                     <input type="date" name="start_date" required>
                 </label>
                 <label class="recurring-field">Termina (opcional)
                     <input type="date" name="end_date">
                 </label>
-                <p class="costs-hint wide" id="recurringLockedHint" hidden>Ya hubo cobros: el primer cobro y la
-                    frecuencia quedan fijos. Para cambiarlos, termínalo y crea otro.</p>
+                <p class="costs-hint wide" id="recurringLockedHint" hidden>Ya hubo cobros: esta es la fecha del
+                    siguiente, y desde ahí se repite (con la frecuencia de arriba). Los ya anotados no cambian.</p>
+                <!-- Avisa (no bloquea) si el primer cobro duplicaría el gasto de origen o anota cobros atrasados -->
+                <p class="recurring-warning wide" id="recurringWarning" hidden></p>
                 <label class="recurring-field wide">Nota (opcional)
                     <input type="text" name="note" maxlength="500">
                 </label>
