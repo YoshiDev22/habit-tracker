@@ -536,21 +536,37 @@ Las metas semanales ("4 días a la semana") son de la 17: hoy la racha es diaria
 **Pedido por Yoshio el 2026-10-08**, para la 1.25 (junto con la 34). Como las tiendas de apps
 o los juegos al actualizar: que quien usa la app se entere de lo nuevo.
 
+**Qué dice (decidido 2026-10-08).** No es el CHANGELOG: es un texto propio, corto y
+específico, para quien usa la app. **Nunca** lleva *Para actualizar* ni nada de despliegue
+(migraciones, servicios, `.env`), ni detalles técnicos. Solo dos apartados, en frases que
+empiezan por lo que la persona puede hacer:
+
+- **Nuevas funciones**: "Ahora puedes repartir un gasto entre proyectos (plan Maker)." ·
+  "Ahora puedes registrar gastos recurrentes: se anotan solos cada mes o cada año."
+- **Cambios**: "Las columnas del tablero enseñan 10 tarjetas y se desplazan solas." · "Una
+  tarea que mueves de columna queda hasta arriba."
+
+De 2 a 6 viñetas por versión; una versión solo con correcciones internas puede no tener
+Novedades (no se muestra nada).
+
 **Cómo.**
-- Al entrar con una versión nueva, una ventana **"Novedades de la 1.25"** con *Nuevo*,
-  *Cambios* y *Correcciones* de esa versión (sin *Para actualizar*, que es para quien
-  administra el servidor). Una sola vez por versión; una cuenta nueva no la ve (empieza al
-  día).
-- **Novedades** en *Mi perfil* (una fila más del drill-down) para volver a verla, con las
-  versiones anteriores.
-- El texto sale de `CHANGELOG.md`, que ya está escrito para el usuario: el backend lo lee al
-  arrancar y sirve sus secciones (`GET /api/changelog`, sin token, como `/api/version`).
-  Una sola fuente: nada que mantener en dos lados.
+- **`NOVEDADES.md`** en la raíz, una sección por versión (`## 1.25.0` con `### Nuevas
+  funciones` y `### Cambios`). Se escribe en el **mismo commit del bump**, junto al
+  CHANGELOG (agregar ese paso a *Versionado* en `CLAUDE.md`). El CHANGELOG sigue completo,
+  para GitHub y para quien despliega.
+- `GET /api/changelog` (sin token, como `/api/version`) sirve esas secciones ya leídas;
+  el backend lee el archivo al arrancar. Nada de `CHANGELOG.md` llega a la ventana.
+- Al entrar con una versión nueva que tenga Novedades, una ventana **"Novedades de la
+  1.25"**. Una sola vez por versión; una cuenta nueva no la ve (empieza al día).
+- **Novedades** en *Mi perfil* (una fila más del drill-down) para volver a verlas, con las
+  de versiones anteriores.
 - La última versión vista se recuerda en el dispositivo (`localStorage`), sin migración. Si
   luego se quiere por cuenta (no volver a verla en el teléfono), una columna nueva.
 
-**Aceptación.** Tras subir `VERSION`, la primera entrada muestra la ventana con el texto de
-esa versión del CHANGELOG, y la segunda ya no; *Mi perfil › Novedades* la vuelve a abrir.
+**Aceptación.** Tras subir `VERSION`, la primera entrada muestra la ventana con las
+Novedades de esa versión (de `NOVEDADES.md`, nunca del CHANGELOG), y la segunda ya no;
+*Mi perfil › Novedades* la vuelve a abrir. Ninguna Novedad menciona migraciones ni
+despliegue.
 
 ---
 
