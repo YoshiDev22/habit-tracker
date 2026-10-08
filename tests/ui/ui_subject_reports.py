@@ -106,6 +106,10 @@ async def main():
         check(wide <= 390, f"nothing overflows the phone width ({wide})")
         await b.shot("subject_costs_report", full=False)
 
+        # Los gastos más grandes llevan el color de su categoría (no el de acento)
+        fills = await b.js("[...document.querySelectorAll('#savedReportBody .report-bar-fill')].map(f => f.style.background)")
+        check(fills and all(fills), f"the largest expenses take their category color ({fills})")
+
         # Proyectos con el mismo color: cada rebanada de la dona toma uno distinto
         colors = await b.js("distinctColors([{color: '#3498db'}, {color: '#3498DB'}, {color: null}]).map(r => r.color)")
         check(len(set(c.lower() for c in colors)) == 3, f"repeated or missing colors get distinct ones in a donut ({colors})")

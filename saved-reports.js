@@ -767,8 +767,11 @@ function costsBreakdown(report, currency) {
     const parts = [donuts];
     const top = m.top_costs.filter(c => c.currency === currency);
     if (top.length) {
+        // Cada gasto con el color de su categoría, el mismo de la gráfica de columnas
+        const categoryColor = new Map(m.categories.filter(c => c.currency === currency).map(c => [c.name, c.color]));
         parts.push(el('p', 'saved-chart-title', 'Gastos más grandes'));
-        parts.push(barList(top.map(c => ({ name: `${c.concept} · ${c.project}`, note: c.category, seconds: c.cents })), null, money));
+        parts.push(barList(top.map(c => ({ name: `${c.concept} · ${c.project}`, note: c.category,
+            color: categoryColor.get(c.category), seconds: c.cents })), null, money));
     }
     return reportCard(m.currencies.length > 1 ? `¿En qué se fue el dinero? · ${currency}` : '¿En qué se fue el dinero?', ...parts);
 }
