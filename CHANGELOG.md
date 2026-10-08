@@ -7,6 +7,53 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.23.0] — 2026-10-08
+
+Reportes de hábitos y de costos, con el mismo formato que los de tiempo, y la IA más
+transparente: sabes cuándo escribió el texto y un intento fallido ya no te cuesta.
+
+### Nuevo
+- **Reporte de hábitos**: en Reportes, con *Semana* o *Mes*, **Generar reporte de hábitos**
+  (junto al de tiempo). Trae tu cumplimiento contra el periodo anterior, los días con algún
+  hábito y tu racha al cierre, cuántos hábitos hiciste cada día (o cada semana en el
+  mensual) y una dona con la parte de cada hábito. Los días de descanso, vacaciones,
+  festivos y protegidos no cuentan como fallo, y un hábito nuevo cuenta desde que lo
+  creaste. El texto nunca regaña: si algo costó, propone cómo retomarlo.
+- **Reporte de costos** (plan Maker): en la pestaña Costos, elige el mes y toca **Generar
+  reporte**. Trae el costo del mes contra el anterior (mano de obra, gastos y horas), la
+  gráfica por categoría, una dona con la parte de cada proyecto, los gastos más grandes y
+  el presupuesto disponible y el margen de cada proyecto, acumulados al cierre del mes.
+  **Reportes de costos** los lista.
+- Los dos salen **solos**, como los de tiempo: cada lunes y cada día 1 los de hábitos (si
+  marcaste alguno) y cada día 1 el de costos (si hubo gastos o tiempo en proyectos con
+  costeo). Con la IA encendida, ella escribe el texto.
+- **✨ Texto de IA** o **Texto de reglas**: una etiqueta en cada reporte, y en cada fila de
+  la lista, dice quién escribió el texto.
+
+### Cambios
+- **Dos contadores de IA**: los reportes de tiempo y de hábitos comparten 10 textos al día;
+  los de costos tienen los suyos. El aviso dice de cuál es.
+- **Un intento fallido ya no gasta tu límite**: solo cuentan los textos que salen bien.
+- **Si regeneras un reporte y la IA falla, el reporte no cambia** (ni su fecha) y te dice
+  por qué, con un botón **Regenerar con reglas**. Antes se guardaba el texto de reglas
+  encima.
+- **Reescribir el texto con IA** (antes *Reescribir con IA*) aclara que solo cambia el
+  texto: para recalcular las cifras, **Regenerar**.
+- En las donas de los reportes, dos rebanadas ya no comparten color aunque sus proyectos lo
+  compartan.
+
+### Correcciones
+- El aviso de cuántos textos con IA quedan podía enseñar el contador de tiempo y hábitos
+  en un reporte de costos.
+- La IA podía dejar vacía una sección que las instrucciones permitían vacía, y su texto se
+  rechazaba.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: basta con `git pull` y reiniciar el
+servicio. Opcional: el límite diario de textos con IA de los reportes de costos se cambia
+con `AI_COSTS_DAILY_LIMIT` en `backend/.env` (10 si no se pone). El servicio diario de los
+reportes no cambia: ya genera también los de hábitos y costos.
+
 ## [1.22.1] — 2026-10-07
 
 ### Correcciones
@@ -625,6 +672,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.23.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.23.0
 [1.22.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.1
 [1.22.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.0
 [1.21.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.21.0
