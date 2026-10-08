@@ -74,6 +74,9 @@ habit-tracker/
 │   ├── reports.py         # Reportes guardados: periodos, generación y cuáles faltan (épica 30)
 │   ├── report_text.py     # El texto de un reporte guardado, con reglas fijas
 │   ├── report_ai.py       # El texto escrito por la IA: qué se envía, validación y límite diario
+│   ├── report_kinds.py    # Los temas de un reporte guardado (tiempo, hábitos, costos) en su kind
+│   ├── habit_report.py    # Cifras y texto de reglas del reporte de hábitos
+│   ├── cost_report.py     # Cifras y texto de reglas del reporte mensual de costos (Maker)
 │   ├── ai.py              # El proveedor de IA (uno por instancia, en .env): una sola llamada
 │   ├── accounts.py        # Borrar una cuenta (ya, o programada a 30 días) y todo lo suyo
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
@@ -397,7 +400,8 @@ Lo que no se ve en Swagger:
   (`cost_categories`) son del usuario: las cinco de inicio las crea
   `ensure_cost_categories()` la primera vez (perezoso, como "Sin asignar"); una con gastos
   o la última no se borran (409). `/api/costs/summary` da costo y margen por proyecto, el
-  gasto por categoría y los totales **por moneda**. Los cálculos viven en
+  gasto por categoría y los totales **por moneda**; lo calcula `costs_summary()` en
+  `costing.py`, que acepta `date_from`/`date_to` (el reporte de costos, 1.23). Los cálculos viven en
   `backend/costing.py` y los usan la ficha y la pestaña, para que cuadren: **redondeo de
   .5 hacia arriba** (`ROUND_HALF_UP`, con enteros o `Decimal`), nunca `round()`, que
   redondea al par.
@@ -651,6 +655,26 @@ claro. Las gráficas se dibujan al ancho de la pantalla, así que al imprimir
 `PRINT_CHART_WIDTH` (680): dibujadas en un teléfono salían enormes en la hoja. Las tarjetas
 sí se parten entre hojas (enteras dejaban medias hojas en blanco); sus piezas no.
 
+**Temas de un reporte guardado (1.23).** El `kind` dice tema y periodo
+(`backend/report_kinds.py`): `week`/`month` (tiempo), `habits-week`/`habits-month` y
+`costs-month` (plan Maker). Va en el kind y no en una columna porque la restricción única
+es (usuario, kind, inicio): sin migración. `report_metrics()` y `rules_text()`
+(`backend/reports.py`) despachan por tema a `metrics.py`/`report_text.py`,
+`habit_report.py` y `cost_report.py`; guardar, la espera, la IA y el timer son comunes. El
+de **hábitos** cuenta como posible cada día transcurrido salvo los que congelan la racha
+(descanso, vacaciones, festivos que se descansan) y hoy sin marcar, a menos que se haya
+hecho algo; un hábito cuenta desde `min(created_at, primer registro)` y un día en el que
+ningún hábito existía queda `none` (ni cuenta ni falla). Las rachas se miden al **cierre
+del periodo** (`_walk_streak` con el día siguiente al cierre). Su texto sigue
+`docs/referencias.md`: nunca regaña. El de **costos** usa `costs_summary()` dos veces: el
+mes (horas y gastos con fecha en el mes) y lo acumulado hasta el cierre (`to_date`:
+presupuesto disponible y margen, que son del proyecto entero); `POST /api/reports` y
+`rewrite` le piden el módulo `maker` (403). El timer genera hábitos y costos solo con su
+módulo encendido (`MODULE` en `report_kinds.py`). La lista (`GET /api/reports`) trae
+`subject` y `headline` (la cifra de la fila). En la UI, Reportes tiene un botón por tema
+(tiempo y hábitos) y su lista; la pestaña Costos, el mes y su lista (`savedState.scope`).
+El mismo modal pinta los tres (`renderSavedReport()` despacha), con los mismos botones.
+
 **IA para el texto** (épica 30, Fase 5). Módulo `ai`, con acceso como el plan maker
 (`grant_module.py --module ai`). Con él encendido, `write_text()` (`backend/reports.py`)
 pide el texto a la IA al generar (botón y timer) y, si algo falla, deja el de las reglas
@@ -666,7 +690,11 @@ conversión a horas y minutos, `allowed_numbers()`); si cita otra, se rechaza. U
 separador de miles ("1 580") se lee entero. Solo en `next_steps` se aceptan enteros nuevos:
 una meta propone un número ("4 h o menos"); un decimal nuevo, nunca. Cada intento
 queda en `ai_calls` (tabla nueva), que cuenta el límite diario por cuenta (`AI_DAILY_LIMIT`,
-10; día UTC). `POST /api/reports/{id}/rewrite` reescribe solo el texto (403 sin el módulo,
+10; día UTC). Desde la 1.23 hay **dos contadores**, por `ai_calls.purpose`: `report`
+(tiempo y hábitos, `AI_DAILY_LIMIT`) y `costs` (`AI_COSTS_DAILY_LIMIT`, 10); `AI_POOL` en
+`report_kinds.py` dice cuál usa cada tema, `ai_usage()` (`report_ai.py`) es la función
+única del contador y `GET /api/reports/ai-usage?subject=` la expone. Cada tema manda sus
+instrucciones (`PROMPTS`); en costos los centavos viajan como `..._amount` en la moneda. `POST /api/reports/{id}/rewrite` reescribe solo el texto (403 sin el módulo,
 503 sin proveedor, 502 si la IA falla, y el reporte no cambia); `GET /api/reports/ai-preview`
 enseña las instrucciones y el JSON exactos (Configuración › Módulos › *Ver qué se envía*), y
 `GET /api/reports/ai-usage` cuántos quedan hoy ("IA: te quedan 7 de 10 textos hoy", en el

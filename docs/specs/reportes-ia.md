@@ -139,7 +139,8 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    que no venían en las métricas.
 6. **Tipo, precio y margen** ✅ (2026-10-05, sin publicar): tipo de proyecto, precio,
    "presupuesto disponible" aparte del margen (precio − costo) y la gráfica Costos filtrable
-   por proyecto. **Falta el reporte de costos por periodo**, junto con la entrada 29.
+   por proyecto. El **reporte mensual de costos** llegó en la 1.23 (abajo), con el filtro
+   por fechas de la entrada 29 en la API.
    **Reporte de costos (Maker), aparte (decidido 2026-10-03).** No se mezcla con el de
    tiempo y hábitos: es **su propio reporte, con su propio botón** en la pestaña Costos
    (horas, mano de obra, gastos, costo, presupuesto disponible y margen del periodo, por

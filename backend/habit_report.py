@@ -116,6 +116,7 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
                 first_record.setdefault(key, day_date)
 
     items = []
+    counted_dates: Set[str] = set()   # días que contaban para algún hábito
     weekday_done = [0] * 7
     weekday_possible = [0] * 7
     total_done = total_possible = 0
@@ -130,6 +131,7 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
             if day_date < since or not possible(day, habit.key):
                 continue
             possible_n += 1
+            counted_dates.add(day["date"])
             by_wd_possible[day_date.weekday()] += 1
             if habit.key in day["done"]:
                 done += 1
@@ -153,7 +155,11 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
             weekday_done[i] += by_wd_done[i]
             weekday_possible[i] += by_wd_possible[i]
 
-    counted = [day for day in days if possible(day)]
+    # Antes de que existiera algún hábito no había nada que hacer: ni cuenta ni falla
+    for day in days:
+        if day["status"] in ("missed", "protected") and day["date"] not in counted_dates:
+            day["status"] = "none"
+    counted = [day for day in days if day["date"] in counted_dates]
     off = [day for day in days if day["status"] == "off"]
     metrics = {
         "date_from": start.isoformat(), "date_to": end.isoformat(), "through": through.isoformat(),

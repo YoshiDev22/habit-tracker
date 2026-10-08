@@ -254,6 +254,15 @@
                 <!-- Costos (plan Maker): resumen de costo y margen, y la hoja de
                      gastos del proyecto elegido. costs.js pinta todo. -->
                 <section id="viewCosts" class="view" role="tabpanel" aria-labelledby="tabCosts" hidden>
+                    <!-- El reporte de costos de un mes (saved-reports.js): se abre en el modal de reportes -->
+                    <div class="costs-report-bar">
+                        <label class="costs-report-month">
+                            <span class="visually-hidden">Mes del reporte</span>
+                            <select id="costsReportMonth"></select>
+                        </label>
+                        <button type="button" id="costsReportBtn" class="submit-btn btn-neutral reports-saved-btn">Generar reporte</button>
+                        <button type="button" id="costsReportsListBtn" class="link-btn">Reportes de costos</button>
+                    </div>
                     <div id="costsSummary" class="costs-summary" aria-live="polite"></div>
 
                     <section class="report-card costs-sheet-card">
@@ -335,10 +344,11 @@
                             <label>Desde <input type="date" id="reportsFrom"></label>
                             <label>Hasta <input type="date" id="reportsTo"></label>
                         </div>
-                        <!-- Reportes guardados (saved-reports.js): con Semana o Mes, el del periodo
-                             que se ve. "Ver reporte" si ya existe; si no, "Generar reporte". -->
+                        <!-- Reportes guardados (saved-reports.js): con Semana o Mes, el de tiempo y
+                             el de hábitos del periodo que se ve. "Ver" si ya existe; si no, "Generar". -->
                         <div id="reportsSaved" class="reports-saved">
-                            <button type="button" id="savedReportBtn" class="submit-btn btn-neutral reports-saved-btn">Generar reporte</button>
+                            <button type="button" id="savedReportBtn" class="submit-btn btn-neutral reports-saved-btn">Generar reporte de tiempo</button>
+                            <button type="button" id="savedHabitsReportBtn" class="submit-btn btn-neutral reports-saved-btn">Generar reporte de hábitos</button>
                             <button type="button" id="savedReportsListBtn" class="link-btn">Reportes guardados</button>
                         </div>
                     </div>

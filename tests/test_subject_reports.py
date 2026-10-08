@@ -166,3 +166,14 @@ def test_time_and_habits_share_a_counter_costs_has_its_own(api, provider, monkey
     # Each subject sends its own instructions
     assert provider["sent"][0]["report"] == "habits" and provider["sent"][1]["report"] == "costs"
     assert "total_cost_amount" in json.dumps(provider["sent"][1])
+
+
+def test_days_before_any_habit_do_not_count(api):
+    api.login("nuevo-habito@test.com")
+    api.call("POST", "/api/habits/definitions", {"key": "agua", "label": "Agua"}, expect=201)
+    api.call("PATCH", f"/api/habits/day/{TODAY}", {"habit_key": "agua", "done": True}, expect=200)
+    monday = TODAY - timedelta(days=TODAY.weekday())
+    m = generate(api, "habits-week", monday)["metrics"]
+    # The habit is from today: earlier days of the week are neither counted nor missed
+    assert m["counted_days"] == 1 and m["active_days"] == 1 and m["missed_days"] == []
+    assert all(d["status"] == "none" for d in m["days"] if d["date"] < TODAY.isoformat())

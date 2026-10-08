@@ -392,6 +392,11 @@ locales: `cost_date` de los gastos y `session_date` del tiempo). El margen de un
 compara con su presupuesto total, así que en un periodo parcial habría que decidir si se
 muestra o se oculta.
 
+**Avance (1.23).** La API ya acepta `date_from`/`date_to` (`costs_summary()` en
+`backend/costing.py`) y el reporte mensual de costos la usa: el mes para horas y gastos, lo
+acumulado al cierre para presupuesto disponible y margen. Falta decidir el selector de la
+pestaña.
+
 ---
 
 ## 30 · P2 · Reportes automáticos (semanal y mensual) con IA opcional

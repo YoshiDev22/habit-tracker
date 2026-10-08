@@ -382,6 +382,13 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   tabla enseña solo costo, disponible y margen. El precio y el presupuesto se editan
   tocando su cifra. Si tienes proyectos en monedas distintas, cada moneda va aparte: la app
   nunca las suma ni convierte.
+- **Reporte de costos**, hasta arriba: elige el mes y toca **Generar reporte** (o **Ver
+  reporte** si ya existe). Trae el costo del mes por moneda (mano de obra y gastos)
+  contra el mes anterior, cada proyecto con sus horas, mano de obra, gastos y costo, el
+  presupuesto disponible y el margen **acumulados** hasta el cierre del mes, el gasto por
+  categoría y los gastos más grandes. Sale solo cada día 1, del mes anterior. **Reportes de
+  costos** los lista todos. Con la IA encendida, el texto lo escribe ella, con su propio
+  límite diario.
 - **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
   en la lista). Se usa como una hoja de cálculo: escribe en las celdas y cada cambio se
   guarda solo; **＋ Agregar fila** para uno nuevo, y Enter baja a la fila siguiente.
@@ -445,12 +452,13 @@ por escudo u hoy en curso). Para un periodo largo, elige *Personalizado* (hasta 
 Un reporte es una foto del periodo: guarda las cifras como estaban al generarlo, con
 observaciones y recomendaciones, para leerlo después o compararlo.
 
-- **Generar reporte**, bajo el periodo (solo con *Semana* o *Mes*): hace el reporte de lo
-  que estás viendo y lo abre. Si ese periodo ya tiene uno, el botón dice **Ver reporte**.
-  Uno de la semana o el mes en curso llega hasta hoy.
-- **Solos**: cada lunes sale el de la semana anterior, y cada día 1 el del mes anterior, si
-  registraste tiempo en ese periodo. Si generaste uno a medias con el botón, el automático lo
-  completa.
+- **Generar reporte de tiempo** y **Generar reporte de hábitos**, bajo el periodo (solo
+  con *Semana* o *Mes*): hacen el reporte de lo que estás viendo y lo abren. Si ese periodo
+  ya tiene uno, el botón dice **Ver reporte**. Uno de la semana o el mes en curso llega
+  hasta hoy. El de hábitos solo aparece con el módulo Hábitos encendido.
+- **Solos**: cada lunes salen los de la semana anterior, y cada día 1 los del mes anterior,
+  si registraste tiempo o marcaste hábitos en ese periodo. Si generaste uno a medias con el
+  botón, el automático lo completa.
 - **Regenerar**: si corriges un registro después, vuelve a calcular el reporte (reemplaza
   al anterior, no se duplica). Al terminar dice **Reporte generado ✓** con la hora. Después
   hay que esperar unos segundos para volver a generarlo; si tocas antes, te dice cuánto
@@ -461,7 +469,8 @@ observaciones y recomendaciones, para leerlo después o compararlo.
   si la IA falla, cita una cifra que no estaba o llegaste al límite del día, el reporte
   usa las reglas y te dice por qué. **Reescribir con IA** vuelve a pedir el texto de un
   reporte ya guardado, sin cambiar sus cifras. Bajo los botones dice cuántos textos con IA
-  te quedan hoy (10 al día).
+  te quedan hoy: los reportes de tiempo y de hábitos comparten 10 al día, y los de costos
+  tienen los suyos.
 - **Imprimir / PDF**: imprime solo el reporte, en colores claros. Para un PDF, elige
   "Guardar como PDF" en la ventana de impresión.
 
@@ -483,6 +492,18 @@ Qué trae, con las horas en decimal (14.3 h):
 - **Registros a revisar**: el detalle de los dudosos, si hay.
 
 El texto lo escriben reglas fijas a partir de las cifras, o la IA si la tienes.
+
+**El reporte de hábitos** dice cómo te fue con cada hábito:
+
+- **Resumen**: tu cumplimiento (marcas hechas de las posibles), los días con algún hábito y
+  tu racha al cierre del periodo, comparado con el anterior. Debajo, qué días **no contaron
+  como fallo**: descanso, vacaciones, festivos y días cubiertos por un protector.
+- **Tus hábitos**: cada uno con sus días hechos de los que contaban, su % contra el periodo
+  anterior y su racha. Un hábito nuevo cuenta desde que lo creaste. En el semanal, cada día
+  con cuántos hábitos hiciste; en el mensual, el cumplimiento por semana y por día de la
+  semana.
+- **Patrones**, **Observaciones**, **Comparativa** (el mensual), los siguientes pasos y el
+  **Cierre**. El texto nunca regaña: si algo costó, propone cómo retomarlo.
 
 ## Pomodoro y cronómetro
 

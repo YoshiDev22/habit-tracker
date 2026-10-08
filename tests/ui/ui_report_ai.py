@@ -57,7 +57,7 @@ async def main():
 
         # Un reporte: sale de las reglas y dice por qué; reescribir avisa sin romperlo
         await b.js("document.getElementById('tabReports').click()")
-        await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte'")
+        await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte de tiempo'")
         await b.js("document.getElementById('savedReportBtn').click()")
         await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte semanal')")
         st = await b.js("({meta: document.getElementById('savedReportMeta').textContent,"
@@ -74,7 +74,7 @@ async def main():
         # Con proveedor (simulado: las pruebas no tienen), el reporte dice cuántos textos quedan hoy
         await b.js("""(() => {
             const real = window.apiFetch;
-            window.apiFetch = (path, options) => path === '/api/reports/ai-usage'
+            window.apiFetch = (path, options) => path.startsWith('/api/reports/ai-usage')
                 ? Promise.resolve({configured: true, limit: 10, used_today: 3, remaining: 7})
                 : real(path, options);
         })()""")
@@ -82,7 +82,7 @@ async def main():
         await b.wait_for("!document.getElementById('savedReportAiUsage').hidden")
         st = await b.js("({text: document.getElementById('savedReportAiUsage').textContent,"
                         " seen: document.getElementById('savedReportAiUsage').offsetHeight > 0})")
-        check(st["text"] == "IA: te quedan 7 de 10 textos hoy." and st["seen"], f"the report says how many AI texts are left today ({st})")
+        check(st["text"] == "IA: te quedan 7 de 10 textos hoy (reportes de tiempo y hábitos)." and st["seen"], f"the report says how many AI texts are left today ({st})")
     finally:
         await b.close()
 

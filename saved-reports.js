@@ -8,6 +8,10 @@
 // abre la lista. "Imprimir / PDF" imprime solo el modal (@media print en
 // styles.css). Usa el, svg, svgText, reportCard, summaryStat, barList,
 // MONTH_NAMES y MONTH_SHORT de reports.js, y formatDuration de projects.js.
+//
+// Tres temas (1.23): tiempo y hábitos se piden en Reportes; costos, en la
+// pestaña Costos (plan Maker). El mismo modal los pinta a los tres, cada uno a su
+// manera (renderSavedReport); botones, espera y contador de IA son los mismos.
 
 const savedModal = document.getElementById('savedReportsModal');
 const savedTitle = document.getElementById('savedReportTitle');
@@ -23,7 +27,14 @@ const savedRewrite = document.getElementById('savedReportRewrite');
 const savedStatus = document.getElementById('savedReportStatus');
 const savedAiUsage = document.getElementById('savedReportAiUsage');
 const PRINT_CHART_WIDTH = 680;   // ancho de las gráficas al imprimir: el de una hoja, no el de la pantalla
-const KIND_TITLE = { week: 'Reporte semanal', month: 'Reporte mensual' };
+const SUBJECT_NAME = { time: 'tiempo', habits: 'hábitos', costs: 'costos' };
+// El kind dice tema y periodo: week · month · habits-week · habits-month · costs-month
+function kindSubject(kind) { return kind.includes('-') ? kind.split('-')[0] : 'time'; }
+function kindPeriod(kind) { return kind.includes('-') ? kind.split('-')[1] : kind; }
+function kindFor(subject, period) { return subject === 'time' ? period : `${subject}-${period}`; }
+function reportTitle(kind) {
+    return `Reporte ${kindPeriod(kind) === 'week' ? 'semanal' : 'mensual'} de ${SUBJECT_NAME[kindSubject(kind)]}`;
+}
 
 const savedState = {
     list: [],          // filas de GET /api/reports (sin cifras)
@@ -33,6 +44,7 @@ const savedState = {
     readyAt: 0,        // Date.now() desde el que se puede volver a generar (regenerate_in)
     busy: false,       // generando o reescribiendo: un clic más no manda otra petición
     printing: false,   // dibujando para imprimir
+    scope: 'reports',  // la lista que se ve: 'reports' (tiempo y hábitos) o 'costs'
     statusTimer: null,
 };
 
@@ -47,7 +59,7 @@ function shortDay(key) {
 
 function savedPeriodLabel(report) {
     const from = dateFromKey(report.period_start);
-    if (report.kind === 'month') {
+    if (kindPeriod(report.kind) === 'month') {
         const name = MONTH_NAMES[from.getMonth()];
         return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${from.getFullYear()}`;
     }
@@ -93,7 +105,7 @@ function longDay(key) {
 
 // "Semana del 28 de septiembre al 4 de octubre de 2026" · "Septiembre 2026"
 function periodSentence(report) {
-    if (report.kind === 'month') return savedPeriodLabel(report);
+    if (kindPeriod(report.kind) === 'month') return savedPeriodLabel(report);
     const from = dateFromKey(report.period_start);
     const to = dateFromKey(report.period_end);
     const left = from.getMonth() === to.getMonth() ? `${from.getDate()}` : `${from.getDate()} de ${MONTH_NAMES[from.getMonth()]}`;
@@ -438,12 +450,12 @@ function savedReview(m) {
 }
 
 function nextStepsTitle(report) {
-    if (report.kind === 'week') return 'Para la próxima semana';
+    if (kindPeriod(report.kind) === 'week') return 'Para la próxima semana';
     const end = dateFromKey(report.period_end);
     return `Metas para ${MONTH_NAMES[(end.getMonth() + 1) % 12]}`;
 }
 
-function renderSavedReport(report) {
+function renderTimeReport(report) {
     const m = report.metrics;
     const t = report.text || {};
     const review = m.unconfirmed_seconds
@@ -463,6 +475,219 @@ function renderSavedReport(report) {
         closingCard(t.closing),
         savedReview(m),
     ].filter(Boolean));
+}
+
+
+// ============================================
+// Reporte de hábitos (1.23)
+// ============================================
+
+function habitName(h) {
+    return h.icon ? `${h.icon} ${h.label}` : h.label;
+}
+
+function pctText(value) {
+    return value === null || value === undefined ? '—' : `${value} %`;
+}
+
+// Barras de porcentaje: la escala es siempre 0–100 (barList escala al mayor)
+function pctBars(rows) {
+    const list = el('ul', 'report-bars');
+    rows.forEach(row => {
+        const item = el('li', `report-bar-row${row.pct === null ? ' muted' : ''}`);
+        const head = el('div', 'report-bar-head');
+        const name = el('span', 'report-bar-name');
+        const dot = el('i', 'report-bar-dot');
+        if (row.color) dot.style.background = row.color;
+        name.append(dot, document.createTextNode(row.name));
+        if (row.note) name.appendChild(el('span', 'report-bar-note', row.note));
+        head.append(name, el('span', 'report-bar-value', pctText(row.pct)));
+        const track = el('div', 'report-bar-track');
+        const fill = el('div', 'report-bar-fill');
+        fill.style.width = `${row.pct || 0}%`;
+        if (row.color) fill.style.background = row.color;
+        track.appendChild(fill);
+        item.append(head, track);
+        list.appendChild(item);
+    });
+    return list;
+}
+
+function habitsTable(report) {
+    const m = report.metrics;
+    const prev = new Map(((m.previous && m.previous.habits) || []).map(h => [h.key, h]));
+    const hasPrev = Boolean(m.previous && m.previous.date_from);
+    const table = el('table', 'saved-metrics');
+    const head = el('tr');
+    head.append(el('th', '', 'Hábito'));
+    if (hasPrev) head.append(el('th', '', rangeShort(m.previous.date_from, m.previous.date_to)));
+    head.append(el('th', '', `${rangeShort(report.period_start, report.period_end)}${report.through < report.period_end ? ' (parcial)' : ''}`),
+        el('th', '', 'Racha'));
+    const thead = el('thead');
+    thead.appendChild(head);
+    const tbody = el('tbody');
+    const row = (label, before, now, streak) => {
+        const tr = el('tr');
+        tr.append(el('th', '', label));
+        if (hasPrev) tr.append(el('td', '', before));
+        tr.append(el('td', '', now), el('td', '', streak));
+        tbody.appendChild(tr);
+    };
+    m.habits.forEach(h => {
+        const p = prev.get(h.key);
+        row(habitName(h) + (h.active ? '' : ' (oculto)'),
+            p ? pctText(p.pct) : '—',
+            h.days_possible ? `${h.days_done} de ${h.days_possible} (${pctText(h.pct)})` : 'no contaba',
+            h.best_streak ? `${h.current_streak} (mejor ${h.best_streak})` : '—');
+    });
+    row('Todos', hasPrev ? pctText(m.previous.completion_pct) : '—',
+        `${m.done_total} de ${m.possible_total} (${pctText(m.completion_pct)})`,
+        m.best_streak ? `${m.streak} (mejor ${m.best_streak})` : '—');
+    table.append(thead, tbody);
+    const wrap = el('div', 'saved-metrics-wrap');
+    wrap.appendChild(table);
+    return wrap;
+}
+
+const HABIT_DAY_NOTE = { missed: 'sin hábitos', protected: '🛡️ protegido', today: 'hoy', pending: 'pendiente', none: '—' };
+
+// La semana: cada día con cuántos hábitos se hicieron, o por qué no contaba
+function habitDays(report) {
+    const m = report.metrics;
+    const total = m.habits.length;
+    const strip = el('ol', 'habit-days');
+    m.days.forEach(day => {
+        const item = el('li', `habit-day ${day.status}`);
+        item.append(el('span', 'habit-day-name', `${weekdayShort(day.date)} ${dateFromKey(day.date).getDate()}`));
+        let note;
+        if (day.status === 'done') note = `${day.done.length} de ${total}`;
+        else if (day.status === 'off') note = day.reason === 'descanso' || day.reason === 'vacaciones' ? day.reason : '🎉 festivo';
+        else note = HABIT_DAY_NOTE[day.status] || '';
+        item.append(el('span', 'habit-day-note', note));
+        strip.appendChild(item);
+    });
+    const box = el('div', 'saved-chart');
+    box.append(el('p', 'saved-chart-title', 'Día por día'), strip);
+    return box;
+}
+
+function habitWeeks(report) {
+    const weeks = report.metrics.by_week || [];
+    if (!weeks.length) return null;
+    const box = el('div', 'saved-chart');
+    box.append(el('p', 'saved-chart-title', 'Cumplimiento por semana'),
+        pctBars(weeks.map(w => ({ name: rangeShort(w.start, w.end), pct: w.pending ? null : w.pct,
+            note: w.pending ? 'pendiente' : `${w.done} de ${w.possible}` }))));
+    return box;
+}
+
+function habitWeekdays(report) {
+    const rows = report.metrics.by_weekday.filter(w => w.possible);
+    if (rows.length < 2 || report.kind !== 'habits-month') return null;
+    return reportCard('Por día de la semana', pctBars(rows.map(w => ({
+        name: w.name.charAt(0).toUpperCase() + w.name.slice(1), pct: w.pct, note: `${w.done} de ${w.possible}` }))));
+}
+
+function renderHabitsReport(report) {
+    const m = report.metrics;
+    const t = report.text || {};
+    const stats = el('div', 'report-stats');
+    stats.append(
+        summaryStat(pctText(m.completion_pct), 'cumplimiento'),
+        summaryStat(`${m.active_days} de ${m.counted_days}`, 'días con algún hábito'),
+        summaryStat(String(m.streak), m.streak === 1 ? 'día de racha al cierre' : 'días de racha al cierre'),
+    );
+    savedBody.replaceChildren(...[
+        reportCard('Resumen', stats, para(t.summary), para(t.data_cleanup, 'saved-report-text muted')),
+        reportCard('Tus hábitos', habitsTable(report),
+            pctBars(m.habits.filter(h => h.days_possible).map(h => ({ name: habitName(h), color: h.color, pct: h.pct,
+                note: `${h.days_done} de ${h.days_possible}` }))),
+            kindPeriod(report.kind) === 'month' ? habitWeeks(report) : habitDays(report)),
+        habitWeekdays(report),
+        listCard('Patrones', t.patterns),
+        t.comparison ? reportCard('Comparativa', para(t.comparison)) : null,
+        listCard('Observaciones', t.observations),
+        listCard(nextStepsTitle(report), t.next_steps),
+        closingCard(t.closing),
+    ].filter(Boolean));
+}
+
+// ============================================
+// Reporte de costos (1.23, plan Maker)
+// ============================================
+
+function costsProjectsTable(m) {
+    const table = el('table', 'saved-metrics');
+    const head = el('tr');
+    ['Proyecto', 'Horas', 'Mano de obra', 'Gastos', 'Costo del mes', 'Disponible', 'Margen']
+        .forEach(text => head.append(el('th', '', text)));
+    const thead = el('thead');
+    thead.appendChild(head);
+    const tbody = el('tbody');
+    const money = (cents, cur) => (cents === null || cents === undefined ? '—' : formatMoney(cents, cur));
+    m.projects.forEach(p => {
+        const tr = el('tr');
+        const acc = p.to_date;
+        const left = el('td', acc.budget_left_cents < 0 ? 'negative' : '', money(acc.budget_left_cents, p.currency));
+        const margin = el('td', acc.margin_cents < 0 ? 'negative' : '',
+            p.kind === 'personal' ? '—' : money(acc.margin_cents, p.currency));
+        tr.append(el('th', '', p.name), el('td', '', hoursText(p.total_seconds)),
+            el('td', '', p.labor_cents === null ? 'sin tarifa' : money(p.labor_cents, p.currency)),
+            el('td', '', money(p.costs_cents, p.currency)), el('td', '', money(p.total_cost_cents, p.currency)),
+            left, margin);
+        tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+    const wrap = el('div', 'saved-metrics-wrap');
+    wrap.append(table, el('p', 'report-compare-small',
+        'Disponible y margen son acumulados hasta el cierre del mes: el presupuesto y el precio son del proyecto entero.'));
+    return wrap;
+}
+
+function renderCostsReport(report) {
+    const m = report.metrics;
+    const t = report.text || {};
+    const totals = m.currencies.map(c => {
+        const stats = el('div', 'report-stats');
+        stats.append(
+            summaryStat(formatMoney(c.total_cost_cents, c.currency), 'costo del mes'),
+            summaryStat(formatMoney(c.labor_cents, c.currency), 'mano de obra'),
+            summaryStat(formatMoney(c.costs_cents, c.currency), 'gastos'),
+        );
+        return stats;
+    });
+    const byCategory = [...new Set(m.categories.map(c => c.currency))].map(cur => {
+        const rows = m.categories.filter(c => c.currency === cur)
+            .map(c => ({ name: c.name, color: c.color, seconds: c.cents }));
+        const box = el('div', 'saved-chart');
+        box.append(el('p', 'saved-chart-title', m.currencies.length > 1 ? `Gastos por categoría · ${cur}` : 'Gastos por categoría'),
+            barList(rows, null, cents => formatMoney(cents, cur)));
+        return box;
+    });
+    const top = m.top_costs.length ? (() => {
+        const list = el('ul', 'saved-report-points');
+        m.top_costs.forEach(c => list.appendChild(el('li', '',
+            `${shortDay(c.date)} · ${c.concept} · ${c.project} · ${c.category}: ${formatMoney(c.cents, c.currency)}`)));
+        return reportCard('Gastos más grandes', list);
+    })() : null;
+    savedBody.replaceChildren(...[
+        reportCard('Resumen', ...totals, para(t.summary), para(t.data_cleanup, 'saved-report-text muted')),
+        m.projects.length ? reportCard('Por proyecto', costsProjectsTable(m)) : null,
+        byCategory.length ? reportCard('¿En qué se fue el dinero?', ...byCategory) : null,
+        top,
+        listCard('Patrones', t.patterns),
+        t.comparison ? reportCard('Comparativa', para(t.comparison)) : null,
+        listCard('Presupuesto y margen', t.observations),
+        listCard(nextStepsTitle(report), t.next_steps),
+        closingCard(t.closing),
+    ].filter(Boolean));
+}
+
+function renderSavedReport(report) {
+    const subject = kindSubject(report.kind);
+    if (subject === 'habits') renderHabitsReport(report);
+    else if (subject === 'costs') renderCostsReport(report);
+    else renderTimeReport(report);
 }
 
 // ============================================
@@ -497,14 +722,17 @@ function secondsToWait() {
     return Math.max(0, Math.ceil((savedState.readyAt - Date.now()) / 1000));
 }
 
-// Con la IA encendida: cuántos textos le quedan hoy a la cuenta
-async function refreshAiUsage() {
+// Con la IA encendida: cuántos textos le quedan hoy a la cuenta en el contador
+// del tema (tiempo y hábitos comparten uno; costos tiene el suyo)
+const AI_POOL_NAME = { time: 'reportes de tiempo y hábitos', habits: 'reportes de tiempo y hábitos', costs: 'reportes de costos' };
+
+async function refreshAiUsage(subject = 'time') {
     savedAiUsage.hidden = true;
     if (!aiOn()) return;
     try {
-        const usage = await apiFetch('/api/reports/ai-usage');
+        const usage = await apiFetch(`/api/reports/ai-usage?subject=${subject}`);
         if (!usage.configured) return;
-        savedAiUsage.textContent = `IA: te quedan ${usage.remaining} de ${usage.limit} textos hoy.`;
+        savedAiUsage.textContent = `IA: te quedan ${usage.remaining} de ${usage.limit} textos hoy (${AI_POOL_NAME[subject]}).`;
         savedAiUsage.hidden = false;
     } catch (error) {
         // Sin el dato no pasa nada: el servidor igual pone el límite
@@ -514,7 +742,7 @@ async function refreshAiUsage() {
 function showSavedReport(report) {
     savedState.current = report;
     savedState.readyAt = Date.now() + (report.regenerate_in || 0) * 1000;
-    savedTitle.textContent = `${KIND_TITLE[report.kind]} de tiempo`;
+    savedTitle.textContent = reportTitle(report.kind);
     savedMeta.textContent = savedMetaText(report);
     savedActions.hidden = false;
     savedRewrite.hidden = !aiOn();
@@ -530,7 +758,7 @@ function showSavedReport(report) {
         showSavedError(`El texto salió de las reglas: ${note.charAt(0).toLowerCase()}${note.slice(1)}.`);
     }
     savedModal.querySelector('.modal-content').scrollTop = 0;
-    refreshAiUsage();
+    refreshAiUsage(kindSubject(report.kind));
 }
 
 function showSavedLoading(text) {
@@ -553,36 +781,48 @@ async function loadSavedList() {
     syncSavedReportButton();
 }
 
+// La lista del modal: en Reportes, los de tiempo y hábitos; en Costos, los de costos
+function listedReports() {
+    const costs = savedState.scope === 'costs';
+    return savedState.list.filter(r => (kindSubject(r.kind) === 'costs') === costs);
+}
+
 function renderSavedList() {
     savedState.current = null;
+    const costs = savedState.scope === 'costs';
     document.body.classList.remove('saved-report-open');
-    savedTitle.textContent = 'Reportes guardados';
-    savedMeta.textContent = 'Los automáticos salen cada lunes (la semana anterior) y cada día 1 (el mes anterior), si hubo tiempo registrado.';
+    savedTitle.textContent = costs ? 'Reportes de costos' : 'Reportes guardados';
+    savedMeta.textContent = costs
+        ? 'El automático sale cada día 1, del mes anterior, si hubo gastos o tiempo en proyectos con costeo.'
+        : 'Los automáticos salen cada lunes (la semana anterior) y cada día 1 (el mes anterior), si hubo tiempo registrado o hábitos marcados.';
     savedActions.hidden = true;
     savedBack.hidden = true;
     savedBody.replaceChildren();
     savedList.hidden = false;
-    if (!savedState.list.length) {
-        savedList.replaceChildren(el('li', 'work-empty',
-            'Aún no hay reportes. Genera uno desde Reportes, con Semana o Mes, o espera al primero automático.'));
+    const reports = listedReports();
+    if (!reports.length) {
+        savedList.replaceChildren(el('li', 'work-empty', costs
+            ? 'Aún no hay reportes de costos. Genera el de un mes aquí arriba, o espera al primero automático.'
+            : 'Aún no hay reportes. Genera uno desde Reportes, con Semana o Mes, o espera al primero automático.'));
         return;
     }
-    savedList.replaceChildren(...savedState.list.map(report => {
+    savedList.replaceChildren(...reports.map(report => {
         const item = el('li');
         const button = el('button', 'saved-report-row');
         button.type = 'button';
         button.dataset.id = String(report.id);
         const text = el('span', 'saved-report-row-text');
         text.append(el('strong', '', savedPeriodLabel(report)),
-            el('small', '', `${KIND_TITLE[report.kind]} · ${formatDuration(report.total_seconds)}`));
+            el('small', '', `${reportTitle(report.kind)} · ${report.headline}`));
         button.append(text, el('span', 'settings-item-go', '›'));
         item.appendChild(button);
         return item;
     }));
 }
 
-async function openSavedList() {
+async function openSavedList(scope = 'reports') {
     showSavedError(null);
+    savedState.scope = scope;
     savedState.fromList = false;
     openSavedModal();
     if (!savedState.loaded) {
@@ -646,31 +886,74 @@ function blockedByCooldown() {
 // El botón de la pestaña Reportes
 // ============================================
 
-function savedForCurrentRange() {
+const savedHabitsReportBtn = document.getElementById('savedHabitsReportBtn');
+
+function savedFor(kind, start) {
+    return savedState.list.find(r => r.kind === kind && r.period_start === start) || null;
+}
+
+function savedForCurrentRange(subject = 'time') {
     const { kind, from } = reportsState;
     if (kind === 'custom' || !from) return null;
-    const start = getDateKey(from);
-    return savedState.list.find(r => r.kind === kind && r.period_start === start) || null;
+    return savedFor(kindFor(subject, kind), getDateKey(from));
 }
 
 // Lo llama setRange() de reports.js en cada cambio de periodo
 function syncSavedReportButton() {
     const custom = reportsState.kind === 'custom';
     savedReportBtn.hidden = custom;
-    savedReportBtn.textContent = savedForCurrentRange() ? 'Ver reporte' : 'Generar reporte';
+    savedReportBtn.textContent = `${savedForCurrentRange('time') ? 'Ver' : 'Generar'} reporte de tiempo`;
+    savedHabitsReportBtn.hidden = custom || !moduleEnabled('habits');
+    savedHabitsReportBtn.textContent = `${savedForCurrentRange('habits') ? 'Ver' : 'Generar'} reporte de hábitos`;
+    syncCostsReportControls();
 }
 
-savedReportBtn.addEventListener('click', async () => {
-    const { kind, from } = reportsState;
-    if (kind === 'custom') return;
+// Abre el reporte de ese tema y periodo, o lo genera si aún no existe
+async function openOrGenerate(kind, periodStart, scope) {
+    savedState.scope = scope;
     savedState.fromList = false;
     openSavedModal();
-    const existing = savedForCurrentRange();
+    const existing = savedFor(kind, periodStart);
     if (existing) await openSavedReportById(existing.id);
-    else await generateSavedReport(kind, getDateKey(from));
+    else await generateSavedReport(kind, periodStart);
+}
+
+[[savedReportBtn, 'time'], [savedHabitsReportBtn, 'habits']].forEach(([button, subject]) => {
+    button.addEventListener('click', () => {
+        const { kind, from } = reportsState;
+        if (kind === 'custom') return;
+        openOrGenerate(kindFor(subject, kind), getDateKey(from), 'reports');
+    });
 });
 
-document.getElementById('savedReportsListBtn').addEventListener('click', openSavedList);
+document.getElementById('savedReportsListBtn').addEventListener('click', () => openSavedList('reports'));
+
+// ============================================
+// La pestaña Costos: el reporte de un mes (plan Maker)
+// ============================================
+
+const costsReportMonth = document.getElementById('costsReportMonth');
+const costsReportBtn = document.getElementById('costsReportBtn');
+
+// Los últimos 12 meses, el actual primero (fechas locales: el día 1 de cada uno)
+function fillCostsReportMonths() {
+    if (costsReportMonth.options.length) return;
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const name = MONTH_NAMES[d.getMonth()];
+        costsReportMonth.appendChild(new Option(`${name.charAt(0).toUpperCase()}${name.slice(1)} ${d.getFullYear()}`, getDateKey(d)));
+    }
+}
+
+function syncCostsReportControls() {
+    fillCostsReportMonths();
+    costsReportBtn.textContent = `${savedFor('costs-month', costsReportMonth.value) ? 'Ver' : 'Generar'} reporte`;
+}
+
+costsReportMonth.addEventListener('change', syncCostsReportControls);
+costsReportBtn.addEventListener('click', () => openOrGenerate('costs-month', costsReportMonth.value, 'costs'));
+document.getElementById('costsReportsListBtn').addEventListener('click', () => openSavedList('costs'));
 
 savedList.addEventListener('click', (event) => {
     const row = event.target.closest('.saved-report-row');
@@ -736,10 +1019,12 @@ document.addEventListener('keydown', (event) => {
     else closeSavedModal();
 });
 
-// La lista se pide al entrar a Reportes (es corta: sin cifras)
+// La lista se pide al entrar a Reportes o a Costos (es corta: sin cifras)
 window.viewChangedHooks.push(viewId => {
-    if (viewId === 'reports' && getToken()) loadSavedList();
+    if ((viewId === 'reports' || viewId === 'costs') && getToken()) loadSavedList();
 });
+// Hábitos apagado: sin su botón
+window.modulesChangedHooks.push(syncSavedReportButton);
 window.appLogoutHooks.push(() => {
     savedState.list = [];
     savedState.loaded = false;

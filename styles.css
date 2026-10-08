@@ -5631,6 +5631,78 @@ button.day-log-date:focus-visible {
     font-size: 0.875rem;
 }
 
+/* Costos: el reporte de un mes, arriba del resumen */
+.costs-report-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px 14px;
+    margin-bottom: 12px;
+}
+
+.costs-report-month select {
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.875rem;
+}
+
+/* Reporte de hábitos: la semana, día por día */
+.habit-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.habit-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    padding: 8px 2px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.habit-day-name {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.habit-day-note {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.habit-day.done {
+    border-color: var(--accent);
+}
+
+.habit-day.missed .habit-day-note,
+.habit-day.none .habit-day-note,
+.habit-day.off .habit-day-note,
+.habit-day.pending .habit-day-note,
+.habit-day.today .habit-day-note {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.saved-metrics td.negative {
+    color: var(--danger-fg);
+    font-weight: 600;
+}
+
 #savedReportsModal {
     z-index: 1050;
 }
