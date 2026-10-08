@@ -4,6 +4,16 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.25.0 — 2026-10-09
+### Nuevas funciones
+- **Notas del día en tus hábitos**: en el calendario, toca un día y luego **✎** junto a un
+  hábito para anotar algo, como "cuerda 20 min". No cambia tu racha, y el día queda marcado
+  con un punto.
+- **Novedades**: cuando la app se actualice verás esta ventana con lo nuevo. Para volver a
+  verla, **Mi perfil › Novedades**.
+### Cambios
+- **Tus notas en los reportes**: el reporte de hábitos y el CSV de hábitos ya las incluyen.
+
 ## 1.24.0 — 2026-10-08
 ### Nuevas funciones
 - **Repartir un gasto entre proyectos** (plan Maker): en Costos, toca **↔** en un gasto y

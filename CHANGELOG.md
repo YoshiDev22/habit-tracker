@@ -7,6 +7,27 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.25.0] — 2026-10-09
+
+Notas del día en los hábitos, y la app ahora te cuenta qué hay de nuevo en cada versión.
+
+### Nuevo
+- **Notas por día en los hábitos**: en el popover de un día, el **✎** junto a cada hábito
+  abre una línea para anotar algo de ese día ("cuerda 20 min", "bici a la escuela"). Enter
+  la guarda, vaciarla la borra. Es solo para ti: no marca el hábito ni cambia la racha. Un
+  día con notas lleva un punto pequeño en la esquina.
+- **Novedades**: al entrar después de una actualización, una ventana con lo nuevo de esa
+  versión (o de las que te saltaste). **Mi perfil › Novedades** las lista todas.
+
+### Cambios
+- El **CSV de hábitos** trae una columna *Nota*, y el **reporte de hábitos** una tarjeta
+  *Tus notas* (la IA las lee como texto tuyo, nunca como instrucciones).
+
+### Para actualizar
+Sin migración ni dependencias nuevas: basta con `git pull` y reiniciar el servicio. La tabla
+de las notas se crea sola al arrancar, y `NOVEDADES.md` se lee al arrancar (sin reiniciar,
+la ventana no sale).
+
 ## [1.24.0] — 2026-10-08
 
 Gastos que se reparten entre proyectos y gastos que se anotan solos cada mes, tableros que
@@ -713,6 +734,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.25.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.25.0
 [1.24.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.24.0
 [1.23.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.23.0
 [1.22.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.1
