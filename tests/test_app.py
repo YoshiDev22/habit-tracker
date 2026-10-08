@@ -48,3 +48,20 @@ def test_no_cors_for_other_sites(client):
 def test_api_requires_a_token(api):
     for path in ["/api/tasks", "/api/boards", "/api/habits", "/api/pomodoro", "/api/auth/me"]:
         assert api.call("GET", path)[0] == 401, path
+
+
+def test_novedades_come_from_their_own_file(api):
+    from backend import novedades
+    from backend.main import APP_VERSION
+    status, body = api.call("GET", "/api/novedades")          # sin token, como /api/version
+    assert status == 200 and body["current"] == APP_VERSION
+    for v in body["versions"]:
+        assert v["sections"] and all(s["title"] in ("Nuevas funciones", "Cambios") for s in v["sections"])
+        text = " ".join(i for s in v["sections"] for i in s["items"]).lower()
+        # Nunca lleva despliegue
+        assert "migrate" not in text and "systemctl" not in text and ".env" not in text
+    parsed = novedades.parse(
+        "# x\n\n## 1.2.0 — 2026-01-02\n### Nuevas funciones\n- **Uno**: algo\n  que sigue\n### Cambios\n\n"
+        "## 1.1.0\n### Correcciones internas\n")
+    assert parsed == [{"version": "1.2.0", "date": "2026-01-02",
+                       "sections": [{"title": "Nuevas funciones", "items": ["**Uno**: algo que sigue"]}]}]

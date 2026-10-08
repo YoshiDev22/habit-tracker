@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from dotenv import load_dotenv
 
+from backend import novedades
 from backend.database import create_db_and_tables, check_pending_migrations
 from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports
 
@@ -17,6 +18,9 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 # Leer versión desde el archivo VERSION en la raíz del repo
 with open(os.path.join(BASE_DIR, "VERSION"), encoding="utf-8") as f:
     APP_VERSION = f.read().strip()
+# Las Novedades de cada versión (NOVEDADES.md), leídas una vez, como VERSION.
+# HABIT_NOVEDADES_FILE solo lo usan las pruebas de navegador (sin ventana)
+NOVEDADES = novedades.load(os.getenv("HABIT_NOVEDADES_FILE") or os.path.join(BASE_DIR, "NOVEDADES.md"))
 
 # Crear las tablas en la base de datos, y parar si a alguna existente le
 # faltan columnas por migrar (ver check_pending_migrations)
@@ -178,6 +182,12 @@ def costs_recurring_js():
     return frontend_file("costs-recurring.js")
 
 
+@app.get("/novedades.js")
+def novedades_js():
+    """Serve novedades.js"""
+    return frontend_file("novedades.js")
+
+
 @app.get("/account.js")
 def account_js():
     """Serve account.js"""
@@ -241,6 +251,13 @@ def api_info():
 def api_version():
     """API info, reachable behind the reverse proxy"""
     return build_api_info()
+
+
+@app.get("/api/novedades")
+def api_novedades():
+    """What's new in each version, from NOVEDADES.md (never the CHANGELOG), the
+    newest first. Public, like /api/version: it's the app's own text."""
+    return {"current": APP_VERSION, "versions": NOVEDADES}
 
 
 # Under /api for the same reason as /api/version: a bare /health never gets

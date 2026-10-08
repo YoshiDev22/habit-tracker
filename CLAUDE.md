@@ -80,6 +80,7 @@ habit-tracker/
 │   ├── cost_report.py     # Cifras y texto de reglas del reporte mensual de costos (Maker)
 │   ├── ai.py              # El proveedor de IA (uno por instancia, en .env): una sola llamada
 │   ├── accounts.py        # Borrar una cuenta (ya, o programada a 30 días) y todo lo suyo
+│   ├── novedades.py       # Lee NOVEDADES.md (lo sirve GET /api/novedades)
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -115,6 +116,7 @@ habit-tracker/
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── costs-recurring.js     # Costos: repartir un gasto entre proyectos y los gastos recurrentes
+├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita de avisos: sesiones por confirmar
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
@@ -124,7 +126,8 @@ habit-tracker/
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
-├── CHANGELOG.md           # Novedades de cada versión, para el usuario
+├── CHANGELOG.md           # Todo lo de cada versión (GitHub y despliegue)
+├── NOVEDADES.md           # Lo que ve el usuario de cada versión, corto (backend/novedades.py)
 ├── requirements.txt     # Dependencias directas
 ├── requirements.lock    # Árbol completo fijado: lo que se instala
 ├── README.md
@@ -495,7 +498,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los quince scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los dieciséis scripts en orden y **el
 orden importa**:
 
 ```html
@@ -514,6 +517,7 @@ orden importa**:
 <script src="saved-reports.js"></script> <!-- reportes guardados: usa los helpers de reports.js -->
 <script src="account.js"></script>      <!-- contraseña y borrar la cuenta: usa confirmDialog y handleLogout -->
 <script src="costs-recurring.js"></script> <!-- reparto y recurrentes: usa costsState y loadCostRows de costs.js -->
+<script src="novedades.js"></script>    <!-- Novedades: usa el() de reports.js y la página news de Mi perfil -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -782,6 +786,8 @@ del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar 
 (comentarios plegados en el detalle de tarjeta, de este dispositivo) y
 `costs_project` (proyecto elegido en la hoja de Costos; se borra al cerrar sesión),
 `costs_chart_project` (proyecto de la gráfica Costos; se borra al cerrar sesión),
+`novedades_seen` (la última versión cuyas Novedades se vieron en este dispositivo; sobrevive
+al cierre de sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?"), `work_calendar_cache` (huso, país y festivos por año, para
@@ -959,10 +965,19 @@ separarlo deja claro qué se desplegó y cuándo.
 
 **Cada versión se publica así** (desde la 1.10.0):
 
-1. El commit del bump cambia `VERSION` **y** añade la sección de la versión arriba de
-   `CHANGELOG.md`: Nuevo / Cambios / Correcciones, escrito para quien usa la app (qué
+1. El commit del bump cambia `VERSION`, añade su sección a **`NOVEDADES.md`** (lo que ve
+   el usuario al entrar; ver abajo) **y** la de la versión arriba de `CHANGELOG.md`: Nuevo / Cambios / Correcciones, escrito para quien usa la app (qué
    cambia para él, no qué función se tocó), con la fecha y su enlace al tag al final.
    Si el lote trae migración, una sección "Para actualizar" lo dice.
+   **`NOVEDADES.md`** (1.25) no es el CHANGELOG: `## X.Y.Z — AAAA-MM-DD`, `### Nuevas
+   funciones` y `### Cambios`, de 2 a 6 viñetas que empiezan por la función en negritas y
+   dicen muy breve cómo o dónde se usa. **Nunca** *Para actualizar* ni nada de despliegue.
+   Una versión sin nada visible no lleva sección (no sale ventana). `backend/novedades.py`
+   lo lee al arrancar y `GET /api/novedades` (sin token) lo sirve; `novedades.js` enseña
+   al entrar las versiones que este dispositivo no ha visto (`novedades_seen`; una cuenta
+   recién registrada empieza al día) y *Mi perfil › Novedades* las lista. Las pruebas de
+   navegador arrancan el servidor con `HABIT_NOVEDADES_FILE` vacío para que la ventana no
+   tape nada; `ui_novedades.py` le da las suyas.
 2. Tag anotado sobre ese commit: `git tag -a vX.Y.Z -m "vX.Y.Z"`. Las versiones 1.0.0 a
    1.9.0 también tienen el suyo, puesto después sobre el commit que cambió `VERSION`.
 3. Yoshio hace `git push` y `git push --tags`, y despliega.

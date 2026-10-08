@@ -44,7 +44,7 @@ async def main():
         await b.wait_for("!document.getElementById('profileModal').classList.contains('hidden')")
         st = await b.js("({menu: !document.getElementById('profileMenu').hidden, title: document.getElementById('profileTitle').textContent,"
                         " rows: [...document.querySelectorAll('#profileMenu [data-open]')].map(r => r.dataset.open)})")
-        check(st == {"menu": True, "title": "Mi perfil", "rows": ["profile", "password", "delete"]},
+        check(st == {"menu": True, "title": "Mi perfil", "rows": ["profile", "password", "delete", "news"]},
               f"Mi perfil opens on its menu ({st})")
         await b.shot("profile_menu", full=False)
         await b.js("document.querySelector('#profileMenu [data-open=password]').click()")

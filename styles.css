@@ -5226,6 +5226,48 @@ button.day-log-date:focus-visible {
     color: var(--text-secondary);
 }
 
+/* Novedades (novedades.js): la ventana al entrar y Mi perfil › Novedades */
+.novedades-modal {
+    max-width: 520px;
+    text-align: left;
+}
+
+.novedades-version + .novedades-version {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+}
+
+.novedades-version-title {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.novedades-section {
+    margin: 12px 0 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.novedades-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: var(--text-primary);
+}
+
+.novedades-page {
+    text-align: left;
+}
+
 .recurring-apply {
     display: flex;
     flex-direction: column;

@@ -57,6 +57,13 @@ modal de perfil.
 Guardar pregunta antes de aplicar el cambio, y si cierras el modal con algo editado sin
 guardar, también te pregunta si quieres salir de todos modos.
 
+### Novedades
+
+Después de una actualización, al entrar sale una ventana con lo nuevo de esa versión: las
+**nuevas funciones** y los **cambios**, cada una con dónde encontrarla. Sale una sola vez
+(si te saltaste varias versiones, las ves juntas). Para volver a verlas, **Mi perfil ›
+Novedades** las lista todas, la más nueva arriba.
+
 ### Cambiar la contraseña
 
 En *Mi perfil › Cambiar contraseña*: la actual y la nueva dos veces (mínimo 6

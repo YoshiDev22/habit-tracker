@@ -489,6 +489,10 @@
                     <span class="settings-item-text"><strong>Borrar mi cuenta</strong><small>Irte 30 días o borrarla ya</small></span>
                     <span class="settings-item-go" aria-hidden="true">›</span>
                 </button>
+                <button type="button" class="settings-item" data-open="news">
+                    <span class="settings-item-text"><strong>Novedades</strong><small>Qué trajo cada versión</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
                 <p class="module-hint profile-settings-hint">Módulos, días festivos, pomodoro y tamaño del texto
                     están en <strong>⚙️ Configuración</strong>.</p>
             </nav>
@@ -562,6 +566,24 @@
                     </form>
                 </div>
             </section>
+
+            <!-- Novedades de todas las versiones (novedades.js), la más nueva arriba -->
+            <section class="settings-page" data-section="news" data-title="Novedades">
+                <div id="novedadesPage" class="novedades-page"></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Novedades al entrar después de una actualización (novedades.js) -->
+    <div id="novedadesModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content novedades-modal" role="dialog" aria-modal="true" aria-labelledby="novedadesTitle">
+            <button class="modal-close" type="button" id="novedadesClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="novedadesTitle">Novedades</h2>
+            <div id="novedadesBody"></div>
+            <div class="project-delete-actions">
+                <button type="button" id="novedadesOk" class="submit-btn">Entendido</button>
+            </div>
         </div>
     </div>
 
@@ -1390,5 +1412,6 @@
     <script src="saved-reports.js"></script>
     <script src="account.js"></script>
     <script src="costs-recurring.js"></script>
+    <script src="novedades.js"></script>
 </body>
 </html>
