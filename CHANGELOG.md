@@ -7,6 +7,43 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.24.0] — 2026-10-08
+
+Gastos que se reparten entre proyectos y gastos que se anotan solos cada mes, tableros que
+no se alargan sin fin y hábitos que se pueden renombrar.
+
+### Nuevo
+- **Repartir un gasto entre proyectos** (plan Maker): el **↔** de un gasto en la hoja de
+  Costos lo reparte entre proyectos de la misma moneda, con su porcentaje (por ejemplo, una
+  suscripción de IA: 65 % Tesis, 35 % Habit Tracker). Cada proyecto ve y suma solo su parte,
+  y las partes siempre suman exacto el total. Cambiar el monto, la fecha o el concepto de una
+  parte cambia el gasto entero.
+- **Gastos recurrentes** (plan Maker): en Costos, **Gastos recurrentes › ＋ Nuevo recurrente**
+  para lo que pagas cada mes o cada año (hosting, suscripciones, dominios), también
+  repartido. En su fecha se anota solo en la hoja, con 🔁; ahí lo corriges si ese mes
+  cambió. **Editar** cambia su precio, su reparto o el siguiente cobro, y pregunta a qué
+  cobros aplicarlo: solo a los siguientes, desde este mes en adelante o también a los ya
+  anotados. También se puede pausar, o terminar conservando o borrando lo que anotó (para
+  rehacer uno creado con la fecha equivocada).
+- **Hacer recurrente un gasto ya anotado**: su **🔁** en la hoja abre el formulario con sus
+  datos y el primer cobro el mes siguiente, sin duplicar el gasto. Si eliges otro día del
+  mismo mes, la app avisa que se repetiría.
+- **Renombrar un hábito** en *Configuración › Hábitos*: conserva todos sus días y su racha.
+
+### Cambios
+- **Columnas del tablero con muchas tarjetas**: cada una enseña 10; **Mostrar 10 más** suma
+  otras diez y **Mostrar menos** vuelve a 10. La lista de cada columna se desplaza sola, así
+  que la página no se alarga.
+- Una tarea que mueves a otra columna desde su detalle, con **Mover a…** o con la palomita
+  queda **hasta arriba** de la nueva columna, a la vista (antes iba al final).
+
+### Para actualizar
+**Esta versión cambia la base de datos.** Correr `python3 scripts/migrate.py` **antes** de
+reiniciar el servicio: agrega cuatro columnas a `project_costs` y dos índices (los gastos de
+antes no cambian). Sin eso, la app no arranca y el log dice qué correr. La tabla de los
+recurrentes se crea sola al reiniciar. El servicio diario de los reportes no cambia de
+plantilla; desde esta versión también anota los cobros recurrentes.
+
 ## [1.23.0] — 2026-10-08
 
 Reportes de hábitos y de costos, con el mismo formato que los de tiempo, y la IA más
@@ -676,6 +713,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.24.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.24.0
 [1.23.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.23.0
 [1.22.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.1
 [1.22.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.22.0
