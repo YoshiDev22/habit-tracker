@@ -1870,6 +1870,7 @@ body.has-pomodoro-bar {
 }
 
 .habit-check {
+    flex: 0 0 auto;
     width: 20px;
     height: 20px;
     border: 2px solid var(--border-strong);
@@ -1971,12 +1972,32 @@ body.has-pomodoro-bar {
 
 /* Sin min-width: 0 un nombre largo no encoge y empuja el color fuera de la
    fila; con él, parte de línea. */
+/* El nombre se edita en la fila: parece texto hasta que se toca. Toma solo el
+   espacio que sobra (flex: 1); con width: 100% apretaba al check y al color */
 .habit-name {
+    flex: 1 1 auto;
     min-width: 0;
-    overflow-wrap: anywhere;
+    width: auto;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.habit-name:hover {
+    border-color: var(--border-color);
+}
+
+.habit-name:focus {
+    border-color: var(--accent);
+    background: var(--bg-surface-2);
+    outline: none;
 }
 
 .habit-color {
+    flex: 0 0 auto;
     width: 30px;
     height: 30px;
     border: none;

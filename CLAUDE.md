@@ -210,7 +210,9 @@ Lo que no se deduce leyendo los modelos:
   `GET /api/pomodoro/stats`) recibe `?today=AAAA-MM-DD` desde `getDateKey(new Date())` y lo
   resuelve con `resolve_client_today()` (`backend/dates.py`), que solo acepta ±1 día
   respecto a UTC. No usar `date.today()` para nada que el usuario vea como "hoy".
-- **`habits.label` es el nombre SIN emoji; el emoji vive en `habits.icon`.** La pantalla
+- **`habits.label` es el nombre SIN emoji; el emoji vive en `habits.icon`.** Se edita en
+  la fila de *Configuración › Hábitos* (1.24, un `<input>`) y se manda en el PATCH al
+  guardar; el historial va por `habits.key`, así que renombrar conserva días y racha. La pantalla
   compone los dos con `habitDisplayName()` en `habits.js`. Nunca guardar "emoji + nombre"
   en `label`: eso es exactamente lo que hacía el guardado viejo —leía el nombre del span
   que pintaba, y ese span era "emoji + nombre"— y el emoji terminaba dos veces en pantalla.

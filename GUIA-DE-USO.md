@@ -166,6 +166,9 @@ ellos: lo que no sigues no ocupa sitio ahí.
   queda solo con su nombre, y cerrando el panel sin elegir no se cambia nada. Como todo
   en este modal, se aplica al pulsar "Guardar Hábitos", y el emoji nuevo se ve en el panel
   del día y en la leyenda.
+- **Cambiar el nombre**: toca el nombre del hábito y escríbelo de nuevo, y pulsa "Guardar
+  Hábitos". Conserva todos sus días y su racha: renombrar "Gym" a "Ejercicio" no empieza
+  de cero. No puede quedar vacío.
 - **Dejar de seguir uno**: desmarca su casilla y pulsa "Guardar Hábitos". **No se borra
   nada**: se archiva con todo su historial intacto y baja a la lista **"Anteriores u
   ocultos"** del final. En los meses donde lo hiciste sigue apareciendo en su lugar

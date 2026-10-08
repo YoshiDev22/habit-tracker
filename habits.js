@@ -277,9 +277,16 @@ function buildHabitRow({ key, label, icon, color, checked }) {
     iconBtn.setAttribute('aria-label', `Cambiar el emoji de ${label}`);
     setEmojiButton(iconBtn, row.dataset.habitIcon);
 
-    const name = document.createElement('span');
+    // El nombre se edita en la fila (1.24). Es un <input>, contenido interactivo:
+    // tocarlo no marca ni desmarca el hábito. El historial va por la clave, así
+    // que renombrar conserva días y racha.
+    const name = document.createElement('input');
+    name.type = 'text';
     name.className = 'habit-name';
-    name.textContent = label;
+    name.value = label;
+    name.maxLength = 40;
+    name.setAttribute('aria-label', `Nombre de ${label}`);
+    name.addEventListener('input', () => { row.dataset.habitLabel = name.value.trim(); });
 
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
@@ -534,7 +541,8 @@ function getHabitsSetupState() {
         const colorInput = row.querySelector('input[type="color"]');
         // El emoji entra en la foto: si no, cambiarlo y pulsar Guardar cerraría
         // el modal sin escribir nada, porque el dirty-check no vería el cambio.
-        habits.push(`${row.dataset.habitKey}:${colorInput ? colorInput.value : ''}:${getRowIcon(row)}`);
+        // El nombre también: renombrar y Guardar tiene que escribirlo
+        habits.push(`${row.dataset.habitKey}:${colorInput ? colorInput.value : ''}:${getRowIcon(row)}:${row.dataset.habitLabel}`);
     });
 
     // Los días de descanso se guardan al tocarlos (saveRestDays): no son parte
@@ -593,6 +601,12 @@ async function handleSaveHabits() {
 
     if (checkedRows.length === 0) {
         showError(setupError, 'Selecciona al menos un hábito');
+        return;
+    }
+    const unnamed = checkedRows.find(row => !row.dataset.habitLabel);
+    if (unnamed) {
+        showError(setupError, 'Ponle nombre a cada hábito');
+        unnamed.querySelector('.habit-name').focus();
         return;
     }
 
@@ -672,6 +686,7 @@ async function handleSaveHabits() {
             const changes = {};
             const color = row.querySelector('input[type="color"]').value;
             if (!existing.is_active) changes.is_active = true;
+            if ((existing.label || '') !== row.dataset.habitLabel) changes.label = row.dataset.habitLabel;
             if ((existing.icon || '') !== icon) changes.icon = icon;
             if ((existing.color || '').toLowerCase() !== color.toLowerCase()) changes.color = color;
             if (Object.keys(changes).length === 0) continue;
