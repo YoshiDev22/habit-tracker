@@ -254,6 +254,8 @@ proyecto, nace en ese proyecto. Después le cambias el proyecto desde su detalle
 
 - **En la computadora**: arrástrala a otra columna, o dentro de la misma para cambiar su
   orden. Una línea marca dónde va a caer.
+- **Desde su detalle o con Mover a…** (y al marcarla con la palomita): queda **hasta
+  arriba** de su nueva columna, a la vista.
 - **En el teléfono**: con **Mover a…**, bajo cada tarjeta. La pantalla enseña una columna a
   la vez; arriba tienes una pestaña por columna con cuántas tarjetas tiene.
 - **En una tablet o con el teléfono acostado**: las columnas que no caben se desplazan de

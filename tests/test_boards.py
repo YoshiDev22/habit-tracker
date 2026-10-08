@@ -121,8 +121,12 @@ def test_reorder_cards_in_a_column(seeded):
     assert titles(hecho)[0] == "Nueva al final"
     assert api.call("POST", "/api/tasks/reorder", {"column_id": hecho, "task_ids": order + [order[0]]})[0] == 422
     assert api.call("POST", "/api/tasks/reorder", {"column_id": col["Por hacer"]["id"], "task_ids": order})[0] == 422
-    # Moverla a otra columna o marcarla la manda al final
+    # Moverla a otra columna o marcarla la deja arriba, a la vista (1.24)
     api.call("PATCH", f"/api/tasks/{new['id']}", {"column_id": col["Por hacer"]["id"]}, expect=200)
-    assert titles(col["Por hacer"]["id"])[-1] == "Nueva al final"
+    assert titles(col["Por hacer"]["id"])[0] == "Nueva al final"
     api.call("PATCH", f"/api/tasks/{new['id']}", {"is_done": True}, expect=200)
-    assert titles(hecho)[-1] == "Nueva al final"
+    assert titles(hecho)[0] == "Nueva al final"
+    # Y una que llega después queda encima de ella
+    other = next(t for t in api.call("GET", "/api/tasks", expect=200)[1]["tasks"] if t["column_id"] != hecho)
+    api.call("PATCH", f"/api/tasks/{other['id']}", {"column_id": hecho}, expect=200)
+    assert titles(hecho)[:2] == [other["title"], "Nueva al final"]

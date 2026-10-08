@@ -45,6 +45,16 @@ def _next_order(session: Session, user_id: int, column_id: Optional[int]) -> int
     return 0 if last is None else last + 1
 
 
+def _first_order(session: Session, user_id: int, column_id: Optional[int]) -> int:
+    """Una posición delante de la primera tarjeta de la columna (1.24): lo que
+    llega de otra columna, desde el detalle de la tarjeta, "Mover a…" o la
+    palomita, queda arriba, a la vista. Puede ser negativa: solo importa el orden."""
+    first = session.exec(
+        select(func.min(Task.order)).where(Task.user_id == user_id, Task.column_id == column_id)
+    ).one()
+    return 0 if first is None else first - 1
+
+
 def _set_task_tags(session: Session, user_id: int, task_id: int, tag_ids: List[int]) -> None:
     """Deja la tarea con exactamente estas etiquetas. Sin commit. 404 si alguna
     no es del usuario, antes de tocar nada."""
@@ -365,16 +375,17 @@ def update_task(
     if "column_id" in update_data:
         column = get_owned_column(session, current_user.id, update_data["column_id"])
         update_data["is_done"] = column.category == "done"
-        # Cambiar de columna sin decir dónde: al final de la nueva
+        # Cambiar de columna sin decir dónde: arriba de la nueva (arrastrar
+        # manda después el orden exacto con /reorder)
         if column.id != task.column_id and update_data.get("order") is None:
-            update_data["order"] = _next_order(session, current_user.id, column.id)
+            update_data["order"] = _first_order(session, current_user.id, column.id)
     elif "is_done" in update_data:
         current = session.get(BoardColumn, task.column_id)
         if (current.category == "done") != update_data["is_done"]:
             category = "done" if update_data["is_done"] else "todo"
             update_data["column_id"] = first_column_id(session, current.board_id, category)
             if update_data.get("order") is None:
-                update_data["order"] = _next_order(session, current_user.id, update_data["column_id"])
+                update_data["order"] = _first_order(session, current_user.id, update_data["column_id"])
 
     if "is_done" in update_data:
         if update_data["is_done"] and not task.is_done:

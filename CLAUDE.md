@@ -255,7 +255,9 @@ Lo que no se deduce leyendo los modelos:
 - **`Task.is_done` y `Task.column_id` van siempre juntos** (`update_task` en
   `routers/tasks.py`): mover a una columna `done` marca hecha, y el checkbox mueve a la
   primera columna `done`/`todo` **del mismo tablero**. `is_done` sigue existiendo porque
-  `/api/projects/summary` cuenta el progreso con él. `completed_at` se pone al PASAR a
+  `/api/projects/summary` cuenta el progreso con él. Cambiar de columna sin `order` (detalle,
+  "Mover a…", palomita) la deja **arriba** de la nueva (`_first_order()`, 1.24); arrastrar
+  manda el orden exacto después con `/reorder`. `completed_at` se pone al PASAR a
   hecha (con `?today=`), y moverla entre dos columnas `done` conserva la fecha.
 - **El tiempo es de la tarea**: cambiarle el proyecto a una tarea mueve el `project_id` de
   sus sesiones. El tiempo registrado sin tarea no se toca.
