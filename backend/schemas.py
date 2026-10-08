@@ -698,6 +698,9 @@ class RecurringCostFields(SQLModel):
     start_date: date_type
     end_date: Optional[date_type] = None
     allocations: List[CostAllocation]
+    # "Hacer recurrente" desde un gasto de la hoja: ese gasto queda con el 🔁, y
+    # si el primer cobro es su misma fecha, cuenta como ese cobro (no se duplica)
+    from_cost_id: Optional[int] = None
 
     @field_validator("frequency")
     @classmethod

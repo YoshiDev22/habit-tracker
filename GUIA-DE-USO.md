@@ -416,7 +416,10 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   cada año (hosting, suscripciones, dominios), con su primer cobro y, si quieres, cuándo
   termina; también puede ir repartido. En su fecha se anota solo en la hoja, con 🔁, y ahí lo
   corriges si ese mes cambió. Cambiarlo afecta a los cobros siguientes, no a los ya
-  anotados. **Pausar** lo detiene (al reanudarlo, lo de la pausa no se cobra) y **×** lo
+  anotados: para cambiar su **precio**, **Editar** en la tarjeta. Un gasto que ya está en la
+  hoja se vuelve recurrente con su **🔁**: abre el formulario con sus datos y su reparto, y
+  el primer cobro el mes siguiente (el gasto queda marcado con 🔁; si eliges su misma fecha,
+  cuenta como el primer cobro y no se duplica). **Pausar** lo detiene (al reanudarlo, lo de la pausa no se cobra) y **×** lo
   termina: lo ya anotado se queda.
 - **Categorías**: vienen cinco (material, licencia/software, servicio, IA y otro) y son
   tuyas: en **Categorías**, al final de la pestaña, las renombras, les cambias el color, las

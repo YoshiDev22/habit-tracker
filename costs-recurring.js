@@ -23,6 +23,7 @@ const recurringState = {
     splitEditor: null,
     editing: null,        // el recurrente que se edita (null: uno nuevo)
     formEditor: null,
+    fromCost: null,       // "Hacer recurrente": el gasto de la hoja del que sale
 };
 
 const FREQUENCY_LABEL = { monthly: 'Cada mes', yearly: 'Cada año' };
@@ -245,28 +246,53 @@ recurringList.addEventListener('click', async (event) => {
 // Gastos recurrentes: crear y editar
 // ============================================
 
-function openRecurringForm(rc = null) {
+// El mismo día del mes siguiente (el 31 cae en el último día de un mes corto),
+// como lo calcula el backend
+function nextMonthKey(key) {
+    const d = dateFromKey(key);
+    const last = new Date(d.getFullYear(), d.getMonth() + 2, 0).getDate();
+    return getDateKey(new Date(d.getFullYear(), d.getMonth() + 1, Math.min(d.getDate(), last)));
+}
+
+// "Hacer recurrente" desde un gasto de la hoja: el formulario con sus datos y su
+// reparto, y el primer cobro el mes siguiente (el de hoy ya está anotado)
+function openRecurringFromCost(cost) {
+    openRecurringForm(null, {
+        category_id: cost.category_id, concept: cost.concept, quantity: cost.quantity,
+        unit_cost_cents: cost.unit_cost_cents, note: cost.note, frequency: 'monthly',
+        start_date: nextMonthKey(cost.cost_date), end_date: null, currency: costsState.currency,
+        allocations: cost.split_with && cost.split_with.length
+            ? cost.split_with.map(w => ({ project_id: w.project_id, bp: w.bp }))
+            : [{ project_id: cost.project_id, bp: 10000 }],
+    }, cost);
+}
+
+function openRecurringForm(rc = null, prefill = null, fromCost = null) {
     recurringState.editing = rc;
+    recurringState.fromCost = fromCost;
     recurringFormError.classList.add('hidden');
     const f = recurringForm.elements;
-    document.getElementById('recurringTitle').textContent = rc ? 'Editar gasto recurrente' : 'Nuevo gasto recurrente';
-    categoryOptions(f.category_id, rc ? rc.category_id : costsState.categories[costsState.categories.length - 1].id);
-    f.concept.value = rc ? rc.concept : '';
-    f.quantity.value = rc ? String(rc.quantity) : '1';
-    f.unit_cost.value = rc ? money2(rc.unit_cost_cents) : '';
-    f.frequency.value = rc ? rc.frequency : 'monthly';
-    f.start_date.value = rc ? rc.start_date : getDateKey(new Date());
-    f.end_date.value = rc && rc.end_date ? rc.end_date : '';
-    f.note.value = rc && rc.note ? rc.note : '';
+    const src = rc || prefill;
+    document.getElementById('recurringTitle').textContent = rc ? 'Editar gasto recurrente'
+        : fromCost ? 'Hacer recurrente' : 'Nuevo gasto recurrente';
+    document.getElementById('recurringFromHint').hidden = !fromCost;
+    categoryOptions(f.category_id, src ? src.category_id : costsState.categories[costsState.categories.length - 1].id);
+    f.concept.value = src ? src.concept : '';
+    f.quantity.value = src ? String(src.quantity) : '1';
+    f.unit_cost.value = src ? money2(src.unit_cost_cents) : '';
+    f.frequency.value = src ? src.frequency : 'monthly';
+    f.start_date.value = src ? src.start_date : getDateKey(new Date());
+    f.end_date.value = src && src.end_date ? src.end_date : '';
+    f.note.value = src && src.note ? src.note : '';
     // Con cobros hechos, el primer cobro y la frecuencia quedan fijos
     const locked = Boolean(rc && rc.generated);
     f.start_date.disabled = locked;
     f.frequency.disabled = locked;
     document.getElementById('recurringLockedHint').hidden = !locked;
 
-    const current = rc ? rc.allocations.map(a => ({ project_id: a.project_id, bp: a.bp }))
+    const current = src ? src.allocations.map(a => ({ project_id: a.project_id, bp: a.bp }))
         : costsState.projectId ? [{ project_id: costsState.projectId, bp: 10000 }] : [];
-    const currency = rc ? rc.currency : costsState.currency;
+    const currency = src ? src.currency : costsState.currency;
     recurringState.formEditor = allocationEditor(splitCandidates(currency, current.map(a => a.project_id)), current);
     document.getElementById('recurringCurrency').textContent =
         `Solo salen los proyectos en ${currency}: un gasto se reparte entre proyectos de la misma moneda.`;
@@ -278,6 +304,7 @@ function openRecurringForm(rc = null) {
 function closeRecurringForm() {
     hideModal(recurringModal);
     recurringState.editing = null;
+    recurringState.fromCost = null;
 }
 
 recurringForm.addEventListener('submit', async (event) => {
@@ -302,6 +329,7 @@ recurringForm.addEventListener('submit', async (event) => {
         body.frequency = f.frequency.value;
         body.start_date = f.start_date.value;
     }
+    if (!rc && recurringState.fromCost) body.from_cost_id = recurringState.fromCost.id;
     try {
         await apiFetch(rc ? `/api/costs/recurring/${rc.id}` : '/api/costs/recurring',
             { method: rc ? 'PATCH' : 'POST', json: body });

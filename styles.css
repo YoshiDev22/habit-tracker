@@ -5041,7 +5041,8 @@ button.day-log-date:focus-visible {
 }
 
 /* Gastos repartidos y recurrentes (costs-recurring.js) */
-.cost-split {
+.cost-split,
+.cost-make-recurring {
     width: 28px;
     height: 28px;
     border: none;
@@ -5052,7 +5053,8 @@ button.day-log-date:focus-visible {
     font-size: 1rem;
 }
 
-.cost-split:hover {
+.cost-split:hover,
+.cost-make-recurring:hover {
     background: var(--bg-hover);
     color: var(--accent);
 }

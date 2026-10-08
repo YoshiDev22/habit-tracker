@@ -402,7 +402,12 @@ def list_recurring_costs(session: Session = Depends(get_session), user: User = D
 def create_recurring_cost(body: RecurringCostFields, session: Session = Depends(get_session),
                           user: User = Depends(maker_user)):
     """Un gasto recurrente nuevo. Si su primer cobro ya pasó, se generan los que
-    ya llegaron (hasta 36 de una vez)."""
+    ya llegaron (hasta 36 de una vez). Con from_cost_id ("Hacer recurrente"),
+    ese gasto de la hoja queda enlazado (🔁) y, si su fecha es el primer cobro,
+    cuenta como él."""
+    source = _group(session, user.id, _own_cost(session, user.id, body.from_cost_id)) if body.from_cost_id else []
+    if any(row.recurring_id for row in source):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese gasto ya salió de un recurrente")
     _own_category(session, user.id, body.category_id)
     concept = body.concept.strip()
     if not concept:
@@ -415,6 +420,12 @@ def create_recurring_cost(body: RecurringCostFields, session: Session = Depends(
         allocations=_check_allocations(session, user.id, body.allocations),
     )
     session.add(rc)
+    session.flush()
+    for row in source:
+        row.recurring_id = rc.id
+        session.add(row)
+    if source and source[0].cost_date == rc.start_date:
+        rc.generated = 1
     session.commit()
     generate_due(session, user.id, _today(session, user))
     session.refresh(rc)

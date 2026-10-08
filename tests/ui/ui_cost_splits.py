@@ -136,6 +136,26 @@ async def main():
         await b.js("document.getElementById('confirmModalConfirmBtn').click()")
         await b.wait_for(f"!document.querySelector('tr.cost-row[data-cost-id=\"{cost['id']}\"]')")
         check(not any(r["concept"] == "Anthropic" for r in sheet(tesis)), "and Tesis loses its part")
+
+        # Hacer recurrente un gasto ya anotado: el formulario sale lleno, con el cobro el mes siguiente
+        _, dom = api.call("POST", "/api/costs", {"project_id": ht["id"], "category_id": ia["id"], "cost_date": today,
+                                                 "concept": "Dominio", "unit_cost_cents": 30000}, expect=201)
+        await b.js("loadCostRows()")
+        row = f"document.querySelector('tr.cost-row[data-cost-id=\"{dom['id']}\"]')"
+        await b.wait_for(f"{row} && {row}.querySelector('.cost-make-recurring')")
+        await b.js(f"{row}.querySelector('.cost-make-recurring').click()")
+        await b.wait_for("!document.getElementById('recurringModal').classList.contains('hidden')")
+        st = await b.js("""(() => { const f = document.getElementById('recurringForm').elements;
+            return {title: document.getElementById('recurringTitle').textContent, concept: f.concept.value,
+                    cost: f.unit_cost.value, start: f.start_date.value,
+                    hint: !document.getElementById('recurringFromHint').hidden}; })()""")
+        check(st["title"] == "Hacer recurrente" and st["concept"] == "Dominio" and st["cost"] == "300.00"
+              and st["start"] > today and st["hint"], f"the form comes filled in, first charge next month ({st})")
+        await b.js("document.getElementById('recurringForm').requestSubmit()")
+        await b.wait_for("document.getElementById('recurringModal').classList.contains('hidden')")
+        await b.wait_for(f"{row} && {row}.querySelector('.cost-tag') && !{row}.querySelector('.cost-make-recurring')")
+        same = [r for r in sheet(ht) if r["concept"] == "Dominio"]
+        check(len(same) == 1 and same[0]["recurring_id"], f"the expense is marked 🔁 and not duplicated ({len(same)})")
     finally:
         await b.close()
 

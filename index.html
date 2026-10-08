@@ -1054,6 +1054,9 @@
             <button class="modal-close" type="button" id="recurringClose" aria-label="Cerrar">&times;</button>
             <h2 class="modal-title" id="recurringTitle">Nuevo gasto recurrente</h2>
             <form id="recurringForm" class="recurring-form">
+                <p class="costs-hint wide" id="recurringFromHint" hidden>Este gasto queda marcado con 🔁. El
+                    siguiente cobro es el <strong>Primer cobro</strong> de abajo (el mes que sigue); si pones la
+                    misma fecha del gasto, ese gasto cuenta como el primero y no se duplica.</p>
                 <label class="recurring-field wide">Concepto
                     <input type="text" name="concept" maxlength="200" required placeholder="Hosting, suscripción…">
                 </label>

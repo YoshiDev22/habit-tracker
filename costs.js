@@ -574,6 +574,13 @@ function buildCostRow(cost) {
     if (cost.split_id) total.appendChild(el('small', 'cost-of-total', `de ${formatMoney(cost.group_total_cents, costsState.currency)}`));
 
     const actions = el('td', 'col-actions');
+    if (cost.id && !cost.recurring_id) {
+        const repeat = el('button', 'cost-make-recurring', '🔁');
+        repeat.type = 'button';
+        repeat.title = 'Hacer recurrente (cada mes o cada año)';
+        repeat.setAttribute('aria-label', `Hacer recurrente ${cost.concept || 'este gasto'}`);
+        actions.appendChild(repeat);
+    }
     if (cost.id) {
         const split = el('button', 'cost-split', '↔');
         split.type = 'button';
@@ -686,6 +693,12 @@ costsRows.addEventListener('keydown', (event) => {
 });
 
 costsRows.addEventListener('click', async (event) => {
+    const repeatButton = event.target.closest('.cost-make-recurring');
+    if (repeatButton) {
+        const cost = costsState.costs.find(c => String(c.id) === repeatButton.closest('tr.cost-row').dataset.costId);
+        if (cost) openRecurringFromCost(cost);   // costs-recurring.js
+        return;
+    }
     const splitButton = event.target.closest('.cost-split');
     if (splitButton) {
         const cost = costsState.costs.find(c => String(c.id) === splitButton.closest('tr.cost-row').dataset.costId);

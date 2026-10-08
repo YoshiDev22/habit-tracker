@@ -438,7 +438,9 @@ Lo que no se ve en Swagger:
   `recurring_id` en `generate_due()`: al pedir la hoja, el resumen o la lista, al generar un
   reporte de costos y en el timer. `generated` cuenta los cobros hechos: uno borrado no
   vuelve, cambiarlo solo afecta a los siguientes, el primer cobro y la frecuencia no cambian
-  tras el primero (409), y al reanudarlo se saltan los de la pausa. El índice único
+  tras el primero (409), y al reanudarlo se saltan los de la pausa. "Hacer recurrente" (🔁 de
+  la fila) crea uno con `from_cost_id`: esas filas toman su `recurring_id` y, si el primer
+  cobro es su fecha, `generated` empieza en 1 (no se duplica). El índice único
   `uq_project_costs_recurring` frena la doble generación; las columnas e índices están en
   `migrate.py`. **Pegar** varias celdas (texto con tabuladores o saltos de línea) o elegir un
   CSV abre la vista previa (`parseTable()` → `rowsToCosts()`): separador tab, `;` o `,`;

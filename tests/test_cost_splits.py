@@ -230,3 +230,32 @@ def test_cost_report_counts_shares_and_recurring(api):
                                                "today": TODAY.isoformat()}, expect=200)
     by_name = {p["name"]: p["costs_cents"] for p in rep["metrics"]["projects"]}
     assert by_name == {"Tesis": 7000, "Habit Tracker": 3000 + 25000}
+
+
+def test_make_an_expense_recurring(api):
+    tesis, ht, cat = setup(api)
+    cost = add(api, tesis, cat, 25000, concept="Hosting", day=TODAY)
+    next_month = occurrence(TODAY, "monthly", 1)
+    body = {**recurring_body(tesis, cat, next_month), "from_cost_id": cost["id"]}
+    _, rc = api.call("POST", "/api/costs/recurring", body, expect=201)
+    rows = sheet(api, tesis)["costs"]
+    assert len(rows) == 1 and rows[0]["recurring_id"] == rc["id"]       # enlazado, sin duplicar
+    assert rc["next_date"] == next_month.isoformat()
+    # Otra vez desde el mismo gasto: ya es de un recurrente
+    assert api.call("POST", "/api/costs/recurring", body)[0] == 409
+
+    # Con su misma fecha como primer cobro, ese gasto es el primer cobro
+    other = add(api, tesis, cat, 9900, concept="Dominio", day=TODAY)
+    _, rc2 = api.call("POST", "/api/costs/recurring",
+                      {**recurring_body(tesis, cat, TODAY), "concept": "Dominio", "frequency": "yearly",
+                       "unit_cost_cents": 9900, "from_cost_id": other["id"]}, expect=201)
+    dominio = [r for r in sheet(api, tesis)["costs"] if r["concept"] == "Dominio"]
+    assert len(dominio) == 1 and dominio[0]["recurring_id"] == rc2["id"] and rc2["generated"] == 1
+
+    # De otra cuenta, no
+    api.login("ajeno2@test.com")
+    maker_on(api, "ajeno2@test.com")
+    _, mine = api.call("POST", "/api/projects", {"name": "Mío"}, expect=201)
+    _, cats = api.call("GET", "/api/costs/categories", expect=200)
+    assert api.call("POST", "/api/costs/recurring", {**recurring_body(mine, cats["categories"][0], next_month),
+                                                     "from_cost_id": cost["id"]})[0] == 404
