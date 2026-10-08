@@ -146,6 +146,21 @@ async def main():
         await b.wait_for("document.querySelectorAll('#savedReportList .saved-report-row').length > 0")
         rows = await b.js("[...document.querySelectorAll('#savedReportList .saved-report-row small')].map(s => s.textContent)")
         check(rows and all("costos" in r for r in rows), f"the Costos list has only cost reports ({rows})")
+        await b.js("document.getElementById('savedReportClose').click()")
+
+        # Apagar el plan Maker, estando en Costos: nada falla y los reportes de costos no se ofrecen
+        api.call("PUT", "/api/auth/me/modules/maker", {"enabled": False}, expect=200)
+        await b.goto(BASE + "/", wait=2.5)
+        await b.js(CLOSE_WELCOME)
+        st = await b.js("({costsTab: !document.getElementById('tabCosts').hidden, view: currentViewId})")
+        check(not st["costsTab"] and st["view"] != "costs", f"with the plan off, Costos is hidden even after reloading on it ({st})")
+        await b.js("document.getElementById('tabReports').click()")
+        await b.wait_for("document.getElementById('savedReportBtn').textContent.endsWith('reporte de tiempo')")
+        await b.js("document.getElementById('savedReportsListBtn').click()")
+        await b.wait_for("document.querySelectorAll('#savedReportList li').length > 0")
+        rows = await b.js("[...document.querySelectorAll('#savedReportList .saved-report-row small')].map(s => s.textContent)")
+        check(not any("costos" in r for r in rows), f"the Reportes list never shows cost reports ({rows})")
+        await b.js("document.getElementById('savedReportClose').click()")
     finally:
         await b.close()
 

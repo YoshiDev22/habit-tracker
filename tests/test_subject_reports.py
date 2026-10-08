@@ -1,7 +1,7 @@
 """Reportes de hábitos y de costos (1.23): cifras, texto de reglas, acceso, el
 timer y los dos contadores de la IA (tiempo y hábitos comparten uno)."""
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlmodel import Session, select
 
@@ -187,3 +187,30 @@ def test_days_before_any_habit_do_not_count(api):
     # The habit is from today: earlier days of the week are neither counted nor missed
     assert m["counted_days"] == 1 and m["active_days"] == 1 and m["missed_days"] == []
     assert all(d["status"] == "none" for d in m["days"] if d["date"] < TODAY.isoformat())
+
+
+def test_maker_off_keeps_cost_reports_but_makes_no_new_ones(api):
+    costs_setup(api, "apagado@test.com")
+    start = TODAY.replace(day=1)
+    rep = generate(api, "costs-month", start)
+    api.call("PUT", "/api/auth/me/modules/maker", {"enabled": False}, expect=200)
+    # Generating or rewriting needs the plan; what was saved stays readable and listed
+    assert api.call("POST", "/api/reports", {"kind": "costs-month", "period_start": start.isoformat(),
+                                             "today": TODAY.isoformat()})[0] == 403
+    assert api.call("GET", f"/api/reports/{rep['id']}", expect=200)[1]["subject"] == "costs"
+    assert [r["kind"] for r in api.call("GET", "/api/reports", expect=200)[1]["reports"]] == ["costs-month"]
+    # The timer skips cost reports (last month had time on a costed project)
+    last_month = (start - timedelta(days=1)).replace(day=1)
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == "apagado@test.com")).one()
+        from backend.models import PomodoroSession
+        session.add(PomodoroSession(user_id=user.id, project_id=rep["metrics"]["projects"][0]["project_id"],
+                                    mode="focus", duration_seconds=3600, session_date=last_month,
+                                    started_at=datetime(last_month.year, last_month.month, 1, 15),
+                                    ended_at=datetime(last_month.year, last_month.month, 1, 16)))
+        session.commit()
+        assert not [k for k, _ in missing_reports(session, user, TODAY) if k == "costs-month"]
+    api.call("PUT", "/api/auth/me/modules/maker", {"enabled": True}, expect=200)
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == "apagado@test.com")).one()
+        assert ("costs-month", last_month) in missing_reports(session, user, TODAY)
