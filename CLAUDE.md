@@ -678,7 +678,11 @@ El mismo modal pinta los tres (`renderSavedReport()` despacha), con los mismos b
 **IA para el texto** (épica 30, Fase 5). Módulo `ai`, con acceso como el plan maker
 (`grant_module.py --module ai`). Con él encendido, `write_text()` (`backend/reports.py`)
 pide el texto a la IA al generar (botón y timer) y, si algo falla, deja el de las reglas
-con el motivo en `Report.text_note`; `text_source` es `ai` o `rules` y `text_model` el
+con el motivo en `Report.text_note`, salvo al **regenerar a mano uno que ya existe**: ahí
+no se guarda nada (ni cifras, ni texto, ni fecha) y `POST /api/reports` responde 502 con el
+motivo (`AiTextFailed`), y la vista ofrece *Regenerar con reglas* (`use_ai: false`). El
+texto se escribe en un borrador fuera de la sesión porque la llamada hace commit de
+`ai_calls`; `text_source` es `ai` o `rules` y `text_model` el
 modelo. El proveedor es **uno por instancia**, en `backend/.env` (`AI_PROVIDER`,
 `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`, ver `.env.example`); `backend/ai.py` habla el
 formato *chat completions* de OpenAI con `urllib` (Cloudflare Workers AI, Gemini, OpenAI o
