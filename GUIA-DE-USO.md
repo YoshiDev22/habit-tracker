@@ -239,6 +239,10 @@ comentarios hay (💬). Si le pusiste un estimado, el tiempo dice cuánto llevas
 ("1h 30m de 3h"); al pasarte, el número cambia de color, sin avisos. Tócala para abrir su
 [detalle](#detalle-de-la-tarjeta).
 
+**Columnas con muchas tarjetas**: cada columna enseña 10; abajo, **Mostrar 10 más** suma
+otras diez cada vez y **Mostrar menos** vuelve a 10. La lista de cada columna se desplaza
+sola, así que la página no se alarga aunque expandas.
+
 **Crear una tarjeta**: al pie de cada columna, escribe en **+ Añadir tarjeta** y pulsa
 Enter. Nace en esa columna y en el proyecto "Sin asignar"; si tienes filtrado un solo
 proyecto, nace en ese proyecto. Después le cambias el proyecto desde su detalle.

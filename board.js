@@ -22,6 +22,12 @@ const boardState = {
     filterProjects: new Set(),
     filterTags: new Set(),
     mobileColumnId: null,   // la columna visible en pantallas angostas
+    // Tarjetas que muestra cada columna (id -> cuántas): empiezan en BOARD_PAGE
+    // y "Mostrar 10 más" las sube. Solo en esta sesión.
+    columnLimits: new Map(),
+    // Tras crear una tarjeta: {columnId, count}. La lista de esa columna baja al
+    // final cuando ya pinta esa cantidad (el tablero se repinta más de una vez)
+    scrollToEnd: null,
     view: 'board',
     loaded: false,          // ya se sabe si el usuario tiene tableros
 };
@@ -329,6 +335,14 @@ function buildCard(task, columns) {
     return card;
 }
 
+// Una columna muestra de 10 en 10: con muchas tarjetas, la página no crece sin
+// fin (y la lista de cada columna tiene su propio scroll, en styles.css)
+const BOARD_PAGE = 10;
+
+function columnLimit(columnId) {
+    return boardState.columnLimits.get(columnId) || BOARD_PAGE;
+}
+
 function buildColumn(column, tasks, columns) {
     const section = document.createElement('section');
     section.className = 'board-column';
@@ -351,7 +365,9 @@ function buildColumn(column, tasks, columns) {
 
     const list = document.createElement('div');
     list.className = 'board-cards';
-    tasks.forEach(task => list.appendChild(buildCard(task, columns)));
+    const limit = columnLimit(column.id);
+    const shown = tasks.slice(0, limit);
+    shown.forEach(task => list.appendChild(buildCard(task, columns)));
     if (tasks.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'board-column-empty';
@@ -359,6 +375,31 @@ function buildColumn(column, tasks, columns) {
         list.appendChild(empty);
     }
     section.appendChild(list);
+
+    // Las que no se ven: "Mostrar 10 más", y "Mostrar menos" si ya se expandió
+    const hidden = tasks.length - shown.length;
+    if (hidden > 0) section.dataset.firstHidden = String(tasks[limit].id);
+    if (hidden > 0 || limit > BOARD_PAGE) {
+        const more = document.createElement('div');
+        more.className = 'board-more';
+        if (hidden > 0) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'link-btn board-more-btn';
+            button.dataset.more = 'more';
+            button.textContent = `Mostrar ${Math.min(BOARD_PAGE, hidden)} más (quedan ${hidden})`;
+            more.appendChild(button);
+        }
+        if (limit > BOARD_PAGE && tasks.length > BOARD_PAGE) {
+            const less = document.createElement('button');
+            less.type = 'button';
+            less.className = 'link-btn board-more-btn';
+            less.dataset.more = 'less';
+            less.textContent = 'Mostrar menos';
+            more.appendChild(less);
+        }
+        section.appendChild(more);
+    }
 
     const form = document.createElement('form');
     form.className = 'board-add';
@@ -375,6 +416,10 @@ function buildColumn(column, tasks, columns) {
 
 function renderBoard() {
     const board = currentBoard();
+    // El scroll de la lista de cada columna sobrevive al repintado (al mostrar
+    // más, al soltar una tarjeta)
+    const scrolled = new Map([...boardColumns.querySelectorAll('.board-column')]
+        .map(c => [c.dataset.columnId, c.querySelector('.board-cards').scrollTop]));
     boardColumns.innerHTML = '';
     boardColumnTabs.innerHTML = '';
 
@@ -417,10 +462,34 @@ function renderBoard() {
         tab.textContent = `${column.name} ${tasks.length}`;
         boardColumnTabs.appendChild(tab);
 
-        boardColumns.appendChild(buildColumn(column, tasks, board.columns));
+        const section = buildColumn(column, tasks, board.columns);
+        boardColumns.appendChild(section);
+        const list = section.querySelector('.board-cards');
+        const pending = boardState.scrollToEnd;
+        if (pending && pending.columnId === column.id && tasks.length >= pending.count) {
+            list.scrollTop = list.scrollHeight;
+            boardState.scrollToEnd = null;
+        } else if (scrolled.get(String(column.id))) {
+            list.scrollTop = scrolled.get(String(column.id));
+        }
     });
     syncTimerMarks();
 }
+
+// "Mostrar 10 más" / "Mostrar menos"
+boardColumns.addEventListener('click', (event) => {
+    const button = event.target.closest('.board-more-btn');
+    if (!button) return;
+    const columnId = Number(button.closest('.board-column').dataset.columnId);
+    const limit = columnLimit(columnId);
+    if (button.dataset.more === 'more') boardState.columnLimits.set(columnId, limit + BOARD_PAGE);
+    else boardState.columnLimits.delete(columnId);
+    renderBoard();
+    if (button.dataset.more === 'less') {
+        const list = boardColumns.querySelector(`.board-column[data-column-id="${columnId}"] .board-cards`);
+        if (list) list.scrollTop = 0;
+    }
+});
 
 // ============================================
 // Vista: tablero o lista
@@ -514,6 +583,11 @@ async function addCard(columnId, title) {
     // Con un filtro de etiquetas activo la tarjeta nueva (sin etiquetas) no
     // se vería: se quita ese filtro para no crear algo invisible.
     boardState.filterTags.clear();
+    // Va al final de la columna: se expande hasta ella y la lista baja a verla
+    // Las que se ven (con el filtro de proyecto, si hay): la nueva nace en él
+    const total = filteredTasks().filter(t => t.column_id === columnId).length + 1;
+    if (total > columnLimit(columnId)) boardState.columnLimits.set(columnId, total);
+    boardState.scrollToEnd = { columnId, count: total };
     await refreshAfterBoardChange();
 }
 
@@ -566,6 +640,13 @@ boardColumns.addEventListener('keydown', (event) => {
 let draggedTaskId = null;
 const dropIndicator = document.createElement('div');
 dropIndicator.className = 'drop-indicator';
+
+// Dónde cae al soltar: delante de esa tarjeta, o, debajo de la última que se
+// ve, delante de la primera oculta (no al final, detrás de las que no se ven)
+function dropBeforeId(column, before) {
+    if (before) return Number(before.dataset.taskId);
+    return column.dataset.firstHidden ? Number(column.dataset.firstHidden) : null;
+}
 
 // La tarjeta (visible, y que no sea la arrastrada) delante de la que caería:
 // la primera cuya mitad queda por debajo del puntero. null = al final.
@@ -624,7 +705,7 @@ boardColumns.addEventListener('drop', (event) => {
     const taskId = draggedTaskId;
     draggedTaskId = null;
     clearDropMarks();
-    dropTask(taskId, Number(column.dataset.columnId), before ? Number(before.dataset.taskId) : null);
+    dropTask(taskId, Number(column.dataset.columnId), dropBeforeId(column, before));
 });
 
 boardColumns.addEventListener('dragend', () => {
@@ -2334,6 +2415,7 @@ function resetBoard() {
     boardState.projects = [];
     boardState.filterProjects.clear();
     boardState.filterTags.clear();
+    boardState.columnLimits.clear();
     boardState.mobileColumnId = null;
     boardState.loaded = false;
     boardColumns.innerHTML = '';

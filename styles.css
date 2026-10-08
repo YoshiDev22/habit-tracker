@@ -2363,6 +2363,22 @@ body.has-pomodoro-bar {
     flex-direction: column;
     gap: 8px;
     min-height: 40px;
+    /* Con muchas tarjetas, cada columna se desplaza sola y la página no crece */
+    max-height: 70vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.board-more {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 14px;
+    margin-top: 8px;
+}
+
+.board-more-btn {
+    font-size: 0.85rem;
 }
 
 .board-column-empty {

@@ -731,6 +731,12 @@ Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
 - **Computadora (≥ 900 px):** mientras se ve, `body.board-wide` ensancha `.app-container`
   a 1200 px y deja marca, tabs y pomodoro en 600 px. Se arrastran tarjetas con drag &
   drop nativo, solo si `(hover: hover) and (pointer: fine)`.
+- **Columnas largas (1.24):** cada columna pinta de 10 en 10 (`BOARD_PAGE`, `columnLimits`
+  en `boardState`, solo en la sesión): "Mostrar 10 más (quedan N)" y "Mostrar menos". Su
+  lista (`.board-cards`) tiene `max-height: 70vh` y su propio scroll, que sobrevive al
+  repintado. Soltar debajo de la última visible cae delante de la primera oculta
+  (`dropBeforeId()`), y una tarjeta nueva expande su columna y la baja hasta ella
+  (`scrollToEnd`, que espera a que la tarjeta esté pintada).
 - **Pantalla angosta (< 700 px):** una columna a la vez con pestañas que saltan de línea.
   **Nada del tablero puede desplazarse en horizontal**: pelearía con el swipe entre vistas.
   En táctil se mueve con el `<select>` nativo "Mover a…" de cada tarjeta.
