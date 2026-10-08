@@ -723,11 +723,14 @@ function costsMetricsTable(report, currency) {
     const money = (row, field) => (row && row[field] !== undefined ? formatMoney(row[field], currency) : '—');
     const projects = list => list.filter(x => x.currency === currency).length;
     const hours = row => (row && row.total_seconds !== undefined ? hoursText(row.total_seconds) : '—');
+    // Reportes guardados antes de que las monedas trajeran sus horas: las del mes salen de sus proyectos
+    const nowHours = now.total_seconds !== undefined ? now : {
+        total_seconds: m.projects.filter(x => x.currency === currency).reduce((sum, x) => sum + (x.total_seconds || 0), 0) };
     return compareTable(report, has ? [p.date_from, p.date_to] : null, [
         ['Costo del mes', money(before, 'total_cost_cents'), money(now, 'total_cost_cents')],
         ['Mano de obra (horas × tarifa)', money(before, 'labor_cents'), money(now, 'labor_cents')],
         ['Gastos', money(before, 'costs_cents'), money(now, 'costs_cents')],
-        ['Horas en proyectos con costeo', hours(before), hours(now)],
+        ['Horas en proyectos con costeo', hours(before), hours(nowHours)],
         ['Proyectos con actividad', has ? String(projects(p.projects || [])) : '—', String(projects(m.projects))],
     ]);
 }
