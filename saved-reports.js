@@ -336,7 +336,21 @@ function arcPath(cx, cy, r, ir, a0, a1) {
 }
 
 // Una dona con su leyenda (nombre, horas y %): la identidad no va solo en el color
+// Rebanadas que comparten color (p. ej. todos los proyectos con el azul de inicio)
+// no se distinguirían: la que repite toma uno libre de la paleta, y la leyenda
+// usa el mismo. La identidad sigue en la leyenda (nombre y cifra), no en el color.
+function distinctColors(rows) {
+    const used = new Set();
+    return rows.map(row => {
+        let color = (row.color || '').toLowerCase();
+        if (!color || used.has(color)) color = HABIT_PALETTE.find(c => !used.has(c.toLowerCase())) || color || 'var(--text-muted)';
+        used.add(color.toLowerCase());
+        return { ...row, color };
+    });
+}
+
 function donut(caption, rows, total, format = hoursText, empty = 'Sin tiempo registrado.') {
+    rows = distinctColors(rows);
     const box = el('div', 'saved-donut');
     box.appendChild(el('p', 'saved-chart-title', caption));
     if (!total) {

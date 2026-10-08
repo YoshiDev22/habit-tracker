@@ -106,6 +106,10 @@ async def main():
         check(wide <= 390, f"nothing overflows the phone width ({wide})")
         await b.shot("subject_costs_report", full=False)
 
+        # Proyectos con el mismo color: cada rebanada de la dona toma uno distinto
+        colors = await b.js("distinctColors([{color: '#3498db'}, {color: '#3498DB'}, {color: null}]).map(r => r.color)")
+        check(len(set(c.lower() for c in colors)) == 3, f"repeated or missing colors get distinct ones in a donut ({colors})")
+
         # Con el tema oscuro, al imprimir sale en claro (los cuadros negros del PDF)
         await b.js("document.documentElement.dataset.theme = 'dark'; renderForPrint(true)")
         await b.send("Emulation.setEmulatedMedia", media="print")
