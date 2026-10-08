@@ -22,13 +22,13 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
 | 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
 | 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | parte sin correo hecha |
-| 27 | P3 | Reordenar las pestañas de secciones | pedido |
-| 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido |
-| 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | decisión pendiente |
+| 27 | P3 | Reordenar las pestañas de secciones | pedido, para la 1.28 |
+| 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido, para la 1.28 |
+| 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | API hecha; selector para la 1.28 |
 | 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
-| 31 | P3 | Límite diario de la IA ajustable por cuenta | pedido |
+| 31 | P3 | Límite diario de la IA ajustable por cuenta | se junta con la 32 (fase 2) |
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.26 |
-| 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | pedido |
+| 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir; hábitos: tras la 17 |
 | 34 | P2 | Notas por día en los hábitos | pedido, para la 1.25 |
 | 35 | P2 | "Novedades": qué trae cada versión, al entrar después de actualizar | pedido, para la 1.25 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
@@ -429,6 +429,11 @@ muestra con las secciones de los ejemplos y se imprime a PDF desde el navegador.
 
 ## 31 · P3 · Límite diario de la IA ajustable por cuenta
 
+**Estado (2026-10-08).** Ya hay un contador por cuenta (10 textos al día para tiempo y
+hábitos, otros 10 para costos, desde la 1.23): nadie gasta el de otro. Lo que falta es que
+el **tope** sea distinto por cuenta. Se hace con el panel de administración (entrada 32,
+fase 2: "más textos de IA para una cuenta"), así que se trabaja ahí, no aparte.
+
 **Idea.** Hoy el límite de textos con IA es uno para toda la instancia (`AI_DAILY_LIMIT` en
 `backend/.env`, 10 por defecto, día UTC) y cada cuenta ve "te quedan N de 10" en el
 reporte. Pedido por Yoshio el 2026-10-03: dejarlo en 10 por ahora, pero poder cambiarlo por
@@ -498,8 +503,20 @@ tener que elegirlo cada vez. En los hábitos, `habits.default_minutes` y `habits
 (**migración**). El cruce lugar × hora sale de la capa de métricas (`backend/metrics.py`),
 que ya tiene las horas locales de cada sesión.
 
-**Por decidir.** Si el lugar va en la sesión, en la tarea o en los dos; si registrar tiempo
-al marcar un hábito es automático o se pregunta; y cómo encaja con las metas de la 17.
+**Decidido con Yoshio (2026-10-08), para tareas y tiempo.** El **tablero** tiene un lugar por
+defecto ("Escuela") y la **tarea** solo lo cambia cuando es de otra área. Cada registro de
+tiempo guarda el lugar de su tarea **al registrarse**, para que el historial no cambie si
+luego se mueve la tarea o se cambia el lugar del tablero. Migración: `boards.place_id`,
+`tasks.place_id` y `pomodoro_sessions.place_id` (columnas en tablas existentes) y la tabla
+nueva de lugares. Reportes: tiempo por lugar y cruce lugar × hora (fuera del horario
+habitual en casa, por ejemplo).
+
+**Los hábitos, después de la épica 17**: duración y lugar por defecto de un hábito, y si
+marcar uno registra tiempo solo o se pregunta, se deciden con los objetivos. No cambia lo de
+las tareas.
+
+**Por decidir.** En qué versión sale la parte de tareas y tiempo (la 1.25 la volvería una
+versión con migración).
 
 ---
 
