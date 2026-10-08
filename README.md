@@ -226,7 +226,13 @@ habit-tracker/
 │   ├── boards.py          # "Sin asignar" y columnas de las tareas de cada usuario
 │   ├── modules.py         # Módulos de cada cuenta y sus valores por defecto
 │   ├── costing.py         # Dinero del plan Maker: mano de obra, gastos, costo, margen, estimados
+│   ├── recurring_costs.py # Gastos repartidos entre proyectos y gastos recurrentes
 │   ├── reports.py         # Reportes guardados (tiempo, hábitos y costos) y cuáles faltan
+│   ├── metrics.py         # Las cifras de un periodo (lo que leen los reportes)
+│   ├── habit_report.py    # Cifras y texto del reporte de hábitos
+│   ├── cost_report.py     # Cifras y texto del reporte de costos
+│   ├── report_ai.py       # El texto de los reportes escrito por la IA (opcional)
+│   ├── accounts.py        # Borrar una cuenta, ya o a 30 días
 │   ├── ratelimit.py       # Límite de intentos de login y registro, por IP
 │   ├── .env.example       # Plantilla del .env (el .env real no se versiona)
 │   └── routers/           # auth, habits, projects, boards, tasks, tags, pomodoro, costs
@@ -248,6 +254,13 @@ habit-tracker/
 ├── reports.js             # Vista Reportes
 ├── project-overview.js    # Ficha de proyecto (tiempo, costeo y estimados)
 ├── costs.js               # Vista Costos (plan Maker)
+├── costs-recurring.js     # Costos: repartir un gasto y los gastos recurrentes
+├── saved-reports.js       # Reportes guardados: generar, ver e imprimir
+├── notifications.js       # La campanita: registros por confirmar
+├── workdays.js            # Festivos y huso horario
+├── settings.js            # ⚙️ Configuración (menú de desglose)
+├── drilldown.js           # El menú de desglose que comparten los menús de opciones
+├── account.js             # Mi perfil: contraseña y borrar la cuenta
 ├── manifest.webmanifest   # Instalable como app
 ├── icons/                 # Iconos y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI

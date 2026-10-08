@@ -287,6 +287,22 @@ De navegador (`pytest -m ui`):
 8. **Sin estimado al crear la tarjeta por ahora.** Se pone en el detalle; se agrega a
    `TaskCreate` cuando el cotizador de la Fase 5 cree tareas previstas con su estimado.
 
+### Fuera de las fases: precio, reporte, repartidos y recurrentes ✅
+
+Lo que salió después de la Fase 4, pedido sobre la marcha:
+
+- **Tipo de proyecto, precio y margen** (1.22.0): personal, producto o servicio; margen =
+  precio − costo, aparte del presupuesto disponible.
+- **Reporte mensual de costos** (1.23.0), en la pestaña Costos, con IA opcional (épica 30).
+- **Gastos repartidos entre proyectos** (1.24.0): un gasto es una fila por proyecto con su
+  parte (puntos base y centavos, mayor resto: las partes suman exacto), solo entre proyectos
+  de una moneda. Así el resumen, la ficha y los reportes no cambiaron.
+- **Gastos recurrentes** (1.24.0): cada mes o cada año, también repartidos; cada cobro se
+  convierte en un gasto real (🔁) al abrir Costos, al generar el reporte y con el timer
+  diario. Editar uno pregunta a qué cobros ya anotados aplicarlo.
+
+Detalle técnico en `CLAUDE.md` (sección de Costos) y `backend/recurring_costs.py`.
+
 ### Fase 5 — Cotizador con historial
 
 1. Proyecto nuevo: nombre, etiquetas, tareas previstas con su estimado (o sin tareas).

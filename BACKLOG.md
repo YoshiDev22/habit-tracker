@@ -270,7 +270,8 @@ unas X horas") más materiales y gastos. **No es un CRM**: nada de prospectos ni
 idempotentes, límite de login) · 1 interruptor de módulos + ficha de proyecto solo lectura ✅ (1.17.0) ·
 2 tarifa y presupuesto ✅ (1.18.0) · 3 gastos y materiales, pegar de una hoja e importar CSV ✅ (1.19.0) · 4 estimado contra real
 por tarea ✅ (1.19.0) · 5 cotizador con historial (rangos P50/P80) · 6 hoja de Google publicada como
-CSV, solo lectura.
+CSV, solo lectura. Fuera de las fases: tipo de proyecto, precio y margen ✅ (1.22.0), reporte
+mensual de costos ✅ (1.23.0), gastos repartidos entre proyectos y recurrentes ✅ (1.24.0).
 
 **Esquema.** Tablas nuevas (`user_modules`, `project_finance`, `project_costs`), sin
 migración. La única columna en una tabla existente es `tasks.estimate_minutes` (Fase 4):
@@ -416,8 +417,9 @@ navegador.
 
 **Fases.** 1 export de hábitos ✅ · 2 sesiones por confirmar (`needs_review`, con
 migración) ✅ · 3 capa de métricas con huso horario y festivos ✅ · 4 reportes guardados sin IA
-(systemd timer) ✅ · 5 IA para el texto ✅ · 6 costos del periodo, tipo de proyecto y precio
-(con migración).
+(systemd timer) ✅ · 5 IA para el texto ✅ · 6 tipo de proyecto y precio ✅ (1.22.0) y reporte de
+costos del mes ✅ (1.23.0). También en la 1.23.0: reportes de hábitos y contadores de IA
+separados. Lo que queda de la épica es la entrada 31 (límite de IA por cuenta).
 
 **Aceptación (de la Fase 4, no de la épica).** Un botón genera el reporte de la semana o
 del mes y lo guarda; también se genera solo (systemd timer: lunes, la semana anterior, y día 1); la vista lo
