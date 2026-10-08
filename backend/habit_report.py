@@ -190,6 +190,8 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
             "completion_pct": prev["completion_pct"], "done_total": prev["done_total"],
             "possible_total": prev["possible_total"], "active_days": prev["active_days"],
             "counted_days": prev["counted_days"], "streak": prev["streak"],
+            "missed_count": len(prev["missed_days"]), "protected_count": len(prev["protected_days"]),
+            "off_count": len(prev["off_days"]),
             "habits": [{"key": h["key"], "label": h["label"], "pct": h["pct"], "days_done": h["days_done"],
                         "days_possible": h["days_possible"]} for h in prev["habits"]],
             "by_day": [{"date": day["date"], "count": len(day["done"]), "status": day["status"]}

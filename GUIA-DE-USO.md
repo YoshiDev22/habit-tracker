@@ -383,10 +383,11 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   tocando su cifra. Si tienes proyectos en monedas distintas, cada moneda va aparte: la app
   nunca las suma ni convierte.
 - **Reporte de costos**, hasta arriba: elige el mes y toca **Generar reporte** (o **Ver
-  reporte** si ya existe). Trae el costo del mes por moneda (mano de obra y gastos)
-  contra el mes anterior, cada proyecto con sus horas, mano de obra, gastos y costo, el
-  presupuesto disponible y el margen **acumulados** hasta el cierre del mes, el gasto por
-  categoría y los gastos más grandes. Sale solo cada día 1, del mes anterior. **Reportes de
+  reporte** si ya existe). Se arma como el de tiempo: una tabla del mes anterior contra
+  este (costo, mano de obra, gastos, horas), la gráfica de mano de obra y gastos por
+  categoría, una dona por mes con la parte de cada proyecto, los gastos más grandes, y cada
+  proyecto con su presupuesto disponible y su margen **acumulados** hasta el cierre del
+  mes. Sale solo cada día 1, del mes anterior. **Reportes de
   costos** los lista todos. Con la IA encendida, el texto lo escribe ella, con su propio
   límite diario.
 - **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
@@ -498,10 +499,13 @@ El texto lo escriben reglas fijas a partir de las cifras, o la IA si la tienes.
 - **Resumen**: tu cumplimiento (marcas hechas de las posibles), los días con algún hábito y
   tu racha al cierre del periodo, comparado con el anterior. Debajo, qué días **no contaron
   como fallo**: descanso, vacaciones, festivos y días cubiertos por un protector.
-- **Tus hábitos**: cada uno con sus días hechos de los que contaban, su % contra el periodo
-  anterior y su racha. Un hábito nuevo cuenta desde que lo creaste. En el semanal, cada día
-  con cuántos hábitos hiciste; en el mensual, el cumplimiento por semana y por día de la
-  semana.
+- **Métricas**: una tabla del periodo anterior contra este (cumplimiento, días con algún
+  hábito, racha, días sin hábitos, protegidos y de descanso) y una gráfica: en el semanal,
+  cuántos hábitos hiciste cada día junto a la semana anterior; en el mensual, el
+  cumplimiento por semana y por día de la semana.
+- **¿Cómo te fue con cada hábito?**: una dona por periodo con la parte de cada hábito, y
+  cada uno con sus días hechos de los que contaban, antes y ahora, y su racha. Un hábito
+  nuevo cuenta desde que lo creaste.
 - **Patrones**, **Observaciones**, **Comparativa** (el mensual), los siguientes pasos y el
   **Cierre**. El texto nunca regaña: si algo costó, propone cómo retomarlo.
 

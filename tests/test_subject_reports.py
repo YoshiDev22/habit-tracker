@@ -121,7 +121,7 @@ def test_costs_report(api):
     assert row["to_date"]["budget_left_cents"] == 100000 - 55100
     assert row["to_date"]["margin_cents"] == 150000 - 55100
     assert m["currencies"] == [{"currency": "MXN", "labor_cents": 30000, "costs_cents": 25100,
-                                "total_cost_cents": 55100, "budget_cents": 100000}]
+                                "total_cost_cents": 55100, "budget_cents": 100000, "total_seconds": 3600}]
     assert m["top_costs"][0]["concept"] == "Foco" and m["top_costs"][0]["cents"] == 25100
     assert "$551.00 MXN" in rep["text"]["summary"]
     assert any("margen" in item for item in rep["text"]["observations"])

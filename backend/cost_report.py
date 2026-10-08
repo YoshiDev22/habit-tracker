@@ -74,7 +74,10 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
     metrics = {
         "date_from": start.isoformat(), "date_to": end.isoformat(), "through": through.isoformat(),
         "today": today.isoformat(),
-        "currencies": [t.model_dump() for t in month.totals if t.currency in currencies_used],
+        # Por moneda, con las horas de sus proyectos (para la tabla contra el mes anterior)
+        "currencies": [{**t.model_dump(), "total_seconds": sum(p["total_seconds"] for p in projects
+                                                               if p["currency"] == t.currency)}
+                       for t in month.totals if t.currency in currencies_used],
         "projects": projects,
         "categories": [{"name": c.name, "color": c.color, "currency": c.currency, "cents": c.cents}
                        for c in month.categories],
@@ -93,8 +96,9 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
         metrics["previous"] = {
             "date_from": prev["date_from"], "date_to": prev["date_to"],
             "currencies": prev["currencies"],
-            "projects": [{"name": p["name"], "currency": p["currency"], "total_cost_cents": p["total_cost_cents"]}
-                         for p in prev["projects"]],
+            "projects": [{"name": p["name"], "color": p["color"], "currency": p["currency"],
+                          "total_cost_cents": p["total_cost_cents"]} for p in prev["projects"]],
+            "project_count": len(prev["projects"]),
         }
     return metrics
 

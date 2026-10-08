@@ -65,10 +65,14 @@ async def main():
         await b.js("document.getElementById('savedHabitsReportBtn').click()")
         await b.wait_for(f"{TITLE} === 'Reporte semanal de hábitos'", timeout=15)
         st = await b.js("({cards: [...document.querySelectorAll('#savedReportBody .report-card-title')].map(t => t.textContent),"
-                        " days: document.querySelectorAll('#savedReportBody .habit-day').length,"
+                        " charts: document.querySelectorAll('#savedReportBody svg.report-chart').length,"
+                        " donuts: document.querySelectorAll('#savedReportBody .saved-donut').length,"
+                        " rows: document.querySelectorAll('#savedReportBody .saved-metrics tbody tr').length,"
+                        " tiles: document.querySelectorAll('#savedReportBody .report-stat').length,"
                         " summary: document.querySelector('#savedReportBody .saved-report-text').textContent})")
-        check("Tus hábitos" in st["cards"] and st["days"] == 7 and "%" in st["summary"],
-              f"the habits report shows its habits, the week day by day and the summary ({st['cards']}, {st['days']})")
+        check(st["cards"][:3] == ["Resumen", "Métricas", "¿Cómo te fue con cada hábito?"] and st["charts"] == 1
+              and st["donuts"] >= 1 and st["rows"] >= 6 and st["tiles"] == 0 and "%" in st["summary"],
+              f"the habits report looks like the time one: metrics table, day bars and donuts ({st})")
         await b.shot("subject_habits_report", full=False)
         await b.js("document.getElementById('savedReportClose').click()")
         await b.wait_for("document.getElementById('savedHabitsReportBtn').textContent === 'Ver reporte de hábitos'")
@@ -90,12 +94,28 @@ async def main():
         await b.js("document.getElementById('costsReportBtn').click()")
         await b.wait_for(f"{TITLE} === 'Reporte mensual de costos'", timeout=15)
         st = await b.js("({cards: [...document.querySelectorAll('#savedReportBody .report-card-title')].map(t => t.textContent),"
-                        " table: document.querySelector('#savedReportBody .saved-metrics').textContent})")
-        check("Por proyecto" in st["cards"] and "Habit Tracker" in st["table"] and "Gastos más grandes" in st["cards"],
-              f"the costs report shows projects and the largest expenses ({st['cards']})")
+                        " text: document.getElementById('savedReportBody').textContent,"
+                        " columns: document.querySelectorAll('#savedReportBody .costs-breakdown').length,"
+                        " donuts: document.querySelectorAll('#savedReportBody .saved-donut').length,"
+                        " tiles: document.querySelectorAll('#savedReportBody .report-stat').length})")
+        check(st["cards"][:4] == ["Resumen", "Métricas", "¿En qué se fue el dinero?", "Por proyecto"]
+              and st["columns"] == 1 and st["donuts"] >= 1 and st["tiles"] == 0
+              and "Habit Tracker" in st["text"] and "Gastos más grandes" in st["text"],
+              f"the costs report looks like the time one: metrics, columns, donuts and projects ({st['cards']}, {st['columns']}, {st['donuts']})")
         wide = await b.js("document.documentElement.scrollWidth")
         check(wide <= 390, f"nothing overflows the phone width ({wide})")
         await b.shot("subject_costs_report", full=False)
+
+        # Con el tema oscuro, al imprimir sale en claro (los cuadros negros del PDF)
+        await b.js("document.documentElement.dataset.theme = 'dark'; renderForPrint(true)")
+        await b.send("Emulation.setEmulatedMedia", media="print")
+        bg = await b.js("getComputedStyle(document.querySelector('#savedReportBody .report-card')).backgroundColor")
+        text = await b.js("getComputedStyle(document.querySelector('#savedReportBody .saved-report-text')).color")
+        light = lambda c: sum(float(x) for x in c[c.index("(") + 1:c.index(")")].replace(",", " ").replace("/", " ").split()[:3]) > 600
+        check(light(bg) and not light(text), f"printed in dark mode, cards are light with dark text ({bg}, {text})")
+        await b.shot("subject_costs_print_dark")
+        await b.send("Emulation.setEmulatedMedia", media="")
+        await b.js("renderForPrint(false); document.documentElement.dataset.theme = 'light'")
         await b.js("""(() => {
             const real = window.apiFetch;
             window.apiFetch = (path, options) => path === '/api/reports/ai-usage?subject=costs'
