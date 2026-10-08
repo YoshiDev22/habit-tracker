@@ -29,6 +29,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 31 | P3 | Límite diario de la IA ajustable por cuenta | pedido |
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, después de la 1.24 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | pedido |
+| 34 | P2 | Notas por día en los hábitos | pedido, para la 1.25 |
 
 ---
 
@@ -495,3 +496,31 @@ que ya tiene las horas locales de cada sesión.
 
 **Por decidir.** Si el lugar va en la sesión, en la tarea o en los dos; si registrar tiempo
 al marcar un hábito es automático o se pregunta; y cómo encaja con las metas de la 17.
+
+---
+
+## 34 · P2 · Notas por día en los hábitos
+
+**Pedido por Yoshio el 2026-10-08**, para la 1.25.
+
+**Para qué.** Un hábito amplio sin meter ruido con uno por actividad. Ejemplo real:
+Capoeira es su propio hábito (4 días a la semana); todo lo demás va en **Ejercicio** (gym
+esporádico, cuerda 20 min dos veces por semana, bici a la escuela, caminar el fin de
+semana), y la nota del día dice qué fue: "cuerda 20 min", "bici a la escuela".
+
+**Cómo podría ser.**
+- Una nota corta por hábito y día (hasta ~200 caracteres), solo para control propio. **No
+  cambia la racha ni el cumplimiento**: el hábito sigue siendo sí o no.
+- Tabla nueva `habit_notes` (`user_id`, `habit_key`, `entry_date`, `text`), única por
+  (usuario, hábito, día): `create_all()`, **sin migración**. No va dentro de
+  `habit_entries.habits_data`, que es `{clave: bool}` y lo leen la racha y el calendario.
+- Se escribe en el popover del día del calendario, junto a cada hábito; el día con nota
+  lleva una marca discreta.
+- Sale en el **CSV de hábitos** (columna `nota`) y el **reporte de hábitos** la puede
+  resumir (con la IA, como texto escrito por el usuario: dato, no instrucción).
+- Topes en `test_limits.py`, aislamiento en `test_isolation.py`, y `purge_user()` la borra
+  sola (tiene `user_id`).
+
+**Relación con lo demás.** Es el primer paso hacia la duración por actividad (entrada 33)
+y las metas (épica 17): algún día "cuerda 20 min" podría ser un dato que sume a una meta.
+Las metas semanales ("4 días a la semana") son de la 17: hoy la racha es diaria.
