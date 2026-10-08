@@ -27,9 +27,11 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | decisión pendiente |
 | 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
 | 31 | P3 | Límite diario de la IA ajustable por cuenta | pedido |
-| 32 | P2 | Panel de administración y "Reportar un problema" | épica, después de la 1.24 |
+| 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.26 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | pedido |
 | 34 | P2 | Notas por día en los hábitos | pedido, para la 1.25 |
+| 35 | P2 | "Novedades": qué trae cada versión, al entrar después de actualizar | pedido, para la 1.25 |
+| 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
 
 ---
 
@@ -526,3 +528,48 @@ semana), y la nota del día dice qué fue: "cuerda 20 min", "bici a la escuela".
 **Relación con lo demás.** Es el primer paso hacia la duración por actividad (entrada 33)
 y las metas (épica 17): algún día "cuerda 20 min" podría ser un dato que sume a una meta.
 Las metas semanales ("4 días a la semana") son de la 17: hoy la racha es diaria.
+
+---
+
+## 35 · P2 · "Novedades": qué trae cada versión, al entrar después de actualizar
+
+**Pedido por Yoshio el 2026-10-08**, para la 1.25 (junto con la 34). Como las tiendas de apps
+o los juegos al actualizar: que quien usa la app se entere de lo nuevo.
+
+**Cómo.**
+- Al entrar con una versión nueva, una ventana **"Novedades de la 1.25"** con *Nuevo*,
+  *Cambios* y *Correcciones* de esa versión (sin *Para actualizar*, que es para quien
+  administra el servidor). Una sola vez por versión; una cuenta nueva no la ve (empieza al
+  día).
+- **Novedades** en *Mi perfil* (una fila más del drill-down) para volver a verla, con las
+  versiones anteriores.
+- El texto sale de `CHANGELOG.md`, que ya está escrito para el usuario: el backend lo lee al
+  arrancar y sirve sus secciones (`GET /api/changelog`, sin token, como `/api/version`).
+  Una sola fuente: nada que mantener en dos lados.
+- La última versión vista se recuerda en el dispositivo (`localStorage`), sin migración. Si
+  luego se quiere por cuenta (no volver a verla en el teléfono), una columna nueva.
+
+**Aceptación.** Tras subir `VERSION`, la primera entrada muestra la ventana con el texto de
+esa versión del CHANGELOG, y la segunda ya no; *Mi perfil › Novedades* la vuelve a abrir.
+
+---
+
+## 36 · P3 · Página de inicio pública: qué es la app, video de uso, entrar y registrarse
+
+**Idea de Yoshio, 2026-10-08.** Hoy quien abre la app sin sesión ve solo el formulario de
+entrar. Una página de inicio (como la de Habitify o cualquier app) explicaría qué hace y
+serviría a los primeros usuarios que invite: no es un producto a la venta, así que **sin
+precios, blog ni planes**.
+
+**Qué traería.** Qué es y para quién (hábitos, tableros con tiempo, reportes, costeo para
+freelance), capturas o un **video de uso** (Yoshio tiene uno de la 1.14; grabaría otros más
+actuales), por qué la racha funciona así (las fuentes de `docs/referencias.md`), y los
+botones **Entrar** y **Crear cuenta** (este último solo si `ALLOW_REGISTRATION`).
+
+**Cómo podría ser.** Sin otro sitio: la app ya sirve `index.html`; sin sesión, en lugar del
+formulario solo, una portada con el formulario a un clic (o `/` portada y la app en `/app`).
+El video, alojado fuera (YouTube o similar) o un archivo servido con ruta propia; sin
+cookies de terceros si se puede. Lo que hoy explica `GUIA-DE-USO.md` sirve de base.
+
+**Por decidir.** Si la portada vive en la misma app o en un sitio estático aparte; dónde se
+aloja el video; y si se enlaza la guía de uso.
