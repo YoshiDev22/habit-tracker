@@ -398,6 +398,17 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   filas que no se entienden salen en rojo y se saltan, y si traen una categoría que no
   tienes, puedes crearla. Las columnas pueden llevar encabezado (Fecha, Concepto,
   Categoría, Cantidad, Costo unitario, Nota) o venir en ese orden.
+- **Repartir un gasto entre proyectos**: el **↔** de la fila abre el reparto. Elige los
+  proyectos y su parte (por ejemplo, una suscripción de IA: 65 % Tesis, 35 % Habit
+  Tracker); tienen que sumar 100 % y ser de la misma moneda. Cada proyecto ve su parte, con
+  "↔ 65 %" y el total del gasto debajo. Cambiar el monto, la fecha o el concepto de una
+  parte cambia el gasto entero, y borrarla lo borra de todos los proyectos.
+- **Gastos recurrentes**: en su tarjeta, **＋ Nuevo recurrente** para lo que pagas cada mes o
+  cada año (hosting, suscripciones, dominios), con su primer cobro y, si quieres, cuándo
+  termina; también puede ir repartido. En su fecha se anota solo en la hoja, con 🔁, y ahí lo
+  corriges si ese mes cambió. Cambiarlo afecta a los cobros siguientes, no a los ya
+  anotados. **Pausar** lo detiene (al reanudarlo, lo de la pausa no se cobra) y **×** lo
+  termina: lo ya anotado se queda.
 - **Categorías**: vienen cinco (material, licencia/software, servicio, IA y otro) y son
   tuyas: en **Categorías**, al final de la pestaña, las renombras, les cambias el color, las
   ordenas o creas más. Una categoría con gastos no se borra hasta pasar sus gastos a otra.

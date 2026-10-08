@@ -303,6 +303,19 @@
                         <div id="costsError" class="form-error hidden"></div>
                     </section>
 
+                    <!-- Gastos recurrentes (costs-recurring.js): se anotan solos en su fecha -->
+                    <section class="report-card costs-recurring-card">
+                        <div class="costs-sheet-head">
+                            <h3 class="report-card-title">Gastos recurrentes</h3>
+                            <button type="button" id="recurringAdd" class="link-btn">＋ Nuevo recurrente</button>
+                        </div>
+                        <p class="costs-hint">Lo que pagas cada mes o cada año. En su fecha se anota solo en la
+                            hoja (con 🔁), y ahí lo corriges si ese mes cambió. Cambiar uno afecta a los cobros
+                            siguientes, no a los que ya se anotaron.</p>
+                        <ul id="recurringList" class="recurring-list"></ul>
+                        <div id="recurringError" class="form-error hidden"></div>
+                    </section>
+
                     <details class="report-card costs-categories" id="costsCategories">
                         <summary class="report-card-title">Categorías</summary>
                         <p class="costs-hint">Son tuyas: renómbralas, cámbiales el color u ordénalas. Una con
@@ -1016,6 +1029,74 @@
         </div>
     </div>
 
+    <!-- Repartir un gasto entre proyectos (costs-recurring.js) -->
+    <div id="costSplitModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content cost-split-modal" role="dialog" aria-modal="true" aria-labelledby="costSplitTitle">
+            <button class="modal-close" type="button" id="costSplitClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="costSplitTitle">Repartir el gasto</h2>
+            <p class="setup-subtitle" id="costSplitSummary"></p>
+            <div id="costSplitEditor"></div>
+            <p class="costs-hint">Cambiar el monto, la fecha o el concepto de una parte cambia el gasto entero.
+                Con un solo proyecto al 100 %, deja de estar repartido.</p>
+            <div id="costSplitError" class="form-error hidden"></div>
+            <div class="project-delete-actions">
+                <button type="button" id="costSplitCancel" class="submit-btn btn-neutral">Cancelar</button>
+                <button type="button" id="costSplitSave" class="submit-btn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crear o editar un gasto recurrente (costs-recurring.js) -->
+    <div id="recurringModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content cost-split-modal" role="dialog" aria-modal="true" aria-labelledby="recurringTitle">
+            <button class="modal-close" type="button" id="recurringClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="recurringTitle">Nuevo gasto recurrente</h2>
+            <form id="recurringForm" class="recurring-form">
+                <label class="recurring-field wide">Concepto
+                    <input type="text" name="concept" maxlength="200" required placeholder="Hosting, suscripción…">
+                </label>
+                <label class="recurring-field">Categoría
+                    <select name="category_id"></select>
+                </label>
+                <label class="recurring-field">Cantidad
+                    <input type="number" name="quantity" min="0.0001" step="any" inputmode="decimal" value="1">
+                </label>
+                <label class="recurring-field">Costo unitario
+                    <input type="number" name="unit_cost" min="0" step="0.01" inputmode="decimal" placeholder="0.00" required>
+                </label>
+                <label class="recurring-field">Frecuencia
+                    <select name="frequency">
+                        <option value="monthly">Cada mes</option>
+                        <option value="yearly">Cada año</option>
+                    </select>
+                </label>
+                <label class="recurring-field">Primer cobro
+                    <input type="date" name="start_date" required>
+                </label>
+                <label class="recurring-field">Termina (opcional)
+                    <input type="date" name="end_date">
+                </label>
+                <p class="costs-hint wide" id="recurringLockedHint" hidden>Ya hubo cobros: el primer cobro y la
+                    frecuencia quedan fijos. Para cambiarlos, termínalo y crea otro.</p>
+                <label class="recurring-field wide">Nota (opcional)
+                    <input type="text" name="note" maxlength="500">
+                </label>
+                <div class="wide">
+                    <p class="recurring-label">Proyecto o reparto</p>
+                    <p class="costs-hint" id="recurringCurrency"></p>
+                    <div id="recurringAllocations"></div>
+                </div>
+                <div id="recurringFormError" class="form-error hidden wide"></div>
+                <div class="project-delete-actions wide">
+                    <button type="button" id="recurringCancel" class="submit-btn btn-neutral">Cancelar</button>
+                    <button type="submit" class="submit-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Avisos de la campanita (notifications.js). "Corregir" abre el registro
          a mano encima (#logTimeModal, z-index 1050). -->
     <div id="noticesModal" class="modal hidden">
@@ -1294,5 +1375,6 @@
     <script src="settings.js"></script>
     <script src="saved-reports.js"></script>
     <script src="account.js"></script>
+    <script src="costs-recurring.js"></script>
 </body>
 </html>

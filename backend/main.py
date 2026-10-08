@@ -172,6 +172,12 @@ def saved_reports_js():
     return frontend_file("saved-reports.js")
 
 
+@app.get("/costs-recurring.js")
+def costs_recurring_js():
+    """Serve costs-recurring.js"""
+    return frontend_file("costs-recurring.js")
+
+
 @app.get("/account.js")
 def account_js():
     """Serve account.js"""

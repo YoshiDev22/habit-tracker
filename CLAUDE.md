@@ -68,6 +68,7 @@ habit-tracker/
 │   ├── ratelimit.py       # Límite de intentos en memoria (login y registro), por IP
 │   ├── modules.py         # MODULES: módulos por cuenta y sus valores por defecto (sin dependencias)
 │   ├── costing.py         # Dinero del plan maker: mano de obra, gastos, costo y margen (centavos)
+│   ├── recurring_costs.py # Gastos repartidos (filas por proyecto) y recurrentes (sus cobros)
 │   ├── days.py            # Calendario de trabajo: huso, país y qué días son hábiles
 │   ├── holidays.py        # Festivos oficiales de Nager.Date, en caché por país y año
 │   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
@@ -113,6 +114,7 @@ habit-tracker/
 ├── reports.js             # Vista Reportes: rango, gráficas SVG y desgloses (solo lee)
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
+├── costs-recurring.js     # Costos: repartir un gasto entre proyectos y los gastos recurrentes
 ├── notifications.js       # La campanita de avisos: sesiones por confirmar
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
@@ -420,7 +422,21 @@ Lo que no se ve en Swagger:
   vuelve (`goToView()` no sobrescribe `last_view` cuando la vista pedida aún no se ve).
   En computadora ensancha la app como el tablero (`body.costs-wide`). La hoja edita en
   sitio; una fila nueva es un borrador hasta tener concepto, y el repintado conserva los
-  borradores. **Pegar** varias celdas (texto con tabuladores o saltos de línea) o elegir un
+  borradores. **Repartidos y recurrentes (1.24, `backend/recurring_costs.py`,
+  `costs-recurring.js`).** Un gasto repartido entre proyectos de **una moneda** es una fila
+  de `project_costs` por proyecto, con los mismos datos, el mismo `split_id` (el id de la
+  primera), su parte en puntos base (`split_bp`) y en centavos (`share_cents`, repartida con
+  `split_shares()`, mayor resto: las partes suman exacto). `cost_total_cents()` es el total
+  de una fila: **úsalo siempre**, no `line_total_cents()` sobre cantidad y costo unitario.
+  Editar o borrar una parte es del gasto entero; `PUT /api/costs/{id}/split` pone el reparto
+  (un proyecto al 100 % lo deshace). Un recurrente (`recurring_costs`: cada mes o cada año
+  en el día de `start_date`, con el fin de mes recortado) genera gastos reales con
+  `recurring_id` en `generate_due()`: al pedir la hoja, el resumen o la lista, al generar un
+  reporte de costos y en el timer. `generated` cuenta los cobros hechos: uno borrado no
+  vuelve, cambiarlo solo afecta a los siguientes, el primer cobro y la frecuencia no cambian
+  tras el primero (409), y al reanudarlo se saltan los de la pausa. El índice único
+  `uq_project_costs_recurring` frena la doble generación; las columnas e índices están en
+  `migrate.py`. **Pegar** varias celdas (texto con tabuladores o saltos de línea) o elegir un
   CSV abre la vista previa (`parseTable()` → `rowsToCosts()`): separador tab, `;` o `,`;
   dinero con coma o punto decimal; fechas `AAAA-MM-DD` o día primero (`30/09/2026`); las
   categorías desconocidas se pueden crear. Nada se guarda hasta "Agregar".
@@ -460,7 +476,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los catorce scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los quince scripts en orden y **el
 orden importa**:
 
 ```html
@@ -478,6 +494,7 @@ orden importa**:
 <script src="settings.js"></script>     <!-- ⚙️ Configuración: usa habits.js (el modal) y workdays.js -->
 <script src="saved-reports.js"></script> <!-- reportes guardados: usa los helpers de reports.js -->
 <script src="account.js"></script>      <!-- contraseña y borrar la cuenta: usa confirmDialog y handleLogout -->
+<script src="costs-recurring.js"></script> <!-- reparto y recurrentes: usa costsState y loadCostRows de costs.js -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.

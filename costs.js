@@ -103,6 +103,7 @@ async function loadCosts() {
     renderCostsProjectSelect();
     renderCostCategories();
     await loadCostRows();
+    loadRecurringCosts();   // costs-recurring.js
 }
 
 async function loadCostRows() {
@@ -551,14 +552,45 @@ function buildCostRow(cost) {
     remove.title = 'Borrar este gasto';
     remove.setAttribute('aria-label', `Borrar ${cost.concept || 'este gasto'}`);
 
+    // Concepto, con 🔁 si lo anotó un recurrente y "↔ 65 %" si está repartido (1.24)
+    const concept = el('td', 'col-concept');
+    concept.appendChild(sheetInput('concept', 'text', cost.concept || '', { maxlength: '200', placeholder: 'Concepto', 'aria-label': 'Concepto' }));
+    const tags = el('span', 'cost-tags');
+    if (cost.recurring_id) {
+        const tag = el('span', 'cost-tag', '🔁');
+        tag.title = 'Lo anotó un gasto recurrente';
+        tags.appendChild(tag);
+    }
+    if (cost.split_id) {
+        const others = (cost.split_with || []).filter(w => w.project_id !== cost.project_id)
+            .map(w => `${w.name} ${String(w.bp / 100)} %`);
+        const tag = el('span', 'cost-tag split', `↔ ${String(cost.split_bp / 100)} %`);
+        tag.title = `Repartido: ${formatMoney(cost.group_total_cents, costsState.currency)} en total, con ${others.join(', ')}`;
+        tags.appendChild(tag);
+    }
+    if (tags.childNodes.length) concept.appendChild(tags);
+
+    const total = el('td', 'col-total', cost.id ? formatMoney(cost.total_cents, costsState.currency) : '');
+    if (cost.split_id) total.appendChild(el('small', 'cost-of-total', `de ${formatMoney(cost.group_total_cents, costsState.currency)}`));
+
+    const actions = el('td', 'col-actions');
+    if (cost.id) {
+        const split = el('button', 'cost-split', '↔');
+        split.type = 'button';
+        split.title = cost.split_id ? 'Cambiar el reparto' : 'Repartir entre proyectos';
+        split.setAttribute('aria-label', `Repartir ${cost.concept || 'este gasto'}`);
+        actions.appendChild(split);
+    }
+    actions.appendChild(remove);
+
     row.append(
         cell(sheetInput('cost_date', 'date', cost.cost_date, { 'aria-label': 'Fecha', required: '' }), 'col-date'),
-        cell(sheetInput('concept', 'text', cost.concept || '', { maxlength: '200', placeholder: 'Concepto', 'aria-label': 'Concepto' }), 'col-concept'),
+        concept,
         cell(category, 'col-category'),
         cell(sheetInput('quantity', 'number', String(cost.quantity ?? 1), { min: '0', step: 'any', inputmode: 'decimal', 'aria-label': 'Cantidad' }), 'col-qty'),
         cell(sheetInput('unit_cost_cents', 'number', money2(cost.unit_cost_cents), { min: '0', step: '0.01', inputmode: 'decimal', placeholder: '0.00', 'aria-label': 'Costo unitario' }), 'col-unit'),
-        el('td', 'col-total', cost.id ? formatMoney(cost.total_cents, costsState.currency) : ''),
-        cell(remove, 'col-actions'),
+        total,
+        actions,
     );
     return row;
 }
@@ -625,7 +657,12 @@ async function saveCostCell(input) {
             row.dataset.costId = String(saved.id);
             costsState.costs = [saved, ...costsState.costs];
         }
-        row.querySelector('.col-total').textContent = formatMoney(saved.total_cents, costsState.currency);
+        if (saved.split_id) {
+            // Un repartido cambió entero: su fila se pinta otra vez (su parte y el total)
+            row.replaceWith(buildCostRow(saved));
+        } else {
+            row.querySelector('.col-total').textContent = formatMoney(saved.total_cents, costsState.currency);
+        }
         paintCostsTotal();
         refreshCostsSummary();
     } catch (error) {
@@ -649,6 +686,12 @@ costsRows.addEventListener('keydown', (event) => {
 });
 
 costsRows.addEventListener('click', async (event) => {
+    const splitButton = event.target.closest('.cost-split');
+    if (splitButton) {
+        const cost = costsState.costs.find(c => String(c.id) === splitButton.closest('tr.cost-row').dataset.costId);
+        if (cost) openSplitDialog(cost);   // costs-recurring.js
+        return;
+    }
     const button = event.target.closest('.cost-delete');
     if (!button) return;
     const row = button.closest('tr.cost-row');
@@ -658,7 +701,10 @@ costsRows.addEventListener('click', async (event) => {
         return;
     }
     const cost = costsState.costs.find(c => String(c.id) === id);
-    const ok = await confirmDialog(`¿Borrar el gasto "${cost ? cost.concept : ''}"?`, { confirmLabel: 'Borrar', danger: true });
+    const shared = cost && cost.split_id
+        ? ` Está repartido: se borra también de ${(cost.split_with || []).filter(w => w.project_id !== cost.project_id).map(w => w.name).join(', ')}.`
+        : '';
+    const ok = await confirmDialog(`¿Borrar el gasto "${cost ? cost.concept : ''}"?${shared}`, { confirmLabel: 'Borrar', danger: true });
     if (!ok) return;
     try {
         await apiFetch(`/api/costs/${id}`, { method: 'DELETE' });

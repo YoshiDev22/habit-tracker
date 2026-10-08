@@ -5003,6 +5003,185 @@ button.day-log-date:focus-visible {
     color: var(--danger-fg);
 }
 
+/* Gastos repartidos y recurrentes (costs-recurring.js) */
+.cost-split {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.cost-split:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+}
+
+.costs-sheet .col-actions {
+    white-space: nowrap;
+}
+
+.cost-tags {
+    display: inline-flex;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.cost-tag {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.cost-tag.split {
+    padding: 0 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+}
+
+.cost-of-total {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.recurring-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.recurring-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.recurring-item:last-child {
+    border-bottom: none;
+}
+
+.recurring-item.paused .recurring-text {
+    opacity: 0.6;
+}
+
+.recurring-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.recurring-text small {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.recurring-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cost-split-modal {
+    max-width: 560px;
+    text-align: left;
+}
+
+.recurring-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
+}
+
+.recurring-form .wide {
+    grid-column: 1 / -1;
+}
+
+.recurring-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.recurring-field input,
+.recurring-field select {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.recurring-label {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.allocation-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.allocation-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 5.5rem auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.allocation-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.allocation-pct {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: right;
+}
+
+.allocation-sum {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.allocation-sum.negative {
+    color: var(--danger-fg);
+}
+
+@media (max-width: 520px) {
+    .recurring-form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .cost-empty td {
     padding: 16px 8px;
     color: var(--text-muted);
