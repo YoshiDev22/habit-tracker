@@ -417,7 +417,9 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   termina; también puede ir repartido. En su fecha se anota solo en la hoja, con 🔁, y ahí lo
   corriges si ese mes cambió. Cambiarlo afecta a los cobros siguientes, no a los ya
   anotados: para cambiar su **precio** o mover el **siguiente cobro**, **Editar** en la
-  tarjeta (el siguiente cobro va después del último ya anotado). Un gasto que ya está en la
+  tarjeta (el siguiente cobro va después del último ya anotado). Si ya anotó cobros, al
+  editarlo eliges a cuáles se aplican los cambios: solo a los siguientes, desde este mes (o
+  año) en adelante, o también a todos los ya anotados, que se rehacen con los datos nuevos. Un gasto que ya está en la
   hoja se vuelve recurrente con su **🔁**: abre el formulario con sus datos y su reparto, y
   el primer cobro el mes siguiente (el gasto queda marcado con 🔁; si eliges su misma fecha,
   cuenta como el primer cobro y no se duplica). **Pausar** lo detiene (al reanudarlo, lo de la pausa no se cobra) y **×** lo

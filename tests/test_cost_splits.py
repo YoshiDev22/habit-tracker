@@ -291,3 +291,33 @@ def test_deleting_a_recurring_can_take_its_charges(api):
     api.call("DELETE", f"/api/costs/recurring/{keep['id']}", expect=204)
     concepts = {r["concept"] for r in sheet(api, tesis)["costs"]}
     assert concepts == {"Dominio"}                     # los del primero se fueron; los del segundo se quedan
+
+
+def test_editing_can_reach_the_charges_already_written(api):
+    tesis, ht, cat = setup(api)
+    # Cobros el día 1: siempre hay uno en el mes actual y dos antes
+    start = (TODAY.replace(day=1) - timedelta(days=40)).replace(day=1)
+    _, rc = api.call("POST", "/api/costs/recurring", recurring_body(tesis, cat, start), expect=201)
+    url = f"/api/costs/recurring/{rc['id']}"
+    split = [{"project_id": tesis["id"], "bp": 3000}, {"project_id": ht["id"], "bp": 7000}]
+    month_start = TODAY.replace(day=1).isoformat()
+
+    def charges():
+        rows = sheet(api, tesis)["costs"]
+        return {r["cost_date"]: (r["total_cents"], r["split_id"] is not None) for r in rows}
+
+    before = charges()
+    # Solo los siguientes: lo anotado no cambia
+    api.call("PATCH", url, {"allocations": split}, expect=200)
+    assert charges() == before
+    # Del periodo actual en adelante: los de este mes se reparten, los de antes no
+    api.call("PATCH", url, {"allocations": split, "apply_to": "current"}, expect=200)
+    now = charges()
+    assert sum(1 for d in now if d >= month_start) == 1 and sum(1 for d in now if d < month_start) == 2
+    assert all(now[d] == (7500, True) for d in now if d >= month_start)
+    assert all(now[d] == (25000, False) for d in now if d < month_start)
+    assert sum(r["total_cents"] for r in sheet(api, ht)["costs"]) == 17500 * sum(1 for d in now if d >= month_start)
+    # Todos: también los de antes, y con el precio nuevo
+    api.call("PATCH", url, {"unit_cost_cents": 10000, "apply_to": "all"}, expect=200)
+    assert set(charges().values()) == {(3000, True)} and len(charges()) == len(before)
+    assert api.call("PATCH", url, {"apply_to": "past"})[0] == 422

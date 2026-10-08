@@ -657,6 +657,7 @@ class ProjectCostResponse(SQLModel):
 # Un gasto se reparte entre hasta 10 proyectos de la misma moneda
 MAX_SPLIT_PROJECTS = 10
 RECURRING_FREQUENCIES = ("monthly", "yearly")
+RECURRING_APPLY_TO = ("future", "current", "all")
 
 
 class CostAllocation(SQLModel):
@@ -727,6 +728,16 @@ class RecurringCostUpdate(SQLModel):
     end_date: Optional[date_type] = None
     paused: Optional[bool] = None
     allocations: Optional[List[CostAllocation]] = None
+    # A qué cobros ya anotados se aplican los cambios: ninguno ("future", los
+    # siguientes), los del periodo actual en adelante ("current") o todos ("all")
+    apply_to: str = "future"
+
+    @field_validator("apply_to")
+    @classmethod
+    def validate_apply_to(cls, v: str) -> str:
+        if v not in RECURRING_APPLY_TO:
+            raise ValueError(f"apply_to debe ser uno de: {', '.join(RECURRING_APPLY_TO)}")
+        return v
 
     @field_validator("frequency")
     @classmethod

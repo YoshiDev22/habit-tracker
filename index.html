@@ -1093,6 +1093,15 @@
                     <p class="costs-hint" id="recurringCurrency"></p>
                     <div id="recurringAllocations"></div>
                 </div>
+                <!-- Al editar uno con cobros anotados: a cuáles se aplican los cambios -->
+                <fieldset class="recurring-apply wide" id="recurringApply" hidden>
+                    <legend>¿A qué cobros aplicar los cambios?</legend>
+                    <label><input type="radio" name="apply_to" value="future" checked> Solo a los siguientes</label>
+                    <label><input type="radio" name="apply_to" value="current"> <span id="recurringApplyCurrent">Desde este mes</span></label>
+                    <label><input type="radio" name="apply_to" value="all"> También a todos los ya anotados</label>
+                    <p class="costs-hint">Los cobros que alcance se rehacen con estos datos (reparto, precio,
+                        concepto y categoría): si corregiste uno a mano en la hoja, esa corrección se reemplaza.</p>
+                </fieldset>
                 <div id="recurringFormError" class="form-error hidden wide"></div>
                 <div class="project-delete-actions wide">
                     <button type="button" id="recurringCancel" class="submit-btn btn-neutral">Cancelar</button>

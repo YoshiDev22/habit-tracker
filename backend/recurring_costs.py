@@ -137,6 +137,35 @@ def generate_due(session: Session, user_id: int, today: date_type) -> List[Proje
     return created
 
 
+def rewrite_charges(session: Session, rc: RecurringCost, since: Optional[date_type]) -> int:
+    """Rehace los cobros ya anotados (todos, o desde `since`) con los datos
+    actuales del recurrente: concepto, categoría, cantidad, costo, nota y
+    reparto. Cada cobro (sus filas de esa fecha) se borra y se vuelve a crear;
+    las correcciones a mano de esos cobros se reemplazan. No hace commit.
+    Devuelve cuántos cobros rehízo."""
+    query = select(ProjectCost).where(ProjectCost.user_id == rc.user_id, ProjectCost.recurring_id == rc.id)
+    if since is not None:
+        query = query.where(ProjectCost.cost_date >= since)
+    rows = session.exec(query).all()
+    dates = sorted({row.cost_date for row in rows})
+    allocations = valid_allocations(session, rc.user_id, rc.allocations or [])
+    if not dates or not allocations:
+        return 0
+    for row in rows:
+        session.delete(row)
+    session.flush()
+    for day in dates:
+        fields = dict(category_id=rc.category_id, cost_date=day, concept=rc.concept,
+                      quantity=rc.quantity, unit_cost_cents=rc.unit_cost_cents, note=rc.note)
+        create_cost_rows(session, rc.user_id, fields, allocations, recurring_id=rc.id)
+    return len(dates)
+
+
+def period_start(frequency: str, today: date_type) -> date_type:
+    """El inicio del periodo actual: el día 1 del mes, o el 1 de enero."""
+    return today.replace(day=1) if frequency == "monthly" else today.replace(month=1, day=1)
+
+
 def last_charge(session: Session, rc: RecurringCost) -> Optional[date_type]:
     """La fecha del último gasto anotado por este recurrente (None si ninguno)."""
     return session.exec(select(func.max(ProjectCost.cost_date)).where(

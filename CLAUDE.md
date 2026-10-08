@@ -442,7 +442,10 @@ Lo que no se ve en Swagger:
   de `last_charge()` (409) y la serie vuelve a contar desde ahí (`generated = 0`). Si ya hay
   un gasto suyo en una fecha de la serie, `generate_due()` lo cuenta como ese cobro (sin eso
   chocaba con el índice único y el recurrente se atascaba). Borrarlo con
-  `?delete_costs=true` borra también lo que anotó (para rehacer uno creado mal). "Hacer recurrente" (🔁 de
+  `?delete_costs=true` borra también lo que anotó (para rehacer uno creado mal). El PATCH
+  lleva `apply_to`: `future` (por defecto, solo los siguientes), `current` (también los
+  anotados desde el inicio del mes o año actual) o `all`; `rewrite_charges()` rehace esos
+  cobros con los datos del recurrente (las correcciones a mano se reemplazan). "Hacer recurrente" (🔁 de
   la fila) crea uno con `from_cost_id`: esas filas toman su `recurring_id` y, si el primer
   cobro es su fecha, `generated` empieza en 1 (no se duplica). El índice único
   `uq_project_costs_recurring` frena la doble generación; las columnas e índices están en

@@ -301,6 +301,10 @@ function openRecurringForm(rc = null, prefill = null, fromCost = null) {
     recurringState.shownFrequency = f.frequency.value;
     document.getElementById('recurringStartLabel').textContent = charged ? 'Siguiente cobro' : 'Primer cobro';
     document.getElementById('recurringLockedHint').hidden = !charged;
+    // A qué cobros ya anotados se aplican los cambios (por defecto, a ninguno)
+    document.getElementById('recurringApply').hidden = !charged;
+    f.apply_to.value = 'future';
+    paintApplyCurrent();
     paintRecurringWarning();
 
     const current = src ? src.allocations.map(a => ({ project_id: a.project_id, bp: a.bp }))
@@ -346,8 +350,19 @@ function paintRecurringWarning() {
     warning.hidden = !notes.length;
 }
 
+// "Desde este mes (octubre)" o "Desde este año (2026)", según la frecuencia
+function paintApplyCurrent() {
+    const now = new Date();
+    document.getElementById('recurringApplyCurrent').textContent = recurringForm.elements.frequency.value === 'yearly'
+        ? `Desde este año (${now.getFullYear()}) en adelante`
+        : `Desde este mes (${MONTH_NAMES[now.getMonth()]}) en adelante`;
+}
+
 recurringForm.elements.start_date.addEventListener('input', paintRecurringWarning);
-recurringForm.elements.frequency.addEventListener('change', paintRecurringWarning);
+recurringForm.elements.frequency.addEventListener('change', () => {
+    paintRecurringWarning();
+    paintApplyCurrent();
+});
 
 function closeRecurringForm() {
     hideModal(recurringModal);
@@ -386,6 +401,7 @@ recurringForm.addEventListener('submit', async (event) => {
         }
     }
     if (!rc && recurringState.fromCost) body.from_cost_id = recurringState.fromCost.id;
+    if (rc && rc.last_charge) body.apply_to = f.apply_to.value;
     try {
         await apiFetch(rc ? `/api/costs/recurring/${rc.id}` : '/api/costs/recurring',
             { method: rc ? 'PATCH' : 'POST', json: body });

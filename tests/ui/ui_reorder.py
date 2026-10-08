@@ -62,9 +62,10 @@ async def main():
     check(call("POST", "/api/tasks/reorder", {"column_id": col["Hecho"], "task_ids": order + [order[0]]})[0] == 422, "duplicates -> 422")
     check(call("POST", "/api/tasks/reorder", {"column_id": col["Por hacer"], "task_ids": order})[0] == 422, "tasks from another column -> 422")
     call("PATCH", f"/api/tasks/{ids['Nueva al final']}", {"column_id": col["Por hacer"]}, expect=200)
-    check(column_titles(col["Por hacer"])[-1] == "Nueva al final", "moving to another column puts it at the end")
+    # Desde la 1.24, lo que cambia de columna sin orden queda arriba, a la vista
+    check(column_titles(col["Por hacer"])[0] == "Nueva al final", "moving to another column puts it at the top")
     call("PATCH", f"/api/tasks/{ids['Nueva al final']}", {"is_done": True}, expect=200)
-    check(column_titles(col["Hecho"])[-1] == "Nueva al final", "ticking it sends it to the end of Hecho")
+    check(column_titles(col["Hecho"])[0] == "Nueva al final", "ticking it sends it to the top of Hecho")
     mine = api.TOKEN
     login("otro@test.com")
     check(call("POST", "/api/tasks/reorder", {"column_id": col["Hecho"], "task_ids": order})[0] == 404, "another user can't reorder my column")

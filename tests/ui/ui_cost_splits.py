@@ -126,7 +126,20 @@ async def main():
             disabled: document.getElementById('recurringForm').elements.start_date.disabled})""")
         check(st["label"] == "Siguiente cobro" and st["min"] > today and not st["disabled"],
               f"with charges, the date is the next charge and can be moved ({st})")
-        await b.js("document.getElementById('recurringCancel').click()")
+        # Y pregunta a qué cobros aplicar los cambios: por defecto, solo a los siguientes
+        st = await b.js("""({shown: !document.getElementById('recurringApply').hidden,
+            value: document.getElementById('recurringForm').elements.apply_to.value,
+            current: document.getElementById('recurringApplyCurrent').textContent})""")
+        check(st["shown"] and st["value"] == "future" and "este mes" in st["current"],
+              f"editing asks which written charges the change reaches ({st})")
+        # Precio nuevo para todos los ya anotados: el cobro de hoy se rehace (50 % de $300)
+        await b.js("""(() => { const f = document.getElementById('recurringForm').elements;
+            f.unit_cost.value = '300'; f.apply_to.value = 'all';
+            document.getElementById('recurringForm').requestSubmit(); })()""")
+        await b.wait_for("document.getElementById('recurringModal').classList.contains('hidden')")
+        hosting = [r for r in sheet(tesis) if r["concept"] == "Hostinger"]
+        check(hosting and all(r["total_cents"] == 15000 for r in hosting),
+              f"'all' rewrites the charges already written with the new price ({[r['total_cents'] for r in hosting]})")
 
         # Pausar y dejar de cobrarlo
         await b.js("document.querySelector('#recurringList [data-action=pause]').click()")
