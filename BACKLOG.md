@@ -29,8 +29,6 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 31 | P3 | Límite diario de la IA ajustable por cuenta | se junta con la 32 (fase 2) |
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.26 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
-| 34 | P2 | Notas por día en los hábitos | pedido, para la 1.25 |
-| 35 | P2 | "Novedades": qué trae cada versión, al entrar después de actualizar | pedido, para la 1.25 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
 
 ---
@@ -527,90 +525,6 @@ las tareas.
 
 **Por decidir.** En qué versión sale la parte de tareas y tiempo (no en la 1.25, que queda sin
 migración: decidido el 2026-10-08).
-
----
-
-## 34 · P2 · Notas por día en los hábitos
-
-**Pedido por Yoshio el 2026-10-08**, para la 1.25.
-
-**Para qué.** Un hábito amplio sin meter ruido con uno por actividad. Ejemplo real:
-Capoeira es su propio hábito (4 días a la semana); todo lo demás va en **Ejercicio** (gym
-esporádico, cuerda 20 min dos veces por semana, bici a la escuela, caminar el fin de
-semana), y la nota del día dice qué fue: "cuerda 20 min", "bici a la escuela".
-
-**Cómo podría ser.**
-- Una nota corta por hábito y día (hasta ~200 caracteres), solo para control propio. **No
-  cambia la racha ni el cumplimiento**: el hábito sigue siendo sí o no.
-- Tabla nueva `habit_notes` (`user_id`, `habit_key`, `entry_date`, `text`), única por
-  (usuario, hábito, día): `create_all()`, **sin migración**. No va dentro de
-  `habit_entries.habits_data`, que es `{clave: bool}` y lo leen la racha y el calendario.
-- Se escribe en el popover del día del calendario, junto a cada hábito; el día con nota
-  lleva una marca discreta.
-- Sale en el **CSV de hábitos** (columna `nota`) y el **reporte de hábitos** la puede
-  resumir (con la IA, como texto escrito por el usuario: dato, no instrucción).
-- Topes en `test_limits.py`, aislamiento en `test_isolation.py`, y `purge_user()` la borra
-  sola (tiene `user_id`).
-
-**Relación con lo demás.** Es el primer paso hacia la duración por actividad (entrada 33)
-y las metas (épica 17): algún día "cuerda 20 min" podría ser un dato que sume a una meta.
-Las metas semanales ("4 días a la semana") son de la 17: hoy la racha es diaria.
-
----
-
-## 35 · P2 · "Novedades": qué trae cada versión, al entrar después de actualizar
-
-**Pedido por Yoshio el 2026-10-08**, para la 1.25 (junto con la 34). Como las tiendas de apps
-o los juegos al actualizar: que quien usa la app se entere de lo nuevo.
-
-**Qué dice (decidido 2026-10-08).** No es el CHANGELOG: es un texto propio, corto y
-específico, para quien usa la app. **Nunca** lleva *Para actualizar* ni nada de despliegue
-(migraciones, servicios, `.env`), ni detalles técnicos. Solo dos apartados, en frases que
-empiezan por lo que la persona puede hacer:
-
-- **Nuevas funciones**: "Ahora puedes repartir un gasto entre proyectos (plan Maker)." ·
-  "Ahora puedes registrar gastos recurrentes: se anotan solos cada mes o cada año."
-- **Cambios**: "Las columnas del tablero enseñan 10 tarjetas y se desplazan solas." · "Una
-  tarea que mueves de columna queda hasta arriba."
-
-De 2 a 6 viñetas por versión; una versión solo con correcciones internas puede no tener
-Novedades (no se muestra nada).
-
-**Formato acordado (2026-10-08)**: cada viñeta es la función en negritas y, muy breve, cómo
-o dónde se usa. Ejemplo con la 1.24:
-
-> **Nuevas funciones**
-> - **Repartir un gasto entre proyectos** (plan Maker): en Costos, toca **↔** en un gasto y
->   elige los proyectos y su porcentaje. Cada proyecto suma solo su parte.
-> - **Gastos recurrentes** (plan Maker): en Costos › **Gastos recurrentes**, crea los que
->   pagas cada mes o cada año. Se anotan solos en su fecha, y con **Editar** cambias su
->   precio o su reparto.
-> - **Renombrar un hábito**: en ⚙️ Configuración › Hábitos, toca su nombre y escríbelo de
->   nuevo. Conserva sus días y su racha.
->
-> **Cambios**
-> - **Columnas más cortas en el tablero**: cada una enseña 10 tarjetas; **Mostrar 10 más**
->   carga otras diez.
-> - **Tareas movidas a la vista**: al cambiar una tarea de columna, queda hasta arriba.
-
-**Cómo.**
-- **`NOVEDADES.md`** en la raíz, una sección por versión (`## 1.25.0` con `### Nuevas
-  funciones` y `### Cambios`). Se escribe en el **mismo commit del bump**, junto al
-  CHANGELOG (agregar ese paso a *Versionado* en `CLAUDE.md`). El CHANGELOG sigue completo,
-  para GitHub y para quien despliega.
-- `GET /api/changelog` (sin token, como `/api/version`) sirve esas secciones ya leídas;
-  el backend lee el archivo al arrancar. Nada de `CHANGELOG.md` llega a la ventana.
-- Al entrar con una versión nueva que tenga Novedades, una ventana **"Novedades de la
-  1.25"**. Una sola vez por versión; una cuenta nueva no la ve (empieza al día).
-- **Novedades** en *Mi perfil* (una fila más del drill-down) para volver a verlas, con las
-  de versiones anteriores.
-- La última versión vista se recuerda en el dispositivo (`localStorage`), sin migración. Si
-  luego se quiere por cuenta (no volver a verla en el teléfono), una columna nueva.
-
-**Aceptación.** Tras subir `VERSION`, la primera entrada muestra la ventana con las
-Novedades de esa versión (de `NOVEDADES.md`, nunca del CHANGELOG), y la segunda ya no;
-*Mi perfil › Novedades* la vuelve a abrir. Ninguna Novedad menciona migraciones ni
-despliegue.
 
 ---
 
