@@ -28,7 +28,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
 | 31 | P3 | Límite diario de la IA ajustable por cuenta | se junta con la 32 (fase 2) |
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.26 |
-| 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir; hábitos: tras la 17 |
+| 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 34 | P2 | Notas por día en los hábitos | pedido, para la 1.25 |
 | 35 | P2 | "Novedades": qué trae cada versión, al entrar después de actualizar | pedido, para la 1.25 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
@@ -503,10 +503,20 @@ tener que elegirlo cada vez. En los hábitos, `habits.default_minutes` y `habits
 (**migración**). El cruce lugar × hora sale de la capa de métricas (`backend/metrics.py`),
 que ya tiene las horas locales de cada sesión.
 
-**Decidido con Yoshio (2026-10-08), para tareas y tiempo.** El **tablero** tiene un lugar por
-defecto ("Escuela") y la **tarea** solo lo cambia cuando es de otra área. Cada registro de
-tiempo guarda el lugar de su tarea **al registrarse**, para que el historial no cambie si
-luego se mueve la tarea o se cambia el lugar del tablero. Migración: `boards.place_id`,
+**Decidido con Yoshio (2026-10-08), para tareas y tiempo: tres niveles, gana el más
+específico.**
+
+1. **Tablero**: el lugar por defecto ("Mi tablero" → Escuela).
+2. **Tarea** (opcional): para lo que siempre se hace en otro lado (→ Casa). Sin nada, usa el
+   del tablero.
+3. **Cada registro de tiempo**: al arrancar el cronómetro, la barra enseña **📍 Escuela** (el
+   que le toca) y un toque lo cambia **solo para ese registro**; igual al registrar a mano y
+   al corregir un registro del historial.
+
+Así una tarea hecha parte en la escuela y parte en casa queda bien (cada registro guarda su
+lugar), y las actividades de casa se marcan una vez en su tarea. El lugar se **guarda en el
+registro al hacerlo**: mover la tarea o cambiar el lugar del tablero después no cambia el
+historial. Migración: `boards.place_id`,
 `tasks.place_id` y `pomodoro_sessions.place_id` (columnas en tablas existentes) y la tabla
 nueva de lugares. Reportes: tiempo por lugar y cruce lugar × hora (fuera del horario
 habitual en casa, por ejemplo).
@@ -515,8 +525,8 @@ habitual en casa, por ejemplo).
 marcar uno registra tiempo solo o se pregunta, se deciden con los objetivos. No cambia lo de
 las tareas.
 
-**Por decidir.** En qué versión sale la parte de tareas y tiempo (la 1.25 la volvería una
-versión con migración).
+**Por decidir.** En qué versión sale la parte de tareas y tiempo (no en la 1.25, que queda sin
+migración: decidido el 2026-10-08).
 
 ---
 
@@ -565,6 +575,23 @@ empiezan por lo que la persona puede hacer:
 
 De 2 a 6 viñetas por versión; una versión solo con correcciones internas puede no tener
 Novedades (no se muestra nada).
+
+**Formato acordado (2026-10-08)**: cada viñeta es la función en negritas y, muy breve, cómo
+o dónde se usa. Ejemplo con la 1.24:
+
+> **Nuevas funciones**
+> - **Repartir un gasto entre proyectos** (plan Maker): en Costos, toca **↔** en un gasto y
+>   elige los proyectos y su porcentaje. Cada proyecto suma solo su parte.
+> - **Gastos recurrentes** (plan Maker): en Costos › **Gastos recurrentes**, crea los que
+>   pagas cada mes o cada año. Se anotan solos en su fecha, y con **Editar** cambias su
+>   precio o su reparto.
+> - **Renombrar un hábito**: en ⚙️ Configuración › Hábitos, toca su nombre y escríbelo de
+>   nuevo. Conserva sus días y su racha.
+>
+> **Cambios**
+> - **Columnas más cortas en el tablero**: cada una enseña 10 tarjetas; **Mostrar 10 más**
+>   carga otras diez.
+> - **Tareas movidas a la vista**: al cambiar una tarea de columna, queda hasta arriba.
 
 **Cómo.**
 - **`NOVEDADES.md`** en la raíz, una sección por versión (`## 1.25.0` con `### Nuevas
