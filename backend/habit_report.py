@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Set
 
 from sqlmodel import Session, select
 
-from backend.models import Habit, HabitEntry, User
+from backend.models import Habit, HabitEntry, HabitNote, User
 
 WEEKDAYS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
 MONTHS = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
@@ -30,6 +30,8 @@ CHANGE_NOTICE_PTS = 10
 # Por debajo de esto, un hábito "costó" en el periodo
 LOW_PCT = 50
 MAX_ITEMS = 6
+# Notas que se guardan en el reporte (las más recientes, si hay más)
+MAX_REPORT_NOTES = 60
 
 
 def _pct(part: int, whole: int) -> Optional[int]:
@@ -159,6 +161,14 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
     for day in days:
         if day["status"] in ("missed", "protected") and day["date"] not in counted_dates:
             day["status"] = "none"
+    # Las notas del periodo (1.25): texto del usuario, para el reporte y la IA
+    labels = {h.key: h.label for h in habits}
+    notes = session.exec(select(HabitNote).where(
+        HabitNote.user_id == user.id, HabitNote.entry_date >= start, HabitNote.entry_date <= through,
+    ).order_by(HabitNote.entry_date.desc(), HabitNote.habit_key)).all()[:MAX_REPORT_NOTES]
+    notes_out = [{"date": n.entry_date.isoformat(), "habit": labels.get(n.habit_key, n.habit_key),
+                  "text": n.text} for n in reversed(notes)]
+
     counted = [day for day in days if day["date"] in counted_dates]
     off = [day for day in days if day["status"] == "off"]
     metrics = {
@@ -179,6 +189,7 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
         "streak": overall.current, "best_streak": overall.best, "shields": overall.shields,
         "by_weekday": [{"weekday": i, "name": WEEKDAYS[i], "done": weekday_done[i], "possible": weekday_possible[i],
                         "pct": _pct(weekday_done[i], weekday_possible[i])} for i in range(7)],
+        "notes": notes_out,
         "previous": None,
     }
     if with_previous:
@@ -319,6 +330,13 @@ def _patterns(period: str, m: dict) -> List[str]:
     if m["missed_days"]:
         out.append(f"Días sin ningún hábito: {_join([_day(d) for d in m['missed_days'][:5]])}"
                    f"{' y otros' if len(m['missed_days']) > 5 else ''}.")
+    notes = m.get("notes") or []
+    if notes:
+        by_habit: Dict[str, int] = {}
+        for n in notes:
+            by_habit[n["habit"]] = by_habit.get(n["habit"], 0) + 1
+        parts = [f"{name} ({count})" for name, count in sorted(by_habit.items(), key=lambda kv: -kv[1])]
+        out.append(f"Anotaste {len(notes)} {'nota' if len(notes) == 1 else 'notas'} del día: {_join(parts)}.")
     return out[:MAX_ITEMS]
 
 

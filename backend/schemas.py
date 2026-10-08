@@ -303,6 +303,27 @@ class HabitExportRow(SQLModel):
     icon: Optional[str] = None
     done: bool
     day_kind: str = ""
+    note: str = ""            # la nota de ese hábito ese día (1.25)
+
+
+# Una nota de un hábito en un día: corta, para control propio
+MAX_HABIT_NOTE = 200
+MAX_HABIT_NOTES_RANGE_DAYS = 366
+
+
+class HabitNoteUpdate(SQLModel):
+    """La nota de un hábito en un día. Vacía (o solo espacios): se borra."""
+    text: str = Field(default="", max_length=MAX_HABIT_NOTE)
+
+
+class HabitNoteResponse(SQLModel):
+    habit_key: str
+    date: date_type
+    text: str
+
+
+class HabitNoteListResponse(SQLModel):
+    notes: List[HabitNoteResponse]
 
 
 class HabitExportResponse(SQLModel):

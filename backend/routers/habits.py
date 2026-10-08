@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User, HabitEntry, Habit, StreakPause
+from backend.models import User, HabitEntry, Habit, HabitNote, StreakPause, utc_now_naive
 from backend.schemas import (
     MAX_HABITS_PER_DAY,
     HabitEntryCreate,
@@ -29,6 +29,10 @@ from backend.schemas import (
     PauseCreate,
     PauseResponse,
     PauseListResponse,
+    HabitNoteUpdate,
+    HabitNoteResponse,
+    HabitNoteListResponse,
+    MAX_HABIT_NOTES_RANGE_DAYS,
 )
 from backend.auth import get_current_user
 from backend.dates import resolve_client_today
@@ -212,6 +216,65 @@ def mark_habit(
     return {"id": entry.id, "date": str(entry.entry_date), "habits_data": entry.habits_data or {}}
 
 
+# ==================== Notas por día (1.25) ====================
+
+@router.get("/notes", response_model=HabitNoteListResponse)
+def get_habit_notes(
+    date_from: date_type,
+    date_to: date_type,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Las notas de los hábitos en un rango de fechas locales (hasta un año): el
+    calendario las pide por mes."""
+    if date_from > date_to:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="date_from no puede ser posterior a date_to")
+    if (date_to - date_from).days + 1 > MAX_HABIT_NOTES_RANGE_DAYS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"El rango no puede pasar de {MAX_HABIT_NOTES_RANGE_DAYS} días")
+    notes = session.exec(select(HabitNote).where(
+        HabitNote.user_id == current_user.id, HabitNote.entry_date >= date_from, HabitNote.entry_date <= date_to,
+    ).order_by(HabitNote.entry_date, HabitNote.habit_key)).all()
+    return HabitNoteListResponse(notes=[HabitNoteResponse(habit_key=n.habit_key, date=n.entry_date, text=n.text)
+                                        for n in notes])
+
+
+@router.put("/notes/{entry_date}/{habit_key}", response_model=Optional[HabitNoteResponse])
+def put_habit_note(
+    entry_date: date_type,
+    habit_key: str,
+    body: HabitNoteUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Escribe (o cambia) la nota de un hábito en un día; vacía, la borra y
+    devuelve null. El hábito tiene que ser del usuario (puede estar oculto).
+    No toca el registro del día: la racha y el cumplimiento no cambian."""
+    habit = session.exec(
+        select(Habit).where(Habit.user_id == current_user.id, Habit.key == habit_key)
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hábito no encontrado")
+    note = session.exec(select(HabitNote).where(
+        HabitNote.user_id == current_user.id, HabitNote.habit_key == habit_key,
+        HabitNote.entry_date == entry_date)).first()
+    text = " ".join(body.text.split())
+    if not text:
+        if note:
+            session.delete(note)
+            session.commit()
+        return None
+    if note is None:
+        note = HabitNote(user_id=current_user.id, habit_key=habit_key, entry_date=entry_date, text=text)
+    else:
+        note.text = text
+        note.updated_at = utc_now_naive()
+    session.add(note)
+    session.commit()
+    return HabitNoteResponse(habit_key=note.habit_key, date=note.entry_date, text=note.text)
+
+
 @router.get("/stats", response_model=HabitStats)
 def get_stats(
     month: Optional[int] = None,
@@ -363,6 +426,9 @@ def export_habits(
     by_date = {e.entry_date: (e.habits_data or {}) for e in entries}
     done_dates = {d for d, data in by_date.items() if _is_done_day(data)}
     protected = set(_walk_streak(done_dates, rest_days, today, paused | set(holidays)).protected)
+    notes = {(n.entry_date, n.habit_key): n.text for n in session.exec(select(HabitNote).where(
+        HabitNote.user_id == current_user.id, HabitNote.entry_date >= date_from,
+        HabitNote.entry_date <= last_day)).all()}
 
     # Los activos, más los ocultos con algún registro en el rango (como el calendario)
     with_records = {
@@ -395,7 +461,7 @@ def export_habits(
         for habit in habits:
             rows.append(HabitExportRow(
                 date=day, habit_key=habit.key, label=habit.label, icon=habit.icon,
-                done=bool(data.get(habit.key)), day_kind=kind,
+                done=bool(data.get(habit.key)), day_kind=kind, note=notes.get((day, habit.key), ""),
             ))
         day += timedelta(days=1)
     return HabitExportResponse(date_from=date_from, date_to=date_to, rows=rows)

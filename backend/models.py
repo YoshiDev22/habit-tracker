@@ -117,6 +117,25 @@ class HolidayCache(SQLModel, table=True):
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class HabitNote(SQLModel, table=True):
+    """
+    Una nota corta de un hábito en un día (1.25): "cuerda 20 min", "bici a la
+    escuela". Solo para control propio: no cambia la racha ni el cumplimiento
+    (el hábito sigue siendo sí/no, en habit_entries). Una por hábito y día; sin
+    texto, se borra. Va por habit_key, como habits_data. Tabla NUEVA:
+    create_all(), sin migración.
+    """
+    __tablename__ = "habit_notes"
+    __table_args__ = (UniqueConstraint("user_id", "habit_key", "entry_date", name="uq_habit_notes_user_habit_day"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    habit_key: str
+    entry_date: date_type = Field(index=True)
+    text: str
+    updated_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
 class StreakPause(SQLModel, table=True):
     """
     Pausa por vacaciones: del start_date al end_date (fechas LOCALES, incluidas)
