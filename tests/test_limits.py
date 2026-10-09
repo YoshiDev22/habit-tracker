@@ -217,3 +217,12 @@ def test_split_and_recurring_costs(api):
     assert api.call("POST", "/api/costs/recurring", {**body, "unit_cost_cents": 10 ** 12})[0] == 422
     assert api.call("POST", "/api/costs/recurring", {**body, "frequency": "daily"})[0] == 422
     assert api.call("POST", "/api/costs/recurring", {**body, "concept": "x" * 200}, expect=201)[0] == 201
+
+
+def test_feedback_text(api):
+    api.login("feedback-limits@test.com")
+    url = "/api/feedback"
+    assert api.call("POST", url, {"text": "x" * 2001})[0] == 422
+    assert api.call("POST", url, {"text": "  " + "x" * 9 + "  "})[0] == 422   # 9 sin los espacios
+    api.call("POST", url, {"text": "x" * 10}, expect=201)
+    api.call("POST", url, {"text": "x" * 2000}, expect=201)

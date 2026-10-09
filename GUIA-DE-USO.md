@@ -64,6 +64,15 @@ Después de una actualización, al entrar sale una ventana con lo nuevo de esa v
 (si te saltaste varias versiones, las ves juntas). Para volver a verlas, **Mi perfil ›
 Novedades** las lista todas, la más nueva arriba.
 
+### Reportar un problema
+
+Si algo no funciona, *Mi perfil › Reportar un problema*: cuenta qué estabas haciendo, qué
+esperabas y qué pasó (al menos 10 caracteres). La casilla **Adjuntar detalles técnicos**
+viene marcada y enseña, tal cual, lo que se envía con tu texto: la versión de la app, la
+pestaña abierta, el tamaño de tu pantalla, tu navegador y los últimos errores de esta
+sesión. No lleva nada de lo que escribes en la app. Si prefieres, desmárcala y solo va el
+texto. Puedes enviar hasta 5 al día.
+
 ### Cambiar la contraseña
 
 En *Mi perfil › Cambiar contraseña*: la actual y la nueva dos veces (mínimo 6

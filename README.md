@@ -275,6 +275,7 @@ habit-tracker/
 ├── settings.js            # ⚙️ Configuración (menú de desglose)
 ├── drilldown.js           # El menú de desglose que comparten los menús de opciones
 ├── account.js             # Mi perfil: contraseña y borrar la cuenta
+├── feedback.js            # Mi perfil › Reportar un problema
 ├── novedades.js           # Novedades tras actualizar (de NOVEDADES.md)
 ├── manifest.webmanifest   # Instalable como app
 ├── icons/                 # Iconos y favicon

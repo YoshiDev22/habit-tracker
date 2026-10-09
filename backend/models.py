@@ -155,6 +155,25 @@ class Notice(SQLModel, table=True):
     dismissed_at: Optional[datetime] = Field(default=None)
 
 
+class Feedback(SQLModel, table=True):
+    """
+    Un problema que reporta un usuario desde Mi perfil (1.27, épica 32): su
+    texto y, si quiso, detalles técnicos (versión, pestaña, pantalla, navegador
+    y los últimos errores de la consola; nunca tokens). Lo lee Yoshio en el
+    panel de administración, que cambia `status` y deja `admin_note`. Se borra
+    con la cuenta (purge_user). Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "feedback"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive(), index=True)
+    text: str                                              # 10 a 2000
+    details: Optional[Dict] = Field(default=None, sa_type=JSON)
+    status: str = Field(default="open")                    # open | reviewed | closed
+    admin_note: Optional[str] = Field(default=None)        # nota interna, solo en el panel
+
+
 class HabitNote(SQLModel, table=True):
     """
     Una nota corta de un hábito en un día (1.25): "cuerda 20 min", "bici a la

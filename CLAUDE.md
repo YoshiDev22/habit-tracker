@@ -96,6 +96,7 @@ habit-tracker/
 │       ├── days.py        # /api/days/*       (huso, país, festivos y días marcados)
 │       ├── metrics.py     # /api/metrics      (las cifras de un periodo)
 │       ├── reports.py     # /api/reports      (reportes guardados)
+│       ├── feedback.py    # /api/feedback     (Reportar un problema; solo guarda)
 │       └── pomodoro.py    # /api/pomodoro/*
 ├── docs/
 │   ├── specs/             # Specs de producto por fases (calendario-v2.md, modulos-y-costeo.md)
@@ -124,6 +125,7 @@ habit-tracker/
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
 ├── saved-reports.js       # Reportes guardados: botón por periodo, lista, vista e impresión a PDF
 ├── account.js             # Mi perfil: su menú, Cambiar contraseña y Borrar mi cuenta
+├── feedback.js            # Mi perfil › Reportar un problema, y los errores de la sesión
 ├── drilldown.js           # createDrillDown(): el menú de desglose de todo menú de opciones
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
@@ -375,6 +377,15 @@ Lo que no se ve en Swagger:
   datos**: es preferencia de pantalla. El acceso sí es seguridad, y los endpoints propios
   de un módulo con acceso (los de costeo, desde la Fase 2) tienen que comprobarlo en el
   servidor, no solo ocultar su UI.
+- **Reportar un problema** (1.27, épica 32): `POST /api/feedback` guarda un texto (10 a 2000)
+  y, si el usuario lo deja encendido, detalles técnicos con **lista cerrada** de campos
+  (`FEEDBACK_DETAIL_FIELDS` en `schemas.py`: versión, pestaña, pantalla, navegador y hasta 10
+  errores de la sesión, cada uno con tope; otro campo es 422). 5 por cuenta al día
+  (`FEEDBACK_DAILY_LIMIT`, día UTC): 429 con `Retry-After`. No hay ruta para leerlos: los lee
+  el panel de administración. `feedback.js` (cargado justo después de `script.js`) guarda en
+  memoria los últimos errores (`error` y `unhandledrejection`, con solo el nombre del archivo),
+  y la vista previa de *Mi perfil › Reportar un problema* es exactamente lo que se envía.
+  Solo con cuenta: no hay formulario en la pantalla de login.
 - **`GET /api/projects/{id}/overview`** es la ficha del proyecto: tiempo de enfoque total,
   por tarea, por etiqueta (una sesión cuenta en cada etiqueta de su tarea) y por mes.
   Mismo criterio que `/summary`, y su prueba exige que los totales cuadren. Vale para
@@ -500,11 +511,12 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los dieciséis scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los diecisiete scripts en orden y **el
 orden importa**:
 
 ```html
 <script src="script.js"></script>   <!-- primero: define los hooks y apiFetch -->
+<script src="feedback.js"></script> <!-- segundo: oye los errores desde el principio (Reportar un problema) -->
 <script src="drilldown.js"></script> <!-- createDrillDown(): solo una función, la usan los menús -->
 <script src="habits.js"></script>   <!-- sus hooks de datos van antes que los demás -->
 <script src="projects.js"></script> <!-- define projectsState y projectsChangedHooks -->

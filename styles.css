@@ -6512,3 +6512,33 @@ button.day-log-date:focus-visible {
     }
 }
 
+
+/* Reportar un problema (feedback.js): el texto, como los demás campos */
+.feedback-text {
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 1rem;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    resize: vertical;
+    min-height: 7rem;
+}
+
+.feedback-text:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.feedback-text::placeholder {
+    color: var(--text-muted);
+}
+
+.feedback-count {
+    align-self: flex-end;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}

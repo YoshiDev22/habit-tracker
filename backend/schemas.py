@@ -1358,3 +1358,55 @@ class ReportListResponse(SQLModel):
 class ReportResponse(ReportSummary):
     metrics: Dict
     text: Dict
+
+
+# ---------- Reportar un problema (1.27) ----------
+
+FEEDBACK_MIN = 10
+FEEDBACK_MAX = 2000
+FEEDBACK_ERRORS_MAX = 10
+# Lo único que pueden traer los detalles técnicos, con su tope. Lo arma feedback.js
+# y el usuario lo ve antes de enviarlo; nada más entra (ni tokens ni datos suyos).
+FEEDBACK_DETAIL_FIELDS = {"version": 20, "view": 20, "screen": 20, "user_agent": 300}
+FEEDBACK_ERROR_MAX = 300
+
+
+class FeedbackCreate(SQLModel):
+    """Un problema reportado: qué pasó y, si el usuario quiso, detalles técnicos."""
+    text: str = Field(max_length=FEEDBACK_MAX)
+    details: Optional[Dict] = None
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < FEEDBACK_MIN:
+            raise ValueError(f"Cuéntanos un poco más: al menos {FEEDBACK_MIN} caracteres.")
+        return v
+
+    @field_validator("details")
+    @classmethod
+    def validate_details(cls, v: Optional[Dict]) -> Optional[Dict]:
+        if v is None:
+            return None
+        unknown = set(v) - set(FEEDBACK_DETAIL_FIELDS) - {"errors"}
+        if unknown:
+            raise ValueError(f"Detalles no admitidos: {', '.join(sorted(unknown))}")
+        clean = {}
+        for key, cap in FEEDBACK_DETAIL_FIELDS.items():
+            if key in v and v[key] is not None:
+                if not isinstance(v[key], str) or len(v[key]) > cap:
+                    raise ValueError(f"{key}: texto de hasta {cap} caracteres")
+                clean[key] = v[key]
+        errors = v.get("errors") or []
+        if (not isinstance(errors, list) or len(errors) > FEEDBACK_ERRORS_MAX
+                or any(not isinstance(e, str) or len(e) > FEEDBACK_ERROR_MAX for e in errors)):
+            raise ValueError(f"errors: hasta {FEEDBACK_ERRORS_MAX} textos de hasta {FEEDBACK_ERROR_MAX} caracteres")
+        if errors:
+            clean["errors"] = errors
+        return clean or None
+
+
+class FeedbackResponse(SQLModel):
+    id: int
+    created_at: datetime
