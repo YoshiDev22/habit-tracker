@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from backend import novedades
 from backend.database import create_db_and_tables, check_pending_migrations
-from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports
+from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports, notices
 
 # Rutas de los archivos frontend (directorio raíz del proyecto)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,6 +53,7 @@ app.include_router(costs.router, prefix="/api/costs")
 app.include_router(days.router, prefix="/api/days")
 app.include_router(metrics.router, prefix="/api/metrics")
 app.include_router(reports.router, prefix="/api/reports")
+app.include_router(notices.router, prefix="/api/notices")
 
 
 def get_frontend_path(filename: str = "index.html") -> str:

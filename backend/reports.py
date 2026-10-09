@@ -223,6 +223,12 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     session.add(report)
     session.commit()
     session.refresh(report)
+    # El del timer avisa en la campanita (1.26): "Tu reporte semanal de tiempo está listo"
+    if trigger == "auto":
+        from backend.notices import add_notice
+        add_notice(session, user.id, "report_ready", str(report.id))
+        session.commit()
+        session.refresh(report)   # el commit lo expira: quien lo reciba lo lee completo
     return report
 
 

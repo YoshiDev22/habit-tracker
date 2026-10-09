@@ -117,6 +117,26 @@ class HolidayCache(SQLModel, table=True):
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class Notice(SQLModel, table=True):
+    """
+    Un aviso de la campanita (1.26), guardado por cuenta. Los pendientes
+    (review, missed_day) calculan su estado de los datos; los informativos
+    (report_ready, novedades) se leen. Uno por usuario, tipo y referencia (id
+    de la sesión o del reporte, fecha, versión). Ver backend/notices.py.
+    Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "notices"
+    __table_args__ = (UniqueConstraint("user_id", "kind", "ref", name="uq_notices_user_kind_ref"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    kind: str                                  # review | missed_day | report_ready | novedades
+    ref: str
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+    read_at: Optional[datetime] = Field(default=None)
+    dismissed_at: Optional[datetime] = Field(default=None)
+
+
 class HabitNote(SQLModel, table=True):
     """
     Una nota corta de un hábito en un día (1.25): "cuerda 20 min", "bici a la
