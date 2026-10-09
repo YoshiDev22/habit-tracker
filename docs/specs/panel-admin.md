@@ -74,8 +74,19 @@ importa esos campos: las consultas cuentan filas, no las leen.
 - Desactivar o reactivar una cuenta (`users.is_active`), cancelar un borrado programado.
 - Cambiar el estado de un problema reportado (abierto → revisado → cerrado) con una nota
   interna.
+- **Avisos** (la campanita, desde la 1.26). Una página *Avisos*: publicar uno para todas las
+  cuentas (título hasta 80, texto hasta 500, cuánto dura o "hasta terminarlo", con vista
+  previa), la lista de vigentes y anteriores con **Terminar**, y desde la ficha de una cuenta
+  un aviso solo para ella. Algunas acciones lo mandan solas ("Te dimos 5 textos más de IA
+  hoy", acceso a Maker). Publicar vive en una función del backend que usan el panel y
+  `scripts/announce.py` (que se queda para emergencias), con las mismas reglas: **como mucho
+  3 avisos vigentes** para todas (409) y una espera corta entre dos publicaciones (doble
+  clic). El aviso a una cuenta es un tipo nuevo de `notices` (uno por cuenta, tipo y
+  referencia): sin migración. La app pública sigue sin ninguna ruta que cree avisos
+  (`test_no_account_can_publish_to_every_bell`).
 - **Bitácora:** cada acción queda en `admin_actions` (quién, cuándo, qué, sobre qué cuenta,
-  antes y después). El panel la enseña; no se edita ni se borra desde la UI.
+  antes y después), también publicar, terminar y enviar avisos. El panel la enseña; no se
+  edita ni se borra desde la UI.
 
 ## Fase 3 · Cloudflare (la hace Yoshio, con una guía)
 
