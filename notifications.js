@@ -7,7 +7,8 @@
 // - Pendientes, calculados de los datos: un registro por confirmar (el
 //   cronómetro llegó a 8 h) y un día sin anotar con racha. Se resuelven ahí
 //   mismo y pasan a "Hechos" solos.
-// - Informativos: un reporte automático listo, las Novedades de una versión.
+// - Informativos: un reporte automático listo, las Novedades de una versión y
+//   los anuncios para todas las cuentas (mantenimiento; scripts/announce.py).
 //   Se leen al abrir la campanita.
 // El círculo rojo cuenta los pendientes más los informativos sin leer.
 // Carga después de pomodoro.js (openLogTimeModal para "Corregir"); usa
@@ -104,9 +105,13 @@ function buildNotice(notice, taskById, projectById) {
         text.append(el('p', 'notice-title', `📅 Día sin anotar: ${longDate(notice.date)}`), el('p', 'notice-hint', notice.detail));
         actions.append(actionButton('Anotar', 'day'), actionButton('Descartar', 'dismiss', true, 'No lo voy a anotar'));
     } else if (notice.status === 'info') {
-        const icon = notice.kind === 'report_ready' ? '📊' : '✨';
-        text.append(el('p', 'notice-title', `${icon} ${notice.title}`), el('p', 'notice-hint', notice.detail));
-        actions.append(actionButton(notice.kind === 'report_ready' ? 'Ver reporte' : 'Ver novedades', 'open'));
+        const icon = { report_ready: '📊', novedades: '✨', announcement: '📢' }[notice.kind] || '🔔';
+        text.append(el('p', 'notice-title', `${icon} ${notice.title}`));
+        if (notice.detail) text.append(el('p', 'notice-hint', notice.detail));
+        // Un anuncio para todas las cuentas (mantenimiento…) solo se lee
+        if (notice.kind !== 'announcement') {
+            actions.append(actionButton(notice.kind === 'report_ready' ? 'Ver reporte' : 'Ver novedades', 'open'));
+        }
     } else {
         // Hecho o descartado: solo el registro de que pasó
         const label = notice.kind === 'review' ? 'Registro de tiempo confirmado'
@@ -194,6 +199,9 @@ noticesList.addEventListener('click', async (event) => {
         } else if (action === 'dismiss') {
             await apiFetch(`/api/notices/${notice.id}/dismiss`, { method: 'POST' });
         } else if (action === 'day') {
+            // Que este clic no llegue al document: ahí, un clic fuera del panel
+            // del día lo cierra, y lo cerraba en cuanto se abría
+            event.stopPropagation();
             closeNotices();
             openHabitDay(notice.date);
             return;

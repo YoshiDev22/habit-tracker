@@ -94,3 +94,34 @@ def test_notices_are_private(api, monkeypatch):
     api.call("POST", "/api/notices/read", {"ids": [mine["id"]]}, expect=204)   # no toca lo ajeno
     api.login("dueno-avisos@test.com")
     assert by_kind(notices(api), "review")[0]["status"] == "pending"
+
+
+def test_an_announcement_reaches_every_account_while_current(api, monkeypatch, tmp_path):
+    """scripts/announce.py publica para todas las cuentas; terminarlo la quita."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    from backend.database import engine as db_engine
+    no_novedades(monkeypatch)
+    root = Path(__file__).resolve().parents[1]
+    db_url = str(db_engine.url)
+    env = {"PATH": "", "SYSTEMROOT": __import__("os").environ.get("SYSTEMROOT", ""), "DATABASE_URL": db_url}
+    api.login("anuncio-uno@test.com")
+    notices(api)   # la base ya tiene la tabla (create_all) y la cuenta existe
+
+    def announce(*args):
+        out = subprocess.run([sys.executable, str(root / "scripts" / "announce.py"), *args], cwd=root, env=env,
+                             capture_output=True, text=True)
+        assert out.returncode == 0, out.stderr
+        return out.stdout
+
+    announce("--title", "Mantenimiento", "--body", "La app se reinicia hoy a las 22:00.", "--hours", "2")
+    for email in ("anuncio-uno@test.com", "anuncio-dos@test.com"):
+        api.login(email)
+        data = notices(api)
+        [ann] = by_kind(data, "announcement")
+        assert ann["title"] == "Mantenimiento" and "22:00" in ann["detail"] and not ann["read"] and data["unread"] == 1
+    assert "CURRENT" in announce("--list")
+    ann_id = ann["ref"]
+    announce("--end", ann_id)
+    assert by_kind(notices(api), "announcement") == []

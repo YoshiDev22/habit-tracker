@@ -117,6 +117,24 @@ class HolidayCache(SQLModel, table=True):
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class Announcement(SQLModel, table=True):
+    """
+    Un aviso para todas las cuentas (1.26): mantenimiento, una caída, algo que
+    todos deben saber. Lo publica scripts/announce.py en el servidor (y, más
+    adelante, el panel de administración). Cada cuenta lo recibe como aviso
+    informativo de la campanita mientras esté vigente (hasta `ends_at`; sin
+    fecha, hasta terminarlo). No es de un usuario: no tiene user_id.
+    Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "announcements"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str                                   # hasta 80
+    body: str = Field(default="")                # hasta 500
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+    ends_at: Optional[datetime] = Field(default=None)   # UTC naive; después ya no se enseña
+
+
 class Notice(SQLModel, table=True):
     """
     Un aviso de la campanita (1.26), guardado por cuenta. Los pendientes
@@ -130,7 +148,7 @@ class Notice(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    kind: str                                  # review | missed_day | report_ready | novedades
+    kind: str                                  # review | missed_day | report_ready | novedades | announcement
     ref: str
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
     read_at: Optional[datetime] = Field(default=None)

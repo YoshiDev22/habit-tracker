@@ -64,11 +64,11 @@ async def main():
         await b.js(f"localStorage.clear(); localStorage.setItem('access_token', {json.dumps(token)})")
         await b.goto(BASE + "/", wait=2.5)
         # La ventana de ayer se queda; cerrarla con la × deja el aviso pendiente
-        await b.wait_for(MODAL.format("missedDayModal"), timeout=10)
-        check(True, "the '¿Olvidaste anotar ayer?' window still shows")
+        asked = await b.wait_for(MODAL.format("missedDayModal"), timeout=10)
+        check(asked, "the '¿Olvidaste anotar ayer?' window still shows")
         await b.js("document.querySelector('#missedDayModal .modal-close').click()")
-        await b.wait_for(f"{COUNT} === 2", timeout=10)
-        check(True, "the bell counts the missed day and the unread report (2)")
+        two = await b.wait_for(f"{COUNT} === 2", timeout=10)
+        check(two, "the bell counts the missed day and the unread report (2)")
 
         await b.js("document.getElementById('bellBtn').click()")
         await b.wait_for("document.querySelectorAll('#noticesList .notice-item').length >= 2")
@@ -76,8 +76,8 @@ async def main():
             text: document.getElementById('noticesList').textContent})""")
         check(st["groups"][:2] == ["Pendientes", "Avisos"] and "Día sin anotar" in st["text"]
               and "Tu reporte semanal de tiempo está listo" in st["text"], f"pending first, then the info ({st['groups']})")
-        await b.wait_for(f"{COUNT} === 1")
-        check(True, "opening the bell reads the info notice: only the pending one counts")
+        one = await b.wait_for(f"{COUNT} === 1")
+        check(one, "opening the bell reads the info notice: only the pending one counts")
         await b.shot("notice_center", full=False)
 
         # Ver el reporte desde el aviso
@@ -90,16 +90,37 @@ async def main():
         await b.js("document.getElementById('bellBtn').click()")
         await b.wait_for("document.querySelector('#noticesList .notice-pending [data-action=day]')")
         await b.js("document.querySelector('#noticesList .notice-pending [data-action=day]').click()")
-        await b.wait_for("!document.getElementById('habitPopover').classList.contains('hidden')")
+        opened = await b.wait_for("!document.getElementById('habitPopover').classList.contains('hidden')")
+        await asyncio.sleep(0.3)   # que un cierre tardío (el bug de antes) tuviera tiempo de pasar
         shown = await b.js("document.getElementById('popoverDate').textContent")
+        still = await b.js("!document.getElementById('habitPopover').classList.contains('hidden')")
         day_num = str(int(yesterday[8:]))
-        check(day_num in shown and await b.js("currentViewId") == "calendar",
-              f"'Anotar' opens that day in the calendar ({shown})")
+        check(opened and still and day_num in shown and await b.js("currentViewId") == "calendar",
+              f"'Anotar' opens that day in the calendar and its panel stays open ({shown}, open={still})")
         await b.js("document.querySelector('#habitsList .habit-btn[data-habit=leer]').click()")
-        await b.wait_for(f"{COUNT} === 0", timeout=10)
+        cleared = await b.wait_for(f"{COUNT} === 0", timeout=10)
         await b.js("document.getElementById('bellBtn').click()")
-        await b.wait_for("document.getElementById('noticesList').textContent.includes('Día anotado')")
-        check(True, "marking it moves the notice to Hechos and the bell is clear")
+        moved = await b.wait_for("document.getElementById('noticesList').textContent.includes('Día anotado')")
+        check(cleared and moved, "marking it moves the notice to Hechos and the bell is clear")
+        await b.js("document.getElementById('noticesClose').click()")
+
+        # Un anuncio para todas las cuentas (scripts/announce.py): con 📢, sin botón, y cuenta en el círculo
+        db = Path(os.environ["HABIT_UI_TMP"]) / "test_notice_center.db"
+        out = subprocess.run([sys.executable, str(ROOT / "scripts" / "announce.py"), "--title", "Mantenimiento programado",
+                              "--body", "La app se reinicia hoy a las 22:00 (unos 5 minutos).", "--hours", "2"],
+                             cwd=ROOT, env={**os.environ, "DATABASE_URL": f"sqlite:///{db.as_posix()}"},
+                             capture_output=True, text=True)
+        check(out.returncode == 0, f"announce.py publishes ({out.stdout.strip()} {out.stderr.strip()})")
+        await b.js("refreshNotices()")
+        check(await b.wait_for(f"{COUNT} === 1", timeout=10), "the announcement counts in the bell (1)")
+        await b.js("document.getElementById('bellBtn').click()")
+        await b.wait_for("document.getElementById('noticesList').textContent.includes('Mantenimiento programado')")
+        st = await b.js("""(() => { const item = [...document.querySelectorAll('#noticesList .notice-item')]
+            .find(i => i.textContent.includes('Mantenimiento')); return {text: item.textContent,
+            buttons: item.querySelectorAll('button').length}; })()""")
+        check("📢" in st["text"] and "22:00" in st["text"] and st["buttons"] == 0,
+              f"the announcement shows with 📢, its text and no button ({st})")
+        await b.shot("notice_announcement", full=False)
     finally:
         await b.close()
 

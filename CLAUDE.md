@@ -104,7 +104,8 @@ habit-tracker/
 │   ├── migrate.py         # Columnas añadidas a tablas existentes; se corre antes de reiniciar
 │   ├── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan maker)
 │   ├── generate_reports.py # Reportes automáticos: lo dispara el timer de systemd
-│   └── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
+│   ├── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
+│   └── announce.py        # Publica un aviso para todas las cuentas (mantenimiento): --list, --end
 ├── deploy/                # Plantillas genéricas del .service y el .timer de los reportes
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
@@ -892,9 +893,14 @@ La campanita es un centro de avisos **guardado por cuenta** (`backend/notices.py
   ese día ya tiene algo) o `dismissed` (`POST /{id}/dismiss`). Nunca dicen algo que ya no es
   cierto.
 - **Informativos**, que se guardan cuando pasan y se leen (`POST /api/notices/read`, por ids,
-  por `kinds` o todos): `report_ready` (lo crea `generate_report()` con `trigger="auto"`) y
+  por `kinds` o todos): `report_ready` (lo crea `generate_report()` con `trigger="auto"`),
   `novedades` (la versión que corre, si tiene sección en `NOVEDADES.md`; cerrar la ventana
-  de Novedades lo lee).
+  de Novedades lo lee) y `announcement`: un aviso para **todas las cuentas** (tabla
+  `announcements`, sin `user_id`) que se publica en el servidor con
+  `python3 scripts/announce.py --title … --body … [--hours N]` (`--list`, `--end ID`; solo
+  biblioteca estándar, como `grant_module.py`). Cada cuenta lo recibe al pedir sus avisos
+  mientras esté vigente; vencido o terminado, desaparece de todas las campanitas. Sale con 📢
+  y sin botón. El panel de administración (épica 32) lo hará sin entrar al VPS.
 
 El círculo rojo (`unread`) cuenta pendientes más informativos sin leer. Abrir la campanita lee
 los informativos; los pendientes siguen hasta resolverse. La lista va por grupos: Pendientes,

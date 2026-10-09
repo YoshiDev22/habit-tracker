@@ -11,8 +11,11 @@ referencia):
   sin resolverse, "done" al resolverse (corregir, confirmar, marcar algo ese
   día) y "dismissed" si se descartó. Así nunca dicen algo que ya no es cierto.
 - **Informativos**, que se guardan cuando pasan: reporte automático listo
-  (`report_ready`, ref = id del reporte) y Novedades de una versión
-  (`novedades`, ref = la versión). Se leen y ya.
+  (`report_ready`, ref = id del reporte), Novedades de una versión
+  (`novedades`, ref = la versión) y avisos para todas las cuentas
+  (`announcement`, ref = id del anuncio: mantenimiento, por ejemplo; los
+  publica scripts/announce.py). Se leen y ya. Un anuncio vencido o terminado
+  desaparece de todas las campanitas.
 
 El círculo rojo cuenta los pendientes más los informativos sin leer. Lo que no
 es pendiente se borra a los 60 días.
@@ -23,10 +26,10 @@ from typing import Dict, List, Optional
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from backend.models import HabitEntry, Notice, PomodoroSession, Report, User, utc_now_naive
+from backend.models import Announcement, HabitEntry, Notice, PomodoroSession, Report, User, utc_now_naive
 
 PENDING_KINDS = ("review", "missed_day")
-INFO_KINDS = ("report_ready", "novedades")
+INFO_KINDS = ("report_ready", "novedades", "announcement")
 KEEP_DAYS = 60
 SUBJECT_TITLE = {"time": "tiempo", "habits": "hábitos", "costs": "costos"}
 MONTHS = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
@@ -105,6 +108,11 @@ def describe(session: Session, notice: Notice) -> Optional[Dict]:
         return {**base, "status": "info", "title": f"Tu reporte {period} de {SUBJECT_TITLE[subject_of(report.kind)]} está listo",
                 "detail": f"Del {_short(report.period_start)} al {_short(report.period_end)} de {report.period_end.year}.",
                 "report_id": report.id, "report_kind": report.kind}
+    if notice.kind == "announcement":
+        ann = session.get(Announcement, int(notice.ref))
+        if ann is None or (ann.ends_at is not None and ann.ends_at <= utc_now_naive()):
+            return None   # terminado o vencido: se va de la campanita
+        return {**base, "status": "info", "title": ann.title, "detail": ann.body, "announcement": True}
     if notice.kind == "novedades":
         return {**base, "status": "info", "title": f"Novedades de la versión {notice.ref}",
                 "detail": "Mira qué hay de nuevo.", "version": notice.ref}
@@ -117,6 +125,11 @@ def list_notices(session: Session, user: User, today: date_type, habits_on: bool
     sync_pending(session, user, today, habits_on)
     if current_version:
         add_notice(session, user.id, "novedades", current_version)
+    # Los anuncios vigentes para todas las cuentas
+    now = utc_now_naive()
+    for ann in session.exec(select(Announcement).where(
+            (Announcement.ends_at == None) | (Announcement.ends_at > now))).all():  # noqa: E711
+        add_notice(session, user.id, "announcement", str(ann.id))
     cutoff = utc_now_naive() - timedelta(days=KEEP_DAYS)
     rows = session.exec(select(Notice).where(Notice.user_id == user.id)
                         .order_by(Notice.created_at.desc(), Notice.id.desc())).all()
