@@ -29,7 +29,10 @@ enseña lo que escribe cada persona (tareas, hábitos, gastos, textos de reporte
 - **Y verificado dentro de la app.** Cada petición al panel trae el JWT de Access
   (`Cf-Access-Jwt-Assertion`); la app lo valida contra las llaves públicas del equipo de
   Access (`https://<equipo>.cloudflareaccess.com/cdn-cgi/access/certs`, en caché) y comprueba
-  que el correo esté en `ADMIN_EMAILS` del `.env`. Sin un JWT válido, 403. Si el tunnel o
+  que el correo esté en `ADMIN_EMAILS` del `.env`. Comprueba también el emisor
+  (`https://<equipo>.cloudflareaccess.com`) y la **audiencia** (`ADMIN_ACCESS_AUD`, el *AUD tag*
+  de la aplicación de Access): sin ella, un JWT de otra aplicación del mismo equipo también
+  valdría. Solo RS256; `none`, HS256 o un `kid` desconocido son 403. Sin un JWT válido, 403. Si el tunnel o
   Access quedan mal configurados, el panel sigue cerrado. Sin `ADMIN_EMAILS` el proceso de
   admin no arranca (como `SECRET_KEY`).
 - **Nada de "usuario administrador" en la app pública.** Un error de permisos ahí expondría

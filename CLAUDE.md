@@ -82,6 +82,8 @@ habit-tracker/
 │   ├── accounts.py        # Borrar una cuenta (ya, o programada a 30 días) y todo lo suyo
 │   ├── novedades.py       # Lee NOVEDADES.md (lo sirve GET /api/novedades)
 │   ├── notices.py         # El centro de avisos: pendientes calculados e informativos guardados
+│   ├── admin_main.py      # El panel de administración: OTRO proceso, solo en 127.0.0.1 (épica 32)
+│   ├── admin_auth.py      # Quién entra al panel: JWT de Cloudflare Access + ADMIN_EMAILS
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
