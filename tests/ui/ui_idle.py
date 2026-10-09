@@ -98,7 +98,9 @@ async def main():
         # 3. The overnight case: on return it asks; the hint gives the 35 min
         await js(start_js, wait=0.5)
         await js(rig(9 * H, 9 * H - 35 * 60 * 1000), wait=0.2)
-        await b.goto(BASE + "/", wait=3.0)
+        await b.goto(BASE + "/", wait=1.0)
+        # Esperar a que la pregunta salga (con la máquina ocupada, 3 s fijos a veces no alcanzaban)
+        await b.wait_for("!document.getElementById('idleCheckModal').classList.contains('hidden') && document.getElementById('idleCheckLast').textContent.includes('35m')", timeout=15)
         s = await js(STATE)
         check(s["status"] == "running" and s["ask"] and s["clock"] == "8:00:00" and "(35m)" in s["last"],
               f"overnight: on return it asks, clock held at 8 h ({s['last']}, {s['clock']})")
@@ -114,7 +116,8 @@ async def main():
         # 4. Active near the cap: also asks (the user decides); no hint; keeping 8 h saves 8 h, no note
         await js(start_js, wait=0.5)
         await js(rig(9 * H, 60 * 1000), wait=0.2)
-        await b.goto(BASE + "/", wait=3.0)
+        await b.goto(BASE + "/", wait=1.0)
+        await b.wait_for("!document.getElementById('idleCheckModal').classList.contains('hidden')", timeout=15)
         s = await js(STATE)
         check(s["ask"] and not s["hint"], f"active at the cap: asks, without the hint (hint={s['hint']})")
         await js("document.getElementById('idleCheckSaveBtn').click()", wait=2.5)

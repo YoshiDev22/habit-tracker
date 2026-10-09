@@ -47,7 +47,9 @@ async def main():
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
 
-        await js("document.getElementById('tabProjects').click()", wait=1.0)
+        await js("document.getElementById('tabProjects').click()")
+        # El tablero tiene que haber cargado antes de tocar Organizar (con la máquina ocupada, 1 s no alcanzaba)
+        await b.wait_for("boardState.loaded && document.getElementById('boardConfigBtn').offsetParent !== null", timeout=15)
         # The profile no longer has them
         await js("showProfile()", wait=0.4)
         in_profile = await js("!!document.querySelector('#profileModal input[type=number]')")
@@ -56,8 +58,9 @@ async def main():
 
         # Organizar -> Configurar pomodoro lleva a Configuración › Pomodoro, placeholders = defaults
         await js("document.getElementById('boardConfigBtn').click()", wait=1.0)
+        await b.wait_for("!document.getElementById('boardConfigModal').classList.contains('hidden')", timeout=15)
         await js("document.getElementById('configPomoOpen').click()")
-        await b.wait_for(SETTINGS_OPEN)
+        await b.wait_for(SETTINGS_OPEN, timeout=15)
         st = await js("""({organizar: !document.getElementById('boardConfigModal').classList.contains('hidden'),
             pomoOpen: document.querySelector('#habitsSetupModal [data-section="pomodoro"]').classList.contains('active'),
             fields: ['configPomoFocus','configPomoShort','configPomoLong'].map(id => [document.getElementById(id).value, document.getElementById(id).placeholder])})""")
