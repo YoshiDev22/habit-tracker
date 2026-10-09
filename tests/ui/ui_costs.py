@@ -69,8 +69,7 @@ async def main():
 
         # Elegir el proyecto tocando su fila del resumen
         await b.js(f"document.querySelector('.costs-projects tr[data-project-id=\"{ht['id']}\"]').click()")
-        await b.wait_for(f"document.getElementById('costsProject').value === '{ht['id']}'")
-        check(True, "tapping a summary row picks its project for the sheet")
+        check(await b.wait_for(f"document.getElementById('costsProject').value === '{ht['id']}'"), "tapping a summary row picks its project for the sheet")
 
         # Una fila nueva: se crea al tener concepto, y el costo se guarda celda por celda
         await b.js("document.getElementById('costsAddRow').click()")

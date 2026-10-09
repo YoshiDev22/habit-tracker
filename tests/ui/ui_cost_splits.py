@@ -143,8 +143,7 @@ async def main():
 
         # Pausar y dejar de cobrarlo
         await b.js("document.querySelector('#recurringList [data-action=pause]').click()")
-        await b.wait_for("document.querySelector('#recurringList .recurring-item.paused')")
-        check(True, "pausing marks it as paused")
+        check(await b.wait_for("Boolean(document.querySelector('#recurringList .recurring-item.paused'))"), "pausing marks it as paused")
         await b.js("document.querySelector('#recurringList [data-action=delete]').click()")
         await b.wait_for("!document.getElementById('confirmModal').classList.contains('hidden')")
         await b.js("document.getElementById('confirmModalConfirmBtn').click()")

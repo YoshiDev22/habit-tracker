@@ -52,8 +52,7 @@ async def main():
         check(st["text"] == "cuerda 20 min" and st["open"] and not st["done"],
               f"Enter saves it under the habit, keeps the popover open and doesn't mark it ({st})")
         check([n["text"] for n in notes()] == ["cuerda 20 min"], "the note is saved")
-        await b.wait_for(f"{cell} && {cell}.querySelector('.day-note-dot')")
-        check(True, "the day gets the note dot")
+        check(await b.wait_for(f"Boolean({cell} && {cell}.querySelector('.day-note-dot'))"), "the day gets the note dot")
         await b.shot("habit_note_popover", full=False)
 
         # Vaciarla la borra, y el punto se va

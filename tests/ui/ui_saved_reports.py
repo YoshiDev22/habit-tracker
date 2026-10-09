@@ -42,8 +42,7 @@ async def main():
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
         await b.js("document.getElementById('tabReports').click()")
-        await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte de tiempo'")
-        check(True, "with no report for this week the button says 'Generar reporte de tiempo'")
+        check(await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte de tiempo'"), "with no report for this week the button says 'Generar reporte de tiempo'")
 
         # Generar el de la semana que se ve
         await b.js("document.getElementById('savedReportBtn').click()")
@@ -126,15 +125,13 @@ async def main():
         await b.wait_for("!document.getElementById('savedReportList').hidden")
         check(await b.js(OPEN), "Escape goes back to the list")
         await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
-        await b.wait_for(f"!({OPEN})")
-        check(True, "and from the list it closes")
+        check(await b.wait_for(f"!({OPEN})"), "and from the list it closes")
 
         # Mes: genera el suyo; Personalizado no tiene botón
         await b.js("document.querySelector('[data-range=month]').click()")
         await b.wait_for("document.getElementById('savedReportBtn').textContent === 'Generar reporte de tiempo'")
         await b.js("document.getElementById('savedReportBtn').click()")
-        await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte mensual')")
-        check(True, "the month report is generated too")
+        check(await b.wait_for("document.getElementById('savedReportTitle').textContent.startsWith('Reporte mensual')"), "the month report is generated too")
         await b.js("document.getElementById('savedReportClose').click()")
         await b.js("document.querySelector('[data-range=custom]').click()")
         check(await b.js("document.getElementById('savedReportBtn').hidden"), "Personalizado has no report button")

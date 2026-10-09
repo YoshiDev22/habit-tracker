@@ -75,9 +75,8 @@ async def main():
         await b.js("document.querySelector('#workOfficialDays .work-rest').click()")
         days = await wait_api(f"/api/days?year={year}", lambda body: body["official"][0]["observed"] is False)
         check(days["official"][0]["observed"] is False, "unchecking 'Descanso' marks the holiday as a workday")
-        await b.wait_for("document.querySelector('#workOfficialDays .work-day').classList.contains('worked')")
-        await b.wait_for("!document.querySelector('#daysGrid .day-holiday')")
-        check(True, "and the 🎉 leaves the calendar")
+        first_ok = await b.wait_for("document.querySelector('#workOfficialDays .work-day').classList.contains('worked')")
+        check(first_ok and await b.wait_for("!document.querySelector('#daysGrid .day-holiday')"), "and the 🎉 leaves the calendar")
         await b.js("document.querySelector('#workOfficialDays .work-rest').click()")
         days = await wait_api(f"/api/days?year={year}", lambda body: body["official"][0]["observed"] is True)
         check(days["own"] == [], "checking it again removes the mark")
@@ -96,8 +95,8 @@ async def main():
         check(wide <= 390, f"fits a phone ({wide}px)")
         await b.shot("work_calendar", full=False)
         await b.js("document.querySelector('#workOwnDays .work-remove').click()")
-        await wait_api(f"/api/days?year={year}", lambda body: body["own"] == [])
-        check(True, "and removed")
+        removed = await wait_api(f"/api/days?year={year}", lambda body: body["own"] == [])
+        check(removed["own"] == [], "and removed")
 
         # Días de descanso: se guardan al tocarlos, sin "Guardar Hábitos"
         await b.js("document.querySelector('#restDaysOptions input[value=\"6\"]').click()")
@@ -137,12 +136,10 @@ async def main():
         await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
         check(await b.js("!document.getElementById('settingsMenu').hidden"), "Escape goes back to the menu")
         await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
-        await b.wait_for("document.getElementById('habitsSetupModal').classList.contains('hidden')")
-        check(True, "and from the menu it closes")
+        check(await b.wait_for("document.getElementById('habitsSetupModal').classList.contains('hidden')"), "and from the menu it closes")
         await b.js("openSettings('days')")
         await b.js("document.getElementById('workRefresh').click()")
-        await b.wait_for("window._daysFetches === 1")
-        check(True, "↻ asks for them again")
+        check(await b.wait_for("window._daysFetches === 1"), "↻ asks for them again")
 
         # El huso se cambia escribiéndolo; uno inválido muestra el motivo
         await b.js("""(() => { const z = document.getElementById('workTimezone'); z.value = 'Marte/Olimpo';

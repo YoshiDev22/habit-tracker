@@ -47,8 +47,7 @@ async def main():
         check(text == f"Mostrar 10 más (quedan {total - 10})", f"and offers 10 more ({text})")
 
         await b.js(f"document.querySelector(\"{sel} [data-more=more]\").click()")
-        await b.wait_for(f"{cards} === 20")
-        check(True, "Mostrar 10 más adds ten")
+        check(await b.wait_for(f"{cards} === 20"), "Mostrar 10 más adds ten")
         await b.js(f"document.querySelector(\"{sel} [data-more=more]\").click()")
         await b.wait_for(f"{cards} === {min(30, total)}")
         st = await b.js(f"""(() => {{ const list = document.querySelector("{sel} .board-cards");

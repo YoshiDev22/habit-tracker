@@ -121,8 +121,12 @@ class Browser:
         último valor. Para lo que depende de un fetch y un repintado: un sleep fijo
         alcanzaba en una máquina tranquila y fallaba en una ocupada."""
         deadline = time.monotonic() + timeout
+        # Con ok=bool se pregunta si la expresión es verdadera EN el navegador: un
+        # elemento (querySelector) llega como {} y en Python {} es falso, así que
+        # la espera agotaba su tiempo aunque el elemento estuviera ahí
+        probe = f"Boolean({expr})" if ok is bool else expr
         while True:
-            value = await self.js(expr)
+            value = await self.js(probe)
             if ok(value) or time.monotonic() >= deadline:
                 return value
             await asyncio.sleep(0.1)

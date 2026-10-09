@@ -87,8 +87,7 @@ async def main():
         check(st["meta"] == meta_before and "no cambió" in st["note"],
               f"a failed AI regeneration keeps the report and its date, and says why ({st})")
         await b.js("savedState.readyAt = 0; document.getElementById('savedReportRules').click()")
-        await b.wait_for("document.getElementById('savedReportRules').hidden && document.getElementById('savedReportStatus').textContent.startsWith('Reporte generado')")
-        check(True, "Regenerar con reglas generates it without the AI")
+        check(await b.wait_for("document.getElementById('savedReportRules').hidden && document.getElementById('savedReportStatus').textContent.startsWith('Reporte generado')"), "Regenerar con reglas generates it without the AI")
 
         # Con proveedor (simulado: las pruebas no tienen), el reporte dice cuántos textos quedan hoy
         await b.js("""(() => {
