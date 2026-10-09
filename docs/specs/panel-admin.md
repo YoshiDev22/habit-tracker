@@ -136,10 +136,13 @@ producción solo sale "Reportar un problema" hasta que Access esté listo.
 - Navegador: enviar un problema desde *Mi perfil* con la vista previa de los detalles; el
   panel pinta un texto con `<script>` como texto.
 
-## Pendiente de decidir
+## Decidido al empezar la Fase 1 (2026-10-09)
 
-- Si el panel muestra el correo completo o enmascarado por defecto (con un clic para verlo).
-- Si "Reportar un problema" también aparece en la pantalla de login (sin cuenta), con su
-  propio límite por IP.
-- Si se guardan capturas de pantalla con el reporte (pesan y pueden traer datos: de inicio,
-  no).
+- **Correos enmascarados** por defecto (`y•••@gmail.com`); la ficha de una cuenta enseña el
+  completo al tocarlo. Nunca en logs.
+- **"Reportar un problema" solo con cuenta**, en *Mi perfil*: nada de formularios abiertos
+  en la pantalla de login (sin superficie para spam).
+- **`users.last_seen_at` una vez por hora**, en `get_current_user`: solo escribe si la marca
+  tiene más de una hora (o no existe). Columna en `migrate.py`. Toca la autenticación: su
+  prueba exige que dos peticiones seguidas no escriban dos veces.
+- **Sin capturas de pantalla** con el reporte.
