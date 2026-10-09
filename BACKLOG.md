@@ -465,7 +465,8 @@ Access; la app pública no monta sus rutas. La app valida además el JWT de Acce
 lista de correos en `.env`.
 
 **Fases.** 1: "Reportar un problema" y el panel de solo lectura. 2: acciones (módulos, más
-textos de IA, desactivar cuentas, estado de los problemas) con bitácora. 3: tunnel y Access
+textos de IA, desactivar cuentas, estado de los problemas, publicar y terminar avisos
+para todas las cuentas —hoy `scripts/announce.py`, desde la 1.26—) con bitácora. 3: tunnel y Access
 (Yoshio, con una guía). El panel no se despliega antes de la fase 3.
 
 **Aceptación.** Las de cada fase en el spec; en todas, que el dominio público no tenga

@@ -146,6 +146,19 @@ habit-reports.service`; lo que hizo: `journalctl -u habit-reports.service`. Corr
 veces no duplica reportes. Si una versión cambia la plantilla, su CHANGELOG lo dice en
 *Para actualizar*: hay que volver a copiarla y hacer `daemon-reload`.
 
+### Avisos para todas las cuentas
+
+Un aviso de mantenimiento (o de una caída) llega a la campanita de todas las cuentas
+mientras esté vigente. Desde la raíz del repo, con el servicio ya en la 1.26 o posterior:
+
+```bash
+.venv/bin/python scripts/announce.py --title "Mantenimiento" --body "La app se reinicia hoy a las 22:00 (5 min)." --hours 24
+.venv/bin/python scripts/announce.py --list
+.venv/bin/python scripts/announce.py --end 1   # lo quita de todas las campanitas
+```
+
+Sin `--hours`, sigue hasta `--end`.
+
 ## Pruebas
 
 ```bash
@@ -241,7 +254,8 @@ habit-tracker/
 │   ├── migrate.py         # Columnas nuevas en tablas existentes (correr antes de reiniciar)
 │   ├── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan Maker, IA)
 │   ├── generate_reports.py # Reportes automáticos (lo corre el timer de systemd)
-│   └── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
+│   ├── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
+│   └── announce.py        # Publica un aviso para todas las cuentas (mantenimiento)
 ├── deploy/                # Plantillas del .service y el .timer de los reportes automáticos
 ├── tests/                 # pytest: API, y tests/ui/ en navegador
 ├── index.html             # Única página: las vistas y todos los modales
