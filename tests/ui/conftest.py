@@ -8,6 +8,7 @@ pruebas no dependen del día en que se corran (las que miran "esta semana" calcu
 esperado con la API: un lunes, "ayer" es de la semana anterior).
 """
 import os
+import re
 import shutil
 import socket
 import sqlite3
@@ -78,6 +79,10 @@ def pytest_sessionfinish(session, exitstatus):
     shutil.rmtree(TMP, ignore_errors=True)
 
 
+WINDOWS_RESET = re.compile(r"Exception in callback _ProactorBasePipeTransport\._call_connection_lost.*?"
+                           r"^ConnectionResetError:[^\n]*\n?", re.S | re.M)
+
+
 @pytest.fixture(autouse=True)
 def ui_server(request):
     """Un servidor nuevo para cada prueba de navegador."""
@@ -117,4 +122,7 @@ def ui_server(request):
         proc.kill()
     log.close()
     server_log = (TMP / f"{request.node.name}.log").read_text(encoding="utf-8")
+    # Windows: asyncio logs a reset when the browser drops a connection on closing
+    # (_call_connection_lost ... ConnectionResetError). It is not an app error
+    server_log = WINDOWS_RESET.sub("", server_log)
     assert "Traceback" not in server_log, f"server error during the test:\n{server_log[-3000:]}"
