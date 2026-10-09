@@ -83,17 +83,28 @@ def test_info_notices_are_read(api, monkeypatch):
 
 
 def test_notices_are_private(api, monkeypatch):
-    no_novedades(monkeypatch)
+    # Novedades on: each account has its own unread info notice, the kind /read touches
+    monkeypatch.setattr(main, "NOVEDADES", [{"version": main.APP_VERSION, "date": None, "sections": [
+        {"title": "Nuevas funciones", "items": ["algo"]}]}])
     api.login("dueno-avisos@test.com")
     _, project = api.call("POST", "/api/projects", {"name": "P"}, expect=201)
     post(api, project, None, TODAY - timedelta(days=1), 9, 480, needs_review=True)
-    [mine] = by_kind(notices(api), "review")
+    data = notices(api)
+    [mine] = by_kind(data, "review")
+    [my_news] = by_kind(data, "novedades")
+    assert not my_news["read"]
     api.login("otro-avisos@test.com")
-    assert notices(api)["notices"] == []
+    theirs = notices(api)["notices"]
+    assert {n["id"] for n in theirs}.isdisjoint({mine["id"], my_news["id"]}) and not by_kind({"notices": theirs}, "review")
     assert api.call("POST", f"/api/notices/{mine['id']}/dismiss")[0] == 404
-    api.call("POST", "/api/notices/read", {"ids": [mine["id"]]}, expect=204)   # no toca lo ajeno
+    # Reading by my ids, by kind or everything only touches their own notices
+    api.call("POST", "/api/notices/read", {"ids": [mine["id"], my_news["id"]]}, expect=204)
+    api.call("POST", "/api/notices/read", {"kinds": ["novedades"]}, expect=204)
+    api.call("POST", "/api/notices/read", {}, expect=204)
     api.login("dueno-avisos@test.com")
-    assert by_kind(notices(api), "review")[0]["status"] == "pending"
+    data = notices(api)
+    assert by_kind(data, "review")[0]["status"] == "pending"
+    assert not by_kind(data, "novedades")[0]["read"] and data["unread"] == 2
 
 
 def test_an_announcement_reaches_every_account_while_current(api, monkeypatch, tmp_path):
@@ -124,4 +135,33 @@ def test_an_announcement_reaches_every_account_while_current(api, monkeypatch, t
     assert "CURRENT" in announce("--list")
     ann_id = ann["ref"]
     announce("--end", ann_id)
+    assert by_kind(notices(api), "announcement") == []
+
+
+def test_no_account_can_publish_to_every_bell(api, monkeypatch):
+    """Publishing for every account is only done on the server (scripts/announce.py).
+    The API has no route that creates announcements or notices: an account only reads,
+    marks as read and dismisses its own. A new route that writes them fails this test."""
+    from pathlib import Path
+    from backend.models import Announcement
+    no_novedades(monkeypatch)
+    routes = {(m, r.path) for r in main.app.routes for m in getattr(r, "methods", ())
+              if "notice" in r.path or "announce" in r.path}
+    assert routes == {("GET", "/api/notices"), ("POST", "/api/notices/read"),
+                      ("POST", "/api/notices/{notice_id}/dismiss")}
+    # Nothing in the app creates an announcement: only the server script writes the table
+    backend = Path(__file__).resolve().parents[1] / "backend"
+    writers = [str(p.relative_to(backend)) for p in backend.rglob("*.py")
+               if "Announcement(" in p.read_text(encoding="utf-8")
+               or "INSERT INTO announcements" in p.read_text(encoding="utf-8")]
+    assert writers == ["models.py"], writers   # only the class definition
+    # What an account could try
+    api.login("intruso@test.com")
+    body = {"title": "Spam", "body": "spam", "kind": "announcement", "ref": "1"}
+    assert api.call("POST", "/api/notices", body)[0] == 405
+    assert api.call("PUT", "/api/notices", body)[0] == 405
+    api.call("POST", "/api/notices/read", {"kinds": ["announcement"], "ids": [1, 2, 3]}, expect=204)
+    with Session(engine) as session:
+        assert session.exec(select(Announcement)).all() == []
+    api.login("victima@test.com")
     assert by_kind(notices(api), "announcement") == []
