@@ -69,3 +69,17 @@ def test_a_rejected_token_marks_nothing(api):
     with user_updates() as updates:
         assert api.call("GET", "/api/auth/me")[0] == 401
     assert updates == [] and last_seen("rechazada@test.com") is None
+
+
+def test_a_revoked_session_marks_nothing(api):
+    """Un token de antes de cerrar las sesiones (otra versión) da 401 y no cuenta como actividad."""
+    api.login("revocada@test.com")
+    set_last_seen("revocada@test.com", None)
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == "revocada@test.com")).one()
+        user.token_version = (user.token_version or 0) + 1
+        session.add(user)
+        session.commit()
+    with user_updates() as updates:
+        assert api.call("GET", "/api/auth/me")[0] == 401
+    assert updates == [] and last_seen("revocada@test.com") is None
