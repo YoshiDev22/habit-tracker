@@ -30,7 +30,6 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.27 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
-| 37 | P2 | Centro de avisos: la campanita con pendientes, avisos y hechos | en curso, para la 1.26 |
 
 ---
 
@@ -548,36 +547,3 @@ cookies de terceros si se puede. Lo que hoy explica `GUIA-DE-USO.md` sirve de ba
 
 **Por decidir.** Si la portada vive en la misma app o en un sitio estático aparte; dónde se
 aloja el video; y si se enlaza la guía de uso.
-
----
-
-## 37 · P2 · Centro de avisos: la campanita con pendientes, avisos y hechos
-
-**Pedido por Yoshio el 2026-10-09**, para la 1.26. Orden acordado: 1.26 avisos · 1.27 panel
-de administración (32, que usará estos avisos) · 1.28 objetivos (17) · 1.29 organización y
-visualización (27, 28, 29). Separado del panel porque el panel no sale hasta configurar
-Cloudflare y toca la seguridad.
-
-**Qué.** La campanita (hoy solo cuenta los registros por confirmar) pasa a ser un centro de
-avisos **guardado por cuenta** (leído en el teléfono, leído en la computadora), con un
-**círculo rojo** con los que piden atención:
-
-| Aviso | Tipo | Al tocarlo | Se vuelve "hecho" |
-|---|---|---|---|
-| Registro por confirmar (cronómetro a 8 h) | pendiente | Corregir / Está bien | al confirmarlo o corregirlo |
-| Hábito sin anotar ayer (había racha) | pendiente | abre ese día en el calendario | al marcar algo ese día, o Descartar |
-| Novedades de una versión | informativo | abre las Novedades | al leerlo |
-| Reporte automático listo | informativo | abre el reporte | al leerlo |
-
-- Los **pendientes** se calculan de los datos (el registro sigue sin confirmar, el día sigue
-  vacío): nunca dicen algo que ya no es cierto. Resueltos, pasan a **Hechos** (recientes).
-- La ventana "¿Olvidaste anotar ayer?" **se queda**; si se cierra sin marcar, el aviso queda
-  pendiente en la campanita (decidido 2026-10-09).
-- El círculo rojo cuenta los pendientes más los informativos sin leer.
-
-**Cómo.** Tabla nueva `notices` (usuario, tipo, referencia —id del registro o del reporte,
-fecha, versión—, creado, leído, descartado), única por (usuario, tipo, referencia): sin
-migración. `GET /api/notices` sincroniza los pendientes (crea su fila la primera vez) y
-calcula su estado; `generate_report()` con `trigger="auto"` crea el de "reporte listo".
-Leer y descartar por `POST`. Se guardan 60 días. Después, el panel (32) añadirá "te dimos
-más textos de IA".

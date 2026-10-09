@@ -29,6 +29,11 @@ PENDING_KINDS = ("review", "missed_day")
 INFO_KINDS = ("report_ready", "novedades")
 KEEP_DAYS = 60
 SUBJECT_TITLE = {"time": "tiempo", "habits": "hábitos", "costs": "costos"}
+MONTHS = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+
+
+def _short(day: date_type) -> str:
+    return f"{day.day} {MONTHS[day.month - 1]}"
 
 
 def add_notice(session: Session, user_id: int, kind: str, ref: str) -> Optional[Notice]:
@@ -98,7 +103,7 @@ def describe(session: Session, notice: Notice) -> Optional[Dict]:
         from backend.report_kinds import period_of, subject_of
         period = "semanal" if period_of(report.kind) == "week" else "mensual"
         return {**base, "status": "info", "title": f"Tu reporte {period} de {SUBJECT_TITLE[subject_of(report.kind)]} está listo",
-                "detail": f"Del {report.period_start.isoformat()} al {report.period_end.isoformat()}.",
+                "detail": f"Del {_short(report.period_start)} al {_short(report.period_end)} de {report.period_end.year}.",
                 "report_id": report.id, "report_kind": report.kind}
     if notice.kind == "novedades":
         return {**base, "status": "info", "title": f"Novedades de la versión {notice.ref}",

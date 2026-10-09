@@ -84,9 +84,17 @@ function showNovedades(entries) {
     showModal(novedadesModal);
 }
 
+// El aviso de Novedades de la campanita también queda leído (1.26)
+function readNovedadesNotice() {
+    apiFetch('/api/notices/read', { method: 'POST', json: { kinds: ['novedades'] } })
+        .then(() => { if (typeof refreshNotices === 'function') refreshNotices(); })
+        .catch(() => { /* sin red: se leerá al abrir la campanita */ });
+}
+
 function closeNovedades() {
     hideModal(novedadesModal);
     if (novedadesState.data) markSeen(novedadesState.data.current);
+    readNovedadesNotice();
 }
 
 async function loadNovedades() {
@@ -106,6 +114,7 @@ async function loadNovedades() {
     // Cuenta nueva: empieza al día. Ya vista: nada.
     if (justRegistered || (seen && compareVersions(seen, current) >= 0)) {
         markSeen(current);
+        if (justRegistered) readNovedadesNotice();
         return;
     }
     // Lo que no ha visto: desde la que vio (sin incluirla) hasta la actual; sin

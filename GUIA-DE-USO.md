@@ -630,11 +630,22 @@ la tarea y al tiempo de hoy.
 
 ## Corregir o borrar un registro
 
-**La campanita 🔔**, arriba junto al ⚙️, avisa cuando un cronómetro llegó al tope de 8 h y
-nadie dijo cuánto trabajaste (por ejemplo, si cerraste la sesión o la pregunta se quedó en
-otra pestaña). El número rojo dice cuántos hay. Tócala y, en cada uno, elige **Corregir**
-para poner el tiempo real, o **Está bien** si de verdad fueron 8 h. Mientras no lo hagas, ese
-tiempo cuenta en tus totales, y Reportes te avisa que lo está incluyendo.
+**La campanita 🔔**, arriba junto al ⚙️, es tu centro de avisos. El número rojo dice cuántos
+piden tu atención. Tócala y los verás en tres grupos:
+
+- **Pendientes**, algo por hacer:
+  - Un cronómetro llegó al tope de 8 h y nadie dijo cuánto trabajaste (por ejemplo, si
+    cerraste la sesión). Elige **Corregir** para poner el tiempo real, o **Está bien** si de
+    verdad fueron 8 h. Mientras no lo hagas, ese tiempo cuenta en tus totales.
+  - Un día sin anotar, cuando tenías racha. **Anotar** abre ese día en el calendario;
+    **Descartar** si no lo hiciste. La ventana "¿Olvidaste anotar ayer?" sigue saliendo: si
+    la cierras con la ×, el aviso te espera aquí.
+- **Avisos**: tu reporte automático está listo (**Ver reporte** lo abre) o hay Novedades de
+  una versión. Se marcan leídos al abrir la campanita.
+- **Hechos**: lo que ya resolviste, por si quieres revisarlo.
+
+Los avisos son de tu cuenta: lo que resuelves en el teléfono ya sale resuelto en la
+computadora.
 
 Despliega el proyecto y busca **Registros de tiempo**, debajo de las tareas. Cada línea
 muestra día, horario, duración, tarea y nota:

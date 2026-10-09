@@ -81,6 +81,7 @@ habit-tracker/
 │   ├── ai.py              # El proveedor de IA (uno por instancia, en .env): una sola llamada
 │   ├── accounts.py        # Borrar una cuenta (ya, o programada a 30 días) y todo lo suyo
 │   ├── novedades.py       # Lee NOVEDADES.md (lo sirve GET /api/novedades)
+│   ├── notices.py         # El centro de avisos: pendientes calculados e informativos guardados
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -117,7 +118,7 @@ habit-tracker/
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── costs-recurring.js     # Costos: repartir un gasto entre proyectos y los gastos recurrentes
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
-├── notifications.js       # La campanita de avisos: sesiones por confirmar
+├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
 ├── settings.js            # ⚙️ Configuración: menú y páginas que se deslizan, pomodoro
 ├── saved-reports.js       # Reportes guardados: botón por periodo, lista, vista e impresión a PDF
@@ -847,9 +848,9 @@ registros **por confirmar** (`needs_review`), y al corregir la duración de uno 
 al tope de 8 h sin que el usuario dijera cuánto trabajó (cerrado solo, o al cerrar sesión)
 se guarda con la nota y `needs_review: true` (`buildPayload()` lo deriva de la nota). Se
 cuenta igual en totales y Reportes, y Reportes dice cuánto tiempo sin confirmar incluye. La
-**campanita** de la barra de arriba (`notifications.js`, siempre visible) lo cuenta desde
-`GET /api/pomodoro/review` y lista cada uno con *Corregir* (abre `#logTimeModal` encima) y
-*Está bien* (`PATCH {needs_review: false}`). Corregir horas o duración por `PATCH` también lo
+**campanita** de la barra de arriba (`notifications.js`, siempre visible) lo avisa como
+pendiente (ver *Centro de avisos*) con *Corregir* (abre `#logTimeModal` encima, con la sesión
+de `GET /api/pomodoro/review`) y *Está bien* (`PATCH {needs_review: false}`). Corregir horas o duración por `PATCH` también lo
 confirma (`routers/pomodoro.py`). La migración marca una sola vez las de antes (nota y 8 h
 exactas): volver a correrla no marca otra vez una que el usuario confirmó. *Guardar* de
 `#logTimeModal` queda desactivado hasta que cargan las tareas: guardar antes dejaba el
@@ -878,6 +879,30 @@ empezando en 8 h. La última actividad en la app (`pomodoro_activity`) sale solo
 con "Usar esa hora". Lo elegido se guarda sin la nota de cierre automático
 (`finishStopwatch({ endAtEpochMs, chosenByUser })`), y nada se guarda hasta contestar,
 también si se recarga. Contestar la pregunta no cuenta como actividad.
+
+### Centro de avisos (1.26)
+
+La campanita es un centro de avisos **guardado por cuenta** (`backend/notices.py`, tabla
+`notices`, una fila por usuario, tipo y referencia). Dos clases:
+
+- **Pendientes**, que se calculan de los datos: `review` (una sesión por confirmar, ref = su
+  id) y `missed_day` (ayer vacío con racha, ref = la fecha, con la misma regla que
+  `missed_yesterday` de `calculate_streak`). `GET /api/notices` crea su fila la primera vez
+  (`sync_pending`) y su estado sale siempre de los datos: `pending`, `done` (confirmada, o
+  ese día ya tiene algo) o `dismissed` (`POST /{id}/dismiss`). Nunca dicen algo que ya no es
+  cierto.
+- **Informativos**, que se guardan cuando pasan y se leen (`POST /api/notices/read`, por ids,
+  por `kinds` o todos): `report_ready` (lo crea `generate_report()` con `trigger="auto"`) y
+  `novedades` (la versión que corre, si tiene sección en `NOVEDADES.md`; cerrar la ventana
+  de Novedades lo lee).
+
+El círculo rojo (`unread`) cuenta pendientes más informativos sin leer. Abrir la campanita lee
+los informativos; los pendientes siguen hasta resolverse. La lista va por grupos: Pendientes,
+Avisos y Hechos (los 10 más recientes); lo que no está pendiente se borra a los 60 días.
+"Anotar" abre el día con `openHabitDay()` (`habits.js`), y marcar un hábito refresca la
+campanita (`markHabitOnDay()`). La ventana "¿Olvidaste anotar ayer?" se queda: cerrarla con la
+× deja el aviso pendiente, y "No, no lo hice" lo descarta (`dismissMissedDayNotice()`). El
+panel de administración (épica 32) sumará "te dimos más textos de IA".
 
 ## Reglas del producto
 

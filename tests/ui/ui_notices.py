@@ -89,8 +89,11 @@ async def main():
         fixed = next(s for s in s1["sessions"] if s["id"] == first["id"])
         check(fixed["needs_review"] is False and fixed["duration_seconds"] == 3 * 3600 and fixed["task_id"] == task["id"],
               f"correcting it saves the real time, keeps its task and clears the notice ({fixed['duration_seconds']}, {fixed['task_id']})")
-        empty = await b.js("document.getElementById('noticesList').textContent")
-        check("No tienes avisos" in empty, f"the list says nothing is pending ({empty})")
+        # Desde la 1.26 lo resuelto queda en "Hechos", y ya no cuenta en el círculo
+        listed = await b.js("document.getElementById('noticesList').textContent")
+        check("Pendientes" not in listed and listed.count("Registro de tiempo confirmado") == 2
+              and await b.js("document.getElementById('bellCount').hidden"),
+              f"both move to Hechos and the bell has no number ({listed[:80]})")
     finally:
         await b.close()
 

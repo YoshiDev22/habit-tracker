@@ -18,8 +18,10 @@ router = APIRouter(tags=["notices"])
 
 
 class NoticeRead(SQLModel):
-    """Leer avisos informativos: los de estos ids, o todos si no se manda ninguno."""
+    """Leer avisos informativos: los de estos ids, o de estos tipos (p. ej. al
+    cerrar la ventana de Novedades), o todos si no se manda nada."""
     ids: Optional[List[int]] = None
+    kinds: Optional[List[str]] = None
 
 
 def _habits_on(session: Session, user: User) -> bool:
@@ -52,6 +54,8 @@ def read_notices(body: NoticeRead, session: Session = Depends(get_session),
                                  Notice.read_at == None)  # noqa: E711
     if body.ids is not None:
         query = query.where(Notice.id.in_(body.ids[:500]))
+    if body.kinds is not None:
+        query = query.where(Notice.kind.in_([k for k in body.kinds[:10] if k in INFO_KINDS]))
     now = utc_now_naive()
     for notice in session.exec(query).all():
         notice.read_at = now

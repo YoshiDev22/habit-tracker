@@ -939,7 +939,20 @@ async function markHabitOnDay(dateKey, habitKey, done) {
     } else {
         delete habitsData[dateKey];
     }
+    // Marcar un día puede resolver el aviso "Día sin anotar" (notifications.js)
+    if (typeof refreshNotices === 'function') refreshNotices();
     return data;
+}
+
+// Abre un día en el calendario con su panel de hábitos (el aviso "Día sin
+// anotar" de la campanita lo usa): va a la pestaña, al mes y abre el popover
+function openHabitDay(dateKey) {
+    if (typeof goToView === 'function') goToView('calendar');
+    const [year, month] = dateKey.split('-').map(Number);
+    currentDate = new Date(year, month - 1, 1);
+    renderCalendar();
+    const cell = daysGrid.querySelector(`.day-cell[data-date="${dateKey}"]`);
+    if (cell) showHabitPopover(dateKey, cell);
 }
 
 async function saveHabitToAPI(dateKey, habitKey, done) {
@@ -1898,7 +1911,12 @@ async function saveMissedYesterday() {
 }
 
 document.getElementById('missedDaySaveBtn').addEventListener('click', saveMissedYesterday);
-document.getElementById('missedDaySkipBtn').addEventListener('click', () => hideModal(missedDayModal));
+// "No, no lo hice" contesta la pregunta: el aviso de ese día se descarta. Cerrar
+// con la × no contesta nada: el aviso queda pendiente en la campanita (1.26).
+document.getElementById('missedDaySkipBtn').addEventListener('click', () => {
+    hideModal(missedDayModal);
+    if (missedDayDate && typeof dismissMissedDayNotice === 'function') dismissMissedDayNotice(missedDayDate);
+});
 
 // El campo de texto y el color están siempre activos; el + se habilita en
 // cuanto hay algo escrito.
