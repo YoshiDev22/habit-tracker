@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User
+from backend.models import User, utc_now_naive
 from dotenv import load_dotenv
 
 # Cargar variables de entorno. Ruta explícita: bajo `uvicorn --reload` en Windows,
@@ -91,8 +91,23 @@ def get_current_user(
     # Los tokens de antes de la versión no la traen y cuentan como 0.
     if payload.get("tv", 0) != (user.token_version or 0):
         raise credentials_exception
-
+    _mark_seen(session, user)
     return user
+
+
+# La última actividad se anota como mucho una vez por hora: el panel de admin la
+# muestra por días, y escribir en cada petición sería una escritura por clic
+LAST_SEEN_EVERY = timedelta(hours=1)
+
+
+def _mark_seen(session: Session, user: User) -> None:
+    now = utc_now_naive()
+    if user.last_seen_at is not None and now - user.last_seen_at < LAST_SEEN_EVERY:
+        return
+    user.last_seen_at = now
+    session.add(user)
+    session.commit()
+    session.refresh(user)
 
 
 def token_for(user: User) -> str:

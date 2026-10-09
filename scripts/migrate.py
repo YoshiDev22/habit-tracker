@@ -74,6 +74,9 @@ MIGRATIONS = [
     {"table": "project_costs", "column": "split_bp", "type": "INTEGER", "new_table": True},
     {"table": "project_costs", "column": "share_cents", "type": "INTEGER", "new_table": True},
     {"table": "project_costs", "column": "recurring_id", "type": "INTEGER", "new_table": True},
+    # Última actividad, para el panel de administración (1.27). NULL hasta la
+    # primera petición de cada cuenta después de migrar.
+    {"table": "users", "column": "last_seen_at", "type": "DATETIME"},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

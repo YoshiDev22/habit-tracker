@@ -291,6 +291,11 @@ Lo que no se deduce leyendo los modelos:
 - **Etiquetas y tiempo**: una sesión cuenta en cada etiqueta de su tarea, así que los
   totales por etiqueta NO se suman entre sí. `GET /api/tags/summary` devuelve además
   `combined_*` (las etiquetas pedidas, cada sesión una vez) y `untagged_*`.
+- **`users.last_seen_at`** (1.27, columna en `migrate.py`): la última actividad, para el panel de
+  administración. La escribe `get_current_user` (`_mark_seen()` en `backend/auth.py`) **como mucho
+  una vez por hora** (`LAST_SEEN_EVERY`): con una marca más nueva no toca la base, y un token
+  rechazado no marca nada (`test_last_seen.py` cuenta los `UPDATE users`). NULL = sin actividad
+  desde que se migró.
 - **Comentarios**: `user_id` es el dueño de la tarea (lo que filtran las queries) y
   `author_id` quien escribió; hoy coinciden, pero están separados para compartir tableros
   sin migrar. Solo el autor edita o borra. `created_at` es UTC naive.

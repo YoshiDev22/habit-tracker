@@ -36,6 +36,10 @@ class User(SQLModel, table=True):
     # "Irme unos días": cuándo se borra la cuenta (UTC naive). NULL = no se va.
     # La borra scripts/purge_accounts.py (backend/accounts.py). Columna AÑADIDA.
     delete_after: Optional[datetime] = Field(default=None)
+    # Última actividad (UTC naive), para el panel de administración (1.27). La pone
+    # get_current_user como mucho una vez por hora (LAST_SEEN_EVERY en auth.py),
+    # no en cada petición. NULL = sin actividad desde la 1.27. Columna AÑADIDA.
+    last_seen_at: Optional[datetime] = Field(default=None)
 
 
 class UserModule(SQLModel, table=True):
