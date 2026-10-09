@@ -79,8 +79,12 @@ def pytest_sessionfinish(session, exitstatus):
     shutil.rmtree(TMP, ignore_errors=True)
 
 
-WINDOWS_RESET = re.compile(r"Exception in callback _ProactorBasePipeTransport\._call_connection_lost.*?"
-                           r"^ConnectionResetError:[^\n]*\n?", re.S | re.M)
+# Only that one block, contiguous: anything else between its lines keeps the test failing
+WINDOWS_RESET = re.compile(r"^Exception in callback _ProactorBasePipeTransport\._call_connection_lost\(.*\)\n"
+                           r"(?:handle: .*\n)?"
+                           r"Traceback \(most recent call last\):\n"
+                           r"(?:[ \t].*\n)+"
+                           r"ConnectionResetError: .*(?:\n|$)", re.M)
 
 
 @pytest.fixture(autouse=True)
