@@ -7,6 +7,35 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.26.0] — 2026-10-09
+
+La campanita se vuelve un centro de avisos, y la app puede avisar de un mantenimiento a
+todas las cuentas.
+
+### Nuevo
+- **Centro de avisos** en la campanita, en tres grupos: **Pendientes** (registros por
+  confirmar y días sin anotar, con su botón), **Avisos** (tu reporte automático está listo,
+  las novedades de la versión) y **Hechos**. El círculo rojo cuenta los pendientes y los
+  avisos sin leer; abrir la campanita marca los avisos como leídos. Un pendiente se resuelve
+  solo al hacerlo (anotar el día, confirmar el registro) y pasa a Hechos. Lo que ya no está
+  pendiente se borra a los 60 días.
+- **Días sin anotar**: **Anotar** abre el día en el calendario; **Descartar** lo quita sin
+  anotarlo.
+- **Avisos para todas las cuentas** (mantenimiento, una caída): salen con 📢 en todas las
+  campanitas mientras estén vigentes y desaparecen al terminar. Solo se publican desde el
+  servidor; ninguna cuenta puede mandarlos.
+
+### Cambios
+- La ventana **"¿Olvidaste anotar ayer?"** se queda; si la cierras sin contestar, el día
+  sigue en la campanita. "No, no lo hice" también lo quita de ahí.
+
+### Para actualizar
+Sin migración ni dependencias nuevas: `git pull` y reiniciar el servicio. Las tablas de
+avisos se crean solas al arrancar. Para avisar de un mantenimiento, desde la raíz del repo
+y ya con la 1.26 corriendo:
+`.venv/bin/python scripts/announce.py --title "…" --body "…" --hours 24` (`--list` para
+verlos, `--end ID` para quitarlo de todas las campanitas).
+
 ## [1.25.0] — 2026-10-09
 
 Notas del día en los hábitos, y la app ahora te cuenta qué hay de nuevo en cada versión.
@@ -734,6 +763,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.26.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.26.0
 [1.25.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.25.0
 [1.24.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.24.0
 [1.23.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.23.0

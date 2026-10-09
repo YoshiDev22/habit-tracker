@@ -4,6 +4,19 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.26.0 — 2026-10-09
+### Nuevas funciones
+- **Centro de avisos**: la campanita de arriba junta todo lo que te espera: registros por
+  confirmar, días sin anotar, reportes listos y novedades. El círculo rojo dice cuántos
+  tienes sin ver.
+- **Días sin anotar**: si ayer quedó vacío, el aviso trae **Anotar**, que abre ese día, y
+  **Descartar** si no lo vas a anotar.
+- **Avisos de la app**: cuando haya mantenimiento o algo que debas saber, llega con 📢 a la
+  campanita.
+### Cambios
+- **"¿Olvidaste anotar ayer?"** sigue saliendo al abrir la app, pero si la cierras, el día
+  se queda en la campanita para después.
+
 ## 1.25.0 — 2026-10-09
 ### Nuevas funciones
 - **Notas del día en tus hábitos**: en el calendario, toca un día y luego **✎** junto a un
