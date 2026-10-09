@@ -225,8 +225,9 @@ async def main():
 
         # Escritorio: la app se ensancha mientras se ve Costos
         await b.viewport(1280, 900)
-        await asyncio.sleep(0.5)
-        st = await b.js("({wide: document.body.classList.contains('costs-wide'), w: Math.round(document.querySelector('.app-container').getBoundingClientRect().width)})")
+        # The class comes with matchMedia's change event, on the next frame: busy, 0.5 s fell short
+        st = await b.wait_for("({wide: document.body.classList.contains('costs-wide'), w: Math.round(document.querySelector('.app-container').getBoundingClientRect().width)})",
+                              lambda v: v["wide"] and v["w"] > 900)
         check(st["wide"] and st["w"] > 900, f"desktop widens the app for the sheet ({st})")
 
         # Presupuesto y mano de obra (su tarifa) se editan tocando la celda
