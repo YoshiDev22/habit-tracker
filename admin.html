@@ -23,6 +23,7 @@
         <button type="button" class="tab" data-tab="accounts">Cuentas</button>
         <button type="button" class="tab" data-tab="ai">IA</button>
         <button type="button" class="tab" data-tab="feedback">Problemas</button>
+        <button type="button" class="tab" data-tab="log">Bitácora</button>
     </nav>
 
     <main>
@@ -62,6 +63,13 @@
                 </label>
             </div>
             <div class="feedback-list" id="feedbackList"></div>
+        </section>
+
+        <section class="view" data-view="log" aria-labelledby="logTitle">
+            <h2 id="logTitle">Bitácora</h2>
+            <p class="hint">Cada cambio hecho desde el panel, el más nuevo arriba (los últimos 200). No se edita
+                ni se borra.</p>
+            <div class="table-wrap"><table class="grid" id="logTable"></table></div>
         </section>
     </main>
 

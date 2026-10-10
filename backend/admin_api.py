@@ -177,8 +177,13 @@ def actions(account_id: Optional[int] = None, session: Session = Depends(get_ses
     if account_id is not None:
         query = query.where(AdminAction.account_id == account_id)
     rows = session.exec(query.order_by(AdminAction.created_at.desc(), AdminAction.id.desc()).limit(200)).all()
+    # La cuenta, enmascarada; None si ya se borró (la bitácora sobrevive a la cuenta)
+    ids = {a.account_id for a in rows if a.account_id is not None}
+    emails = dict(session.exec(select(User.id, User.email).where(User.id.in_(ids))).all()) if ids else {}
     return {"actions": [{"id": a.id, "created_at": a.created_at, "admin": a.admin_email, "action": a.action,
-                         "account_id": a.account_id, "before": a.before, "after": a.after} for a in rows]}
+                         "account_id": a.account_id,
+                         "account": mask_email(emails[a.account_id]) if a.account_id in emails else None,
+                         "before": a.before, "after": a.after} for a in rows]}
 
 
 # ---------- Acciones (Fase 2) ----------

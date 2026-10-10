@@ -156,6 +156,17 @@ async def main():
         check(state == "Activa", "and it can be reactivated")
         await b.js("document.getElementById('accountDialogClose').click()")
 
+        # La bitácora general: todo lo de arriba, el más nuevo primero, con la cuenta enmascarada
+        await b.js("document.querySelector('[data-tab=log]').click()")
+        rows = await b.wait_for("[...document.querySelectorAll('#logTable tbody tr')].map(r => [...r.cells].map(c => c.textContent))",
+                                lambda v: v and len(v) >= 5)
+        whats = [r[2] for r in rows]
+        check(whats[:4] == ["Cuenta reactivada", "Cuenta desactivada", "+3 textos de IA hoy (Tiempo y hábitos)",
+                            "Acceso a Maker dado"]
+              and rows[0][3] == "o•••@test.com" and rows[3][3] == "y•••@test.com" and all(r[1] == ADMIN for r in rows),
+              f"the Bitácora tab lists every change, newest first ({[(r[2], r[3]) for r in rows[:4]]})")
+        await b.shot("admin_log", full=False)
+
         # Sin token (otra pestaña, sin el enlace): acceso denegado, sin datos
         await b.js("sessionStorage.clear()")
         await b.goto(base + "/", wait=1.0)

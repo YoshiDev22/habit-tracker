@@ -83,6 +83,16 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
     assert {(d["purpose"], d["ok"], d["failed"]) for d in ai["days"]} == {("report", 1, 0), ("costs", 0, 1)}
     assert ai["errors"] == [{"error": "timeout", "count": 1}]
 
+    from backend.admin_api import record_action
+    with Session(engine) as session:
+        # Un administrador que no es ninguna de las cuentas: así un correo de cuenta en la
+        # bitácora sería una fuga, no el "quién lo hizo"
+        record_action(session, "admin@panel.test", "module", me["id"], {"maker": {"enabled": False, "allowed": False}},
+                      {"maker": {"enabled": False, "allowed": True}})
+        session.commit()
+    log = get(admin, "/api/actions")
+    assert [(a["account"], a["admin"]) for a in log["actions"]] == [("y•••@test.com", "admin@panel.test")]
+
     feedback = get(admin, "/api/feedback")["feedback"]
     assert [f["text"] for f in feedback] == [f"Falla {MARK}-FEEDBACK <script>alert(1)</script>"]
     assert feedback[0]["account"] == {"id": me["id"], "email": "y•••@test.com"}
@@ -99,7 +109,7 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
 
     # Nada de lo escrito sale, ni el correo completo; del reporte de problema, solo su texto
     for path, body in [("/api/summary", summary), ("/api/accounts", accounts), ("/api/ai", ai),
-                       ("/api/feedback", feedback)]:
+                       ("/api/feedback", feedback), ("/api/actions", log)]:
         text = json.dumps(body, ensure_ascii=False, default=str)
         leaked = text.replace(f"{MARK}-FEEDBACK", "")
         assert MARK not in leaked, (path, leaked[leaked.index(MARK) - 60:leaked.index(MARK) + 40])

@@ -440,9 +440,39 @@ async function loadFeedback() {
 
 // ---------- Pestañas y arranque ----------
 
+// ---------- Bitácora ----------
+
+async function renderLog() {
+    const data = await adminGet('/api/actions');
+    const table = document.getElementById('logTable');
+    const head = node('tr');
+    for (const label of ['Cuándo', 'Quién', 'Qué', 'Cuenta']) head.append(node('th', null, label));
+    const body = node('tbody');
+    if (!data.actions.length) {
+        const row = node('tr');
+        const cell = node('td', 'empty', 'Nada todavía.');
+        cell.colSpan = 4;
+        row.append(cell);
+        body.append(row);
+    }
+    for (const action of data.actions) {
+        const row = node('tr');
+        const account = action.account_id === null ? '—'
+            : (action.account || `Cuenta borrada (#${action.account_id})`);
+        row.append(node('td', null, dateTime(action.created_at)), node('td', null, action.admin),
+            node('td', null, describeChange(action)), node('td', null, account));
+        body.append(row);
+    }
+    const thead = node('thead');
+    thead.append(head);
+    table.replaceChildren(thead, body);
+}
+
 function showTab(name) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.dataset.view === name));
+    // La bitácora se pide al abrirla: así enseña también lo que se hizo desde otra pestaña
+    if (name === 'log') renderLog().catch(showFailure);
 }
 
 document.getElementById('tabs').addEventListener('click', (event) => {

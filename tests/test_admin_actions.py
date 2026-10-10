@@ -50,14 +50,17 @@ def test_the_log_lists_actions_and_survives_the_account(admin, api):
         record_action(session, "yoshi@test.com", "module", user_id, {"maker": False}, {"maker": True})
         session.commit()
     rows = admin("/api/actions", jwt_token=token()).json()["actions"]
-    assert [(a["action"], a["account_id"], a["before"], a["after"], a["admin"]) for a in rows] == \
-        [("module", user_id, {"maker": False}, {"maker": True}, "yoshi@test.com")]
+    assert [(a["action"], a["account_id"], a["account"], a["before"], a["after"], a["admin"]) for a in rows] == \
+        [("module", user_id, "s•••@test.com", {"maker": False}, {"maker": True}, "yoshi@test.com")]
     assert admin(f"/api/actions?account_id={user_id + 999}", jwt_token=token()).json()["actions"] == []
 
     api.call("POST", "/api/auth/me/delete", {"password": "secret123", "mode": "now", "confirm": "BORRAR"}, expect=204)
     with Session(engine) as session:
         assert session.get(User, user_id) is None
         assert [a.account_id for a in session.exec(select(AdminAction)).all()] == [user_id]
+    # Sigue en la bitácora, sin correo: la cuenta ya no existe
+    [row] = admin("/api/actions", jwt_token=token()).json()["actions"]
+    assert row["account_id"] == user_id and row["account"] is None
 
 
 def put(admin, path, body):
