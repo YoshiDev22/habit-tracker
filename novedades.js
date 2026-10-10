@@ -49,9 +49,20 @@ function shortVersion(version) {
     return version.replace(/\.0$/, '');
 }
 
+// "9 oct 2026": la fecha de la versión (AAAA-MM-DD, sin hora; a mediodía para que ningún huso la corra)
+function versionDate(date) {
+    if (!date) return '';
+    const day = new Date(`${date}T12:00:00`);
+    return Number.isNaN(day.getTime()) ? '' : day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+        .replace('.', '');
+}
+
 function buildVersionNews(entry, withTitle) {
     const box = el('section', 'novedades-version');
-    if (withTitle) box.appendChild(el('h3', 'novedades-version-title', `Versión ${shortVersion(entry.version)}`));
+    if (withTitle) {
+        const when = versionDate(entry.date);
+        box.appendChild(el('h3', 'novedades-version-title', `Versión ${shortVersion(entry.version)}${when ? ` · ${when}` : ''}`));
+    }
     entry.sections.forEach(section => {
         box.appendChild(el('p', 'novedades-section', section.title));
         const list = el('ul', 'novedades-list');

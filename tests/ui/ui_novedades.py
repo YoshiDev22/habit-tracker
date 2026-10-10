@@ -80,7 +80,7 @@ async def main():
         await b.js("document.querySelector('#profileMenu [data-open=news]').click()")
         st = await b.js("({title: document.getElementById('profileTitle').textContent,"
                         " versions: [...document.querySelectorAll('#novedadesPage .novedades-version-title')].map(t => t.textContent)})")
-        check(st == {"title": "Novedades", "versions": ["Versión 9.2", "Versión 9.1"]}, f"Mi perfil › Novedades lists them all ({st})")
+        check(st == {"title": "Novedades", "versions": ["Versión 9.2 · 9 oct 2026", "Versión 9.1 · 1 oct 2026"]}, f"Mi perfil › Novedades lists them all ({st})")
         await b.shot("novedades_profile", full=False)
     finally:
         await b.close()
