@@ -7,30 +7,46 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
-## [1.27.0] — 2026-10-09
+## [1.27.0] — 2026-10-10
 
-Reportar un problema desde la app, y la primera fase del panel de administración (aún no se
-despliega).
+Reportar un problema desde la app, y el panel de administración (aún no se despliega):
+cuentas, uso de la IA, problemas, avisos, seguridad y una bitácora de cada cambio.
 
 ### Nuevo
-- **Reportar un problema**, en *Mi perfil*: cuenta qué estabas haciendo y qué pasó (de 10 a
-  2000 caracteres). La casilla **Adjuntar detalles técnicos** viene marcada y enseña, tal cual,
-  lo que se envía con tu texto: la versión de la app, la pestaña abierta, el tamaño de la
-  pantalla, el navegador y los últimos errores de esta sesión. Nunca lleva lo que escribes en la
-  app. Hasta 5 al día.
-- **Panel de administración, Fase 1** (para quien administra la instancia): un proceso aparte de
-  la app, solo en `127.0.0.1`, con un resumen de cuentas, las cuentas (correo enmascarado y solo
-  conteos, nunca contenido), el uso de la IA y los problemas reportados. En producción irá detrás
-  de Cloudflare Access; mientras tanto, `scripts/admin_dev.py` lo abre en tu máquina. La app
-  pública no tiene ninguna de sus rutas.
+- **Reportar un problema**, en *Mi perfil*: qué pasó (de 10 a 2000 caracteres) y, si quieres,
+  detalles técnicos que ves tal cual antes de enviarlos (versión, pestaña, pantalla, navegador
+  y los últimos errores de la sesión; nunca lo que escribes en la app). Hasta 5 al día.
+- **Avisos nuevos en la campanita**: 🛠️ cuando se cierra un problema que reportaste, y 💬 los
+  avisos para tu cuenta (más textos de IA por un día, acceso a un módulo).
+- **Panel de administración** (para quien administra la instancia): un proceso aparte de la app,
+  solo en `127.0.0.1`, que irá detrás de Cloudflare Access. Resumen y cuentas (correo
+  enmascarado, registro, última actividad y solo conteos, nunca contenido), uso de la IA por día,
+  problemas reportados con su estado, una nota interna y otra para la persona, avisos para todas
+  las cuentas o para una, eventos de seguridad (contraseñas equivocadas, bloqueos y tokens
+  rechazados por IP, con alertas) y una bitácora de cada cambio. Desde la ficha de una cuenta:
+  dar o quitar Maker e IA, textos de IA extra por hoy, desactivarla o reactivarla y cancelar su
+  borrado. `scripts/admin_dev.py` lo abre en tu máquina.
+
+### Cambios
+- Una **cuenta desactivada** sale al momento de todos sus dispositivos y, al entrar, ve que está
+  desactivada. Sus datos quedan intactos.
+- `scripts/announce.py` sigue las reglas del panel: como mucho 3 avisos vigentes y 30 s entre
+  dos publicaciones.
+- **Mi perfil › Novedades** dice la fecha de cada versión.
 
 ### Para actualizar
 **Esta versión cambia la base de datos.** Correr `python3 scripts/migrate.py` **antes** de
-reiniciar el servicio: agrega a `users` la última actividad (`last_seen_at`) y la fecha de
-registro (`created_at`). Las cuentas que ya existen quedan sin fecha de registro. Sin la
-migración, la app no arranca y el log dice qué correr. La tabla de los reportes de problemas se
-crea sola al reiniciar. El panel de administración **no se instala todavía**: no hace falta
-nada para él en el VPS.
+reiniciar el servicio: agrega a `users` la última actividad y la fecha de registro (las cuentas
+que ya existen quedan sin fecha). Sin la migración, la app no arranca y el log dice qué correr.
+Las tablas nuevas (reportes de problemas, avisos por cuenta, IA extra, bitácora, eventos de
+seguridad) se crean solas al reiniciar.
+
+Los eventos de seguridad guardan la IP completa durante 30 días; los borra el servicio diario de
+los reportes (`purge_accounts.py`), sin cambiar su plantilla. Para que esas IPs sean las de tus
+usuarios y no la del proxy, uvicorn tiene que confiar en Caddy (`--forwarded-allow-ips`); el panel
+avisa si no es así.
+
+El panel de administración **no se instala todavía**: necesita Cloudflare Tunnel y Access.
 
 ## [1.26.0] — 2026-10-09
 
