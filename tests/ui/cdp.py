@@ -54,6 +54,7 @@ class Browser:
         self.ids = itertools.count(1)
         self.pending = {}
         self.console = []
+        self.requests = {}   # requestId -> "MÉTODO url", para decir qué petición falló
         self.reader = None
 
     async def start(self):
@@ -85,6 +86,7 @@ class Browser:
         self.reader = asyncio.create_task(self._read())
         await self.send("Page.enable")
         await self.send("Runtime.enable")
+        await self.send("Network.enable")
         # Una página headless nunca tiene el foco: sin esto no hay focus/blur
         await self.send("Emulation.setFocusEmulationEnabled", enabled=True)
 
@@ -96,6 +98,18 @@ class Browser:
             elif msg.get("method") == "Runtime.consoleAPICalled":
                 args = " ".join(str(a.get("value", a.get("description", ""))) for a in msg["params"]["args"])
                 self.console.append(f"[{msg['params']['type']}] {args}")
+            elif msg.get("method") == "Network.requestWillBeSent":
+                req = msg["params"]["request"]
+                self.requests[msg["params"]["requestId"]] = f"{req['method']} {req['url']}"
+            elif msg.get("method") == "Network.loadingFinished":
+                self.requests.pop(msg["params"]["requestId"], None)
+            elif msg.get("method") == "Network.loadingFailed":
+                # Solo diagnóstico: no hace fallar nada. Si una prueba falla por un
+                # "Failed to fetch", su salida dice por qué (reset, abortada, rechazada…)
+                params = msg["params"]
+                what = self.requests.pop(params["requestId"], "?")
+                print(f"[network] {params.get('errorText')}{' (canceled)' if params.get('canceled') else ''}: {what}",
+                      flush=True)
             elif msg.get("method") == "Runtime.exceptionThrown":
                 d = msg["params"]["exceptionDetails"]
                 self.console.append(f"[exception] {d.get('exception', {}).get('description', d.get('text'))}")
