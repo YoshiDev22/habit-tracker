@@ -13,13 +13,15 @@ from datetime import timedelta
 from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import StrictBool
+from pydantic import Field as PydanticField, StrictBool, StrictInt
 from sqlalchemy import func
 from sqlmodel import Session, SQLModel, select
 
 from backend.database import get_session
-from backend.models import (AdminAction, AiCall, Board, Feedback, Habit, PomodoroSession, ProjectCost, Report,
-                            Task, User, UserModule, utc_now_naive)
+from backend.ai import ai_config
+from backend.models import (AdminAction, AiCall, AiGrant, Board, Feedback, Habit, PomodoroSession, ProjectCost,
+                            Report, Task, User, UserModule, utc_now_naive)
+from backend.report_ai import ai_usage as account_ai_usage, extra_today
 from backend.modules import MODULES, resolve as resolve_module
 
 router = APIRouter()
@@ -223,3 +225,48 @@ def set_module_access(user_id: int, module: str, body: ModuleAccess, request: Re
         record_action(session, _admin(request), "module", user.id, {module: before}, {module: after})
     session.commit()
     return {"module": module, **after}
+
+
+AI_POOLS = ("report", "costs")
+AI_GRANT_MAX = 50   # por cuenta, contador y día: un tope para que un error de dedo no sea 5000
+
+
+class AiGrantCreate(SQLModel):
+    pool: str
+    extra: StrictInt = PydanticField(ge=1, le=AI_GRANT_MAX)
+
+
+@router.get("/accounts/{user_id}/ai")
+def account_ai(user_id: int, session: Session = Depends(get_session)) -> dict:
+    """Uso de la IA de hoy de una cuenta, por contador, con lo extra que se le dio."""
+    user = _account(session, user_id)
+    config = ai_config()
+    return {"configured": config is not None,
+            "pools": {pool: {**account_ai_usage(session, user.id, pool, config),
+                             "extra_today": extra_today(session, user.id, pool)} for pool in AI_POOLS}}
+
+
+@router.post("/accounts/{user_id}/ai-grants")
+def grant_ai(user_id: int, body: AiGrantCreate, request: Request, session: Session = Depends(get_session)) -> dict:
+    """Textos de IA extra solo por hoy (día UTC) en un contador. Dar más el mismo día
+    suma, hasta AI_GRANT_MAX en total."""
+    if body.pool not in AI_POOLS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"pool debe ser uno de: {', '.join(AI_POOLS)}")
+    user = _account(session, user_id)
+    today = utc_now_naive().date()
+    grant = session.exec(select(AiGrant).where(AiGrant.user_id == user.id, AiGrant.pool == body.pool,
+                                               AiGrant.day == today)).first()
+    before = grant.extra if grant else 0
+    if before + body.extra > AI_GRANT_MAX:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"Hoy ya tiene {before} extra: como mucho {AI_GRANT_MAX} al día")
+    if grant is None:
+        grant = AiGrant(user_id=user.id, pool=body.pool, day=today, extra=0)
+    grant.extra = before + body.extra
+    session.add(grant)
+    record_action(session, _admin(request), "ai_grant", user.id,
+                  {"pool": body.pool, "day": today.isoformat(), "extra": before},
+                  {"pool": body.pool, "day": today.isoformat(), "extra": grant.extra})
+    session.commit()
+    return {"pool": body.pool, "day": today.isoformat(), "extra": grant.extra}

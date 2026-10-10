@@ -255,3 +255,17 @@ h3 { margin: 24px 0 8px; font-size: 0.95rem; }
     background: var(--warn-soft);
     font-size: 0.85rem;
 }
+
+.ai-today { margin: 0 0 8px; padding-left: 18px; font-size: 0.85rem; display: grid; gap: 2px; }
+.inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 0.85rem; }
+.inline-form label { display: flex; align-items: center; gap: 6px; }
+.inline-form input, .inline-form select {
+    font: inherit;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 6px;
+}
+.inline-form input[type=number] { width: 4.5rem; }
+.inline-form button:disabled { opacity: 0.6; cursor: wait; }

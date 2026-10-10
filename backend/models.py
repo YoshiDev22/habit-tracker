@@ -181,6 +181,24 @@ class Feedback(SQLModel, table=True):
     admin_note: Optional[str] = Field(default=None)        # nota interna, solo en el panel
 
 
+class AiGrant(SQLModel, table=True):
+    """
+    Textos de IA extra para una cuenta, solo por un día (1.27, Fase 2 del panel):
+    se suman al límite del día (UTC) de su contador (`pool`: report | costs) y
+    al día siguiente vuelve el normal. Los da el panel de administración; dar
+    más el mismo día suma a la misma fila. Se borra con la cuenta (user_id).
+    Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "ai_grants"
+    __table_args__ = (UniqueConstraint("user_id", "pool", "day", name="uq_ai_grants_user_pool_day"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    pool: str
+    day: date_type
+    extra: int
+
+
 class AdminAction(SQLModel, table=True):
     """
     La bitácora del panel de administración (1.27, Fase 2): cada acción que

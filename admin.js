@@ -193,6 +193,10 @@ function showAccountError(message) {
 }
 
 function describeChange(action) {
+    if (action.action === 'ai_grant') {
+        const added = (action.after.extra || 0) - (action.before.extra || 0);
+        return `+${added} textos de IA hoy (${PURPOSE_LABELS[action.after.pool] || action.after.pool})`;
+    }
     if (action.action === 'module') {
         const [name, after] = Object.entries(action.after || {})[0] || [];
         const label = MODULE_LABELS[name] || name;
@@ -264,6 +268,45 @@ async function setModuleAccess(accountId, module, input) {
     }
 }
 
+async function renderAccountAi(accountId) {
+    const data = await adminGet(`/api/accounts/${accountId}/ai`);
+    const list = document.getElementById('accountAi');
+    if (!data.configured) {
+        list.replaceChildren(node('li', 'empty', 'Esta instancia no tiene proveedor de IA configurado.'));
+        return;
+    }
+    list.replaceChildren(...Object.entries(data.pools).map(([pool, usage]) => {
+        const extra = usage.extra_today ? ` (incluye ${usage.extra_today} extra)` : '';
+        return node('li', null, `${PURPOSE_LABELS[pool]}: ${usage.used_today} de ${usage.limit} usados${extra}`
+            + (usage.failed_today ? ` · ${usage.failed_today} fallidos` : ''));
+    }));
+}
+
+document.getElementById('aiGrantForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const accountId = accountsState.open;
+    if (!accountId) return;
+    showAccountError('');
+    const button = event.submitter;
+    if (button) button.disabled = true;
+    try {
+        await adminSend('POST', `/api/accounts/${accountId}/ai-grants`, {
+            pool: document.getElementById('aiGrantPool').value,
+            extra: Number(document.getElementById('aiGrantExtra').value),
+        });
+        await Promise.all([renderAccountAi(accountId), renderAccountLog(accountId)]);
+    } catch (error) {
+        if (error instanceof DeniedError) {
+            accountDialog.close();
+            showFailure(error);
+            return;
+        }
+        showAccountError(error.message);
+    } finally {
+        if (button) button.disabled = false;
+    }
+});
+
 async function openAccount(accountId) {
     const account = accountsState.list.find(a => a.id === accountId);
     if (!account) return;
@@ -272,9 +315,9 @@ async function openAccount(accountId) {
     renderAccountDialog(account);
     accountDialog.showModal();
     try {
-        await renderAccountLog(accountId);
+        await Promise.all([renderAccountLog(accountId), renderAccountAi(accountId)]);
     } catch (error) {
-        showAccountError('No se pudo cargar la bitácora.');
+        showAccountError('No se pudo cargar la ficha completa.');
     }
 }
 

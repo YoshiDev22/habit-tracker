@@ -33,7 +33,9 @@ def free_port():
 def start_panel(db):
     """scripts/admin_dev.py sobre la base de esta prueba; devuelve (proceso, enlace, salida)."""
     env = {**os.environ, "DATABASE_URL": f"sqlite:///{db.as_posix()}", "PYTHONIOENCODING": "utf-8",
-           "PYTHONUNBUFFERED": "1"}
+           "PYTHONUNBUFFERED": "1",
+           # ni proveedor de IA, aunque backend/.env lo tenga (como la app en las pruebas)
+           "AI_PROVIDER": "", "AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": ""}
     flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
     proc = subprocess.Popen([sys.executable, str(ROOT / "scripts" / "admin_dev.py"), "--email", ADMIN,
                              "--port", str(free_port()), "--no-browser"], cwd=ROOT, env=env,
@@ -125,6 +127,14 @@ async def main():
         maker = call("GET", "/api/auth/me", expect=200)[1]["modules"]["maker"]
         check(maker["allowed"] and "Acceso a Maker dado" in log and ADMIN in log,
               f"Gestionar gives Maker access, and the log says who ({maker}, {log[:80]})")
+        # Textos de IA extra por hoy, desde la ficha
+        ai_text = await b.wait_for("document.getElementById('accountAi').textContent", bool)
+        check("no tiene proveedor" in ai_text, f"without a provider the sheet says so ({ai_text})")
+        await b.js("""document.getElementById('aiGrantExtra').value = '3';
+            document.getElementById('aiGrantForm').requestSubmit()""")
+        log = await b.wait_for("document.getElementById('accountLog').textContent",
+                               lambda v: "+3 textos de IA hoy (Tiempo y hábitos)" in (v or ""))
+        check("+3 textos de IA hoy (Tiempo y hábitos)" in log, f"and gives 3 extra AI texts for today ({log[:120]})")
         await b.shot("admin_account_dialog", full=False)
         await b.js("document.getElementById('accountDialogClose').click()")
 

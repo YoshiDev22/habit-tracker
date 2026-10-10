@@ -76,6 +76,23 @@
             <h3 id="accountModulesTitle">Acceso a módulos</h3>
             <div class="module-access" id="accountModules"></div>
         </section>
+        <section class="dialog-section" aria-labelledby="accountAiTitle">
+            <h3 id="accountAiTitle">IA de hoy</h3>
+            <ul class="ai-today" id="accountAi"></ul>
+            <form class="inline-form" id="aiGrantForm">
+                <label>Dar
+                    <input type="number" id="aiGrantExtra" min="1" max="50" value="5" required>
+                </label>
+                <label>textos extra en
+                    <select id="aiGrantPool">
+                        <option value="report">Tiempo y hábitos</option>
+                        <option value="costs">Costos</option>
+                    </select>
+                </label>
+                <button type="submit" class="manage">Dar por hoy</button>
+            </form>
+            <p class="hint">Solo por hoy (día UTC): mañana vuelve su límite normal.</p>
+        </section>
         <p class="form-error" id="accountDialogError" role="alert" hidden></p>
         <section class="dialog-section" aria-labelledby="accountLogTitle">
             <h3 id="accountLogTitle">Bitácora de esta cuenta</h3>

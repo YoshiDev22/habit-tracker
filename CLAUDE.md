@@ -761,7 +761,10 @@ queda en `ai_calls` (tabla nueva), que cuenta el límite diario por cuenta (`AI_
 10; día UTC). Desde la 1.23 hay **dos contadores**, por `ai_calls.purpose`: `report`
 (tiempo y hábitos, `AI_DAILY_LIMIT`) y `costs` (`AI_COSTS_DAILY_LIMIT`, 10); `AI_POOL` en
 `report_kinds.py` dice cuál usa cada tema, `ai_usage()` (`report_ai.py`) es la función
-única del contador y `GET /api/reports/ai-usage?subject=` la expone. **Solo las llamadas
+única del contador y `GET /api/reports/ai-usage?subject=` la expone. El límite de una cuenta
+es `account_limit()`: el de la instancia más los **textos extra de hoy** que dio el panel
+(`ai_grants`, por cuenta, contador y día UTC); lo usan el aviso y el bloqueo, para que no se
+contradigan, y mañana vuelve el normal solo. **Solo las llamadas
 buenas (`ok`) gastan el límite**; las fallidas tienen su propio tope por contador y día
 (`FAILED_DAILY_LIMIT`, 10), porque igual gastan tokens del proveedor. Las instrucciones
 dicen que los nombres escritos por el usuario son datos, no órdenes. Cada tema manda sus
@@ -972,6 +975,10 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
   el acceso a los que no son de todos (`GRANTABLE`: Maker e IA; Hábitos da 409), igual que
   `grant_module.py`, que se queda para emergencias. La ficha de la cuenta (*Gestionar*) lo hace
   con una casilla y enseña su bitácora. Un cambio que no cambia nada no se anota.
+- **IA extra por hoy**: `POST /api/accounts/{id}/ai-grants` con `{pool, extra}` (`StrictInt`, de 1 a
+  `AI_GRANT_MAX` = 50 por cuenta, contador y día: dar más el mismo día suma; pasarse es 409).
+  `GET /api/accounts/{id}/ai` da el uso de hoy con su extra. Lo que ve el usuario en
+  `/api/reports/ai-usage` no cambió de forma: solo su `limit` sube.
 - Fase 1 es solo lectura (resumen, cuentas, IA, problemas); el Tunnel y Access, la Fase 3.
 
 ## Reglas del producto
