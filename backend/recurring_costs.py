@@ -16,7 +16,6 @@ un gasto generado que se borra no vuelve, y cambiar el recurrente solo afecta a
 los siguientes. El índice único (recurring_id, cost_date, project_id) frena que
 dos peticiones a la vez generen el mismo cobro.
 """
-import calendar
 from datetime import date as date_type
 from typing import Dict, List, Optional
 
@@ -26,25 +25,12 @@ from sqlmodel import Session, select
 
 from backend.costing import BP_TOTAL, line_total_cents, split_shares
 from backend.models import Project, ProjectCost, RecurringCost
+# La regla de la serie es común con los fijos de Finanzas; se importa de aquí
+# para que costs.py y las pruebas no cambien
+from backend.series import next_date, occurrence, period_start, skip_past  # noqa: F401
 
-FREQUENCIES = ("monthly", "yearly")
 # Cobros que se ponen al día de una vez (un recurrente que empezó hace mucho)
 MAX_CATCH_UP = 36
-
-
-def occurrence(start: date_type, frequency: str, n: int) -> date_type:
-    """El cobro número n (0 = el primero): mismo día del mes, o el último si el
-    mes es más corto; cada año, el mismo día (el 29 de febrero, el 28 si no hay)."""
-    months = n * (12 if frequency == "yearly" else 1)
-    month_index = start.month - 1 + months
-    year, month = start.year + month_index // 12, month_index % 12 + 1
-    return date_type(year, month, min(start.day, calendar.monthrange(year, month)[1]))
-
-
-def next_date(rc: RecurringCost) -> Optional[date_type]:
-    """El siguiente cobro por generar, o None si ya terminó."""
-    d = occurrence(rc.start_date, rc.frequency, rc.generated)
-    return None if rc.end_date is not None and d > rc.end_date else d
 
 
 def proportional_bps(bps: List[int]) -> List[int]:
@@ -161,21 +147,7 @@ def rewrite_charges(session: Session, rc: RecurringCost, since: Optional[date_ty
     return len(dates)
 
 
-def period_start(frequency: str, today: date_type) -> date_type:
-    """El inicio del periodo actual: el día 1 del mes, o el 1 de enero."""
-    return today.replace(day=1) if frequency == "monthly" else today.replace(month=1, day=1)
-
-
 def last_charge(session: Session, rc: RecurringCost) -> Optional[date_type]:
     """La fecha del último gasto anotado por este recurrente (None si ninguno)."""
     return session.exec(select(func.max(ProjectCost.cost_date)).where(
         ProjectCost.user_id == rc.user_id, ProjectCost.recurring_id == rc.id)).one()
-
-
-def skip_past(rc: RecurringCost, today: date_type) -> None:
-    """Al reanudar uno pausado: los cobros del tiempo en pausa no se generan."""
-    for _ in range(10000):
-        due = next_date(rc)
-        if due is None or due >= today:
-            return
-        rc.generated += 1
