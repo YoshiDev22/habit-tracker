@@ -173,3 +173,24 @@ producción solo sale "Reportar un problema" hasta que Access esté listo.
   que `purge_user()` borraría) y sin correo ni datos de la persona, solo el id y el cambio.
 - **CSRF**: toda petición que cambia algo (no GET) pide `Content-Type: application/json` y un
   `Origin` del mismo host que el panel; si no, 403 antes de llegar a la ruta.
+
+## Fase 2, paso 8: eventos de seguridad (pedido por Yoshio, 2026-10-10)
+
+Para detectar abusos, **no comportamiento**: nada de qué hace cada persona en la app, solo lo que
+delata un ataque o un abuso de recursos. Complementa a Cloudflare, que ve la red pero no lo que
+pasa dentro de la app.
+
+- **Eventos**: contraseña equivocada (login y cambio de contraseña), bloqueo por límite (429 de
+  login y registro), cuenta creada (para ver registros masivos por IP), token rechazado (inválido o
+  vencido, revocado, cuenta desactivada), límite de IA alcanzado, límite de reportes de problemas,
+  y acceso rechazado al panel (JWT o CSRF).
+- **Qué se guarda**: tipo, hora, la **IP completa** (sirve para bloquear en Cloudflare o `ufw`) y
+  la cuenta si la hay. **Agrupado**: una fila por hora, tipo, IP y cuenta, con su contador: un
+  ataque de miles de intentos es una fila que sube. Solo se escribe cuando algo falla.
+- **30 días** y se borra (el `.service` diario, con `purge_accounts.py`). Con `user_id`: se va con
+  la cuenta. Se menciona en el aviso de privacidad.
+- **Panel, pestaña Seguridad**: conteos por día y tipo, las IP con más eventos y **alertas** (p. ej.
+  20 contraseñas equivocadas desde una IP en una hora, 5 cuentas nuevas desde una IP en un día,
+  cualquier acceso rechazado al panel). Si casi todo llega de una IP de proxy (127.0.0.1, ::1,
+  privada), avisa que la app ve la IP del proxy y no la del cliente.
+- Toca el login y `get_current_user` (escriben al fallar). Tabla nueva, sin migración.
