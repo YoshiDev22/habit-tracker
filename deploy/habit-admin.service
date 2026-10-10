@@ -1,0 +1,27 @@
+# The admin panel of Habit Tracker (backend/admin_main.py): a second process, next
+# to the app, listening on 127.0.0.1 only. It is reached through a Cloudflare
+# Tunnel protected by Cloudflare Access, never through Caddy, and opens no port.
+# It needs ADMIN_EMAILS, ADMIN_ACCESS_TEAM and ADMIN_ACCESS_AUD in backend/.env,
+# or it refuses to start (see backend/.env.example).
+# A template: replace the user, group, paths and port with your own, then
+#   sudo cp deploy/habit-admin.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now habit-admin.service
+# Its output: journalctl -u habit-admin.service
+
+[Unit]
+Description=Habit tracker: admin panel (127.0.0.1 only, behind Cloudflare Access)
+After=network.target
+
+[Service]
+User=CHANGE_ME
+Group=CHANGE_ME
+# The repo root: DATABASE_URL in backend/.env may be relative to it
+WorkingDirectory=/path/to/habit-tracker
+# --host 127.0.0.1: nothing outside the machine reaches it; cloudflared connects locally.
+# --no-proxy-headers: the real IP comes in Cf-Connecting-Ip from the Tunnel
+ExecStart=/path/to/habit-tracker/.venv/bin/uvicorn backend.admin_main:app --host 127.0.0.1 --port 8100 --no-proxy-headers
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

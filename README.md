@@ -158,6 +158,21 @@ python scripts/admin_dev.py --email tu-correo@ejemplo.com
 
 Abre el navegador con el panel; Ctrl+C lo cierra y borra la llave temporal.
 
+**En producción** el panel no pasa por Caddy ni abre puertos: se llega a él por un Cloudflare
+Tunnel protegido con Cloudflare Access.
+
+1. En Cloudflare Zero Trust, crea un **Tunnel** (`cloudflared` en el VPS) con un subdominio propio
+   que apunte a `http://127.0.0.1:8100`.
+2. Crea una **aplicación de Access** para ese subdominio, con una política que solo deje pasar tu
+   correo (y MFA). Copia su *Application Audience (AUD) Tag*.
+3. En `backend/.env` del VPS: `ADMIN_EMAILS` (el correo con el que entras a Access),
+   `ADMIN_ACCESS_TEAM` (el nombre de tu equipo, `<equipo>.cloudflareaccess.com`) y
+   `ADMIN_ACCESS_AUD`.
+4. Instala el servicio con la plantilla `deploy/habit-admin.service` (usuario, grupo y rutas
+   tuyos) y `sudo systemctl enable --now habit-admin.service`.
+5. Comprueba: en una ventana privada, el subdominio pide entrar con Access; ya dentro, el panel
+   dice tu correo arriba; y en el dominio público de la app, `/api/me` es 404.
+
 ### Avisos para todas las cuentas
 
 Un aviso de mantenimiento (o de una caída) llega a la campanita de todas las cuentas
