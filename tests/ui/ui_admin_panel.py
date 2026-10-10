@@ -117,6 +117,20 @@ async def main():
               f"a report with HTML shows as text and never runs ({st})")
         await b.shot("admin_feedback", full=False)
 
+        # Paso 5: cerrarlo con una nota para la persona; la interna no le llega
+        await b.js("""(() => { const form = document.querySelector('#feedbackList .feedback-editor');
+            form.querySelector('select').value = 'closed';
+            const [internal, forUser] = form.querySelectorAll('textarea');
+            internal.value = 'Nota interna: revisar loadBoard';
+            forUser.value = 'Ya quedó, gracias por avisar.';
+            form.requestSubmit(); })()""")
+        msg = await b.wait_for("document.getElementById('feedbackMessage').textContent", bool)
+        today = __import__("datetime").date.today().isoformat()
+        notices = [n for n in call("GET", f"/api/notices?today={today}", expect=200)[1]["notices"]
+                   if n["kind"] == "feedback_closed"]
+        check("le llegó un aviso" in msg and len(notices) == 1 and notices[0]["detail"] == "Ya quedó, gracias por avisar."
+              and "loadBoard" not in str(notices), f"closing a problem tells the person, with their note only ({notices})")
+
         await b.js("document.querySelector('[data-tab=accounts]').click()")
         await b.shot("admin_accounts", full=False)
 

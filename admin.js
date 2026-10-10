@@ -194,6 +194,12 @@ function showAccountError(message) {
 }
 
 function describeChange(action) {
+    if (action.action === 'feedback') {
+        const before = STATUS_LABELS[action.before.status] || action.before.status;
+        const after = STATUS_LABELS[action.after.status] || action.after.status;
+        return before === after ? `Problema #${action.after.feedback_id}: notas`
+            : `Problema #${action.after.feedback_id}: ${before} → ${after}`;
+    }
     if (action.action === 'account') return action.after.active ? 'Cuenta reactivada' : 'Cuenta desactivada';
     if (action.action === 'keep') return 'Borrado programado cancelado';
     if (action.action === 'ai_grant') {
@@ -427,9 +433,61 @@ function renderFeedback(items) {
             details.append(node('summary', null, 'Detalles técnicos'), node('pre', null, JSON.stringify(item.details, null, 2)));
             card.append(details);
         }
-        if (item.admin_note) card.append(node('p', 'feedback-note', item.admin_note));
+        card.append(feedbackEditor(item));
         return card;
     }));
+}
+
+// Estado y notas de un reporte. Cerrarlo le avisa a quien lo reportó, con la nota para él
+function feedbackEditor(item) {
+    const form = node('form', 'feedback-editor');
+    const status = node('select');
+    status.setAttribute('aria-label', 'Estado');
+    for (const [value, label] of Object.entries(STATUS_LABELS)) {
+        const option = node('option', null, label);
+        option.value = value;
+        option.selected = value === item.status;
+        status.append(option);
+    }
+    const internal = node('textarea');
+    internal.maxLength = 1000;
+    internal.rows = 2;
+    internal.placeholder = 'Nota interna (solo se ve aquí)';
+    internal.value = item.admin_note || '';
+    const forUser = node('textarea');
+    forUser.maxLength = 500;
+    forUser.rows = 2;
+    forUser.placeholder = 'Nota para la persona: sale en su aviso al cerrarlo';
+    forUser.value = item.user_note || '';
+    const save = node('button', 'manage', 'Guardar');
+    save.type = 'submit';
+    const message = node('span', 'hint');
+    const row = node('div', 'feedback-editor-row');
+    row.append(status, save, message);
+    form.append(internal, forUser, row);
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        save.disabled = true;
+        message.textContent = '';
+        try {
+            const closing = status.value === 'closed' && item.status !== 'closed';
+            await adminSend('PUT', `/api/feedback/${item.id}`,
+                { status: status.value, admin_note: internal.value, user_note: forUser.value });
+            await loadFeedback();
+            if (closing) showFeedbackMessage('Cerrado: le llegó un aviso a la persona.');
+        } catch (error) {
+            if (error instanceof DeniedError) return showFailure(error);
+            message.textContent = error.message;
+            save.disabled = false;
+        }
+    });
+    return form;
+}
+
+function showFeedbackMessage(text) {
+    const box = document.getElementById('feedbackMessage');
+    box.textContent = text;
+    box.hidden = !text;
 }
 
 async function loadFeedback() {

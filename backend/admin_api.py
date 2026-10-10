@@ -167,7 +167,8 @@ def feedback(status_filter: Optional[str] = Query(default=None, alias="status"),
     rows = session.exec(query.order_by(Feedback.created_at.desc(), Feedback.id.desc()).limit(200)).all()
     return {"feedback": [{
         "id": f.id, "created_at": f.created_at, "status": f.status, "text": f.text, "details": f.details,
-        "admin_note": f.admin_note, "account": {"id": f.user_id, "email": mask_email(email)},
+        "admin_note": f.admin_note, "user_note": f.user_note,
+        "account": {"id": f.user_id, "email": mask_email(email)},
     } for f, email in rows]}
 
 
@@ -381,3 +382,45 @@ def security(days: int = Query(default=7, ge=1, le=30), session: Session = Depen
         "alerts": alerts[:50],
         "proxy_warning": total_ip >= PROXY_MIN_EVENTS and from_proxy / total_ip >= PROXY_SHARE,
     }
+
+
+# ---------- Problemas reportados (paso 5) ----------
+FEEDBACK_NOTE_MAX = 1000
+FEEDBACK_USER_NOTE_MAX = 500
+
+
+class FeedbackUpdate(SQLModel):
+    status: Optional[str] = None
+    admin_note: Optional[str] = PydanticField(default=None, max_length=FEEDBACK_NOTE_MAX)
+    user_note: Optional[str] = PydanticField(default=None, max_length=FEEDBACK_USER_NOTE_MAX)
+
+
+@router.put("/feedback/{feedback_id}")
+def update_feedback(feedback_id: int, body: FeedbackUpdate, request: Request,
+                    session: Session = Depends(get_session)) -> dict:
+    """El estado de un problema (abierto, revisado, cerrado), la nota interna y la nota
+    para quien lo reportó. Cerrarlo le avisa en su campanita, una sola vez, con la nota
+    para él (la interna nunca sale del panel). Una nota vacía la borra."""
+    if body.status is not None and body.status not in FEEDBACK_STATUSES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"status debe ser uno de: {', '.join(FEEDBACK_STATUSES)}")
+    feedback = session.get(Feedback, feedback_id)
+    if feedback is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe ese reporte")
+    before = {"status": feedback.status, "admin_note": feedback.admin_note, "user_note": feedback.user_note}
+    if body.status is not None:
+        feedback.status = body.status
+    for field in ("admin_note", "user_note"):
+        value = getattr(body, field)
+        if value is not None:
+            setattr(feedback, field, value.strip() or None)
+    after = {"status": feedback.status, "admin_note": feedback.admin_note, "user_note": feedback.user_note}
+    if after != before:
+        record_action(session, _admin(request), "feedback", feedback.user_id,
+                      {"feedback_id": feedback.id, **before}, {"feedback_id": feedback.id, **after})
+        if after["status"] == "closed" and before["status"] != "closed":
+            from backend.notices import add_notice
+            add_notice(session, feedback.user_id, "feedback_closed", str(feedback.id))
+        session.add(feedback)
+        session.commit()
+    return {"id": feedback.id, **after}

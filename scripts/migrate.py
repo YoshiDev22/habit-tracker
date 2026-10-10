@@ -79,6 +79,9 @@ MIGRATIONS = [
     {"table": "users", "column": "last_seen_at", "type": "DATETIME"},
     # Fecha de registro (1.27): las cuentas que ya existen quedan en NULL.
     {"table": "users", "column": "created_at", "type": "DATETIME"},
+    # La nota para quien reportó un problema (1.27, Fase 2). feedback es de la 1.27: en
+    # producción create_all() la crea completa; esto es para las bases que ya la tenían
+    {"table": "feedback", "column": "user_note", "type": "VARCHAR", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

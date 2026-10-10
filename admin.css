@@ -287,3 +287,17 @@ h3 { margin: 24px 0 8px; font-size: 0.95rem; }
 .grid .ip { font-family: var(--mono); user-select: all; }
 .grid .what { white-space: normal; color: var(--muted); }
 code { font: 0.85em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+/* Problemas: estado y notas (paso 5) */
+.feedback-editor { display: grid; gap: 6px; margin-top: 10px; }
+.feedback-editor textarea, .feedback-editor select {
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px;
+    resize: vertical;
+}
+.feedback-editor-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }

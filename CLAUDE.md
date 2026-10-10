@@ -926,7 +926,11 @@ La campanita es un centro de avisos **guardado por cuenta** (`backend/notices.py
   `python3 scripts/announce.py --title … --body … [--hours N]` (`--list`, `--end ID`; solo
   biblioteca estándar, como `grant_module.py`). Cada cuenta lo recibe al pedir sus avisos
   mientras esté vigente; vencido o terminado, desaparece de todas las campanitas. Sale con 📢
-  y sin botón. El panel de administración (épica 32) lo hará sin entrar al VPS.
+  y sin botón. El panel de administración (épica 32) lo hará sin entrar al VPS. Y
+  `feedback_closed` (ref = id del reporte): al cerrar en el panel un problema que la cuenta
+  reportó, "Revisamos el problema que reportaste el …" con `feedback.user_note` (o "Gracias por
+  avisarnos."); la nota interna (`admin_note`) nunca sale. Uno por reporte: reabrir y volver a
+  cerrar no lo repite. Sale con 🛠️ y sin botón.
 
 El círculo rojo (`unread`) cuenta pendientes más informativos sin leer. Abrir la campanita lee
 los informativos; los pendientes siguen hasta resolverse. La lista va por grupos: Pendientes,
@@ -986,6 +990,10 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
   `token_version`: al reactivarla, sus sesiones de antes no reviven. No borra nada, y el timer
   de los reportes ya se salta las inactivas. `POST /api/accounts/{id}/keep` cancela un borrado
   programado (409 si no había). En la ficha, desactivar pide un segundo clic.
+- **Problemas reportados** (paso 5): `PUT /api/feedback/{id}` cambia `status` (`open | reviewed |
+  closed`), `admin_note` (1000, interna) y `user_note` (500, la lee la persona); vacía, se borra.
+  Pasar a cerrado deja el aviso `feedback_closed`. `user_note` es columna de una tabla de esta
+  misma versión: va en `migrate.py` con `new_table` para las bases que ya la tenían.
 - **Eventos de seguridad** (paso 8, `backend/security_log.py`, tabla `security_events`): solo lo que
   falla o delata un abuso (`KINDS`: contraseña equivocada en el login o en Mi perfil, bloqueo por
   límite, cuenta creada, token rechazado con su motivo, límite de IA o de reportes, rechazo en el

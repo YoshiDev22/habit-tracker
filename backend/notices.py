@@ -26,10 +26,10 @@ from typing import Dict, List, Optional
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from backend.models import Announcement, HabitEntry, Notice, PomodoroSession, Report, User, utc_now_naive
+from backend.models import Announcement, Feedback, HabitEntry, Notice, PomodoroSession, Report, User, utc_now_naive
 
 PENDING_KINDS = ("review", "missed_day")
-INFO_KINDS = ("report_ready", "novedades", "announcement")
+INFO_KINDS = ("report_ready", "novedades", "announcement", "feedback_closed")
 KEEP_DAYS = 60
 SUBJECT_TITLE = {"time": "tiempo", "habits": "hábitos", "costs": "costos"}
 MONTHS = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
@@ -113,6 +113,15 @@ def describe(session: Session, notice: Notice) -> Optional[Dict]:
         if ann is None or (ann.ends_at is not None and ann.ends_at <= utc_now_naive()):
             return None   # terminado o vencido: se va de la campanita
         return {**base, "status": "info", "title": ann.title, "detail": ann.body, "announcement": True}
+    if notice.kind == "feedback_closed":
+        # Un problema que reportó, ya revisado: con la nota para él, nunca la interna
+        feedback = session.exec(select(Feedback).where(
+            Feedback.user_id == notice.user_id, Feedback.id == int(notice.ref))).first()
+        if feedback is None:
+            return None
+        return {**base, "status": "info",
+                "title": f"Revisamos el problema que reportaste el {_short(feedback.created_at.date())}",
+                "detail": feedback.user_note or "Gracias por avisarnos."}
     if notice.kind == "novedades":
         return {**base, "status": "info", "title": f"Novedades de la versión {notice.ref}",
                 "detail": "Mira qué hay de nuevo.", "version": notice.ref}

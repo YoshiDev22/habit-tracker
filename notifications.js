@@ -105,11 +105,11 @@ function buildNotice(notice, taskById, projectById) {
         text.append(el('p', 'notice-title', `📅 Día sin anotar: ${longDate(notice.date)}`), el('p', 'notice-hint', notice.detail));
         actions.append(actionButton('Anotar', 'day'), actionButton('Descartar', 'dismiss', true, 'No lo voy a anotar'));
     } else if (notice.status === 'info') {
-        const icon = { report_ready: '📊', novedades: '✨', announcement: '📢' }[notice.kind] || '🔔';
+        const icon = { report_ready: '📊', novedades: '✨', announcement: '📢', feedback_closed: '🛠️' }[notice.kind] || '🔔';
         text.append(el('p', 'notice-title', `${icon} ${notice.title}`));
         if (notice.detail) text.append(el('p', 'notice-hint', notice.detail));
-        // Un anuncio para todas las cuentas (mantenimiento…) solo se lee
-        if (notice.kind !== 'announcement') {
+        // Un anuncio para todas las cuentas (mantenimiento…) o un problema revisado solo se leen
+        if (notice.kind === 'report_ready' || notice.kind === 'novedades') {
             actions.append(actionButton(notice.kind === 'report_ready' ? 'Ver reporte' : 'Ver novedades', 'open'));
         }
     } else {
