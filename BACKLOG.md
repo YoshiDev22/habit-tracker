@@ -548,3 +548,32 @@ cookies de terceros si se puede. Lo que hoy explica `GUIA-DE-USO.md` sirve de ba
 
 **Por decidir.** Si la portada vive en la misma app o en un sitio estático aparte; dónde se
 aloja el video; y si se enlaza la guía de uso.
+
+---
+
+## 38 · P3 · Pruebas de navegador que fallan a veces por "Failed to fetch"
+
+**Visto desde el 2026-10-09** (Fase 1 del panel, antes de los eventos de seguridad), en 1 de cada
+3 o 4 corridas de algunas pruebas (`ui_costs`, `ui_newproject`, `ui_account`, `ui_onboarding`):
+todas sus comprobaciones pasan salvo un `Failed to fetch` en la consola, o falta lo que creó una
+petición. El diagnóstico de `tests/ui/cdp.py` (`[network]` y `[nav]`, con su hora) muestra que **el
+navegador cancela** la petición (`net::ERR_ABORTED`, canceled), a veces el propio `POST` de un
+formulario, **sin una navegación cerca**. La app no cancela nada (sin `AbortController`).
+
+**Descartado, con experimentos**: que la prueba cierre el navegador con peticiones en curso (al
+cerrar se corta antes la conexión de DevTools) y que la página que se va escriba esos errores
+(con una navegación lenta, no escribe nada). Se deshicieron los dos arreglos.
+
+**Siguiente paso**: en la próxima falla, el orden de `[nav]`, `[network]` y `console.error`.
+Ideas sin probar: el socket keep-alive que uvicorn cierra en Windows (el `ConnectionResetError`
+que filtra el `conftest.py`), o el `initiator` de la petición (`Network.requestWillBeSent`).
+
+---
+
+## 39 · P2 · Aviso de privacidad
+
+La app guarda IP completa en los eventos de seguridad (30 días, 1.27), la última actividad de
+cada cuenta y, si el usuario quiere, detalles técnicos al reportar un problema. Hoy solo lo dice
+una pregunta frecuente de `GUIA-DE-USO.md`. Antes de abrirla a más gente: un aviso de privacidad
+(qué se guarda, para qué, cuánto tiempo, cómo pedir que se borre) enlazado desde el registro y
+Mi perfil. Revisar la ley mexicana vigente de protección de datos en posesión de particulares.
