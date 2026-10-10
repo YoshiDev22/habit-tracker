@@ -30,7 +30,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.27 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
-| 37 | P2 | Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo | épica, después de la 1.27 |
+| 37 | P2 | Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo | épica, después de la 1.27; fase 1 hecha en `feat/finanzas` |
 
 ---
 
@@ -575,5 +575,8 @@ pago de la tarjeta, una transferencia.
 **Aceptación.** Las de cada fase en el spec; en todas, que una compra con tarjeta cuente una
 sola vez aunque llegue por varios caminos.
 
-**Por decidir.** Los bancos del primer parser, quincena o mes como periodo por defecto, y lo
-demás que lista el spec.
+**Estado.** Fase 1 (módulo y registro a mano) hecha en la rama `feat/finanzas`, sin
+publicar: va después de la 1.27.
+
+**Por decidir.** Los bancos del primer parser y lo demás que lista el spec (el periodo ya no:
+la app le pregunta a cada usuario si cobra por quincena o por mes).

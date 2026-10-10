@@ -120,7 +120,7 @@ App: alta rápida · pegar el estado de cuenta ──► /api/finance/...  (JWT 
 
 ## Fases
 
-**1 · Módulo y registro a mano.** El módulo `finance`; cuentas, categorías (con las de inicio,
+**1 · Módulo y registro a mano** (hecha en `feat/finanzas`, sin publicar). El módulo `finance`; cuentas, categorías (con las de inicio,
 perezosas como las de Costos), movimientos y fijos; la pestaña con la alta rápida, la lista del
 periodo y el resumen por categoría y cuenta; pegar el estado de cuenta. *Aceptación:* registrar
 efectivo, débito y una compra con crédito más su pago, y que el gasto del mes cuente la compra
@@ -182,11 +182,27 @@ Conexión directa a bancos (agregadores tipo Open Finance: costo y regulación),
 deudas con tabla de amortización, impuestos y declaraciones, conversión entre monedas, y
 finanzas compartidas con otra persona (dependería de la épica 21).
 
+## Decidido al empezar la fase 1 (2026-10-09)
+
+- **El periodo lo elige cada usuario**: la pestaña pregunta "¿Cada cuándo cobras?" (cada
+  quincena o cada mes) la primera vez, y se cambia en *Configuración › Finanzas*. Sin
+  respuesta, se mide por mes. `fin_settings` entra en la fase 1 con las columnas de la fase 2
+  ya creadas (vacías).
+- **Categorías de inicio.** Gasto: Súper, Comer fuera, Transporte, Casa y servicios,
+  Suscripciones, Salud, Personal, Ocio y Otros. Ingreso: Sueldo y Otros ingresos.
+- **Sin saldo por cuenta**: el resumen dice lo que entró y salió de cada cuenta en el
+  periodo, no cuánto hay.
+- **Fijos quincenales** (`semimonthly`: el 15 y el último día), para el sueldo. Solo en
+  Finanzas: Costos sigue con mensual y anual.
+- **La regla de la serie se extrajo** a `backend/series.py` (solo las fechas, sin base de
+  datos); la generación de cobros se copió y adaptó, porque la de Costos va pegada a los
+  repartos entre proyectos.
+
 ## Por decidir
 
 - **De qué banco o bancos** empieza el parser de la fase 3.
-- **Quincena o mes** como periodo por defecto, y si el ingreso esperado es uno o varios.
-- Las **categorías de inicio** y el umbral de un **gasto hormiga**.
+- Si el ingreso esperado (fase 2) es uno o varios.
+- El umbral de un **gasto hormiga**.
 - Si el aviso del día va también por **Telegram** cuando el bot ya está enlazado.
 - Qué se le manda a la IA en el reporte: solo categorías y totales, o también los comercios
   más repetidos (como datos, no instrucciones).

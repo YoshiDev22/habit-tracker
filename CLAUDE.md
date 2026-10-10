@@ -69,6 +69,8 @@ habit-tracker/
 │   ├── modules.py         # MODULES: módulos por cuenta y sus valores por defecto (sin dependencias)
 │   ├── costing.py         # Dinero del plan maker: mano de obra, gastos, costo y margen (centavos)
 │   ├── recurring_costs.py # Gastos repartidos (filas por proyecto) y recurrentes (sus cobros)
+│   ├── series.py          # La regla de la serie de cobros y el periodo (mes o quincena), sin base
+│   ├── finance.py         # Finanzas personales: lo de inicio, el resumen y los fijos (épica 37)
 │   ├── days.py            # Calendario de trabajo: huso, país y qué días son hábiles
 │   ├── holidays.py        # Festivos oficiales de Nager.Date, en caché por país y año
 │   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
@@ -96,6 +98,7 @@ habit-tracker/
 │       ├── boards.py      # /api/boards/*      (+ /{id}/columns)
 │       ├── tags.py        # /api/tags/*
 │       ├── costs.py       # /api/costs/*      (gastos, categorías y resumen; plan maker)
+│       ├── finance.py     # /api/finance/*    (cuentas, categorías, movimientos, fijos, periodo)
 │       ├── days.py        # /api/days/*       (huso, país, festivos y días marcados)
 │       ├── metrics.py     # /api/metrics      (las cifras de un periodo)
 │       ├── reports.py     # /api/reports      (reportes guardados)
@@ -124,6 +127,7 @@ habit-tracker/
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── costs-recurring.js     # Costos: repartir un gasto entre proyectos y los gastos recurrentes
+├── finance.js             # Pestaña Finanzas: periodo, alta rápida, pegar el estado de cuenta, Organizar
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -191,7 +195,8 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 ## Modelo de datos
 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
-`ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`,
+`ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`, las de Finanzas (`FinAccount`, `FinCategory`,
+`FinTransaction`, `FinRecurring`, `FinSettings`),
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -377,8 +382,9 @@ Lo que no se ve en Swagger:
   buenos y los emails repetidos no gastan intentos. `ALLOW_REGISTRATION=false` en
   `backend/.env` cierra el registro (403) sin tocar las cuentas que ya existen. Las
   pruebas vacían los contadores en cada una (`fresh_db`).
-- **Módulos por cuenta** (`backend/modules.py`, épica 24): `habits` (activo por defecto) y
-  `maker` (el plan maker: gratis, pero solo para cuentas con acceso). Todo usuario que
+- **Módulos por cuenta** (`backend/modules.py`, épica 24): `habits` (activo por defecto),
+  `maker` (el plan maker: gratis, pero solo para cuentas con acceso), `ai` y `finance` (los dos
+  con acceso, como `maker`). Todo usuario que
   devuelve la API pasa por `user_response()` (`routers/auth.py`) y lleva
   `modules: {nombre: {enabled, allowed}}`. `PUT /api/auth/me/modules/{módulo}` con
   `{enabled}` lo enciende o apaga: 403 si la cuenta no tiene acceso, 404 si no existe.
@@ -452,6 +458,31 @@ Lo que no se ve en Swagger:
   `None` con menos de `ESTIMATE_MIN_TASKS` (3) tareas en la fila. El tiempo de una tarea es
   el de su `seconds` (sesiones focus de la tarea). `estimatesCard()` en
   `project-overview.js` la pinta en la ficha y en Costos (*Tus estimados*).
+- **Finanzas personales** (épica 37, `docs/specs/finanzas.md`; módulo `finance`, con acceso como
+  `maker`): `/api/finance` (router `finance.py`, todo tras `finance_user`). No comparte tablas con
+  Costos. Una **cuenta** (`cash | debit | credit`, una moneda, solo `last4`) y movimientos de
+  tipo `expense | income | transfer`, con el monto siempre positivo. **La compra con crédito es
+  el gasto y el pago de la tarjeta una transferencia**: el resumen (`summary()` en
+  `backend/finance.py`) nunca cuenta una transferencia como gasto, y una transferencia solo va
+  entre cuentas de la misma moneda (409). Un gasto o ingreso lleva categoría de su tipo; una
+  transferencia, ninguna. "Efectivo" y las categorías de inicio se siembran perezosas
+  (`ensure_finance_setup()`), cada una en su commit: la pantalla pide dos cosas a la vez y las
+  dos siembran. Con movimientos, una cuenta se archiva y una categoría no se borra (409). El
+  **periodo** es la respuesta a "¿Cada cuándo cobras?" (`fin_settings.period`, NULL = no ha
+  contestado y se mide por mes): `month` o `biweekly` (1–15 y 16–fin); las fechas las calcula
+  `period_bounds()` en `backend/series.py` y `GET /summary?day=` las devuelve con un día del
+  periodo anterior y del siguiente. Los **fijos** (`fin_recurring`) usan la misma serie que los
+  recurrentes de Costos (`series.py`), más la quincenal (`semimonthly`, el 15 y el último día,
+  solo aquí), y `generate_due()` los anota con `source = recurring`. Las columnas de las fases
+  3 y 4 (`external_id`, `linked_id`, `needs_review`) ya existen para no migrar después. El panel
+  de administración solo cuenta movimientos (`COUNTED`), nunca montos ni conceptos.
+- **Pestaña Finanzas** (`finance.js`): la vista `'finance'`, entre Costos y Reportes, oculta
+  hasta que `applyFinanceModule()` la muestra; también la página *Configuración › Finanzas*
+  (el periodo). Pegar filas en *Movimientos* (o un CSV) abre la vista previa
+  (`rowsToFinance()`, con columnas Cargo/Abono o un solo Monto con signo): lo que ya existe en
+  esa cuenta (mismo día, monto y tipo, contando repeticiones) sale tachado y no entra salvo que
+  se pida, y un abono a una tarjeta de crédito se salta (es el pago: va como transferencia).
+  *Organizar* (cuentas, fijos y categorías) es un desglose con `createDrillDown()`.
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va
   siempre al final; el orden de `VIEWS` y el de las secciones del HTML deben coincidir), oculta en el HTML y
   mostrada por `applyCostsModule()` con el plan encendido. Si se recargó estando en ella,
@@ -521,7 +552,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los diecisiete scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los dieciocho scripts en orden y **el
 orden importa**:
 
 ```html
@@ -541,6 +572,7 @@ orden importa**:
 <script src="saved-reports.js"></script> <!-- reportes guardados: usa los helpers de reports.js -->
 <script src="account.js"></script>      <!-- contraseña y borrar la cuenta: usa confirmDialog y handleLogout -->
 <script src="costs-recurring.js"></script> <!-- reparto y recurrentes: usa costsState y loadCostRows de costs.js -->
+<script src="finance.js"></script>     <!-- Finanzas: usa parseTable y parseMoneyCents de costs.js, createDrillDown -->
 <script src="novedades.js"></script>    <!-- Novedades: usa el() de reports.js y la página news de Mi perfil -->
 ```
 
@@ -1115,6 +1147,7 @@ versión que tenga `user_modules`: `python3 scripts/grant_module.py --email … 
 (`--revoke` lo quita, `--list` muestra quién lo tiene). Quitarlo apaga el módulo sin
 olvidar lo que el usuario había elegido. La IA de los reportes, igual con `--module ai`, y
 además el bloque `AI_*` en `backend/.env` del VPS (reiniciar el servicio para que lo lea).
+Finanzas, igual con `--module finance`.
 
 ## Cómo quiero que trabajes
 
