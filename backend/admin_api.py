@@ -17,8 +17,8 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import (AiCall, Board, Feedback, Habit, PomodoroSession, ProjectCost, Report, Task, User,
-                            UserModule, utc_now_naive)
+from backend.models import (AdminAction, AiCall, Board, Feedback, Habit, PomodoroSession, ProjectCost, Report,
+                            Task, User, UserModule, utc_now_naive)
 from backend.modules import MODULES, resolve as resolve_module
 
 router = APIRouter()
@@ -27,6 +27,15 @@ router = APIRouter()
 COUNTED = {"boards": Board, "tasks": Task, "habits": Habit, "sessions": PomodoroSession,
            "costs": ProjectCost, "reports": Report}
 FEEDBACK_STATUSES = ("open", "reviewed", "closed")
+
+
+def record_action(session: Session, admin: str, action: str, account_id: Optional[int],
+                  before: Optional[Dict], after: Optional[Dict]) -> AdminAction:
+    """Anota una acción en la bitácora, en la misma transacción que el cambio (no
+    hace commit: si el cambio falla, tampoco queda anotado)."""
+    row = AdminAction(admin_email=admin, action=action, account_id=account_id, before=before, after=after)
+    session.add(row)
+    return row
 
 
 def mask_email(email: str) -> str:
@@ -155,3 +164,14 @@ def feedback(status_filter: Optional[str] = Query(default=None, alias="status"),
         "id": f.id, "created_at": f.created_at, "status": f.status, "text": f.text, "details": f.details,
         "admin_note": f.admin_note, "account": {"id": f.user_id, "email": mask_email(email)},
     } for f, email in rows]}
+
+
+@router.get("/actions")
+def actions(account_id: Optional[int] = None, session: Session = Depends(get_session)) -> dict:
+    """La bitácora, la más nueva arriba (hasta 200); con account_id, solo esa cuenta."""
+    query = select(AdminAction)
+    if account_id is not None:
+        query = query.where(AdminAction.account_id == account_id)
+    rows = session.exec(query.order_by(AdminAction.created_at.desc(), AdminAction.id.desc()).limit(200)).all()
+    return {"actions": [{"id": a.id, "created_at": a.created_at, "admin": a.admin_email, "action": a.action,
+                         "account_id": a.account_id, "before": a.before, "after": a.after} for a in rows]}

@@ -15,10 +15,11 @@ persona (tareas, hábitos, gastos, textos de reportes).
 """
 import os
 import sys
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
@@ -56,8 +57,27 @@ SECURITY_HEADERS = {
 }
 
 
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def _same_origin(request: Request) -> bool:
+    """El Origin del navegador es el mismo host que el panel. Detrás de cloudflared
+    el esquema que ve uvicorn es http, así que se compara el host, no la URL entera."""
+    origin = request.headers.get("origin") or ""
+    return bool(origin) and urlparse(origin).netloc == request.headers.get("host")
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    # CSRF: Access manda su JWT también en las peticiones que otro sitio haga con la
+    # cookie de Access. Lo que cambia algo pide JSON y el Origin del propio panel
+    if request.method not in SAFE_METHODS:
+        content_type = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+        if content_type != "application/json" or not _same_origin(request):
+            response = JSONResponse({"detail": "Acceso denegado"}, status_code=403)
+            for name, value in SECURITY_HEADERS.items():
+                response.headers[name] = value
+            return response
     response = await call_next(request)
     for name, value in SECURITY_HEADERS.items():
         response.headers[name] = value

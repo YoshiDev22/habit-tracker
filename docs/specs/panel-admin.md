@@ -158,3 +158,18 @@ producción solo sale "Reportar un problema" hasta que Access esté listo.
   tiene más de una hora (o no existe). Columna en `migrate.py`. Toca la autenticación: su
   prueba exige que dos peticiones seguidas no escriban dos veces.
 - **Sin capturas de pantalla** con el reporte.
+
+## Decidido al empezar la Fase 2 (2026-10-09)
+
+- **Desactivar una cuenta la saca al momento**: `get_current_user` rechaza sus tokens (401) en
+  la siguiente petición y el login dice "Tu cuenta está desactivada; escríbenos si crees que es
+  un error". Sus datos quedan intactos hasta reactivarla. Toca la autenticación.
+- **Textos de IA extra solo por hoy** (`ai_grants`, día UTC): se suman al límite del día del
+  contador elegido y mañana vuelve al normal. Un límite propio permanente sigue en la entrada 31.
+- **Cerrar un problema reportado avisa a quien lo reportó** en su campanita ("Revisamos el
+  problema que reportaste el 9 oct", con la nota para el usuario si se escribe). Revisado no
+  avisa; la nota interna nunca sale del panel.
+- **La bitácora sobrevive al borrado de la cuenta**: `admin_actions.account_id` (no `user_id`,
+  que `purge_user()` borraría) y sin correo ni datos de la persona, solo el id y el cambio.
+- **CSRF**: toda petición que cambia algo (no GET) pide `Content-Type: application/json` y un
+  `Origin` del mismo host que el panel; si no, 403 antes de llegar a la ruta.

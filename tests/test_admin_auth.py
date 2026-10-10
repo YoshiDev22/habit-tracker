@@ -69,6 +69,7 @@ def admin(monkeypatch):
         return client.get(path, headers=headers)
 
     get.fetched = fetched
+    get.client = client
     return get
 
 

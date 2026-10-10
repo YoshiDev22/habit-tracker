@@ -961,8 +961,13 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
 - **El navegador**: CSP estricta (`script-src 'self'`, sin estilos en línea), `no-store`, sin
   marcos. `admin.js` pinta todo con `textContent`; `ui_admin_panel.py` comprueba que un reporte
   con `<script>` o `<img onerror>` se ve como texto y no corre.
-- Fase 1 es solo lectura (resumen, cuentas, IA, problemas). Las acciones, con bitácora y
-  `Origin` comprobado, son la Fase 2; el Tunnel y Access, la Fase 3.
+- **Acciones (Fase 2)**: todo lo que no es GET pasa primero por la protección CSRF de
+  `admin_main.py` (`Content-Type: application/json` y un `Origin` del mismo host; si no, 403 antes
+  de cualquier ruta: Access también manda su JWT en las peticiones que otro sitio haga con su
+  cookie). Cada acción se anota con `record_action()` en `admin_actions`, en la misma
+  transacción que el cambio. La bitácora usa `account_id`, **no `user_id`**: así `purge_user()`
+  no la borra con la cuenta, y no guarda correo ni datos de la persona.
+- Fase 1 es solo lectura (resumen, cuentas, IA, problemas); el Tunnel y Access, la Fase 3.
 
 ## Reglas del producto
 

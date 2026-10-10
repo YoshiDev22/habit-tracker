@@ -181,6 +181,26 @@ class Feedback(SQLModel, table=True):
     admin_note: Optional[str] = Field(default=None)        # nota interna, solo en el panel
 
 
+class AdminAction(SQLModel, table=True):
+    """
+    La bitácora del panel de administración (1.27, Fase 2): cada acción que
+    cambia algo, con quién la hizo (el correo de Access), qué, sobre qué cuenta
+    y cómo estaba antes y después. No se edita ni se borra desde el panel.
+    `account_id` y no `user_id` a propósito: purge_user() borra toda tabla con
+    user_id, y la bitácora debe sobrevivir al borrado de la cuenta (sin datos de
+    la persona: solo su id y el cambio). Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "admin_actions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive(), index=True)
+    admin_email: str
+    action: str                                   # module | ai_grant | account | feedback | announcement …
+    account_id: Optional[int] = Field(default=None, index=True)   # la cuenta afectada (o ninguna)
+    before: Optional[Dict] = Field(default=None, sa_type=JSON)
+    after: Optional[Dict] = Field(default=None, sa_type=JSON)
+
+
 class HabitNote(SQLModel, table=True):
     """
     Una nota corta de un hábito en un día (1.25): "cuerda 20 min", "bici a la
