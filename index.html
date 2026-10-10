@@ -139,6 +139,9 @@
             <!-- Solo con el plan Maker encendido (costs.js, setViewVisible) -->
             <button id="tabCosts" class="tab-btn" role="tab" hidden
                     aria-selected="false" aria-controls="viewCosts" tabindex="-1">Costos</button>
+            <!-- Solo con el módulo Finanzas encendido (finance.js, setViewVisible) -->
+            <button id="tabFinance" class="tab-btn" role="tab" hidden
+                    aria-selected="false" aria-controls="viewFinance" tabindex="-1">Finanzas</button>
             <button id="tabReports" class="tab-btn" role="tab"
                     aria-selected="false" aria-controls="viewReports" data-view="2" tabindex="-1">Reportes</button>
             <span class="tab-indicator" aria-hidden="true"></span>
@@ -328,6 +331,48 @@
                         </form>
                         <div id="costsCategoryError" class="form-error hidden"></div>
                     </details>
+                </section>
+
+                <!-- Finanzas personales (épica 37): el periodo, el resumen y los
+                     movimientos. finance.js pinta todo. -->
+                <section id="viewFinance" class="view" role="tabpanel" aria-labelledby="tabFinance" hidden>
+                    <!-- La primera vez: cada cuándo cobra (se cambia en Configuración › Finanzas) -->
+                    <section class="report-card finance-ask" id="financeAsk" hidden>
+                        <h3 class="report-card-title">¿Cada cuándo cobras?</h3>
+                        <p class="costs-hint">Así la app mide tus gastos por periodo. Lo cambias cuando quieras en
+                            Configuración › Finanzas.</p>
+                        <div class="finance-ask-actions">
+                            <button type="button" class="submit-btn" data-period="biweekly">Cada quincena</button>
+                            <button type="button" class="submit-btn" data-period="month">Cada mes</button>
+                        </div>
+                    </section>
+
+                    <div class="finance-toolbar">
+                        <div class="finance-period">
+                            <button type="button" class="finance-nav" id="financePrev" aria-label="Periodo anterior">‹</button>
+                            <span class="finance-period-label" id="financePeriodLabel"></span>
+                            <button type="button" class="finance-nav" id="financeNext" aria-label="Periodo siguiente">›</button>
+                        </div>
+                        <div class="finance-toolbar-actions">
+                            <button type="button" class="link-btn" id="financeOrganize">Organizar</button>
+                            <button type="button" class="submit-btn" id="financeAddBtn">＋ Agregar</button>
+                        </div>
+                    </div>
+
+                    <div id="financeSummary" class="finance-summary" aria-live="polite"></div>
+
+                    <section class="report-card finance-list-card">
+                        <div class="costs-sheet-head">
+                            <h3 class="report-card-title">Movimientos</h3>
+                            <button type="button" id="financeImportBtn" class="link-btn">Importar CSV</button>
+                        </div>
+                        <p class="costs-hint">Para cuadrar con tu estado de cuenta, copia sus filas (de Excel, Google
+                            Sheets o el sitio del banco) y pégalas aquí con Ctrl+V: verás lo que entra antes de
+                            agregarlo.</p>
+                        <input type="file" id="financeImportFile" accept=".csv,text/csv,text/plain" hidden>
+                        <div id="financeList" class="finance-list"></div>
+                        <div id="financeError" class="form-error hidden"></div>
+                    </section>
                 </section>
 
                 <section id="viewReports" class="view" role="tabpanel" aria-labelledby="tabReports">
@@ -645,6 +690,10 @@
                         <span class="settings-item-text"><strong>Módulos</strong><small>Qué partes de la app usas</small></span>
                         <span class="settings-item-go" aria-hidden="true">›</span>
                     </button>
+                    <button type="button" class="settings-item" data-open="finance" id="settingsFinanceItem" hidden>
+                        <span class="settings-item-text"><strong>Finanzas</strong><small>Cada cuándo cobras</small></span>
+                        <span class="settings-item-go" aria-hidden="true">›</span>
+                    </button>
                     <button type="button" class="settings-item" data-open="pomodoro">
                         <span class="settings-item-text"><strong>Pomodoro</strong><small>Duración del enfoque y los descansos</small></span>
                         <span class="settings-item-go" aria-hidden="true">›</span>
@@ -799,6 +848,14 @@
                         <span class="module-hint">Costeo de proyectos: cliente, tarifa por hora y presupuesto en la ficha de cada proyecto.</span>
                     </span>
                 </label>
+                <!-- Solo para las cuentas con acceso (scripts/grant_module.py --module finance) -->
+                <label class="module-option" id="moduleFinanceOption" hidden>
+                    <input type="checkbox" id="moduleFinance" data-module="finance">
+                    <span class="module-text">
+                        <span class="module-name">Finanzas</span>
+                        <span class="module-hint">Tus gastos, ingresos y fijos del día a día, por cuenta y categoría. Si lo apagas, tus movimientos se guardan y vuelven al encenderlo.</span>
+                    </span>
+                </label>
                 <!-- Solo para las cuentas con acceso (scripts/grant_module.py --module ai) -->
                 <label class="module-option" id="moduleAiOption" hidden>
                     <input type="checkbox" id="moduleAi" data-module="ai">
@@ -839,6 +896,22 @@
                 </section>
 
                 <!-- De este dispositivo: se aplica al tocarlo y sobrevive al cierre de sesión -->
+                <!-- Finanzas (finance.js): el periodo con el que se miden los gastos -->
+                <section class="settings-page" data-section="finance" data-title="Finanzas" id="settingsFinancePage" hidden>
+                    <div class="settings-body">
+                        <div class="device-setting-row">
+                            <span id="financePeriodSettingLabel">Cobras</span>
+                            <div class="view-toggle" id="financePeriodToggle" role="group" aria-labelledby="financePeriodSettingLabel">
+                                <button type="button" class="view-toggle-btn" data-period="biweekly">Cada quincena</button>
+                                <button type="button" class="view-toggle-btn" data-period="month">Cada mes</button>
+                            </div>
+                        </div>
+                        <p class="module-hint">La quincena va del 1 al 15 y del 16 al último día del mes. Cambiarlo
+                            no mueve ningún movimiento: solo cómo se agrupan.</p>
+                        <div id="financePeriodError" class="form-error hidden"></div>
+                    </div>
+                </section>
+
                 <section class="settings-page" data-section="accessibility" data-title="Accesibilidad">
                     <div class="settings-body">
                         <div class="device-setting-row">
@@ -1074,6 +1147,194 @@
                 <button type="button" id="costsImportCancel" class="submit-btn btn-neutral">Cancelar</button>
                 <button type="button" id="costsImportConfirm" class="submit-btn">Agregar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Agregar o editar un movimiento de Finanzas (finance.js). Se cierra con
+         sus propios listeners. -->
+    <div id="financeTxModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content finance-tx-modal" role="dialog" aria-modal="true" aria-labelledby="financeTxTitle">
+            <button class="modal-close" type="button" id="financeTxClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="financeTxTitle">Agregar</h2>
+            <form id="financeTxForm" class="recurring-form" novalidate>
+                <div class="view-toggle wide" id="financeTxKind" role="group" aria-label="Tipo">
+                    <button type="button" class="view-toggle-btn" data-kind="expense" aria-pressed="true">Gasto</button>
+                    <button type="button" class="view-toggle-btn" data-kind="income" aria-pressed="false">Ingreso</button>
+                    <button type="button" class="view-toggle-btn" data-kind="transfer" aria-pressed="false">Transferencia</button>
+                </div>
+                <label class="recurring-field">Monto
+                    <input type="text" id="financeTxAmount" inputmode="decimal" autocomplete="off" placeholder="0.00" required>
+                </label>
+                <label class="recurring-field">Fecha
+                    <input type="date" id="financeTxDate" required>
+                </label>
+                <label class="recurring-field wide">Concepto
+                    <input type="text" id="financeTxConcept" maxlength="200" autocomplete="off" placeholder="Tacos, súper, renta…" required>
+                </label>
+                <label class="recurring-field"><span id="financeTxAccountLabel">Cuenta</span>
+                    <select id="financeTxAccount"></select>
+                </label>
+                <label class="recurring-field" id="financeTxCategoryField">Categoría
+                    <select id="financeTxCategory"></select>
+                </label>
+                <label class="recurring-field" id="financeTxToField" hidden>A la cuenta
+                    <select id="financeTxTo"></select>
+                </label>
+                <label class="recurring-field wide">Nota (opcional)
+                    <input type="text" id="financeTxNote" maxlength="500" autocomplete="off">
+                </label>
+                <p class="costs-hint wide" id="financeTxHint" hidden>El pago de la tarjeta es una transferencia: la
+                    compra ya contó como gasto el día que la hiciste.</p>
+                <div id="financeTxError" class="form-error hidden wide"></div>
+                <div class="project-delete-actions wide">
+                    <button type="button" id="financeTxDelete" class="submit-btn btn-danger" hidden>Borrar</button>
+                    <button type="button" id="financeTxCancel" class="submit-btn btn-neutral">Cancelar</button>
+                    <button type="submit" id="financeTxSave" class="submit-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Vista previa de un estado de cuenta pegado o importado (finance.js):
+         nada se guarda hasta "Agregar". -->
+    <div id="financeImportModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content costs-import-modal" role="dialog" aria-modal="true" aria-labelledby="financeImportTitle">
+            <button class="modal-close" type="button" id="financeImportClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="financeImportTitle">Revisar antes de agregar</h2>
+            <label class="recurring-field finance-import-account">Cuenta del estado de cuenta
+                <select id="financeImportAccount"></select>
+            </label>
+            <p class="setup-subtitle" id="financeImportSummary"></p>
+            <div class="costs-sheet-scroll">
+                <table class="costs-sheet costs-preview">
+                    <thead>
+                        <tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Categoría</th></tr>
+                    </thead>
+                    <tbody id="financeImportRows"></tbody>
+                </table>
+            </div>
+            <label class="project-delete-option hidden" id="financeImportDupesOption">
+                <input type="checkbox" id="financeImportDupes">
+                <span id="financeImportDupesLabel"></span>
+            </label>
+            <div id="financeImportError" class="form-error hidden"></div>
+            <div class="project-delete-actions">
+                <button type="button" id="financeImportCancel" class="submit-btn btn-neutral">Cancelar</button>
+                <button type="button" id="financeImportConfirm" class="submit-btn">Agregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organizar Finanzas (finance.js): cuentas, categorías y fijos, en
+         desglose (createDrillDown). Se cierra con sus propios listeners. -->
+    <div id="financeConfigModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content config-modal" role="dialog" aria-modal="true" aria-labelledby="financeConfigTitle">
+            <button class="modal-close" type="button" id="financeConfigClose" aria-label="Cerrar">&times;</button>
+            <div class="settings-head">
+                <button type="button" class="settings-back" id="financeConfigBack" aria-label="Volver a Organizar" hidden>‹</button>
+                <h2 class="modal-title" id="financeConfigTitle">Organizar</h2>
+            </div>
+            <nav class="settings-menu" id="financeConfigMenu" aria-label="Organizar Finanzas">
+                <button type="button" class="settings-item" data-open="accounts">
+                    <span class="settings-item-text"><strong>Cuentas</strong><small>Efectivo, débito y crédito</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
+                <button type="button" class="settings-item" data-open="fixed">
+                    <span class="settings-item-text"><strong>Fijos</strong><small>Renta, servicios, suscripciones y tu sueldo</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
+                <button type="button" class="settings-item" data-open="categories">
+                    <span class="settings-item-text"><strong>Categorías</strong><small>De gasto y de ingreso</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
+            </nav>
+
+            <section class="settings-page" data-section="accounts" data-title="Cuentas">
+                <p class="config-hint">La compra con tarjeta de crédito es el gasto; el pago de la tarjeta, una
+                    transferencia desde tu débito. Guarda solo los últimos 4 dígitos, nunca el número completo.
+                    Una cuenta con movimientos no se borra: se archiva.</p>
+                <div id="financeAccountList" class="config-list"></div>
+                <form id="financeAccountForm" class="recurring-form finance-new-form">
+                    <label class="recurring-field wide">Nueva cuenta
+                        <input type="text" id="financeAccountName" maxlength="40" placeholder="Débito Banco, Tarjeta…" required>
+                    </label>
+                    <label class="recurring-field">Tipo
+                        <select id="financeAccountKind">
+                            <option value="cash">Efectivo</option>
+                            <option value="debit" selected>Débito</option>
+                            <option value="credit">Crédito</option>
+                        </select>
+                    </label>
+                    <label class="recurring-field">Moneda
+                        <select id="financeAccountCurrency"></select>
+                    </label>
+                    <label class="recurring-field">Últimos 4 dígitos (opcional)
+                        <input type="text" id="financeAccountLast4" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off">
+                    </label>
+                    <div class="recurring-field finance-form-submit"><button type="submit" class="submit-btn">Agregar</button></div>
+                </form>
+            </section>
+
+            <section class="settings-page" data-section="fixed" data-title="Fijos">
+                <p class="config-hint">Lo que se repite. En su fecha se anota solo (con 🔁), y ahí lo corriges si ese
+                    mes cambió. Cambiar uno afecta a los cobros siguientes, no a los que ya se anotaron.</p>
+                <ul id="financeFixedList" class="recurring-list"></ul>
+                <form id="financeFixedForm" class="recurring-form finance-new-form">
+                    <p class="recurring-label wide" id="financeFixedFormTitle">Nuevo fijo</p>
+                    <div class="view-toggle wide" id="financeFixedKind" role="group" aria-label="Tipo">
+                        <button type="button" class="view-toggle-btn" data-kind="expense" aria-pressed="true">Gasto</button>
+                        <button type="button" class="view-toggle-btn" data-kind="income" aria-pressed="false">Ingreso</button>
+                    </div>
+                    <label class="recurring-field wide">Concepto
+                        <input type="text" id="financeFixedConcept" maxlength="200" placeholder="Renta, teléfono, sueldo…" required>
+                    </label>
+                    <label class="recurring-field">Monto
+                        <input type="text" id="financeFixedAmount" inputmode="decimal" autocomplete="off" placeholder="0.00" required>
+                    </label>
+                    <label class="recurring-field">Cada
+                        <select id="financeFixedFrequency">
+                            <option value="monthly">Mes</option>
+                            <option value="semimonthly">Quincena (el 15 y el último día)</option>
+                            <option value="yearly">Año</option>
+                        </select>
+                    </label>
+                    <label class="recurring-field">Cuenta
+                        <select id="financeFixedAccount"></select>
+                    </label>
+                    <label class="recurring-field">Categoría
+                        <select id="financeFixedCategory"></select>
+                    </label>
+                    <label class="recurring-field"><span id="financeFixedStartLabel">Primer cobro</span>
+                        <input type="date" id="financeFixedStart" required>
+                    </label>
+                    <div class="recurring-field finance-form-submit">
+                        <button type="button" class="link-btn" id="financeFixedCancel" hidden>Cancelar</button>
+                        <button type="submit" class="submit-btn" id="financeFixedSave">Agregar</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="settings-page" data-section="categories" data-title="Categorías">
+                <p class="config-hint">Son tuyas: renómbralas, cámbiales el color u ordénalas. Una con movimientos
+                    no se borra hasta pasarlos a otra.</p>
+                <p class="recurring-label">Gastos</p>
+                <div id="financeExpenseCategories" class="config-list"></div>
+                <p class="recurring-label">Ingresos</p>
+                <div id="financeIncomeCategories" class="config-list"></div>
+                <form id="financeCategoryForm" class="costs-category-form">
+                    <input type="color" id="financeCategoryColor" value="#3498db" aria-label="Color de la categoría nueva">
+                    <input type="text" id="financeCategoryName" maxlength="40" placeholder="Nueva categoría" aria-label="Nombre de la categoría nueva" required>
+                    <select id="financeCategoryKind" aria-label="Tipo de la categoría nueva">
+                        <option value="expense">De gasto</option>
+                        <option value="income">De ingreso</option>
+                    </select>
+                    <button type="submit" class="submit-btn">Agregar</button>
+                </form>
+            </section>
+            <div id="financeConfigError" class="form-error hidden" role="alert"></div>
         </div>
     </div>
 
@@ -1439,6 +1700,7 @@
     <script src="saved-reports.js"></script>
     <script src="account.js"></script>
     <script src="costs-recurring.js"></script>
+    <script src="finance.js"></script>
     <script src="novedades.js"></script>
 </body>
 </html>
