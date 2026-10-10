@@ -20,7 +20,8 @@ from sqlmodel import Session, SQLModel, select
 from backend.database import get_session
 from backend.ai import ai_config
 from backend.models import (AdminAction, AiCall, AiGrant, Board, Feedback, Habit, PomodoroSession, ProjectCost,
-                            Report, Task, User, UserModule, utc_now_naive)
+                            Report, SecurityEvent, Task, User, UserModule, utc_now_naive)
+from backend.security_log import KINDS as SECURITY_KINDS, cleanup as cleanup_security_events, is_proxy_ip
 from backend.report_ai import ai_usage as account_ai_usage, extra_today
 from backend.modules import MODULES, resolve as resolve_module
 
@@ -311,3 +312,72 @@ def cancel_deletion(user_id: int, request: Request, session: Session = Depends(g
     session.add(user)
     session.commit()
     return {"id": user.id, "delete_after": None}
+
+
+# ---------- Seguridad (paso 8) ----------
+# Las alertas: (tipo, por qué se agrupa, ventana, umbral, qué dice)
+ALERTS = [
+    ("login_failed", "ip", "hour", 20, "{n} contraseñas equivocadas desde {who} en una hora"),
+    ("password_failed", "user", "day", 10, "{n} contraseñas equivocadas en Mi perfil de {who} en un día"),
+    ("register", "ip", "day", 5, "{n} cuentas nuevas desde {who} en un día"),
+    ("token_revoked", "user", "day", 20, "{n} tokens de sesiones cerradas de {who} en un día"),
+    ("account_inactive", "user", "day", 5, "{n} intentos de una cuenta desactivada ({who}) en un día"),
+    ("admin_denied", "ip", "day", 1, "{n} accesos rechazados al panel desde {who}"),
+    ("admin_csrf", "ip", "day", 1, "{n} cambios rechazados en el panel (CSRF) desde {who}"),
+]
+PROXY_SHARE = 0.8      # si así de lo que trae IP llega de un proxy, la app no ve la IP real
+PROXY_MIN_EVENTS = 10
+
+
+@router.get("/security")
+def security(days: int = Query(default=7, ge=1, le=30), session: Session = Depends(get_session)) -> dict:
+    """Eventos de seguridad: por día y tipo, las IP con más eventos, las alertas y si
+    la app parece ver la IP del proxy en vez de la del cliente."""
+    cleanup_security_events(session)
+    now = utc_now_naive()
+    since = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days - 1)
+    rows = session.exec(select(SecurityEvent).where(SecurityEvent.hour >= since)).all()
+    ids = {r.user_id for r in rows if r.user_id is not None}
+    emails = dict(session.exec(select(User.id, User.email).where(User.id.in_(ids))).all()) if ids else {}
+
+    def account(user_id):
+        return mask_email(emails[user_id]) if user_id in emails else (None if user_id is None else f"#{user_id}")
+
+    by_day = Counter()
+    by_ip = defaultdict(Counter)
+    for r in rows:
+        by_day[(r.hour.date().isoformat(), r.kind)] += r.count
+        if r.ip:
+            by_ip[r.ip][r.kind] += r.count
+
+    alerts = []
+    for kind, group, window, threshold, text in ALERTS:
+        buckets = Counter()
+        for r in rows:
+            if r.kind != kind:
+                continue
+            key = r.ip if group == "ip" else r.user_id
+            if key in (None, ""):
+                continue
+            when = r.hour if window == "hour" else r.hour.replace(hour=0)
+            buckets[(key, when)] += r.count
+        for (key, when), n in buckets.items():
+            if n >= threshold:
+                who = key if group == "ip" else (account(key) or f"#{key}")
+                alerts.append({"kind": kind, "count": n, "at": when, "ip": key if group == "ip" else None,
+                               "account": None if group == "ip" else who,
+                               "text": text.format(n=n, who=who)})
+    alerts.sort(key=lambda a: a["at"], reverse=True)
+
+    with_ip = [(r.ip, r.count) for r in rows if r.ip]
+    total_ip = sum(n for _, n in with_ip)
+    from_proxy = sum(n for ip, n in with_ip if is_proxy_ip(ip))
+    return {
+        "since": since.date().isoformat(),
+        "kinds": SECURITY_KINDS,
+        "days": [{"date": d, "kind": k, "count": n} for (d, k), n in sorted(by_day.items())],
+        "top_ips": [{"ip": ip, "count": sum(c.values()), "kinds": dict(c)}
+                    for ip, c in sorted(by_ip.items(), key=lambda item: -sum(item[1].values()))[:20]],
+        "alerts": alerts[:50],
+        "proxy_warning": total_ip >= PROXY_MIN_EVENTS and from_proxy / total_ip >= PROXY_SHARE,
+    }

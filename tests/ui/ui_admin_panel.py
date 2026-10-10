@@ -75,6 +75,9 @@ def stop_panel(proc):
 async def main():
     login(ADMIN)
     call("POST", "/api/feedback", {"text": XSS, "details": {"version": "v1.27.0", "view": "projects"}}, expect=201)
+    # Contraseñas equivocadas, todas desde 127.0.0.1 (como si la app viera la IP del proxy)
+    for _ in range(12):
+        call("POST", "/api/auth/login", form={"username": "otro@test.com", "password": "equivocada"})
     db = Path(os.environ["HABIT_UI_TMP"]) / "test_admin_panel.db"
     keys_dirs = lambda: set(Path(tempfile.gettempdir()).glob("habit-admin-dev-*"))  # noqa: E731
     before = keys_dirs()
@@ -155,6 +158,17 @@ async def main():
         state = await b.wait_for("document.getElementById('accountState').textContent", lambda v: v == "Activa")
         check(state == "Activa", "and it can be reactivated")
         await b.js("document.getElementById('accountDialogClose').click()")
+
+        # Seguridad: los eventos, la IP y el aviso de que la app ve la IP de un proxy
+        await b.js("document.querySelector('[data-tab=security]').click()")
+        sec = await b.wait_for("""({warning: !document.getElementById('proxyWarning').hidden,
+            heads: [...document.querySelectorAll('#securityDays th')].map(e => e.textContent),
+            ip: (document.querySelector('#securityIps tbody .ip') || {}).textContent})""",
+                               lambda v: bool(v and v.get("ip")))
+        check(sec["warning"] and "Contraseña equivocada al entrar" in sec["heads"]
+              and "Login bloqueado por el límite de intentos" in sec["heads"] and sec.get("ip") == "127.0.0.1",
+              f"Seguridad shows the events and warns about the proxy IP ({sec})")
+        await b.shot("admin_security", full=False)
 
         # La bitácora general: todo lo de arriba, el más nuevo primero, con la cuenta enmascarada
         await b.js("document.querySelector('[data-tab=log]').click()")

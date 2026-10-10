@@ -16,7 +16,7 @@ from backend.auth import (
     token_for,
 )
 from backend.accounts import purge_user, schedule_deletion
-from backend import ratelimit
+from backend import ratelimit, security_log
 
 router = APIRouter(tags=["auth"])
 
@@ -83,7 +83,8 @@ def register(user: UserCreate, request: Request, session: Session = Depends(get_
         )
 
     ip = ratelimit.client_ip(request)
-    ratelimit.ensure_allowed(ratelimit.registrations, ip, "Se crearon demasiadas cuentas desde esta conexión.")
+    _ensure_allowed(ratelimit.registrations, ip, "Se crearon demasiadas cuentas desde esta conexión.",
+                    "register_blocked")
 
     # Verificar si el email ya existe
     db_user = session.exec(select(User).where(User.email == user.email)).first()
@@ -109,11 +110,21 @@ def register(user: UserCreate, request: Request, session: Session = Depends(get_
     session.refresh(new_user)
     # Solo cuentan las cuentas creadas: un email repetido no gasta intentos
     ratelimit.registrations.hit(ip)
+    security_log.record("register", ip, new_user.id)
     
     return user_response(session, new_user)
 
 
 INACTIVE_MESSAGE = "Tu cuenta está desactivada; escríbenos si crees que es un error."
+
+
+def _ensure_allowed(window, ip: str, message: str, blocked_kind: str) -> None:
+    """El límite de intentos, y si bloquea, el evento de seguridad (backend/security_log.py)."""
+    try:
+        ratelimit.ensure_allowed(window, ip, message)
+    except HTTPException:
+        security_log.record(blocked_kind, ip)
+        raise
 
 
 @router.post("/login", response_model=Token)
@@ -127,13 +138,15 @@ def login(
     """
     # Antes de tocar la base y bcrypt: una IP bloqueada no gasta ni CPU
     ip = ratelimit.client_ip(request)
-    ratelimit.ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.")
+    _ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.", "login_blocked")
 
     # Buscar usuario por email
     user = session.exec(select(User).where(User.email == form_data.username)).first()
     
     if not user or not verify_password(form_data.password, user.hashed_password):
         ratelimit.failed_logins.hit(ip)
+        # Con la cuenta si existe: ver que alguien prueba contraseñas contra una en concreto
+        security_log.record("login_failed", ip, user.id if user else None)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",
@@ -193,9 +206,10 @@ def _check_password(request: Request, user: User, password: str) -> None:
     """La contraseña actual, con el mismo límite de intentos que el login: sin
     él, una sesión robada probaría contraseñas aquí sin freno."""
     ip = ratelimit.client_ip(request)
-    ratelimit.ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.")
+    _ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.", "login_blocked")
     if not verify_password(password, user.hashed_password):
         ratelimit.failed_logins.hit(ip)
+        security_log.record("password_failed", ip, user.id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La contraseña no es correcta")
 
 

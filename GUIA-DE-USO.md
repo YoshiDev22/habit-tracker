@@ -674,6 +674,8 @@ Se muestran los 10 registros más recientes de cada proyecto.
 
 ## Preguntas frecuentes
 
+**¿Qué guarda la app por seguridad?** Solo lo que delata un abuso: contraseñas equivocadas, bloqueos por demasiados intentos, sesiones rechazadas y límites alcanzados, con la hora, la dirección IP desde la que llegó y la cuenta, si la hay. Nunca lo que haces en la app. Se borra a los 30 días, y al borrar tu cuenta se borra lo suyo.
+
 **¿Qué versión estoy usando?**
 Abajo en la pantalla de acceso, y en la barra superior una vez dentro. Si acabas de
 desplegar y sigue saliendo la anterior, recarga con `Ctrl + F5`.

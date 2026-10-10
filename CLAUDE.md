@@ -84,7 +84,8 @@ habit-tracker/
 │   ├── notices.py         # El centro de avisos: pendientes calculados e informativos guardados
 │   ├── admin_main.py      # El panel de administración: OTRO proceso, solo en 127.0.0.1 (épica 32)
 │   ├── admin_auth.py      # Quién entra al panel: JWT de Cloudflare Access + ADMIN_EMAILS
-│   ├── admin_api.py       # La API del panel (solo lectura): cuenta filas, no lee contenido
+│   ├── admin_api.py       # La API del panel: cuenta filas (no lee contenido) y sus acciones
+│   ├── security_log.py    # Eventos de seguridad agrupados por hora, IP y cuenta (30 días)
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -985,6 +986,18 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
   `token_version`: al reactivarla, sus sesiones de antes no reviven. No borra nada, y el timer
   de los reportes ya se salta las inactivas. `POST /api/accounts/{id}/keep` cancela un borrado
   programado (409 si no había). En la ficha, desactivar pide un segundo clic.
+- **Eventos de seguridad** (paso 8, `backend/security_log.py`, tabla `security_events`): solo lo que
+  falla o delata un abuso (`KINDS`: contraseña equivocada en el login o en Mi perfil, bloqueo por
+  límite, cuenta creada, token rechazado con su motivo, límite de IA o de reportes, rechazo en el
+  panel por JWT o CSRF), **nunca lo que hace cada persona**. Una fila por hora, tipo, IP completa y
+  cuenta, con contador: un ataque es una fila que sube. `record()` abre su propia sesión (el
+  evento queda aunque la petición falle) y **nunca lanza**. 30 días (`KEEP_DAYS`): los borra
+  `purge_accounts.py` (el mismo `.service` diario) y el panel al leerlos; con `user_id`, se van con
+  la cuenta. La pestaña *Seguridad* (`GET /api/security`) da conteos, las IP con más eventos, las
+  alertas (`ALERTS`) y `proxy_warning`: si casi todo llega de una red de proxy (`PROXY_NETWORKS`;
+  no `is_private`, que incluye las redes de documentación), la app ve la IP del proxy y no la del
+  cliente. La IP es la de `ratelimit.client_ip()` (la que uvicorn tomó de `X-Forwarded-For` si
+  confía en el proxy); en el panel, `Cf-Connecting-Ip` del Tunnel.
 - Fase 1 es solo lectura (resumen, cuentas, IA, problemas); el Tunnel y Access, la Fase 3.
 
 ## Reglas del producto

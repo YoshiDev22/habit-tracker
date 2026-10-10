@@ -23,6 +23,7 @@
         <button type="button" class="tab" data-tab="accounts">Cuentas</button>
         <button type="button" class="tab" data-tab="ai">IA</button>
         <button type="button" class="tab" data-tab="feedback">Problemas</button>
+        <button type="button" class="tab" data-tab="security">Seguridad</button>
         <button type="button" class="tab" data-tab="log">Bitácora</button>
     </nav>
 
@@ -63,6 +64,22 @@
                 </label>
             </div>
             <div class="feedback-list" id="feedbackList"></div>
+        </section>
+
+        <section class="view" data-view="security" aria-labelledby="securityTitle">
+            <h2 id="securityTitle">Seguridad, últimos 7 días</h2>
+            <p class="hint">Solo lo que falla o delata un abuso (contraseñas equivocadas, bloqueos, tokens
+                rechazados, límites), nunca lo que hace cada persona. Se guarda 30 días. Para bloquear una IP,
+                usa Cloudflare o <code>ufw</code>.</p>
+            <p class="proxy-warning" id="proxyWarning" role="alert" hidden>Casi todos los eventos llegan desde la
+                IP de un proxy (127.0.0.1 o una red local): la app no está viendo la IP real del cliente. Revisa
+                <code>--forwarded-allow-ips</code> del servicio y que Caddy pase la IP de Cloudflare.</p>
+            <h3>Alertas</h3>
+            <ul class="alerts" id="securityAlerts"></ul>
+            <h3>Por día</h3>
+            <div class="table-wrap"><table class="grid" id="securityDays"></table></div>
+            <h3>IP con más eventos</h3>
+            <div class="table-wrap"><table class="grid" id="securityIps"></table></div>
         </section>
 
         <section class="view" data-view="log" aria-labelledby="logTitle">

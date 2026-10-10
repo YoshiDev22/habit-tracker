@@ -199,6 +199,24 @@ class AiGrant(SQLModel, table=True):
     extra: int
 
 
+class SecurityEvent(SQLModel, table=True):
+    """
+    Eventos de seguridad, agrupados: una fila por hora, tipo, IP y cuenta, con su
+    contador (backend/security_log.py). Solo lo que falla o delata un abuso, nunca
+    lo que hace cada persona. IP completa, 30 días; con user_id se va con la
+    cuenta. Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "security_events"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    hour: datetime = Field(index=True)             # UTC naive, al inicio de la hora
+    kind: str
+    ip: str = Field(default="")                    # vacía si el evento no viene de una petición
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+    count: int = Field(default=0)
+    last_at: Optional[datetime] = Field(default=None)
+
+
 class AdminAction(SQLModel, table=True):
     """
     La bitácora del panel de administración (1.27, Fase 2): cada acción que

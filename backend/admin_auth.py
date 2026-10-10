@@ -146,10 +146,21 @@ def verify(token: Optional[str], config: AdminConfig, keys: AccessKeys) -> str:
     return email
 
 
+def client_ip(request: Request) -> str:
+    """Al panel solo se llega por el Tunnel de Cloudflare, que pone la IP real en
+    Cf-Connecting-Ip; sin ella (en tu máquina), la de la conexión."""
+    return request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "")
+
+
 def admin_dependency(config: AdminConfig, keys: AccessKeys):
     """La dependencia de FastAPI que pide un administrador válido."""
     def require_admin(request: Request) -> str:
-        admin = verify(request.headers.get(HEADER), config, keys)
+        try:
+            admin = verify(request.headers.get(HEADER), config, keys)
+        except HTTPException:
+            from backend import security_log
+            security_log.record("admin_denied", client_ip(request))
+            raise
         request.state.admin = admin   # quién hizo cada acción, para la bitácora
         return admin
     return require_admin

@@ -23,8 +23,8 @@ from fastapi.responses import FileResponse, JSONResponse
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-from backend import admin_api  # noqa: E402
-from backend.admin_auth import access_keys, admin_dependency, load_config  # noqa: E402
+from backend import admin_api, security_log  # noqa: E402
+from backend.admin_auth import access_keys, admin_dependency, client_ip as admin_client_ip, load_config  # noqa: E402
 from backend.database import check_pending_migrations, create_db_and_tables  # noqa: E402
 
 ADMIN_CONFIG = load_config()
@@ -74,6 +74,7 @@ async def security_headers(request: Request, call_next):
     if request.method not in SAFE_METHODS:
         content_type = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
         if content_type != "application/json" or not _same_origin(request):
+            security_log.record("admin_csrf", admin_client_ip(request))
             response = JSONResponse({"detail": "Acceso denegado"}, status_code=403)
             for name, value in SECURITY_HEADERS.items():
                 response.headers[name] = value

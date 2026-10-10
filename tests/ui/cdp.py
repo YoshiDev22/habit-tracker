@@ -95,9 +95,15 @@ class Browser:
             msg = json.loads(raw)
             if "id" in msg and msg["id"] in self.pending:
                 self.pending.pop(msg["id"]).set_result(msg)
+            elif msg.get("method") == "Page.frameStartedNavigating":
+                # Solo diagnóstico, como [network]: dice en qué orden llegan una navegación
+                # y los errores de una prueba que falla por un "Failed to fetch"
+                print(f"[nav] {time.monotonic():.3f} starts: {msg['params'].get('url', '')}", flush=True)
             elif msg.get("method") == "Runtime.consoleAPICalled":
                 args = " ".join(str(a.get("value", a.get("description", ""))) for a in msg["params"]["args"])
                 self.console.append(f"[{msg['params']['type']}] {args}")
+                if msg["params"]["type"] == "error":
+                    print(f"[nav] {time.monotonic():.3f} console.error: {args.splitlines()[0][:100]}", flush=True)
             elif msg.get("method") == "Network.requestWillBeSent":
                 req = msg["params"]["request"]
                 self.requests[msg["params"]["requestId"]] = f"{req['method']} {req['url']}"
@@ -108,8 +114,8 @@ class Browser:
                 # "Failed to fetch", su salida dice por qué (reset, abortada, rechazada…)
                 params = msg["params"]
                 what = self.requests.pop(params["requestId"], "?")
-                print(f"[network] {params.get('errorText')}{' (canceled)' if params.get('canceled') else ''}: {what}",
-                      flush=True)
+                print(f"[network] {time.monotonic():.3f} {params.get('errorText')}"
+                      f"{' (canceled)' if params.get('canceled') else ''}: {what}", flush=True)
             elif msg.get("method") == "Runtime.exceptionThrown":
                 d = msg["params"]["exceptionDetails"]
                 self.console.append(f"[exception] {d.get('exception', {}).get('description', d.get('text'))}")

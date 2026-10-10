@@ -21,6 +21,7 @@ from sqlmodel import Session  # noqa: E402
 
 from backend.accounts import due_for_purge, purge_user  # noqa: E402
 from backend.database import check_pending_migrations, create_db_and_tables, engine  # noqa: E402
+from backend.security_log import KEEP_DAYS, cleanup as cleanup_security_events  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -42,6 +43,9 @@ def main(argv=None) -> int:
             print(f"deleted {label}")
     if not args.dry_run:
         print(f"{len(due)} account(s) deleted.")
+        # Los eventos de seguridad se guardan KEEP_DAYS días
+        with Session(engine) as session:
+            print(f"{cleanup_security_events(session)} security event row(s) older than {KEEP_DAYS} days deleted.")
     return 0
 
 

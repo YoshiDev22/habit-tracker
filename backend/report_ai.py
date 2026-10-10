@@ -348,6 +348,8 @@ def write_with_ai(session: Session, user: User, kind: str, metrics: dict, config
     limit = account_limit(session, user.id, config, pool)
     what = "reportes de costos" if pool == "costs" else "reportes de tiempo y hábitos"
     if calls_today(session, user.id, pool) >= limit:
+        from backend import security_log
+        security_log.record("ai_limit", None, user.id)
         raise AiError(f"Llegaste al límite de {limit} textos con IA por hoy para {what}")
     if calls_today(session, user.id, pool, ok=False) >= FAILED_DAILY_LIMIT:
         raise AiError(f"La IA falló {FAILED_DAILY_LIMIT} veces hoy en {what}; vuelve a intentarlo mañana")

@@ -440,6 +440,57 @@ async function loadFeedback() {
 
 // ---------- Pestañas y arranque ----------
 
+// ---------- Seguridad ----------
+
+function emptyRow(columns, text) {
+    const row = node('tr');
+    const cell = node('td', 'empty', text);
+    cell.colSpan = columns;
+    row.append(cell);
+    return row;
+}
+
+function fillTable(table, labels, rows) {
+    const head = node('tr');
+    for (const label of labels) head.append(node('th', null, label));
+    const thead = node('thead');
+    thead.append(head);
+    const body = node('tbody');
+    body.append(...(rows.length ? rows : [emptyRow(labels.length, 'Nada en estos días.')]));
+    table.replaceChildren(thead, body);
+}
+
+async function renderSecurity() {
+    const data = await adminGet('/api/security');
+    document.getElementById('proxyWarning').hidden = !data.proxy_warning;
+    const alerts = document.getElementById('securityAlerts');
+    alerts.replaceChildren(...(data.alerts.length
+        ? data.alerts.map(a => node('li', 'alert', `${dateTime(a.at)} · ${a.text}`))
+        : [node('li', 'empty', 'Ninguna.')]));
+
+    // Una fila por día, una columna por tipo que tuvo eventos
+    const kinds = [...new Set(data.days.map(d => d.kind))];
+    const byDay = new Map();
+    for (const d of data.days) {
+        if (!byDay.has(d.date)) byDay.set(d.date, {});
+        byDay.get(d.date)[d.kind] = d.count;
+    }
+    fillTable(document.getElementById('securityDays'), ['Día (UTC)', ...kinds.map(k => data.kinds[k] || k)],
+        [...byDay.entries()].reverse().map(([date, counts]) => {
+            const row = node('tr');
+            row.append(node('td', null, date), ...kinds.map(k => node('td', 'num', counts[k] || 0)));
+            return row;
+        }));
+
+    fillTable(document.getElementById('securityIps'), ['IP', 'Eventos', 'De qué'],
+        data.top_ips.map((entry) => {
+            const row = node('tr');
+            const what = Object.entries(entry.kinds).map(([k, n]) => `${data.kinds[k] || k}: ${n}`).join(' · ');
+            row.append(node('td', 'ip', entry.ip), node('td', 'num', entry.count), node('td', 'what', what));
+            return row;
+        }));
+}
+
 // ---------- Bitácora ----------
 
 async function renderLog() {
@@ -473,6 +524,7 @@ function showTab(name) {
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.dataset.view === name));
     // La bitácora se pide al abrirla: así enseña también lo que se hizo desde otra pestaña
     if (name === 'log') renderLog().catch(showFailure);
+    if (name === 'security') renderSecurity().catch(showFailure);
 }
 
 document.getElementById('tabs').addEventListener('click', (event) => {

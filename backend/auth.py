@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, select
 
@@ -62,39 +62,44 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), 
+    request: Request,
+    token: str = Depends(oauth2_scheme),
     session: Session = Depends(get_session)
 ) -> User:
-    """Obtiene el usuario actual desde el token JWT"""
+    """Obtiene el usuario actual desde el token JWT. Un token rechazado deja su evento
+    de seguridad (inválido o vencido, de una sesión cerrada, de una cuenta desactivada)."""
+    from backend import ratelimit, security_log
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
+    def reject(kind: str, user_id: Optional[int] = None) -> HTTPException:
+        security_log.record(kind, ratelimit.client_ip(request), user_id)
+        return credentials_exception
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
-        
         if email is None:
-            raise credentials_exception
-            
+            raise reject("token_invalid")
     except JWTError:
-        raise credentials_exception
-    
+        raise reject("token_invalid")
+
     # Usar SQLModel/select en lugar de query
     user = session.exec(select(User).where(User.email == email)).first()
-    
     if user is None:
-        raise credentials_exception
+        raise reject("token_invalid")
     # Otra versión: se cerraron las sesiones (cambio de contraseña o "irme").
     # Los tokens de antes de la versión no la traen y cuentan como 0.
     if payload.get("tv", 0) != (user.token_version or 0):
-        raise credentials_exception
+        raise reject("token_revoked", user.id)
     # Desactivada desde el panel de administración: fuera en la siguiente petición
     # (sus datos quedan intactos hasta reactivarla)
     if not user.is_active:
-        raise credentials_exception
+        raise reject("account_inactive", user.id)
     _mark_seen(session, user)
     return user
 
