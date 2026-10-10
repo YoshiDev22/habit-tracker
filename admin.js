@@ -12,8 +12,8 @@
 
 const DEV_TOKEN_KEY = 'admin_dev_token';
 const LOCAL_HOSTS = ['127.0.0.1', 'localhost'];
-const MODULE_LABELS = { habits: 'Hábitos', maker: 'Maker', ai: 'IA' };
-const COUNT_LABELS = { boards: 'Tableros', tasks: 'Tareas', habits: 'Hábitos', sessions: 'Sesiones', costs: 'Gastos', reports: 'Reportes' };
+const MODULE_LABELS = { habits: 'Hábitos', maker: 'Maker', ai: 'IA', finance: 'Finanzas' };
+const COUNT_LABELS = { boards: 'Tableros', tasks: 'Tareas', habits: 'Hábitos', sessions: 'Sesiones', costs: 'Gastos', finance: 'Movimientos', reports: 'Reportes' };
 const PURPOSE_LABELS = { report: 'Tiempo y hábitos', costs: 'Costos' };
 const STATUS_LABELS = { open: 'Abierto', reviewed: 'Revisado', closed: 'Cerrado' };
 

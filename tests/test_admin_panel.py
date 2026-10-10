@@ -10,6 +10,7 @@ from backend.models import AiCall, utc_now_naive
 from conftest import log_time
 from test_admin_auth import admin, token  # noqa: F401  (la fixture del panel)
 from test_finance import maker_on
+from test_personal_finance import finance_on, tx
 
 TODAY = date.today().isoformat()
 # Todo lo que un usuario escribe lleva esta marca: no puede salir del panel
@@ -33,6 +34,14 @@ def sow_marks(api):
     api.call("POST", "/api/costs", {"project_id": p["id"], "category_id": cats["categories"][0]["id"],
                                     "cost_date": TODAY, "concept": f"{MARK}-gasto", "quantity": 1,
                                     "unit_cost_cents": 1000}, expect=201)
+    finance_on(api, "yoshi@test.com")
+    cash = api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"][0]
+    _, fcat = api.call("POST", "/api/finance/categories", {"name": f"{MARK}-categoria"}, expect=201)
+    _, card = api.call("POST", "/api/finance/accounts", {"name": f"{MARK}-tarjeta", "kind": "credit", "last4": "4321"},
+                       expect=201)
+    api.call("POST", "/api/finance/transactions", {**tx(card, 9876543, f"{MARK}-compra", fcat), "note": f"{MARK}-nota"},
+             expect=201)
+    api.call("POST", "/api/finance/transactions", tx(cash, 9876543, f"{MARK}-pago", kind="transfer", to=card), expect=201)
     api.call("POST", "/api/feedback", {"text": f"Falla {MARK}-FEEDBACK <script>alert(1)</script>"}, expect=201)
 
 
@@ -74,6 +83,7 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
     mine = accounts[me["id"]]
     assert mine["email"] == "y•••@test.com" and accounts[other["id"]]["email"] == "o•••@test.com"
     assert mine["counts"]["tasks"] == 6 and mine["counts"]["habits"] == 1 and mine["counts"]["costs"] == 1
+    assert mine["counts"]["finance"] == 2 and accounts[other["id"]]["counts"]["finance"] == 0
     assert mine["counts"]["sessions"] == 5 and mine["counts"]["boards"] >= 1
     assert accounts[other["id"]]["counts"]["tasks"] == 1
     assert mine["modules"]["maker"] == {"enabled": True, "allowed": True}
@@ -105,6 +115,7 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
         assert MARK not in leaked, (path, leaked[leaked.index(MARK) - 60:leaked.index(MARK) + 40])
         assert not [w for w in written if w in leaked], (path, [w for w in written if w in leaked])
         assert "yoshi@test.com" not in text and "otro@test.com" not in text, path
+        assert "9876543" not in text, (path, "an amount from Finanzas")
 
 
 def test_the_full_email_only_when_asked(admin, seeded):

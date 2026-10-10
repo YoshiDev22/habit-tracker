@@ -17,15 +17,15 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import (AiCall, Board, Feedback, Habit, PomodoroSession, ProjectCost, Report, Task, User,
-                            UserModule, utc_now_naive)
+from backend.models import (AiCall, Board, Feedback, FinTransaction, Habit, PomodoroSession, ProjectCost, Report,
+                            Task, User, UserModule, utc_now_naive)
 from backend.modules import MODULES, resolve as resolve_module
 
 router = APIRouter()
 
 # Lo que se cuenta de cada cuenta: solo cuántas filas tiene en cada tabla
 COUNTED = {"boards": Board, "tasks": Task, "habits": Habit, "sessions": PomodoroSession,
-           "costs": ProjectCost, "reports": Report}
+           "costs": ProjectCost, "finance": FinTransaction, "reports": Report}
 FEEDBACK_STATUSES = ("open", "reviewed", "closed")
 
 
