@@ -87,12 +87,23 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
     assert [f["text"] for f in feedback] == [f"Falla {MARK}-FEEDBACK <script>alert(1)</script>"]
     assert feedback[0]["account"] == {"id": me["id"], "email": "y•••@test.com"}
 
+    # Todo lo que escribieron las dos cuentas, leído de la app: lo sembrado aquí y lo de `seeded`
+    written = set()
+    for client in (api, seeded["other"]):
+        written |= {t["title"] for t in client.call("GET", "/api/tasks", expect=200)[1]["tasks"]}
+        written |= {p["name"] for p in client.call("GET", "/api/projects?include_inactive=true", expect=200)[1]["projects"]}
+        written |= {h["label"] for h in client.call("GET", "/api/habits/definitions?include_inactive=true", expect=200)[1]["habits"]}
+        written |= {t["name"] for t in client.call("GET", "/api/tags", expect=200)[1]["tags"]}
+    written = {w for w in written if len(w) >= 4 and w != "Sin asignar"}   # "Sin asignar" lo pone la app
+    assert {"Corrección de Pomodoros", "Tarea ajena", f"{MARK}-tarea"} <= written
+
     # Nada de lo escrito sale, ni el correo completo; del reporte de problema, solo su texto
     for path, body in [("/api/summary", summary), ("/api/accounts", accounts), ("/api/ai", ai),
                        ("/api/feedback", feedback)]:
         text = json.dumps(body, ensure_ascii=False, default=str)
         leaked = text.replace(f"{MARK}-FEEDBACK", "")
         assert MARK not in leaked, (path, leaked[leaked.index(MARK) - 60:leaked.index(MARK) + 40])
+        assert not [w for w in written if w in leaked], (path, [w for w in written if w in leaked])
         assert "yoshi@test.com" not in text and "otro@test.com" not in text, path
 
 
