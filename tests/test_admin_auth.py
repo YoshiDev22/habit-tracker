@@ -166,3 +166,15 @@ def test_it_refuses_to_start_without_its_config(missing):
     started = subprocess.run([sys.executable, "-c", "import backend.admin_main"], cwd=ROOT, env=env,
                              capture_output=True, text=True, encoding="utf-8")
     assert started.returncode != 0 and missing in started.stderr
+
+
+@pytest.mark.parametrize("team, keys_file, reason", [
+    (TEAM, "keys.json", "ADMIN_DEV_KEYS_FILE"),    # el modo de desarrollo con un equipo real
+    ("dev-local", "", "dev-local"),                # el equipo de desarrollo sin su archivo
+])
+def test_dev_mode_never_mixes_with_a_real_team(team, keys_file, reason):
+    env = {**os.environ, "ADMIN_EMAILS": ADMIN, "ADMIN_ACCESS_TEAM": team, "ADMIN_ACCESS_AUD": AUD,
+           "ADMIN_DEV_KEYS_FILE": keys_file, "PYTHONIOENCODING": "utf-8"}
+    started = subprocess.run([sys.executable, "-c", "import backend.admin_main"], cwd=ROOT, env=env,
+                             capture_output=True, text=True, encoding="utf-8")
+    assert started.returncode != 0 and reason in started.stderr, started.stderr[-500:]

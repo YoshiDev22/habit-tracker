@@ -14,18 +14,29 @@ Gestión, no vigilancia: el panel cuenta filas, nunca enseña lo que escribe cad
 persona (tareas, hábitos, gastos, textos de reportes).
 """
 import os
+import sys
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi.responses import FileResponse
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-from backend.admin_auth import AccessKeys, admin_dependency, load_config  # noqa: E402
+from backend import admin_api  # noqa: E402
+from backend.admin_auth import access_keys, admin_dependency, load_config  # noqa: E402
 from backend.database import check_pending_migrations, create_db_and_tables  # noqa: E402
 
 ADMIN_CONFIG = load_config()
-ACCESS_KEYS = AccessKeys(ADMIN_CONFIG.certs_url)
+ACCESS_KEYS = access_keys(ADMIN_CONFIG)
 require_admin = admin_dependency(ADMIN_CONFIG, ACCESS_KEYS)
+if ADMIN_CONFIG.dev_keys_file:
+    print(f"*** PANEL EN MODO DE DESARROLLO: confía en las llaves de {ADMIN_CONFIG.dev_keys_file}, "
+          "no en Cloudflare Access. Nunca en producción. ***", file=sys.stderr, flush=True)
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Las únicas páginas del panel: no hay StaticFiles, como en la app pública
+PAGE_FILES = {"/": ("admin.html", "text/html"), "/admin.js": ("admin.js", "text/javascript"),
+              "/admin.css": ("admin.css", "text/css")}
 
 create_db_and_tables()
 check_pending_migrations()
@@ -62,4 +73,16 @@ def whoami(admin: str = Depends(require_admin)) -> dict:
     return {"email": admin}
 
 
+api.include_router(admin_api.router)
 app.include_router(api)
+
+
+def _page(name: str, media_type: str):
+    def serve():
+        return FileResponse(os.path.join(BASE_DIR, name), media_type=media_type)
+    return serve
+
+
+# Las páginas no traen datos: todo lo que enseñan llega de /api, que pide administrador
+for path, (name, media_type) in PAGE_FILES.items():
+    app.add_api_route(path, _page(name, media_type), methods=["GET"], include_in_schema=False)

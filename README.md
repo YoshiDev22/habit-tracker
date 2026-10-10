@@ -146,6 +146,18 @@ habit-reports.service`; lo que hizo: `journalctl -u habit-reports.service`. Corr
 veces no duplica reportes. Si una versión cambia la plantilla, su CHANGELOG lo dice en
 *Para actualizar*: hay que volver a copiarla y hacer `daemon-reload`.
 
+### Panel de administración
+
+Un proceso aparte de la app (`backend/admin_main.py`), solo en `127.0.0.1`, para ver cuentas,
+uso de la IA y problemas reportados sin entrar al VPS. En producción va detrás de Cloudflare
+Access (aún no se despliega). Para verlo en tu máquina, con la app ya migrada:
+
+```bash
+python scripts/admin_dev.py --email tu-correo@ejemplo.com
+```
+
+Abre el navegador con el panel; Ctrl+C lo cierra y borra la llave temporal.
+
 ### Avisos para todas las cuentas
 
 Un aviso de mantenimiento (o de una caída) llega a la campanita de todas las cuentas
@@ -255,7 +267,8 @@ habit-tracker/
 │   ├── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan Maker, IA)
 │   ├── generate_reports.py # Reportes automáticos (lo corre el timer de systemd)
 │   ├── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
-│   └── announce.py        # Publica un aviso para todas las cuentas (mantenimiento)
+│   ├── announce.py        # Publica un aviso para todas las cuentas (mantenimiento)
+│   └── admin_dev.py       # El panel de administración en tu máquina
 ├── deploy/                # Plantillas del .service y el .timer de los reportes automáticos
 ├── tests/                 # pytest: API, y tests/ui/ en navegador
 ├── index.html             # Única página: las vistas y todos los modales

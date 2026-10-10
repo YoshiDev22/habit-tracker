@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Panel · Habit Tracker</title>
+    <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+    <!-- El panel de administración (backend/admin_main.py, admin.js). Solo lectura en la
+         Fase 1. Ningún script ni estilo en línea: la CSP solo deja los del panel. -->
+    <header class="top">
+        <div class="brand">
+            <span class="eyebrow">Habit Tracker</span>
+            <h1>Panel</h1>
+        </div>
+        <p class="who" id="who" aria-live="polite"></p>
+    </header>
+
+    <nav class="tabs" id="tabs" aria-label="Secciones del panel">
+        <button type="button" class="tab active" data-tab="summary">Resumen</button>
+        <button type="button" class="tab" data-tab="accounts">Cuentas</button>
+        <button type="button" class="tab" data-tab="ai">IA</button>
+        <button type="button" class="tab" data-tab="feedback">Problemas</button>
+    </nav>
+
+    <main>
+        <p class="denied" id="denied" hidden>Acceso denegado. Entra por el enlace del panel con tu cuenta de
+            Cloudflare Access.</p>
+        <p class="loading" id="loading">Cargando…</p>
+
+        <section class="view active" data-view="summary" aria-labelledby="summaryTitle">
+            <h2 id="summaryTitle">Resumen</h2>
+            <div class="stats" id="summaryStats"></div>
+        </section>
+
+        <section class="view" data-view="accounts" aria-labelledby="accountsTitle">
+            <h2 id="accountsTitle">Cuentas</h2>
+            <p class="hint">Solo números: el panel nunca enseña lo que escribe cada persona. Toca un correo para
+                verlo completo.</p>
+            <div class="table-wrap"><table class="grid" id="accountsTable"></table></div>
+        </section>
+
+        <section class="view" data-view="ai" aria-labelledby="aiTitle">
+            <h2 id="aiTitle">IA, últimos 30 días</h2>
+            <div class="table-wrap"><table class="grid" id="aiTable"></table></div>
+            <h3>Errores más comunes</h3>
+            <ul class="errors" id="aiErrors"></ul>
+        </section>
+
+        <section class="view" data-view="feedback" aria-labelledby="feedbackTitle">
+            <div class="view-head">
+                <h2 id="feedbackTitle">Problemas reportados</h2>
+                <label class="filter">Ver
+                    <select id="feedbackFilter">
+                        <option value="">Todos</option>
+                        <option value="open" selected>Abiertos</option>
+                        <option value="reviewed">Revisados</option>
+                        <option value="closed">Cerrados</option>
+                    </select>
+                </label>
+            </div>
+            <div class="feedback-list" id="feedbackList"></div>
+        </section>
+    </main>
+
+    <script src="/admin.js"></script>
+</body>
+</html>

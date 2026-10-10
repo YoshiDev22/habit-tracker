@@ -77,6 +77,8 @@ MIGRATIONS = [
     # Última actividad, para el panel de administración (1.27). NULL hasta la
     # primera petición de cada cuenta después de migrar.
     {"table": "users", "column": "last_seen_at", "type": "DATETIME"},
+    # Fecha de registro (1.27): las cuentas que ya existen quedan en NULL.
+    {"table": "users", "column": "created_at", "type": "DATETIME"},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

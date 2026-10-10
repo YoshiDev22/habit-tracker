@@ -29,6 +29,10 @@ from jose import JWTError, jwt
 HEADER = "Cf-Access-Jwt-Assertion"
 CERTS_TTL = 3600          # las llaves se vuelven a pedir cada hora
 CERTS_RETRY = 60          # una llave desconocida fuerza otra petición, como mucho cada minuto
+# Modo de desarrollo (scripts/admin_dev.py): el panel confía en las llaves de un archivo
+# local en vez de las de Access. Solo con este equipo, que nunca es uno real, y este
+# equipo solo con el archivo: sin él, se pedirían llaves a dev-local.cloudflareaccess.com
+DEV_TEAM = "dev-local"
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,7 @@ class AdminConfig:
     emails: FrozenSet[str]
     team: str             # el subdominio de <equipo>.cloudflareaccess.com
     audience: str         # el AUD de la aplicación de Access
+    dev_keys_file: Optional[str] = None   # solo en desarrollo (DEV_TEAM)
 
     @property
     def issuer(self) -> str:
@@ -58,13 +63,30 @@ def load_config() -> AdminConfig:
         raise RuntimeError(f"El panel de administración necesita {', '.join(missing)} en backend/.env")
     if not team.replace("-", "").isalnum():
         raise RuntimeError("ADMIN_ACCESS_TEAM debe ser el nombre del equipo de Access (sin puntos ni barras)")
-    return AdminConfig(emails=emails, team=team, audience=audience)
+    dev_keys_file = (os.getenv("ADMIN_DEV_KEYS_FILE") or "").strip() or None
+    if dev_keys_file and team != DEV_TEAM:
+        raise RuntimeError(f"ADMIN_DEV_KEYS_FILE es solo para desarrollo, con ADMIN_ACCESS_TEAM={DEV_TEAM}")
+    if team == DEV_TEAM and not dev_keys_file:
+        raise RuntimeError(f"ADMIN_ACCESS_TEAM={DEV_TEAM} es solo para desarrollo (scripts/admin_dev.py)")
+    return AdminConfig(emails=emails, team=team, audience=audience, dev_keys_file=dev_keys_file)
 
 
 def fetch_certs(url: str) -> Dict:
     """Las llaves públicas del equipo de Access (un JWKS)."""
     with urllib.request.urlopen(url, timeout=10) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def read_keys_file(path: str) -> Dict:
+    """Las llaves del modo de desarrollo, de un archivo local."""
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def access_keys(config: AdminConfig) -> "AccessKeys":
+    if config.dev_keys_file:
+        return AccessKeys(config.dev_keys_file, fetch=read_keys_file)
+    return AccessKeys(config.certs_url)
 
 
 class AccessKeys:

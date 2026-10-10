@@ -40,6 +40,9 @@ class User(SQLModel, table=True):
     # get_current_user como mucho una vez por hora (LAST_SEEN_EVERY en auth.py),
     # no en cada petición. NULL = sin actividad desde la 1.27. Columna AÑADIDA.
     last_seen_at: Optional[datetime] = Field(default=None)
+    # Cuándo se registró (UTC naive), para el panel (1.27). Las cuentas de antes de
+    # la 1.27 no lo tienen (NULL): no hay de dónde sacarlo. Columna AÑADIDA.
+    created_at: Optional[datetime] = Field(default_factory=lambda: utc_now_naive())
 
 
 class UserModule(SQLModel, table=True):

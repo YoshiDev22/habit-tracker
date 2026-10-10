@@ -84,6 +84,7 @@ habit-tracker/
 │   ├── notices.py         # El centro de avisos: pendientes calculados e informativos guardados
 │   ├── admin_main.py      # El panel de administración: OTRO proceso, solo en 127.0.0.1 (épica 32)
 │   ├── admin_auth.py      # Quién entra al panel: JWT de Cloudflare Access + ADMIN_EMAILS
+│   ├── admin_api.py       # La API del panel (solo lectura): cuenta filas, no lee contenido
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -108,9 +109,11 @@ habit-tracker/
 │   ├── grant_module.py    # Da o quita a una cuenta el acceso a un módulo (plan maker)
 │   ├── generate_reports.py # Reportes automáticos: lo dispara el timer de systemd
 │   ├── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
-│   └── announce.py        # Publica un aviso para todas las cuentas (mantenimiento): --list, --end
+│   ├── announce.py        # Publica un aviso para todas las cuentas (mantenimiento): --list, --end
+│   └── admin_dev.py       # El panel en tu máquina, sin Access (llave temporal, solo 127.0.0.1)
 ├── deploy/                # Plantillas genéricas del .service y el .timer de los reportes
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
+├── admin.html, admin.js, admin.css  # El panel de administración: los sirve admin_main.py, no la app
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema, getDateKey
 ├── habits.js              # Hábitos: calendario, racha, configuración, vacaciones
@@ -928,6 +931,38 @@ Avisos y Hechos (los 10 más recientes); lo que no está pendiente se borra a lo
 campanita (`markHabitOnDay()`). La ventana "¿Olvidaste anotar ayer?" se queda: cerrarla con la
 × deja el aviso pendiente, y "No, no lo hice" lo descarta (`dismissMissedDayNotice()`). El
 panel de administración (épica 32) sumará "te dimos más textos de IA".
+
+### Panel de administración (1.27, épica 32)
+
+Plan completo en `docs/specs/panel-admin.md`. **Otro proceso**: `backend/admin_main.py`
+(`uvicorn backend.admin_main:app --host 127.0.0.1 --port 8100`), con la misma base y los mismos
+modelos. La app pública nunca lo importa: en el dominio público no existe ninguna de sus rutas
+ni sus páginas (`test_the_public_app_has_no_admin_route`, que también comprueba en un proceso
+limpio que `backend.main` no carga ningún `backend.admin*`).
+
+- **Quién entra** (`backend/admin_auth.py`): cada petición a `/api` trae el JWT de Cloudflare
+  Access en `Cf-Access-Jwt-Assertion`. Se comprueban la firma RS256 con las llaves del equipo
+  (en caché una hora; un `kid` desconocido vuelve a pedirlas como mucho cada minuto), el emisor
+  `https://<ADMIN_ACCESS_TEAM>.cloudflareaccess.com`, la audiencia `ADMIN_ACCESS_AUD`, el
+  vencimiento y que el correo esté en `ADMIN_EMAILS`. Todo fallo es el mismo 403. Sin las tres
+  variables el proceso no arranca. Las páginas (`admin.html`, `.js`, `.css`) no traen datos.
+- **Modo de desarrollo**: `python scripts/admin_dev.py --email …` hace de Access en tu máquina:
+  llave RSA temporal (la privada solo en memoria; en disco, la pública), panel en 127.0.0.1 con
+  `ADMIN_DEV_KEYS_FILE` y el equipo `dev-local`, y el navegador en `/#dev=<token>`; `admin.js`
+  solo usa ese token en 127.0.0.1/localhost y lo quita de la barra. Al cerrarlo se borra la
+  llave. `ADMIN_DEV_KEYS_FILE` con un equipo real, o `dev-local` sin el archivo, no arrancan, y
+  el log avisa en mayúsculas cuando corre así.
+- **Gestión, no vigilancia** (`backend/admin_api.py`): las consultas **cuentan** filas por cuenta
+  (`COUNTED`), nunca leen sus campos. Lo único escrito por un usuario que sale es su reporte de
+  problema. Correos enmascarados (`mask_email`, `y•••@gmail.com`); el completo solo por
+  `GET /api/accounts/{id}/email`, al tocarlo. `test_admin_panel.py` siembra marcas en cada
+  campo que escribe un usuario y exige que ninguna salga de ningún endpoint: un endpoint nuevo
+  del panel va en esa prueba.
+- **El navegador**: CSP estricta (`script-src 'self'`, sin estilos en línea), `no-store`, sin
+  marcos. `admin.js` pinta todo con `textContent`; `ui_admin_panel.py` comprueba que un reporte
+  con `<script>` o `<img onerror>` se ve como texto y no corre.
+- Fase 1 es solo lectura (resumen, cuentas, IA, problemas). Las acciones, con bitácora y
+  `Origin` comprobado, son la Fase 2; el Tunnel y Access, la Fase 3.
 
 ## Reglas del producto
 
