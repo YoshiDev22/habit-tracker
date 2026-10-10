@@ -149,6 +149,7 @@ function emailCell(account) {
     });
     cell.append(button);
     if (account.delete_after) cell.append(node('span', 'leaving', `Se borra el ${shortDate(account.delete_after)}`));
+    if (!account.active) cell.append(node('span', 'leaving', 'Desactivada'));
     return cell;
 }
 
@@ -193,6 +194,8 @@ function showAccountError(message) {
 }
 
 function describeChange(action) {
+    if (action.action === 'account') return action.after.active ? 'Cuenta reactivada' : 'Cuenta desactivada';
+    if (action.action === 'keep') return 'Borrado programado cancelado';
     if (action.action === 'ai_grant') {
         const added = (action.after.extra || 0) - (action.before.extra || 0);
         return `+${added} textos de IA hoy (${PURPOSE_LABELS[action.after.pool] || action.after.pool})`;
@@ -233,12 +236,64 @@ function renderAccountModules(account) {
     }));
 }
 
+const deactivateButton = document.getElementById('accountDeactivate');
+let deactivateArmed = false;
+
+function disarmDeactivate() {
+    deactivateArmed = false;
+    deactivateButton.textContent = 'Desactivar cuenta';
+}
+
+function renderAccountState(account) {
+    const leaving = account.delete_after ? ` · se borra el ${shortDate(account.delete_after)}` : '';
+    document.getElementById('accountState').textContent = (account.active ? 'Activa' : 'Desactivada') + leaving;
+    deactivateButton.hidden = !account.active;
+    document.getElementById('accountReactivate').hidden = account.active;
+    document.getElementById('accountKeep').hidden = !account.delete_after;
+    document.getElementById('accountStateHint').textContent = account.active
+        ? 'Desactivarla la saca al momento de todos sus dispositivos. No borra nada.'
+        : 'Al reactivarla tendrá que volver a entrar: sus sesiones de antes ya no valen.';
+    disarmDeactivate();
+}
+
+async function changeAccount(path, body, method = 'PUT') {
+    const accountId = accountsState.open;
+    if (!accountId) return;
+    showAccountError('');
+    try {
+        await adminSend(method, `/api/accounts/${accountId}/${path}`, body);
+        await reloadAccounts();
+        await renderAccountLog(accountId);
+    } catch (error) {
+        if (error instanceof DeniedError) {
+            accountDialog.close();
+            showFailure(error);
+            return;
+        }
+        showAccountError(error.message);
+    }
+}
+
+// Desactivar pide un segundo clic: es lo único de la ficha que saca a alguien de la app
+deactivateButton.addEventListener('click', () => {
+    if (!deactivateArmed) {
+        deactivateArmed = true;
+        deactivateButton.textContent = 'Confirmar: desactivar';
+        return;
+    }
+    disarmDeactivate();
+    changeAccount('active', { active: false });
+});
+document.getElementById('accountReactivate').addEventListener('click', () => changeAccount('active', { active: true }));
+document.getElementById('accountKeep').addEventListener('click', () => changeAccount('keep', {}, 'POST'));
+
 function renderAccountDialog(account) {
     document.getElementById('accountDialogTitle').textContent = account.email;
     const signup = account.created_at ? shortDate(account.created_at) : 'antes de la 1.27';
     document.getElementById('accountDialogMeta').textContent =
         `Registro: ${signup} · Última actividad: ${ago(account.last_seen_at).toLowerCase()}`;
     renderAccountModules(account);
+    renderAccountState(account);
 }
 
 async function reloadAccounts() {

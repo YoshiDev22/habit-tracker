@@ -93,6 +93,16 @@
             </form>
             <p class="hint">Solo por hoy (día UTC): mañana vuelve su límite normal.</p>
         </section>
+        <section class="dialog-section" aria-labelledby="accountStateTitle">
+            <h3 id="accountStateTitle">Cuenta</h3>
+            <p class="account-state" id="accountState"></p>
+            <div class="state-actions">
+                <button type="button" class="manage danger" id="accountDeactivate">Desactivar cuenta</button>
+                <button type="button" class="manage" id="accountReactivate">Reactivar cuenta</button>
+                <button type="button" class="manage" id="accountKeep">Cancelar el borrado</button>
+            </div>
+            <p class="hint" id="accountStateHint"></p>
+        </section>
         <p class="form-error" id="accountDialogError" role="alert" hidden></p>
         <section class="dialog-section" aria-labelledby="accountLogTitle">
             <h3 id="accountLogTitle">Bitácora de esta cuenta</h3>

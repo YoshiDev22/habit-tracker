@@ -91,6 +91,10 @@ def get_current_user(
     # Los tokens de antes de la versión no la traen y cuentan como 0.
     if payload.get("tv", 0) != (user.token_version or 0):
         raise credentials_exception
+    # Desactivada desde el panel de administración: fuera en la siguiente petición
+    # (sus datos quedan intactos hasta reactivarla)
+    if not user.is_active:
+        raise credentials_exception
     _mark_seen(session, user)
     return user
 

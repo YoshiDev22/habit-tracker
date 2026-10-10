@@ -269,3 +269,7 @@ h3 { margin: 24px 0 8px; font-size: 0.95rem; }
 }
 .inline-form input[type=number] { width: 4.5rem; }
 .inline-form button:disabled { opacity: 0.6; cursor: wait; }
+
+.account-state { margin: 0 0 8px; font-weight: 600; }
+.state-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.manage.danger { color: var(--danger); background: var(--warn-soft); }

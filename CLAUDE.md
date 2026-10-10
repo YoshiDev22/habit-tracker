@@ -979,6 +979,12 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
   `AI_GRANT_MAX` = 50 por cuenta, contador y día: dar más el mismo día suma; pasarse es 409).
   `GET /api/accounts/{id}/ai` da el uso de hoy con su extra. Lo que ve el usuario en
   `/api/reports/ai-usage` no cambió de forma: solo su `limit` sube.
+- **Desactivar una cuenta** (`PUT /api/accounts/{id}/active` con `{active}`): `get_current_user`
+  rechaza a `users.is_active = false` (401, así que sale en la siguiente petición) y el login,
+  solo con la contraseña correcta, dice `INACTIVE_MESSAGE` (403). Desactivar sube
+  `token_version`: al reactivarla, sus sesiones de antes no reviven. No borra nada, y el timer
+  de los reportes ya se salta las inactivas. `POST /api/accounts/{id}/keep` cancela un borrado
+  programado (409 si no había). En la ficha, desactivar pide un segundo clic.
 - Fase 1 es solo lectura (resumen, cuentas, IA, problemas); el Tunnel y Access, la Fase 3.
 
 ## Reglas del producto

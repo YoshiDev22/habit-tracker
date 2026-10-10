@@ -138,6 +138,24 @@ async def main():
         await b.shot("admin_account_dialog", full=False)
         await b.js("document.getElementById('accountDialogClose').click()")
 
+        # Desactivar la otra cuenta: el primer clic solo pide confirmar; el segundo la desactiva
+        other_id = await b.js("accountsState.list.find(a => a.email === 'o•••@test.com').id")
+        await b.js(f"openAccount({other_id})")
+        await b.wait_for("document.getElementById('accountDialog').open", bool)
+        await b.js("document.getElementById('accountDeactivate').click()")
+        first = await b.js("""({label: document.getElementById('accountDeactivate').textContent,
+            state: document.getElementById('accountState').textContent})""")
+        await b.js("document.getElementById('accountDeactivate').click()")
+        state = await b.wait_for("document.getElementById('accountState').textContent",
+                                 lambda v: (v or "").startswith("Desactivada"))
+        row = await b.js(f"[...document.querySelectorAll('#accountsTable tr')].find(r => r.textContent.includes('o•••@test.com')).textContent")
+        check(first == {"label": "Confirmar: desactivar", "state": "Activa"} and state.startswith("Desactivada")
+              and "Desactivada" in row, f"deactivating asks once more, then marks the account ({first}, {state})")
+        await b.js("document.getElementById('accountReactivate').click()")
+        state = await b.wait_for("document.getElementById('accountState').textContent", lambda v: v == "Activa")
+        check(state == "Activa", "and it can be reactivated")
+        await b.js("document.getElementById('accountDialogClose').click()")
+
         # Sin token (otra pestaña, sin el enlace): acceso denegado, sin datos
         await b.js("sessionStorage.clear()")
         await b.goto(base + "/", wait=1.0)

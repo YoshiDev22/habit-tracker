@@ -113,6 +113,9 @@ def register(user: UserCreate, request: Request, session: Session = Depends(get_
     return user_response(session, new_user)
 
 
+INACTIVE_MESSAGE = "Tu cuenta está desactivada; escríbenos si crees que es un error."
+
+
 @router.post("/login", response_model=Token)
 def login(
     request: Request,
@@ -137,10 +140,11 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Solo con la contraseña correcta: si no, no se sabe si la cuenta existe
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Usuario inactivo"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=INACTIVE_MESSAGE
         )
     
     # Con el borrado programado sí entra: la app le ofrece conservar la cuenta

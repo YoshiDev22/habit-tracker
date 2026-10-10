@@ -112,6 +112,7 @@ def accounts(session: Session = Depends(get_session)) -> dict:
             "created_at": user.created_at,
             "last_seen_at": user.last_seen_at,
             "delete_after": user.delete_after,
+            "active": user.is_active,
             "modules": _module_state(modules.get(user.id, {})),
             "counts": {name: counts[name].get(user.id, 0) for name in COUNTED},
             "ai": {"today": dict(ai_today.get(user.id, {"ok": 0, "failed": 0, "tokens": 0})),
@@ -270,3 +271,38 @@ def grant_ai(user_id: int, body: AiGrantCreate, request: Request, session: Sessi
                   {"pool": body.pool, "day": today.isoformat(), "extra": grant.extra})
     session.commit()
     return {"pool": body.pool, "day": today.isoformat(), "extra": grant.extra}
+
+
+class AccountActive(SQLModel):
+    active: StrictBool
+
+
+@router.put("/accounts/{user_id}/active")
+def set_account_active(user_id: int, body: AccountActive, request: Request,
+                       session: Session = Depends(get_session)) -> dict:
+    """Desactivar (fuera al momento: sus sesiones dejan de valer en la siguiente
+    petición y no puede entrar) o reactivar una cuenta. No borra nada."""
+    user = _account(session, user_id)
+    if user.is_active != body.active:
+        record_action(session, _admin(request), "account", user.id, {"active": user.is_active}, {"active": body.active})
+        user.is_active = body.active
+        if not body.active:
+            # Sus sesiones no vuelven al reactivarla: hay que entrar otra vez
+            user.token_version = (user.token_version or 0) + 1
+        session.add(user)
+        session.commit()
+    return {"id": user.id, "active": user.is_active}
+
+
+@router.post("/accounts/{user_id}/keep")
+def cancel_deletion(user_id: int, request: Request, session: Session = Depends(get_session)) -> dict:
+    """Cancelar el borrado programado de una cuenta (como "Conservar mi cuenta")."""
+    user = _account(session, user_id)
+    if user.delete_after is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Esa cuenta no tiene un borrado programado")
+    record_action(session, _admin(request), "keep", user.id,
+                  {"delete_after": user.delete_after.isoformat()}, {"delete_after": None})
+    user.delete_after = None
+    session.add(user)
+    session.commit()
+    return {"id": user.id, "delete_after": None}
