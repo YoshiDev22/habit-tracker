@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlmodel import Session, select  # noqa: E402
 
 from backend.database import check_pending_migrations, create_db_and_tables, engine  # noqa: E402
+from backend.finance import generate_due as generate_finance_due  # noqa: E402
 from backend.models import User  # noqa: E402
 from backend.recurring_costs import generate_due  # noqa: E402
 from backend.reports import generate_report, local_today, missing_reports  # noqa: E402
@@ -62,6 +63,10 @@ def main(argv=None) -> int:
             if not args.dry_run and user_modules(session, user.id)["maker"]["enabled"]:
                 for cost in generate_due(session, user.id, today):
                     print(f"recurring cost {user.email}: {cost.concept} on {cost.cost_date.isoformat()}")
+            # Los fijos de Finanzas (épica 37), con el módulo encendido
+            if not args.dry_run and user_modules(session, user.id)["finance"]["enabled"]:
+                for tx in generate_finance_due(session, user.id, today):
+                    print(f"fixed charge {user.email}: {tx.tx_date.isoformat()}")
             for kind, start in missing_reports(session, user, today):
                 label = f"{user.email}: {kind} from {start.isoformat()}"
                 if args.dry_run:

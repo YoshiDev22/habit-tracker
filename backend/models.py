@@ -665,3 +665,124 @@ class AiCall(SQLModel, table=True):
     error: Optional[str] = Field(default=None)       # motivo corto, sin datos del usuario
     input_tokens: Optional[int] = Field(default=None)
     output_tokens: Optional[int] = Field(default=None)
+
+
+# ==================== Finanzas personales (épica 37) ====================
+# Tablas NUEVAS: create_all() las crea solas, sin migración. No comparten nada
+# con Costos (aquello es el costo de un proyecto; esto, el dinero del día a día).
+# Todo en centavos enteros, y una moneda por cuenta que nunca se convierte.
+
+class FinAccount(SQLModel, table=True):
+    """
+    De dónde sale el dinero: efectivo, débito o crédito. La compra con crédito
+    es el gasto; el pago de la tarjeta, una transferencia (débito → crédito).
+    Cada cuenta recibe "Efectivo" la primera vez (backend/finance.py). Con
+    movimientos no se borra: se archiva (is_active).
+    """
+    __tablename__ = "fin_accounts"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_fin_accounts_user_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    name: str
+    kind: str = Field(default="cash")            # cash | debit | credit
+    currency: str = Field(default="MXN")
+    last4: Optional[str] = Field(default=None)   # nunca el número completo
+    is_default: bool = Field(default=False)      # la de la alta rápida: solo una
+    is_active: bool = Field(default=True)
+    order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinCategory(SQLModel, table=True):
+    """Categoría de gasto o de ingreso. Las de inicio las crea backend/finance.py
+    la primera vez; después son del usuario. Con movimientos no se borra."""
+    __tablename__ = "fin_categories"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_fin_categories_user_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    name: str
+    color: Optional[str] = Field(default=None)
+    kind: str = Field(default="expense")         # expense | income
+    order: int = Field(default=0)
+
+
+class FinRecurring(SQLModel, table=True):
+    """
+    Un fijo: renta, teléfono, suscripciones, o el sueldo. Misma regla de serie
+    que los recurrentes de Costos (backend/series.py), más la quincenal (el 15 y
+    el último día). generate_due() en backend/finance.py convierte los cobros
+    que ya llegaron en movimientos con recurring_id; `generated` cuenta los
+    hechos, así que uno borrado no vuelve.
+    """
+    __tablename__ = "fin_recurring"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    category_id: int = Field(foreign_key="fin_categories.id")
+    kind: str = Field(default="expense")         # expense | income (no transferencias)
+    concept: str
+    amount_cents: int
+    note: Optional[str] = Field(default=None)
+    frequency: str = Field(default="monthly")    # monthly | yearly | semimonthly
+    start_date: date_type                        # el primer cobro
+    end_date: Optional[date_type] = Field(default=None)
+    paused: bool = Field(default=False)
+    generated: int = Field(default=0)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinTransaction(SQLModel, table=True):
+    """
+    Un movimiento: gasto, ingreso o transferencia entre cuentas propias. El
+    monto siempre es positivo; el signo lo da el tipo. Una transferencia no
+    lleva categoría ni cuenta como gasto. Las columnas de las fases 3 y 4
+    (source email/cfdi/telegram, external_id, linked_id, needs_review) van desde
+    la fase 1: agregarlas después a una tabla ya en producción costaría una
+    migración.
+    """
+    __tablename__ = "fin_transactions"
+    __table_args__ = (
+        Index("ix_fin_transactions_user_date", "user_id", "tx_date"),
+        # Lo que llega solo (un correo, un mensaje) entra una vez
+        Index("uq_fin_transactions_external", "user_id", "source", "external_id", unique=True),
+        # Un cobro de un fijo se genera una vez por fecha
+        Index("uq_fin_transactions_recurring", "recurring_id", "tx_date", unique=True),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    kind: str                                    # expense | income | transfer
+    amount_cents: int
+    tx_date: date_type                           # fecha LOCAL del usuario, como session_date
+    category_id: Optional[int] = Field(default=None, foreign_key="fin_categories.id")
+    to_account_id: Optional[int] = Field(default=None, foreign_key="fin_accounts.id")   # transferencias
+    concept: str
+    note: Optional[str] = Field(default=None)
+    source: str = Field(default="manual")        # manual | import | recurring | email | cfdi | telegram
+    external_id: Optional[str] = Field(default=None)
+    linked_id: Optional[int] = Field(default=None)   # la factura (CFDI) ↔ la compra del banco
+    recurring_id: Optional[int] = Field(default=None, foreign_key="fin_recurring.id")
+    needs_review: bool = Field(default=False)    # llegó solo y quedó dudoso: cuenta igual
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinSettings(SQLModel, table=True):
+    """
+    Cómo mide sus finanzas cada cuenta. `period` es la respuesta a "¿Cada cuándo
+    cobras?": NULL mientras no conteste (la pantalla pregunta y usa el mes). Las
+    demás columnas son de la fase 2 (ingreso esperado y hora del aviso del día)
+    y llegan vacías desde ahora para no migrar después.
+    """
+    __tablename__ = "fin_settings"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_fin_settings_user"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id")
+    period: Optional[str] = Field(default=None)  # month | biweekly
+    expected_income_cents: Optional[int] = Field(default=None)
+    currency: Optional[str] = Field(default=None)
+    day_notice_hour: Optional[int] = Field(default=None)

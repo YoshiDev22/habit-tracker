@@ -1410,3 +1410,316 @@ class FeedbackCreate(SQLModel):
 class FeedbackResponse(SQLModel):
     id: int
     created_at: datetime
+
+
+# ==================== Finanzas personales (épica 37) ====================
+
+FIN_ACCOUNT_KINDS = ("cash", "debit", "credit")
+FIN_CATEGORY_KINDS = ("expense", "income")
+FIN_TX_KINDS = ("expense", "income", "transfer")
+# La quincenal (el 15 y el último día) es solo de Finanzas: el sueldo
+FIN_FREQUENCIES = ("monthly", "yearly", "semimonthly")
+FIN_PERIODS = ("month", "biweekly")
+
+
+def _one_of(value: Optional[str], allowed: tuple, field: str) -> Optional[str]:
+    if value is not None and value not in allowed:
+        raise ValueError(f"{field} debe ser uno de: {', '.join(allowed)}")
+    return value
+
+
+def _validate_last4(v: Optional[str]) -> Optional[str]:
+    # Nunca el número completo: como mucho los últimos 4 dígitos
+    if v is not None and not re.fullmatch(r"\d{4}", v):
+        raise ValueError("Escribe solo los últimos 4 dígitos")
+    return v
+
+
+class FinAccountCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=40)
+    kind: str = "cash"
+    currency: str = "MXN"
+    last4: Optional[str] = None
+    is_default: bool = False
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_ACCOUNT_KINDS, "kind")
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v):
+        return _one_of(v, CURRENCIES, "currency")
+
+    @field_validator("last4")
+    @classmethod
+    def validate_last4(cls, v):
+        return _validate_last4(v)
+
+
+class FinAccountUpdate(SQLModel):
+    """PATCH parcial. is_default solo acepta true: la de por defecto se cambia
+    eligiendo otra. last4 en null lo borra."""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    kind: Optional[str] = None
+    currency: Optional[str] = None
+    last4: Optional[str] = None
+    is_default: Optional[bool] = None
+    is_active: Optional[bool] = None
+    order: Optional[int] = Field(default=None, ge=0, le=10_000)
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_ACCOUNT_KINDS, "kind")
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v):
+        return _one_of(v, CURRENCIES, "currency")
+
+    @field_validator("last4")
+    @classmethod
+    def validate_last4(cls, v):
+        return _validate_last4(v)
+
+
+class FinAccountResponse(SQLModel):
+    id: int
+    name: str
+    kind: str
+    currency: str
+    last4: Optional[str] = None
+    is_default: bool
+    is_active: bool
+    order: int
+    tx_count: int = 0         # con alguno, no se borra: se archiva
+
+
+class FinAccountListResponse(SQLModel):
+    accounts: List[FinAccountResponse]
+
+
+class FinCategoryCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=40)
+    color: Optional[str] = None
+    kind: str = "expense"
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v):
+        return _validate_hex_color(v)
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_CATEGORY_KINDS, "kind")
+
+
+class FinCategoryUpdate(SQLModel):
+    """Renombrar, recolorear u ordenar. El tipo no cambia: sus movimientos son de ese tipo."""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    color: Optional[str] = None
+    order: Optional[int] = Field(default=None, ge=0, le=10_000)
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v):
+        return _validate_hex_color(v)
+
+
+class FinCategoryResponse(SQLModel):
+    id: int
+    name: str
+    color: Optional[str] = None
+    kind: str
+    order: int
+    tx_count: int = 0
+
+
+class FinCategoryListResponse(SQLModel):
+    categories: List[FinCategoryResponse]
+
+
+class FinTransactionFields(SQLModel):
+    """Un movimiento escrito a mano o pegado. Un gasto o un ingreso lleva
+    categoría de su tipo; una transferencia, la cuenta de destino y ninguna."""
+    kind: str = "expense"
+    account_id: int
+    amount_cents: int = Field(gt=0, le=MAX_MONEY_CENTS)
+    tx_date: date_type
+    category_id: Optional[int] = None
+    to_account_id: Optional[int] = None
+    concept: str = Field(min_length=1, max_length=200)
+    note: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_TX_KINDS, "kind")
+
+
+class FinTransactionUpdate(SQLModel):
+    """PATCH parcial; needs_review en false lo confirma."""
+    kind: Optional[str] = None
+    account_id: Optional[int] = None
+    amount_cents: Optional[int] = Field(default=None, gt=0, le=MAX_MONEY_CENTS)
+    tx_date: Optional[date_type] = None
+    category_id: Optional[int] = None
+    to_account_id: Optional[int] = None
+    concept: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    note: Optional[str] = Field(default=None, max_length=500)
+    needs_review: Optional[bool] = None
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_TX_KINDS, "kind")
+
+
+class FinTransactionImport(SQLModel):
+    """Varios de una vez (el estado de cuenta pegado), ya revisados en la vista
+    previa. O entran todos o ninguno."""
+    rows: List[FinTransactionFields] = Field(min_length=1, max_length=MAX_IMPORT_ROWS)
+
+
+class FinTransactionResponse(SQLModel):
+    id: int
+    kind: str
+    account_id: int
+    to_account_id: Optional[int] = None
+    category_id: Optional[int] = None
+    amount_cents: int
+    currency: str             # la de su cuenta
+    tx_date: date_type
+    concept: str
+    note: Optional[str] = None
+    source: str
+    recurring_id: Optional[int] = None
+    needs_review: bool = False
+
+
+class FinTransactionListResponse(SQLModel):
+    date_from: date_type
+    date_to: date_type
+    transactions: List[FinTransactionResponse]
+
+
+class FinRecurringFields(SQLModel):
+    kind: str = "expense"
+    account_id: int
+    category_id: int
+    concept: str = Field(min_length=1, max_length=200)
+    amount_cents: int = Field(gt=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=500)
+    frequency: str = "monthly"
+    start_date: date_type
+    end_date: Optional[date_type] = None
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_CATEGORY_KINDS, "kind")
+
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v):
+        return _one_of(v, FIN_FREQUENCIES, "frequency")
+
+
+class FinRecurringUpdate(SQLModel):
+    """Cambiar un fijo: solo afecta a los cobros siguientes."""
+    account_id: Optional[int] = None
+    category_id: Optional[int] = None
+    concept: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    amount_cents: Optional[int] = Field(default=None, gt=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=500)
+    frequency: Optional[str] = None
+    start_date: Optional[date_type] = None
+    end_date: Optional[date_type] = None
+    paused: Optional[bool] = None
+
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v):
+        return _one_of(v, FIN_FREQUENCIES, "frequency")
+
+
+class FinRecurringResponse(SQLModel):
+    id: int
+    kind: str
+    account_id: int
+    category_id: int
+    concept: str
+    amount_cents: int
+    currency: str
+    note: Optional[str] = None
+    frequency: str
+    start_date: date_type
+    end_date: Optional[date_type] = None
+    paused: bool
+    generated: int
+    next_date: Optional[date_type] = None
+    last_charge: Optional[date_type] = None
+
+
+class FinRecurringListResponse(SQLModel):
+    recurring: List[FinRecurringResponse]
+
+
+class FinSettingsResponse(SQLModel):
+    # None mientras el usuario no conteste "¿Cada cuándo cobras?": se mide por mes
+    period: Optional[str] = None
+
+
+class FinSettingsUpdate(SQLModel):
+    period: str
+
+    @field_validator("period")
+    @classmethod
+    def validate_period(cls, v):
+        return _one_of(v, FIN_PERIODS, "period")
+
+
+class FinCategoryTotal(SQLModel):
+    category_id: int
+    name: str
+    color: Optional[str] = None
+    kind: str
+    currency: str
+    cents: int
+
+
+class FinAccountTotal(SQLModel):
+    """Lo que se movió en una cuenta en el periodo (no es su saldo)."""
+    account_id: int
+    name: str
+    kind: str
+    currency: str
+    expense_cents: int = 0
+    income_cents: int = 0
+    transfer_in_cents: int = 0
+    transfer_out_cents: int = 0
+    net_cents: int = 0        # ingresos + lo que entra − gastos − lo que sale
+
+
+class FinCurrencyTotal(SQLModel):
+    currency: str
+    expense_cents: int = 0    # las transferencias nunca cuentan como gasto
+    income_cents: int = 0
+    net_cents: int = 0
+
+
+class FinSummaryResponse(SQLModel):
+    period: str               # month | biweekly (month si no ha contestado)
+    period_asked: bool        # si ya contestó "¿Cada cuándo cobras?"
+    date_from: date_type
+    date_to: date_type
+    prev_day: date_type       # un día del periodo anterior, para pedirlo con ?day=
+    next_day: date_type
+    transactions: int
+    needs_review: int
+    categories: List[FinCategoryTotal]
+    accounts: List[FinAccountTotal]
+    totals: List[FinCurrencyTotal]

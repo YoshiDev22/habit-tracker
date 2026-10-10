@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from backend import novedades
 from backend.database import create_db_and_tables, check_pending_migrations
-from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports, notices, feedback
+from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports, notices, feedback, finance
 
 # Rutas de los archivos frontend (directorio raíz del proyecto)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,6 +55,7 @@ app.include_router(metrics.router, prefix="/api/metrics")
 app.include_router(reports.router, prefix="/api/reports")
 app.include_router(notices.router, prefix="/api/notices")
 app.include_router(feedback.router, prefix="/api/feedback")
+app.include_router(finance.router, prefix="/api/finance")
 
 
 def get_frontend_path(filename: str = "index.html") -> str:
@@ -182,6 +183,12 @@ def saved_reports_js():
 def costs_recurring_js():
     """Serve costs-recurring.js"""
     return frontend_file("costs-recurring.js")
+
+
+@app.get("/finance.js")
+def finance_js():
+    """Serve finance.js"""
+    return frontend_file("finance.js")
 
 
 @app.get("/novedades.js")

@@ -226,3 +226,39 @@ def test_feedback_text(api):
     assert api.call("POST", url, {"text": "  " + "x" * 9 + "  "})[0] == 422   # 9 sin los espacios
     api.call("POST", url, {"text": "x" * 10}, expect=201)
     api.call("POST", url, {"text": "x" * 2000}, expect=201)
+
+
+def test_personal_finance(api):
+    from test_personal_finance import finance_on, tx
+    finance_on(api, "finanzas-tope@test.com")
+    cash = api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"][0]
+    cat = api.call("GET", "/api/finance/categories", expect=200)[1]["categories"][0]
+    acc = "/api/finance/accounts"
+    assert api.call("POST", acc, {"name": "x" * 41})[0] == 422
+    api.call("POST", acc, {"name": "x" * 40}, expect=201)
+    for bad in ({"kind": "savings"}, {"currency": "BTC"}, {"last4": "12345"}, {"last4": "12a4"},
+                {"last4": "4111111111111111"}):
+        assert api.call("POST", acc, {"name": "y", **bad})[0] == 422, bad
+    assert api.call("PATCH", f"{acc}/{cash['id']}", {"order": -1})[0] == 422
+    assert api.call("PATCH", f"{acc}/{cash['id']}", {"name": None})[0] == 422
+
+    cats = "/api/finance/categories"
+    assert api.call("POST", cats, {"name": "x" * 41})[0] == 422
+    assert api.call("POST", cats, {"name": "y", "color": "rojo"})[0] == 422
+    assert api.call("POST", cats, {"name": "y", "kind": "transfer"})[0] == 422
+
+    txs = "/api/finance/transactions"
+    ok = tx(cash, 100, "ok", cat)
+    api.call("POST", txs, ok, expect=201)
+    for bad in ({"concept": "x" * 201}, {"concept": ""}, {"note": "x" * 501}, {"amount_cents": -1},
+                {"amount_cents": 1.5}, {"amount_cents": 100_000_000_001}, {"kind": "refund"}):
+        assert api.call("POST", txs, {**ok, **bad})[0] == 422, bad
+    api.call("POST", txs, {**ok, "amount_cents": 100_000_000_000, "note": "x" * 500}, expect=201)
+    assert api.call("POST", f"{txs}/import", {"rows": []})[0] == 422
+    assert api.call("POST", f"{txs}/import", {"rows": [ok] * 501})[0] == 422
+
+    rec = {"account_id": cash["id"], "category_id": cat["id"], "concept": "Renta", "amount_cents": 100,
+           "start_date": "2030-01-01"}
+    for bad in ({"frequency": "weekly"}, {"kind": "transfer"}, {"concept": "x" * 201}, {"amount_cents": 0}):
+        assert api.call("POST", "/api/finance/recurring", {**rec, **bad})[0] == 422, bad
+    assert api.call("PUT", "/api/finance/settings", {"period": "x" * 5000})[0] == 422

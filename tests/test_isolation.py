@@ -167,6 +167,52 @@ def test_costs(seeded):
     assert theirs["overall"]["tasks"] == 0 and theirs["tags"] == []
 
 
+
+def test_personal_finance(seeded):
+    from test_personal_finance import finance_on, tx
+    api, other = seeded["api"], seeded["other"]
+    finance_on(api, "yoshi@test.com")
+    finance_on(other, "otro@test.com")
+    mine = {a["name"]: a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"]}["Efectivo"]
+    cats = api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]
+    cat = cats[0]
+    _, card = api.call("POST", "/api/finance/accounts", {"name": "Tarjeta", "kind": "credit"}, expect=201)
+    _, t = api.call("POST", "/api/finance/transactions", tx(mine, 23000, "Tacos", cat), expect=201)
+    _, rc = api.call("POST", "/api/finance/recurring", {
+        "account_id": mine["id"], "category_id": cat["id"], "concept": "Renta", "amount_cents": 100,
+        "start_date": (date.today() + timedelta(days=5)).isoformat()}, expect=201)
+    theirs = other.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"][0]
+    their_cat = other.call("GET", "/api/finance/categories", expect=200)[1]["categories"][0]
+
+    # Ni ver, ni tocar, ni usar mis cuentas, categorías, movimientos o fijos
+    for method, path, body in [
+        ("PATCH", f"/api/finance/accounts/{mine['id']}", {"name": "hack"}),
+        ("DELETE", f"/api/finance/accounts/{card['id']}", None),
+        ("PATCH", f"/api/finance/categories/{cat['id']}", {"name": "hack"}),
+        ("DELETE", f"/api/finance/categories/{cat['id']}", None),
+        ("PATCH", f"/api/finance/transactions/{t['id']}", {"concept": "hack"}),
+        ("DELETE", f"/api/finance/transactions/{t['id']}", None),
+        ("PATCH", f"/api/finance/recurring/{rc['id']}", {"concept": "hack"}),
+        ("DELETE", f"/api/finance/recurring/{rc['id']}", None),
+        ("POST", "/api/finance/transactions", tx(mine, 1, "x", their_cat)),
+        ("POST", "/api/finance/transactions", tx(theirs, 1, "x", cat)),
+        ("POST", "/api/finance/transactions", tx(theirs, 1, "x", kind="transfer", to=card)),
+        ("POST", "/api/finance/transactions/import", {"rows": [tx(theirs, 1, "x", cat)]}),
+        ("POST", "/api/finance/recurring", {"account_id": theirs["id"], "category_id": cat["id"], "concept": "x",
+                                            "amount_cents": 1, "start_date": date.today().isoformat()}),
+    ]:
+        assert other.call(method, path, body)[0] == 404, (method, path)
+    _, their_tx = other.call("POST", "/api/finance/transactions", tx(theirs, 1, "suyo", their_cat), expect=201)
+    assert other.call("PATCH", f"/api/finance/transactions/{their_tx['id']}", {"account_id": mine["id"]})[0] == 404
+
+    _, sm = other.call("GET", "/api/finance/summary", expect=200)
+    assert [a["name"] for a in sm["accounts"]] == ["Efectivo"] and sm["totals"][0]["expense_cents"] == 1
+    assert [t["concept"] for t in other.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]] == ["suyo"]
+    assert other.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"] == []
+    assert other.call("GET", f"/api/finance/transactions?account_id={mine['id']}", expect=200)[1]["transactions"] == []
+    # Lo mío, intacto
+    assert [x["concept"] for x in api.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]] == ["Tacos"]
+
 def test_saved_reports(seeded):
     api, other = seeded["api"], seeded["other"]
     monday = date.today() - timedelta(days=date.today().weekday())

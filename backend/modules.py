@@ -21,6 +21,9 @@ MODULES = {
     # con acceso, y apagada hasta que el usuario la enciende. El proveedor es
     # uno por instancia, en backend/.env (backend/ai.py).
     "ai": {"enabled": False, "allowed": False},
+    # Finanzas personales (épica 37, docs/specs/finanzas.md): gastos, ingresos y
+    # fijos del día a día. Con acceso, como maker, y apagado hasta encenderlo.
+    "finance": {"enabled": False, "allowed": False},
 }
 
 
