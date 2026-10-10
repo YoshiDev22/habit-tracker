@@ -87,6 +87,15 @@ importa esos campos: las consultas cuentan filas, no las leen.
   clic). El aviso a una cuenta es un tipo nuevo de `notices` (uno por cuenta, tipo y
   referencia): sin migración. La app pública sigue sin ninguna ruta que cree avisos
   (`test_no_account_can_publish_to_every_bell`).
+- **Diseño del panel** (pedido por Yoshio el 2026-10-09: la Fase 1 quedó sobria a propósito).
+  Gráficas en el resumen (cuentas activas por día en 30 días, uso de IA por día buenas contra
+  fallidas, cuántas cuentas usan cada módulo), tarjetas con la cifra grande y su cambio contra
+  la semana anterior, color solo donde importa (problemas abiertos, borrados programados),
+  cuentas que se ordenan por columna y se buscan por correo con marca de inactiva (más de 30
+  días), y el ícono y el morado de la app en el encabezado. Todo con la misma CSP: sin
+  librerías externas ni estilos en línea. La actividad por día sale aproximada de
+  `last_seen_at` (solo guarda la última); un historial real pide una fila por cuenta y día
+  (tabla nueva, sin migración), a decidir al empezar.
 - **Bitácora:** cada acción queda en `admin_actions` (quién, cuándo, qué, sobre qué cuenta,
   antes y después), también publicar, terminar y enviar avisos. El panel la enseña; no se
   edita ni se borra desde la UI.
