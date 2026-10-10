@@ -12,9 +12,10 @@ from collections import Counter, defaultdict
 from datetime import timedelta
 from typing import Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import StrictBool
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, SQLModel, select
 
 from backend.database import get_session
 from backend.models import (AdminAction, AiCall, Board, Feedback, Habit, PomodoroSession, ProjectCost, Report,
@@ -175,3 +176,50 @@ def actions(account_id: Optional[int] = None, session: Session = Depends(get_ses
     rows = session.exec(query.order_by(AdminAction.created_at.desc(), AdminAction.id.desc()).limit(200)).all()
     return {"actions": [{"id": a.id, "created_at": a.created_at, "admin": a.admin_email, "action": a.action,
                          "account_id": a.account_id, "before": a.before, "after": a.after} for a in rows]}
+
+
+# ---------- Acciones (Fase 2) ----------
+# Cada una pide el administrador (lo pone admin_main en request.state) y deja su
+# fila en la bitácora en la misma transacción.
+
+def _admin(request: Request) -> str:
+    return request.state.admin
+
+
+def _account(session: Session, user_id: int) -> User:
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe esa cuenta")
+    return user
+
+
+class ModuleAccess(SQLModel):
+    allowed: StrictBool
+
+
+# Los módulos que se dan y se quitan: los que no son de todos por defecto
+GRANTABLE = tuple(name for name, default in MODULES.items() if not default["allowed"])
+
+
+@router.put("/accounts/{user_id}/modules/{module}")
+def set_module_access(user_id: int, module: str, body: ModuleAccess, request: Request,
+                      session: Session = Depends(get_session)) -> dict:
+    """Dar o quitar el acceso a un módulo (Maker, IA). Quitarlo lo apaga sin olvidar
+    lo que el usuario había elegido, como scripts/grant_module.py (que se queda para
+    emergencias)."""
+    if module not in MODULES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe ese módulo")
+    if module not in GRANTABLE:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese módulo es de todas las cuentas")
+    user = _account(session, user_id)
+    row = session.exec(select(UserModule).where(UserModule.user_id == user.id, UserModule.module == module)).first()
+    before = resolve_module(module, getattr(row, "enabled", None), getattr(row, "allowed", None))
+    if row is None:
+        row = UserModule(user_id=user.id, module=module)
+    row.allowed = body.allowed
+    session.add(row)
+    after = resolve_module(module, row.enabled, row.allowed)
+    if before != after:
+        record_action(session, _admin(request), "module", user.id, {module: before}, {module: after})
+    session.commit()
+    return {"module": module, **after}

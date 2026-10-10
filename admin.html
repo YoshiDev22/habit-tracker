@@ -65,6 +65,24 @@
         </section>
     </main>
 
+    <!-- La ficha de una cuenta (Fase 2): lo que se le puede cambiar, y su bitácora -->
+    <dialog class="account-dialog" id="accountDialog" aria-labelledby="accountDialogTitle">
+        <div class="dialog-head">
+            <h2 id="accountDialogTitle">Cuenta</h2>
+            <button type="button" class="dialog-close" id="accountDialogClose" aria-label="Cerrar">×</button>
+        </div>
+        <p class="hint" id="accountDialogMeta"></p>
+        <section class="dialog-section" aria-labelledby="accountModulesTitle">
+            <h3 id="accountModulesTitle">Acceso a módulos</h3>
+            <div class="module-access" id="accountModules"></div>
+        </section>
+        <p class="form-error" id="accountDialogError" role="alert" hidden></p>
+        <section class="dialog-section" aria-labelledby="accountLogTitle">
+            <h3 id="accountLogTitle">Bitácora de esta cuenta</h3>
+            <ul class="action-log" id="accountLog"></ul>
+        </section>
+    </dialog>
+
     <script src="/admin.js"></script>
 </body>
 </html>

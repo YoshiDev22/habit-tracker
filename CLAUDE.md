@@ -966,7 +966,12 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
   de cualquier ruta: Access también manda su JWT en las peticiones que otro sitio haga con su
   cookie). Cada acción se anota con `record_action()` en `admin_actions`, en la misma
   transacción que el cambio. La bitácora usa `account_id`, **no `user_id`**: así `purge_user()`
-  no la borra con la cuenta, y no guarda correo ni datos de la persona.
+  no la borra con la cuenta, y no guarda correo ni datos de la persona. Quién hizo la acción lo
+  deja `require_admin` en `request.state.admin`.
+- **Módulos desde el panel**: `PUT /api/accounts/{id}/modules/{módulo}` con `{allowed}` da o quita
+  el acceso a los que no son de todos (`GRANTABLE`: Maker e IA; Hábitos da 409), igual que
+  `grant_module.py`, que se queda para emergencias. La ficha de la cuenta (*Gestionar*) lo hace
+  con una casilla y enseña su bitácora. Un cambio que no cambia nada no se anota.
 - Fase 1 es solo lectura (resumen, cuentas, IA, problemas); el Tunnel y Access, la Fase 3.
 
 ## Reglas del producto

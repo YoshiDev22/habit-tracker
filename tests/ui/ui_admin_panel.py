@@ -115,6 +115,19 @@ async def main():
         await b.js("document.querySelector('[data-tab=accounts]').click()")
         await b.shot("admin_accounts", full=False)
 
+        # Fase 2: la ficha de la cuenta da acceso a Maker (el navegador pasa la protección CSRF)
+        await b.js("""[...document.querySelectorAll('#accountsTable tr')].find(r => r.textContent.includes('yoshi@test.com'))
+            .querySelector('.manage').click()""")
+        await b.wait_for("document.getElementById('accountDialog').open", bool)
+        await b.js("document.querySelector('#accountModules input[data-module=maker]').click()")
+        log = await b.wait_for("document.getElementById('accountLog').textContent",
+                               lambda v: "Acceso a Maker dado" in (v or ""))
+        maker = call("GET", "/api/auth/me", expect=200)[1]["modules"]["maker"]
+        check(maker["allowed"] and "Acceso a Maker dado" in log and ADMIN in log,
+              f"Gestionar gives Maker access, and the log says who ({maker}, {log[:80]})")
+        await b.shot("admin_account_dialog", full=False)
+        await b.js("document.getElementById('accountDialogClose').click()")
+
         # Sin token (otra pestaña, sin el enlace): acceso denegado, sin datos
         await b.js("sessionStorage.clear()")
         await b.goto(base + "/", wait=1.0)

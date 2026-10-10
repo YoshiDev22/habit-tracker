@@ -149,5 +149,7 @@ def verify(token: Optional[str], config: AdminConfig, keys: AccessKeys) -> str:
 def admin_dependency(config: AdminConfig, keys: AccessKeys):
     """La dependencia de FastAPI que pide un administrador válido."""
     def require_admin(request: Request) -> str:
-        return verify(request.headers.get(HEADER), config, keys)
+        admin = verify(request.headers.get(HEADER), config, keys)
+        request.state.admin = admin   # quién hizo cada acción, para la bitácora
+        return admin
     return require_admin

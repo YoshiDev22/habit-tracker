@@ -1,5 +1,5 @@
 // ============================================
-// Panel de administración (1.27, Fase 1: solo lectura)
+// Panel de administración (1.27): lectura en la Fase 1, acciones con bitácora en la Fase 2
 // ============================================
 //
 // Lo sirve backend/admin_main.py, otro proceso que la app. En producción
@@ -34,6 +34,23 @@ function devToken() {
 const DEV_TOKEN = devToken();
 
 class DeniedError extends Error {}
+
+function apiErrorMessage(data, status) {
+    const detail = data && data.detail;
+    if (Array.isArray(detail)) return detail[0] && detail[0].msg ? detail[0].msg : `Error ${status}`;
+    return detail || `Error ${status}`;
+}
+
+// Lo que cambia algo: JSON (el navegador agrega el Origin del panel, que el servidor pide)
+async function adminSend(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (DEV_TOKEN) headers['Cf-Access-Jwt-Assertion'] = DEV_TOKEN;
+    const response = await fetch(path, { method, headers, credentials: 'same-origin', body: JSON.stringify(body) });
+    const data = await response.json().catch(() => null);
+    if (response.status === 403) throw new DeniedError('Acceso denegado');
+    if (!response.ok) throw new Error(apiErrorMessage(data, response.status));
+    return data;
+}
 
 async function adminGet(path) {
     const headers = DEV_TOKEN ? { 'Cf-Access-Jwt-Assertion': DEV_TOKEN } : {};
@@ -113,7 +130,11 @@ function moduleBadges(modules) {
 }
 
 function emailCell(account) {
-    const cell = node('td');
+    const cell = node('td', 'account-cell');
+    const manage = node('button', 'manage', 'Gestionar');
+    manage.type = 'button';
+    manage.addEventListener('click', () => openAccount(account.id));
+    cell.append(manage);
     const button = node('button', 'email', account.email);
     button.type = 'button';
     button.title = 'Ver el correo completo';
@@ -131,7 +152,10 @@ function emailCell(account) {
     return cell;
 }
 
+const accountsState = { list: [], open: null };
+
 function renderAccounts(accounts) {
+    accountsState.list = accounts;
     const table = document.getElementById('accountsTable');
     const head = node('tr');
     for (const label of ['Cuenta', 'Registro', 'Última actividad', 'Módulos', ...Object.values(COUNT_LABELS), 'IA hoy', 'IA mes']) {
@@ -157,6 +181,105 @@ function renderAccounts(accounts) {
     thead.append(head);
     table.replaceChildren(thead, body);
 }
+
+// ---------- La ficha de una cuenta (Fase 2) ----------
+
+const accountDialog = document.getElementById('accountDialog');
+const accountError = document.getElementById('accountDialogError');
+
+function showAccountError(message) {
+    accountError.textContent = message;
+    accountError.hidden = !message;
+}
+
+function describeChange(action) {
+    if (action.action === 'module') {
+        const [name, after] = Object.entries(action.after || {})[0] || [];
+        const label = MODULE_LABELS[name] || name;
+        return after && after.allowed ? `Acceso a ${label} dado` : `Acceso a ${label} quitado`;
+    }
+    return action.action;
+}
+
+async function renderAccountLog(accountId) {
+    const data = await adminGet(`/api/actions?account_id=${accountId}`);
+    const list = document.getElementById('accountLog');
+    list.replaceChildren(...(data.actions.length
+        ? data.actions.map(a => node('li', null, `${dateTime(a.created_at)} · ${describeChange(a)} · ${a.admin}`))
+        : [node('li', 'empty', 'Nada todavía.')]));
+}
+
+function moduleNote(state) {
+    if (!state.allowed) return 'Sin acceso';
+    return state.enabled ? 'Con acceso, encendido' : 'Con acceso, apagado por la persona';
+}
+
+function renderAccountModules(account) {
+    const box = document.getElementById('accountModules');
+    box.replaceChildren(...['maker', 'ai'].map((name) => {
+        const state = account.modules[name];
+        const label = node('label', 'module-row');
+        const input = node('input');
+        input.type = 'checkbox';
+        input.checked = state.allowed;
+        input.dataset.module = name;
+        input.addEventListener('change', () => setModuleAccess(account.id, name, input));
+        label.append(input, node('span', null, MODULE_LABELS[name]), node('small', 'hint', moduleNote(state)));
+        return label;
+    }));
+}
+
+function renderAccountDialog(account) {
+    document.getElementById('accountDialogTitle').textContent = account.email;
+    const signup = account.created_at ? shortDate(account.created_at) : 'antes de la 1.27';
+    document.getElementById('accountDialogMeta').textContent =
+        `Registro: ${signup} · Última actividad: ${ago(account.last_seen_at).toLowerCase()}`;
+    renderAccountModules(account);
+}
+
+async function reloadAccounts() {
+    const data = await adminGet('/api/accounts');
+    renderAccounts(data.accounts);
+    const account = data.accounts.find(a => a.id === accountsState.open);
+    if (account && accountDialog.open) renderAccountDialog(account);
+}
+
+async function setModuleAccess(accountId, module, input) {
+    showAccountError('');
+    input.disabled = true;
+    try {
+        await adminSend('PUT', `/api/accounts/${accountId}/modules/${module}`, { allowed: input.checked });
+        await reloadAccounts();
+        await renderAccountLog(accountId);
+    } catch (error) {
+        input.checked = !input.checked;
+        if (error instanceof DeniedError) {
+            accountDialog.close();
+            showFailure(error);
+            return;
+        }
+        showAccountError(error.message);
+    } finally {
+        input.disabled = false;
+    }
+}
+
+async function openAccount(accountId) {
+    const account = accountsState.list.find(a => a.id === accountId);
+    if (!account) return;
+    accountsState.open = accountId;
+    showAccountError('');
+    renderAccountDialog(account);
+    accountDialog.showModal();
+    try {
+        await renderAccountLog(accountId);
+    } catch (error) {
+        showAccountError('No se pudo cargar la bitácora.');
+    }
+}
+
+document.getElementById('accountDialogClose').addEventListener('click', () => accountDialog.close());
+accountDialog.addEventListener('close', () => { accountsState.open = null; });
 
 // ---------- IA ----------
 
@@ -249,7 +372,7 @@ function showFailure(error) {
 async function start() {
     try {
         const me = await adminGet('/api/me');
-        document.getElementById('who').textContent = `${me.email} · solo lectura${DEV_TOKEN ? ' · modo de desarrollo' : ''}`;
+        document.getElementById('who').textContent = `${me.email}${DEV_TOKEN ? ' · modo de desarrollo' : ''}`;
         const [summary, accounts, ai] = await Promise.all([
             adminGet('/api/summary'), adminGet('/api/accounts'), adminGet('/api/ai'),
         ]);
