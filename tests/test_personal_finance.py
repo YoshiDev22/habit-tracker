@@ -275,3 +275,37 @@ def test_deleting_the_account_takes_its_finances(api):
         purge_user(session, session.get(User, uid))
         for model in (FinAccount, FinCategory, FinTransaction, FinRecurring, FinSettings):
             assert session.exec(select(model).where(model.user_id == uid)).first() is None, model.__name__
+
+
+def test_seeding_twice_at_once_does_not_fail(api, monkeypatch):
+    """La pantalla pide cuentas y resumen a la vez: las dos siembran. La que
+    llega segunda choca con la restricción única y no debe tumbar la petición
+    ni quedarse sin sembrar las categorías."""
+    import backend.finance as finance
+    from backend.models import FinAccount, FinCategory
+    finance_on(api, "doble@test.com")
+    uid = user_id("doble@test.com")
+    with Session(engine) as session:
+        session.add(FinAccount(user_id=uid, name="Efectivo", kind="cash", is_default=True))
+        session.commit()
+    # La otra petición: comprobó antes de que la primera guardara, así que cree que no hay nada
+    real_exec = Session.exec
+    calls = {"n": 0}
+
+    def stale_first_check(self, statement, *args, **kwargs):
+        calls["n"] += 1
+        result = real_exec(self, statement, *args, **kwargs)
+        if calls["n"] == 1:
+            class Empty:
+                def first(self):
+                    return None
+            return Empty()
+        return result
+
+    monkeypatch.setattr(Session, "exec", stale_first_check)
+    with Session(engine) as session:
+        finance.ensure_finance_setup(session, uid)
+    monkeypatch.undo()
+    with Session(engine) as session:
+        assert len(session.exec(select(FinAccount).where(FinAccount.user_id == uid)).all()) == 1
+        assert len(session.exec(select(FinCategory).where(FinCategory.user_id == uid)).all()) == len(DEFAULT_CATEGORIES)

@@ -43,22 +43,25 @@ MAX_CATCH_UP = 36
 
 def ensure_finance_setup(session: Session, user_id: int) -> None:
     """La cuenta y las categorías de inicio, una sola vez cada una: sin ninguna,
-    la cuenta nunca entró (la última no se puede borrar). Idempotente; la
-    restricción única por nombre frena la doble siembra concurrente."""
-    added = False
+    la cuenta nunca entró (la última no se puede borrar). Idempotente. La
+    pantalla pide cuentas y resumen a la vez, así que dos peticiones siembran
+    juntas: la restricción única por nombre frena la segunda, y cada siembra va
+    en su propio commit para que el choque de una no se lleve la otra."""
     if session.exec(select(FinAccount.id).where(FinAccount.user_id == user_id)).first() is None:
-        for order, (name, kind) in enumerate(DEFAULT_ACCOUNTS):
-            session.add(FinAccount(user_id=user_id, name=name, kind=kind, order=order, is_default=order == 0))
-        added = True
+        _seed(session, [FinAccount(user_id=user_id, name=name, kind=kind, order=order, is_default=order == 0)
+                        for order, (name, kind) in enumerate(DEFAULT_ACCOUNTS)])
     if session.exec(select(FinCategory.id).where(FinCategory.user_id == user_id)).first() is None:
-        for order, (name, color, kind) in enumerate(DEFAULT_CATEGORIES):
-            session.add(FinCategory(user_id=user_id, name=name, color=color, kind=kind, order=order))
-        added = True
-    if added:
-        try:
-            session.commit()
-        except IntegrityError:
-            session.rollback()
+        _seed(session, [FinCategory(user_id=user_id, name=name, color=color, kind=kind, order=order)
+                        for order, (name, color, kind) in enumerate(DEFAULT_CATEGORIES)])
+
+
+def _seed(session: Session, rows: list) -> None:
+    for row in rows:
+        session.add(row)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()   # otra petición sembró lo mismo a la vez
 
 
 def settings_row(session: Session, user_id: int) -> Optional[FinSettings]:
