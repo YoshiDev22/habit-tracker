@@ -30,6 +30,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
 | 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.27 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
+| 37 | P2 | Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo | épica, después de la 1.27 |
 
 ---
 
@@ -548,3 +549,31 @@ cookies de terceros si se puede. Lo que hoy explica `GUIA-DE-USO.md` sirve de ba
 
 **Por decidir.** Si la portada vive en la misma app o en un sitio estático aparte; dónde se
 aloja el video; y si se enlaza la guía de uso.
+
+---
+
+## 37 · P2 · Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo
+
+**Esto es una épica.** Pedida por Yoshio el 2026-10-09; va **después de la 1.27** (panel de
+administración). El plan completo está en [`docs/specs/finanzas.md`](docs/specs/finanzas.md).
+
+**Idea.** Llevar las finanzas personales sin capturar todo a mano: las compras con tarjeta
+entran solas de los correos del banco (y de las facturas CFDI), el efectivo se agrega por
+Telegram o en la app, la campanita pregunta cada noche "¿te faltó algo?" y avisa si al ritmo
+que se va el dinero no alcanza hasta el siguiente ingreso. Un reporte mensual da estrategias
+sacadas de los propios datos.
+
+**Decisiones.** Un módulo de esta app (`finance`, con acceso como `maker`), no otra app ni
+parte de Costos. Solo tablas nuevas: sin migración. El correo lo lee un Apps Script en el
+Gmail del usuario que manda los avisos a la app con un token de ingesta (la app nunca entra
+al Gmail); el bot de Telegram es su propio servicio. La compra con crédito es el gasto; el
+pago de la tarjeta, una transferencia.
+
+**Fases.** 1: módulo y registro a mano. 2: avisos y ritmo. 3: correo y CFDI. 4: Telegram
+(texto; fotos con IA después). 5: reporte mensual con IA.
+
+**Aceptación.** Las de cada fase en el spec; en todas, que una compra con tarjeta cuente una
+sola vez aunque llegue por varios caminos.
+
+**Por decidir.** Los bancos del primer parser, quincena o mes como periodo por defecto, y lo
+demás que lista el spec.
