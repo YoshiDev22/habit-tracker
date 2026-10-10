@@ -169,7 +169,8 @@ mientras esté vigente. Desde la raíz del repo, con el servicio ya en la 1.26 o
 .venv/bin/python scripts/announce.py --end 1   # lo quita de todas las campanitas
 ```
 
-Sin `--hours`, sigue hasta `--end`.
+Sin `--hours`, sigue hasta `--end`. Como mucho 3 vigentes a la vez y 30 s entre dos publicaciones,
+las mismas reglas que el panel de administración (pestaña *Avisos*).
 
 ## Pruebas
 

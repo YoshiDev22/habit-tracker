@@ -149,12 +149,18 @@ def test_no_account_can_publish_to_every_bell(api, monkeypatch):
               if "notice" in r.path or "announce" in r.path}
     assert routes == {("GET", "/api/notices"), ("POST", "/api/notices/read"),
                       ("POST", "/api/notices/{notice_id}/dismiss")}
-    # Nothing in the app creates an announcement: only the server script writes the table
+    # Only the admin panel (admin_api.py, a separate process) and the server script create
+    # announcements; models.py only defines the class. And the public app never loads the panel
     backend = Path(__file__).resolve().parents[1] / "backend"
-    writers = [str(p.relative_to(backend)) for p in backend.rglob("*.py")
-               if "Announcement(" in p.read_text(encoding="utf-8")
-               or "INSERT INTO announcements" in p.read_text(encoding="utf-8")]
-    assert writers == ["models.py"], writers   # only the class definition
+    writers = sorted(str(p.relative_to(backend)) for p in backend.rglob("*.py")
+                     if "Announcement(" in p.read_text(encoding="utf-8")
+                     or "INSERT INTO announcements" in p.read_text(encoding="utf-8"))
+    assert writers == ["admin_api.py", "models.py"], writers
+    import subprocess
+    import sys
+    loaded = subprocess.run([sys.executable, "-c", "import sys, backend.main; print('backend.admin_api' in sys.modules)"],
+                            cwd=backend.parent, capture_output=True, text=True)
+    assert loaded.returncode == 0 and loaded.stdout.strip() == "False", (loaded.stdout, loaded.stderr)
     # What an account could try
     api.login("intruso@test.com")
     body = {"title": "Spam", "body": "spam", "kind": "announcement", "ref": "1"}

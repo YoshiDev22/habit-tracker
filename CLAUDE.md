@@ -930,7 +930,9 @@ La campanita es un centro de avisos **guardado por cuenta** (`backend/notices.py
   `feedback_closed` (ref = id del reporte): al cerrar en el panel un problema que la cuenta
   reportó, "Revisamos el problema que reportaste el …" con `feedback.user_note` (o "Gracias por
   avisarnos."); la nota interna (`admin_note`) nunca sale. Uno por reporte: reabrir y volver a
-  cerrar no lo repite. Sale con 🛠️ y sin botón.
+  cerrar no lo repite. Sale con 🛠️ y sin botón. Y `message` (ref = id de `account_messages`): un
+  aviso del panel para una sola cuenta, escrito a mano o automático al darle IA extra o acceso a
+  un módulo. Sale con 💬 y sin botón.
 
 El círculo rojo (`unread`) cuenta pendientes más informativos sin leer. Abrir la campanita lee
 los informativos; los pendientes siguen hasta resolverse. La lista va por grupos: Pendientes,
@@ -994,6 +996,15 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
   closed`), `admin_note` (1000, interna) y `user_note` (500, la lee la persona); vacía, se borra.
   Pasar a cerrado deja el aviso `feedback_closed`. `user_note` es columna de una tabla de esta
   misma versión: va en `migrate.py` con `new_table` para las bases que ya la tenían.
+- **Avisos desde el panel** (paso 6): `POST /api/announcements` publica para todas las cuentas y
+  `POST /api/announcements/{id}/end` lo termina; `GET /api/announcements` los lista. Sus reglas
+  viven en `backend/announcement_rules.py` (solo biblioteca estándar) y las usa también
+  `scripts/announce.py`: como mucho `MAX_CURRENT` (3) vigentes (409) y `COOLDOWN_SECONDS` (30)
+  entre dos publicaciones (429). `POST /api/accounts/{id}/messages` avisa a una sola cuenta
+  (`send_message()`, tabla `account_messages`, con `user_id`: se va con la cuenta). Dar IA extra
+  o acceso a un módulo avisa solo; quitarlo, no. La app pública no crea avisos: solo el panel y
+  el script (`test_no_account_can_publish_to_every_bell` lo comprueba, y que `backend.main` no
+  carga `backend.admin_api`).
 - **Eventos de seguridad** (paso 8, `backend/security_log.py`, tabla `security_events`): solo lo que
   falla o delata un abuso (`KINDS`: contraseña equivocada en el login o en Mi perfil, bloqueo por
   límite, cuenta creada, token rechazado con su motivo, límite de IA o de reportes, rechazo en el

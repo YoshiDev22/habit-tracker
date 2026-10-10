@@ -19,8 +19,9 @@ from sqlmodel import Session, SQLModel, select
 
 from backend.database import get_session
 from backend.ai import ai_config
-from backend.models import (AdminAction, AiCall, AiGrant, Board, Feedback, Habit, PomodoroSession, ProjectCost,
-                            Report, SecurityEvent, Task, User, UserModule, utc_now_naive)
+from backend import announcement_rules
+from backend.models import (AccountMessage, AdminAction, AiCall, AiGrant, Announcement, Board, Feedback, Habit,
+                            PomodoroSession, ProjectCost, Report, SecurityEvent, Task, User, UserModule, utc_now_naive)
 from backend.security_log import KINDS as SECURITY_KINDS, cleanup as cleanup_security_events, is_proxy_ip
 from backend.report_ai import ai_usage as account_ai_usage, extra_today
 from backend.modules import MODULES, resolve as resolve_module
@@ -40,6 +41,21 @@ def record_action(session: Session, admin: str, action: str, account_id: Optiona
     row = AdminAction(admin_email=admin, action=action, account_id=account_id, before=before, after=after)
     session.add(row)
     return row
+
+
+# "Ya tienes acceso …": con su contracción (al, a la)
+MODULE_ACCESS = {"maker": "al plan Maker", "ai": "a la IA de los reportes"}
+
+
+def send_message(session: Session, user_id: int, title: str, body: str = "") -> AccountMessage:
+    """Un aviso del panel para una sola cuenta, en su campanita. No hace commit."""
+    from backend.notices import add_notice
+    message = AccountMessage(user_id=user_id, title=title[:announcement_rules.MAX_TITLE],
+                             body=body[:announcement_rules.MAX_BODY])
+    session.add(message)
+    session.flush()
+    add_notice(session, user_id, "message", str(message.id))
+    return message
 
 
 def mask_email(email: str) -> str:
@@ -231,6 +247,9 @@ def set_module_access(user_id: int, module: str, body: ModuleAccess, request: Re
     after = resolve_module(module, row.enabled, row.allowed)
     if before != after:
         record_action(session, _admin(request), "module", user.id, {module: before}, {module: after})
+        if after["allowed"] and not before["allowed"]:
+            send_message(session, user.id, f"Ya tienes acceso {MODULE_ACCESS.get(module, module)}",
+                         "Enciéndelo en ⚙️ Configuración › Módulos.")
     session.commit()
     return {"module": module, **after}
 
@@ -276,6 +295,9 @@ def grant_ai(user_id: int, body: AiGrantCreate, request: Request, session: Sessi
     record_action(session, _admin(request), "ai_grant", user.id,
                   {"pool": body.pool, "day": today.isoformat(), "extra": before},
                   {"pool": body.pool, "day": today.isoformat(), "extra": grant.extra})
+    what = "reportes de costos" if body.pool == "costs" else "reportes de tiempo y hábitos"
+    send_message(session, user.id, f"Te dimos {body.extra} textos más de IA hoy",
+                 f"Para {what}. Mañana vuelve tu límite normal.")
     session.commit()
     return {"pool": body.pool, "day": today.isoformat(), "extra": grant.extra}
 
@@ -424,3 +446,80 @@ def update_feedback(feedback_id: int, body: FeedbackUpdate, request: Request,
         session.add(feedback)
         session.commit()
     return {"id": feedback.id, **after}
+
+
+# ---------- Avisos (paso 6) ----------
+class AnnouncementCreate(SQLModel):
+    title: str = PydanticField(max_length=announcement_rules.MAX_TITLE)
+    body: str = PydanticField(default="", max_length=announcement_rules.MAX_BODY)
+    hours: Optional[StrictInt] = PydanticField(default=None, ge=1, le=24 * 30)   # sin horas: hasta terminarlo
+
+
+class MessageCreate(SQLModel):
+    title: str = PydanticField(min_length=1, max_length=announcement_rules.MAX_TITLE)
+    body: str = PydanticField(default="", max_length=announcement_rules.MAX_BODY)
+
+
+def _current_announcements(session: Session, now):
+    return session.exec(select(Announcement).where(
+        (Announcement.ends_at == None) | (Announcement.ends_at > now))).all()  # noqa: E711
+
+
+@router.get("/announcements")
+def list_announcements(session: Session = Depends(get_session)) -> dict:
+    """Los avisos para todas las cuentas, el más nuevo arriba (hasta 50), vigentes o no."""
+    now = utc_now_naive()
+    rows = session.exec(select(Announcement).order_by(Announcement.id.desc()).limit(50)).all()
+    return {"max_current": announcement_rules.MAX_CURRENT, "announcements": [{
+        "id": a.id, "title": a.title, "body": a.body, "created_at": a.created_at, "ends_at": a.ends_at,
+        "current": a.ends_at is None or a.ends_at > now} for a in rows]}
+
+
+@router.post("/announcements")
+def publish_announcement(body: AnnouncementCreate, request: Request, session: Session = Depends(get_session)) -> dict:
+    """Publicar un aviso para todas las cuentas, con las reglas de announce.py: como
+    mucho MAX_CURRENT vigentes (409) y una espera entre dos publicaciones (429)."""
+    now = utc_now_naive()
+    last = session.exec(select(func.max(Announcement.created_at))).one()
+    problem = announcement_rules.check(body.title, body.body, len(_current_announcements(session, now)), last, now)
+    if problem:
+        code = status.HTTP_429_TOO_MANY_REQUESTS if "espera" in problem else (
+            status.HTTP_409_CONFLICT if "vigentes" in problem else status.HTTP_422_UNPROCESSABLE_ENTITY)
+        raise HTTPException(status_code=code, detail=problem)
+    ann = Announcement(title=body.title.strip(), body=" ".join(body.body.split()), created_at=now,
+                       ends_at=now + timedelta(hours=body.hours) if body.hours else None)
+    session.add(ann)
+    session.flush()
+    record_action(session, _admin(request), "announcement", None, None,
+                  {"announcement_id": ann.id, "title": ann.title, "hours": body.hours})
+    session.commit()
+    return {"id": ann.id, "title": ann.title, "ends_at": ann.ends_at}
+
+
+@router.post("/announcements/{announcement_id}/end")
+def end_announcement(announcement_id: int, request: Request, session: Session = Depends(get_session)) -> dict:
+    """Terminar un aviso ya: sale de todas las campanitas."""
+    ann = session.get(Announcement, announcement_id)
+    if ann is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe ese aviso")
+    now = utc_now_naive()
+    if ann.ends_at is not None and ann.ends_at <= now:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese aviso ya terminó")
+    record_action(session, _admin(request), "announcement_end", None,
+                  {"announcement_id": ann.id, "title": ann.title}, {"announcement_id": ann.id, "ended": True})
+    ann.ends_at = now
+    session.add(ann)
+    session.commit()
+    return {"id": ann.id, "ends_at": ann.ends_at}
+
+
+@router.post("/accounts/{user_id}/messages")
+def message_account(user_id: int, body: MessageCreate, request: Request, session: Session = Depends(get_session)) -> dict:
+    """Un aviso solo para esta cuenta, en su campanita."""
+    user = _account(session, user_id)
+    if not body.title.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Falta el título")
+    message = send_message(session, user.id, body.title.strip(), " ".join(body.body.split()))
+    record_action(session, _admin(request), "message", user.id, None, {"message_id": message.id, "title": message.title})
+    session.commit()
+    return {"id": message.id, "title": message.title}

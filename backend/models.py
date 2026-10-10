@@ -142,6 +142,22 @@ class Announcement(SQLModel, table=True):
     ends_at: Optional[datetime] = Field(default=None)   # UTC naive; después ya no se enseña
 
 
+class AccountMessage(SQLModel, table=True):
+    """
+    Un aviso del panel de administración para una sola cuenta (1.27, Fase 2,
+    paso 6): uno escrito a mano, o los automáticos al darle textos de IA extra o
+    acceso a un módulo. Sale en su campanita como `message`. Se va con la cuenta
+    (user_id). Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "account_messages"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+    title: str                                   # hasta 80
+    body: str = Field(default="")                # hasta 500
+
+
 class Notice(SQLModel, table=True):
     """
     Un aviso de la campanita (1.26), guardado por cuenta. Los pendientes

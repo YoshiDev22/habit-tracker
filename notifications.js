@@ -105,7 +105,7 @@ function buildNotice(notice, taskById, projectById) {
         text.append(el('p', 'notice-title', `📅 Día sin anotar: ${longDate(notice.date)}`), el('p', 'notice-hint', notice.detail));
         actions.append(actionButton('Anotar', 'day'), actionButton('Descartar', 'dismiss', true, 'No lo voy a anotar'));
     } else if (notice.status === 'info') {
-        const icon = { report_ready: '📊', novedades: '✨', announcement: '📢', feedback_closed: '🛠️' }[notice.kind] || '🔔';
+        const icon = { report_ready: '📊', novedades: '✨', announcement: '📢', feedback_closed: '🛠️', message: '💬' }[notice.kind] || '🔔';
         text.append(el('p', 'notice-title', `${icon} ${notice.title}`));
         if (notice.detail) text.append(el('p', 'notice-hint', notice.detail));
         // Un anuncio para todas las cuentas (mantenimiento…) o un problema revisado solo se leen

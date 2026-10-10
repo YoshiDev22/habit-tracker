@@ -195,6 +195,41 @@ async def main():
               f"the Bitácora tab lists every change, newest first ({[(r[2], r[3]) for r in rows[:4]]})")
         await b.shot("admin_log", full=False)
 
+        # Paso 6: un aviso para todas las cuentas, con vista previa, y terminarlo
+        today = __import__("datetime").date.today().isoformat()
+
+        def bell_announcements():
+            return [n["title"] for n in call("GET", f"/api/notices?today={today}", expect=200)[1]["notices"]
+                    if n["kind"] == "announcement"]
+
+        await b.js("document.querySelector('[data-tab=announcements]').click()")
+        await b.js("""(() => { const t = document.getElementById('announceTitle'); t.value = 'Mantenimiento programado';
+            t.dispatchEvent(new Event('input'));
+            const body = document.getElementById('announceBody'); body.value = 'Hoy a las 22:00, 5 min.';
+            body.dispatchEvent(new Event('input')); })()""")
+        preview = await b.js("document.querySelector('.announce-preview').textContent")
+        await b.shot("admin_announce_preview", full=False)
+        await b.js("document.getElementById('announceForm').requestSubmit()")
+        listed = await b.wait_for("[...document.querySelectorAll('#announceList .announce.current strong')].map(e => e.textContent)",
+                                  lambda v: v == ["Mantenimiento programado"])
+        check("📢 Mantenimiento programado" in preview and "22:00" in preview and listed == ["Mantenimiento programado"]
+              and bell_announcements() == ["Mantenimiento programado"],
+              f"Avisos previews it, publishes it and it reaches the bell ({listed})")
+        await b.js("document.querySelector('#announceList .announce.current .manage').click()")
+        await b.wait_for("document.querySelectorAll('#announceList .announce.current').length === 0", bool)
+        check(bell_announcements() == [], "Terminar takes it out of every bell")
+
+        # Y un aviso solo para la otra cuenta, desde su ficha
+        await b.js("document.querySelector('[data-tab=accounts]').click()")
+        await b.js(f"openAccount({other_id})")
+        await b.wait_for("document.getElementById('accountDialog').open", bool)
+        await b.js("""document.getElementById('accountMessageTitle2').value = 'Revisa tu tablero';
+            document.getElementById('accountMessageForm').requestSubmit()""")
+        log = await b.wait_for("document.getElementById('accountLog').textContent",
+                               lambda v: "Aviso a la cuenta: «Revisa tu tablero»" in (v or ""))
+        check("Aviso a la cuenta: «Revisa tu tablero»" in log, "the sheet sends a notice to that account only")
+        await b.js("document.getElementById('accountDialogClose').click()")
+
         # Sin token (otra pestaña, sin el enlace): acceso denegado, sin datos
         await b.js("sessionStorage.clear()")
         await b.goto(base + "/", wait=1.0)

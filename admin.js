@@ -194,6 +194,9 @@ function showAccountError(message) {
 }
 
 function describeChange(action) {
+    if (action.action === 'announcement') return `Aviso publicado para todas: «${action.after.title}»`;
+    if (action.action === 'announcement_end') return `Aviso terminado: «${action.before.title}»`;
+    if (action.action === 'message') return `Aviso a la cuenta: «${action.after.title}»`;
     if (action.action === 'feedback') {
         const before = STATUS_LABELS[action.before.status] || action.before.status;
         const after = STATUS_LABELS[action.after.status] || action.after.status;
@@ -498,6 +501,92 @@ async function loadFeedback() {
 
 // ---------- Pestañas y arranque ----------
 
+// ---------- Avisos (paso 6) ----------
+
+function refreshAnnouncePreview() {
+    const title = document.getElementById('announceTitle').value.trim();
+    document.getElementById('announcePreviewTitle').textContent = `📢 ${title || 'Título del aviso'}`;
+    document.getElementById('announcePreviewBody').textContent = document.getElementById('announceBody').value.trim();
+}
+
+async function renderAnnouncements() {
+    const data = await adminGet('/api/announcements');
+    const list = document.getElementById('announceList');
+    list.replaceChildren(...(data.announcements.length ? data.announcements.map((a) => {
+        const item = node('li', a.current ? 'announce current' : 'announce');
+        const until = a.ends_at ? `hasta ${dateTime(a.ends_at)}` : 'hasta terminarlo';
+        item.append(node('strong', null, a.title), node('span', 'hint', `${dateTime(a.created_at)} · ${a.current ? 'vigente, ' + until : 'terminado'}`));
+        if (a.body) item.append(node('span', 'announce-body', a.body));
+        if (a.current) {
+            const end = node('button', 'manage danger', 'Terminar');
+            end.type = 'button';
+            end.addEventListener('click', async () => {
+                end.disabled = true;
+                try {
+                    await adminSend('POST', `/api/announcements/${a.id}/end`, {});
+                    await renderAnnouncements();
+                } catch (error) {
+                    if (error instanceof DeniedError) return showFailure(error);
+                    document.getElementById('announceMessage').textContent = error.message;
+                    end.disabled = false;
+                }
+            });
+            item.append(end);
+        }
+        return item;
+    }) : [node('li', 'empty', 'Ninguno todavía.')]));
+}
+
+document.getElementById('announceTitle').addEventListener('input', refreshAnnouncePreview);
+document.getElementById('announceBody').addEventListener('input', refreshAnnouncePreview);
+document.getElementById('announceForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const message = document.getElementById('announceMessage');
+    const button = document.getElementById('announceSubmit');
+    button.disabled = true;
+    message.textContent = '';
+    try {
+        const hours = document.getElementById('announceHours').value;
+        await adminSend('POST', '/api/announcements', {
+            title: document.getElementById('announceTitle').value,
+            body: document.getElementById('announceBody').value,
+            hours: hours ? Number(hours) : null,
+        });
+        event.target.reset();
+        refreshAnnouncePreview();
+        message.textContent = 'Publicado: ya está en todas las campanitas.';
+        await renderAnnouncements();
+    } catch (error) {
+        if (error instanceof DeniedError) return showFailure(error);
+        message.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById('accountMessageForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const accountId = accountsState.open;
+    if (!accountId) return;
+    const status = document.getElementById('accountMessageStatus');
+    status.textContent = '';
+    try {
+        await adminSend('POST', `/api/accounts/${accountId}/messages`, {
+            title: document.getElementById('accountMessageTitle2').value,
+            body: document.getElementById('accountMessageBody').value,
+        });
+        event.target.reset();
+        status.textContent = 'Enviado: ya está en su campanita.';
+        await renderAccountLog(accountId);
+    } catch (error) {
+        if (error instanceof DeniedError) {
+            accountDialog.close();
+            return showFailure(error);
+        }
+        status.textContent = error.message;
+    }
+});
+
 // ---------- Seguridad ----------
 
 function emptyRow(columns, text) {
@@ -583,6 +672,10 @@ function showTab(name) {
     // La bitácora se pide al abrirla: así enseña también lo que se hizo desde otra pestaña
     if (name === 'log') renderLog().catch(showFailure);
     if (name === 'security') renderSecurity().catch(showFailure);
+    if (name === 'announcements') {
+        refreshAnnouncePreview();
+        renderAnnouncements().catch(showFailure);
+    }
 }
 
 document.getElementById('tabs').addEventListener('click', (event) => {
