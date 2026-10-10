@@ -4,6 +4,11 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.27.0 — 2026-10-09
+### Nuevas funciones
+- **Reportar un problema**: en **Mi perfil › Reportar un problema**, cuéntanos qué falló. Antes
+  de enviarlo ves exactamente qué detalles técnicos van con tu texto, y puedes quitarlos.
+
 ## 1.26.0 — 2026-10-09
 ### Nuevas funciones
 - **Centro de avisos**: la campanita de arriba junta todo lo que te espera: registros por

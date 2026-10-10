@@ -7,6 +7,31 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.27.0] — 2026-10-09
+
+Reportar un problema desde la app, y la primera fase del panel de administración (aún no se
+despliega).
+
+### Nuevo
+- **Reportar un problema**, en *Mi perfil*: cuenta qué estabas haciendo y qué pasó (de 10 a
+  2000 caracteres). La casilla **Adjuntar detalles técnicos** viene marcada y enseña, tal cual,
+  lo que se envía con tu texto: la versión de la app, la pestaña abierta, el tamaño de la
+  pantalla, el navegador y los últimos errores de esta sesión. Nunca lleva lo que escribes en la
+  app. Hasta 5 al día.
+- **Panel de administración, Fase 1** (para quien administra la instancia): un proceso aparte de
+  la app, solo en `127.0.0.1`, con un resumen de cuentas, las cuentas (correo enmascarado y solo
+  conteos, nunca contenido), el uso de la IA y los problemas reportados. En producción irá detrás
+  de Cloudflare Access; mientras tanto, `scripts/admin_dev.py` lo abre en tu máquina. La app
+  pública no tiene ninguna de sus rutas.
+
+### Para actualizar
+**Esta versión cambia la base de datos.** Correr `python3 scripts/migrate.py` **antes** de
+reiniciar el servicio: agrega a `users` la última actividad (`last_seen_at`) y la fecha de
+registro (`created_at`). Las cuentas que ya existen quedan sin fecha de registro. Sin la
+migración, la app no arranca y el log dice qué correr. La tabla de los reportes de problemas se
+crea sola al reiniciar. El panel de administración **no se instala todavía**: no hace falta
+nada para él en el VPS.
+
 ## [1.26.0] — 2026-10-09
 
 La campanita se vuelve un centro de avisos, y la app puede avisar de un mantenimiento a
@@ -763,6 +788,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.27.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.0
 [1.26.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.26.0
 [1.25.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.25.0
 [1.24.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.24.0
