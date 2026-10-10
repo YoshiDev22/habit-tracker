@@ -457,7 +457,13 @@ document.getElementById('feedbackFilter').addEventListener('change', () => {
 function showFailure(error) {
     document.getElementById('loading').hidden = true;
     if (error instanceof DeniedError) {
-        document.getElementById('denied').hidden = false;
+        const denied = document.getElementById('denied');
+        // En tu máquina no hay Cloudflare: el token de admin_dev.py venció (8 h) o es de otra vez
+        if (LOCAL_HOSTS.includes(location.hostname)) {
+            denied.textContent = 'Acceso denegado: el enlace de scripts/admin_dev.py venció (dura 8 h) o es de '
+                + 'otra vez que lo abriste. Ciérralo con Ctrl+C, vuelve a correrlo y entra con el enlace nuevo.';
+        }
+        denied.hidden = false;
         document.querySelectorAll('.view, .tabs').forEach(v => { v.hidden = true; });
         return;
     }

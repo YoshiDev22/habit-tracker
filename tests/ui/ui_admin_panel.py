@@ -162,6 +162,8 @@ async def main():
         denied = await b.wait_for("!document.getElementById('denied').hidden", bool)
         rows = await b.js("document.querySelectorAll('#accountsTable tr').length")
         check(denied and rows == 0, f"without the token it is denied and shows nothing ({rows} rows)")
+        hint = await b.js("document.getElementById('denied').textContent")
+        check("admin_dev.py" in hint and "Cloudflare" not in hint, f"and on this machine it says what to do ({hint[:70]})")
     finally:
         await b.close()
         stop_panel(proc)
