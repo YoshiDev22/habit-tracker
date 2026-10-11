@@ -99,6 +99,22 @@ async def main():
         check(not s["rows"][0]["flag"] and "Cerrado automáticamente" not in s["rows"][0]["detail"],
               f"once corrected, the auto-close note and the flag go away ({s['rows'][0]})")
 
+        # Horas que todavía no pasan: el formulario lo dice y no guarda nada (bug de la 1.27)
+        now = dt.datetime.now()
+        if now.hour < 21:
+            ahead = (now + dt.timedelta(hours=1)).strftime("%H:%M")
+            further = (now + dt.timedelta(hours=2)).strftime("%H:%M")
+            await js("document.querySelector('#dayLogList .session-row [data-action=edit]').click()", wait=1.2)
+            await js(f"""logTimeStartEl.value = '{ahead}'; logTimeStartEl.dispatchEvent(new Event('input'));
+                logTimeEndEl.value = '{further}'; logTimeEndEl.dispatchEvent(new Event('input'));""", wait=0.3)
+            await js("logTimeSubmitBtn.click()", wait=0.5)
+            err = await b.wait_for("(() => { const e = document.getElementById('logTimeError');"
+                                   " return e.classList.contains('hidden') ? '' : e.textContent; })()", bool)
+            still = (await js(STATE))["rows"][0]["when"]
+            check("No puedes poner horas futuras" in err and still.endswith("01:00–04:00 · 3h 0m"),
+                  f"a time later than now is refused, with the reason, and nothing changes ({err}, {still})")
+            await js("document.getElementById('closeLogTimeBtn').click()", wait=0.5)
+
         # The fixture's entries are on FIXTURE_DAY (tests/ui/conftest.py moves them
         # to yesterday); the checks go there with the calendar.
         import os
@@ -173,4 +189,9 @@ async def main():
 
 
 def test_day_log():
+    # Corrige un registro de hoy a 01:00–04:00: antes de las 4 a. m. esas horas aún no
+    # pasan, y el servidor las rechaza con razón (no se pueden poner horas futuras)
+    if dt.datetime.now().time() < dt.time(4, 5):
+        import pytest
+        pytest.skip("this test fixes an entry of today to 01:00–04:00; run it after 04:05")
     asyncio.run(main())
