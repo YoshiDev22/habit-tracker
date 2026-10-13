@@ -1187,3 +1187,26 @@ projectDeleteModal.querySelector('.modal-overlay').addEventListener('click', clo
 // ============================================
 
 window.appDataHooks.push(loadProjects);
+
+// Al volver a la pestaña tras un rato fuera, otra pestaña u otro dispositivo pudo
+// registrar tiempo o mover tareas: se vuelve a pedir (tablero, lista y Reportes
+// van detrás por projectsChangedHooks). No con un modal abierto ni a media
+// escritura: el repintado se llevaría lo que el usuario tiene a la mitad.
+const REFRESH_AFTER_HIDDEN_MS = 30 * 1000;
+let hiddenSince = null;
+
+function userIsBusy() {
+    if (document.querySelector('.modal:not(.hidden)')) return true;
+    const active = document.activeElement;
+    return Boolean(active && active.matches('input, textarea, select, [contenteditable="true"]'));
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        hiddenSince = Date.now();
+        return;
+    }
+    const awayMs = hiddenSince === null ? 0 : Date.now() - hiddenSince;
+    hiddenSince = null;
+    if (awayMs >= REFRESH_AFTER_HIDDEN_MS && getToken() && !userIsBusy()) loadProjects();
+});
