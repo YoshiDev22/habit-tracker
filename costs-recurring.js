@@ -402,6 +402,13 @@ recurringForm.addEventListener('submit', async (event) => {
     }
     if (!rc && recurringState.fromCost) body.from_cost_id = recurringState.fromCost.id;
     if (rc && rc.last_charge) body.apply_to = f.apply_to.value;
+    // Un fin anterior a cobros ya anotados: esos cobros se borran solo si lo pide
+    if (rc && rc.last_charge && body.end_date && body.end_date < rc.last_charge) {
+        body.drop_after_end = await confirmDialog(
+            `Hay cobros anotados después del fin, el ${dayText(body.end_date)} (el último, el ${dayText(rc.last_charge)}). `
+            + '¿Los borro? Si de verdad los pagaste, consérvalos.',
+            { title: 'Cobros después del fin', confirmLabel: 'Borrarlos', cancelLabel: 'Conservarlos', danger: true });
+    }
     try {
         await apiFetch(rc ? `/api/costs/recurring/${rc.id}` : '/api/costs/recurring',
             { method: rc ? 'PATCH' : 'POST', json: body });

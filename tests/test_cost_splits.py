@@ -192,6 +192,30 @@ def test_pausing_skips_the_paused_charges(api):
     assert all(c.cost_date >= TODAY + timedelta(days=95) for c in created)
 
 
+def test_an_end_before_written_charges_drops_them_only_if_asked(api):
+    tesis, ht, cat = setup(api)
+    start = TODAY - timedelta(days=70)
+    body = recurring_body(tesis, cat, start, allocations=[{"project_id": tesis["id"], "bp": 6500},
+                                                          {"project_id": ht["id"], "bp": 3500}])
+    _, rc = api.call("POST", "/api/costs/recurring", body, expect=201)
+    charges = [occurrence(start, "monthly", n) for n in range(rc["generated"])]
+    assert len(charges) >= 3
+    end = charges[1].isoformat()
+    after = [d.isoformat() for d in charges[2:]]
+
+    # Sin pedirlo, el fin no borra nada: los cobros posteriores se quedan
+    _, kept = api.call("PATCH", f"/api/costs/recurring/{rc['id']}", {"end_date": end}, expect=200)
+    assert kept["next_date"] is None
+    assert all(d in [r["cost_date"] for r in sheet(api, tesis)["costs"]] for d in after)
+
+    # Pidiéndolo, se van esos cobros con todas sus filas; los de antes del fin, no
+    _, dropped = api.call("PATCH", f"/api/costs/recurring/{rc['id']}",
+                          {"end_date": end, "drop_after_end": True}, expect=200)
+    assert dropped["next_date"] is None and dropped["last_charge"] == end
+    for project in (tesis, ht):
+        assert sorted(r["cost_date"] for r in sheet(api, project)["costs"]) == [d.isoformat() for d in charges[:2]]
+
+
 def test_recurring_rules(api):
     tesis, ht, cat = setup(api)
     assert api.call("POST", "/api/costs/recurring", recurring_body(tesis, cat, TODAY, frequency="weekly"))[0] == 422

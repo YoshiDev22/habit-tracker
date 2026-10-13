@@ -752,6 +752,9 @@ class RecurringCostUpdate(SQLModel):
     # A qué cobros ya anotados se aplican los cambios: ninguno ("future", los
     # siguientes), los del periodo actual en adelante ("current") o todos ("all")
     apply_to: str = "future"
+    # Con una fecha de fin anterior a cobros ya anotados: borrarlos (la pantalla
+    # lo pregunta). Sin esto, se quedan como estaban
+    drop_after_end: bool = False
 
     @field_validator("apply_to")
     @classmethod
