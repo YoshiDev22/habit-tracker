@@ -36,6 +36,7 @@
         <section class="view active" data-view="summary" aria-labelledby="summaryTitle">
             <h2 id="summaryTitle">Resumen</h2>
             <div class="stats" id="summaryStats"></div>
+            <div class="cards" id="summaryCards"></div>
         </section>
 
         <section class="view" data-view="accounts" aria-labelledby="accountsTitle">
@@ -46,24 +47,41 @@
         </section>
 
         <section class="view" data-view="ai" aria-labelledby="aiTitle">
-            <h2 id="aiTitle">IA, últimos 30 días</h2>
-            <div class="table-wrap"><table class="grid" id="aiTable"></table></div>
+            <h2 id="aiTitle">IA</h2>
+            <div class="toolbar">
+                <label class="filter">Periodo
+                    <select id="aiDays">
+                        <option value="7">7 días</option>
+                        <option value="30" selected>30 días</option>
+                        <option value="90">90 días</option>
+                    </select>
+                </label>
+                <label class="filter">Contador
+                    <select id="aiPurpose">
+                        <option value="">Los dos</option>
+                        <option value="report">Tiempo y hábitos</option>
+                        <option value="costs">Costos</option>
+                    </select>
+                </label>
+            </div>
+            <div class="cards">
+                <div class="card"><h3>Textos por día</h3><p class="hint">Buenos y fallidos, día UTC.</p>
+                    <div id="aiCalls"></div></div>
+                <div class="card"><h3>Tokens por día</h3><p class="hint">Entrada más salida, de todas las llamadas.</p>
+                    <div id="aiTokens"></div></div>
+            </div>
             <h3>Errores más comunes</h3>
             <ul class="errors" id="aiErrors"></ul>
+            <details class="more"><summary>Ver tabla</summary>
+                <div class="table-wrap"><table class="grid" id="aiTable"></table></div>
+            </details>
         </section>
 
         <section class="view" data-view="feedback" aria-labelledby="feedbackTitle">
             <div class="view-head">
                 <h2 id="feedbackTitle">Problemas reportados</h2>
-                <label class="filter">Ver
-                    <select id="feedbackFilter">
-                        <option value="">Todos</option>
-                        <option value="open" selected>Abiertos</option>
-                        <option value="reviewed">Revisados</option>
-                        <option value="closed">Cerrados</option>
-                    </select>
-                </label>
             </div>
+            <div class="chips" id="feedbackChips" role="group" aria-label="Ver problemas"></div>
             <p class="hint" id="feedbackMessage" role="status" hidden></p>
             <div class="feedback-list" id="feedbackList"></div>
         </section>
@@ -103,7 +121,15 @@
         </section>
 
         <section class="view" data-view="security" aria-labelledby="securityTitle">
-            <h2 id="securityTitle">Seguridad, últimos 7 días</h2>
+            <div class="view-head">
+                <h2 id="securityTitle">Seguridad</h2>
+                <label class="filter">Periodo
+                    <select id="securityDaysSelect">
+                        <option value="7" selected>7 días</option>
+                        <option value="30">30 días</option>
+                    </select>
+                </label>
+            </div>
             <p class="hint">Solo lo que falla o delata un abuso (contraseñas equivocadas, bloqueos, tokens
                 rechazados, límites), nunca lo que hace cada persona. Se guarda 30 días. Para bloquear una IP,
                 usa Cloudflare o <code>ufw</code>.</p>
@@ -112,10 +138,15 @@
                 <code>--forwarded-allow-ips</code> del servicio y que Caddy pase la IP de Cloudflare.</p>
             <h3>Alertas</h3>
             <ul class="alerts" id="securityAlerts"></ul>
-            <h3>Por día</h3>
-            <div class="table-wrap"><table class="grid" id="securityDays"></table></div>
+            <div class="cards single">
+                <div class="card"><h3>Eventos por día</h3><p class="hint">Los cuatro tipos más frecuentes y el resto
+                    en Otros, día UTC.</p><div id="securityChart"></div></div>
+            </div>
             <h3>IP con más eventos</h3>
             <div class="table-wrap"><table class="grid" id="securityIps"></table></div>
+            <details class="more"><summary>Ver tabla por día</summary>
+                <div class="table-wrap"><table class="grid" id="securityDays"></table></div>
+            </details>
         </section>
 
         <section class="view" data-view="log" aria-labelledby="logTitle">
@@ -184,6 +215,7 @@
         </section>
     </dialog>
 
+    <script src="/admin-charts.js"></script>
     <script src="/admin.js"></script>
 </body>
 </html>

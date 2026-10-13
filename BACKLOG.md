@@ -28,7 +28,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | API hecha; selector para la 1.30 |
 | 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
 | 31 | P3 | Límite diario de la IA ajustable por cuenta | en parte: IA extra por día desde el panel (1.27) |
-| 32 | P2 | Panel de administración y "Reportar un problema" | en producción (1.27); paso 7, diseño y gráficas, para la 1.28 |
+| 32 | P2 | Panel de administración y "Reportar un problema" | en producción (1.27); paso 7 (gráficas) hecho para la 1.28 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
 | 38 | P3 | Pruebas de navegador que fallan a veces por "Failed to fetch" | diagnosticado en parte, para la 1.28 |

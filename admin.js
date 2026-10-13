@@ -104,7 +104,76 @@ function stat(label, value, note) {
     return box;
 }
 
-function renderSummary(s) {
+// Un día UTC (AAAA-MM-DD) como "6 oct": así salen en los ejes
+function dayLabel(isoDay) {
+    const [y, m, d] = isoDay.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+// Los días de un periodo, todos, aunque no tengan eventos: una gráfica sin huecos
+function daysFrom(since, count) {
+    const [y, m, d] = since.split('-').map(Number);
+    return Array.from({ length: count }, (_, i) => new Date(Date.UTC(y, m - 1, d + i)).toISOString().slice(0, 10));
+}
+
+const ACTIVITY_LABELS = { day: 'Últimas 24 h', week: '1 a 7 días', month: '8 a 30 días', older: 'Más de 30 días', never: 'Nunca' };
+const AI_SERIES = [{ key: 'ok', label: 'Buenos', cls: 's1' }, { key: 'failed', label: 'Fallidos', cls: 's-failed' }];
+
+function card(title, hint, body, goTo) {
+    const box = node('div', 'card');
+    const head = node('div', 'card-head');
+    head.append(node('h3', null, title));
+    if (goTo) {
+        const go = node('button', 'card-go', 'Ver más ›');
+        go.type = 'button';
+        go.addEventListener('click', () => showTab(goTo));
+        head.append(go);
+    }
+    box.append(head);
+    if (hint) box.append(node('p', 'hint', hint));
+    box.append(body);
+    return box;
+}
+
+// Llamadas a la IA por día (buenas y fallidas), del contador elegido o de los dos.
+// Los últimos `days` días: el resumen enseña menos de los que trae la API
+function aiRows(ai, days, purpose) {
+    const byDay = new Map();
+    for (const d of ai.days) {
+        if (purpose && d.purpose !== purpose) continue;
+        const row = byDay.get(d.date) || { ok: 0, failed: 0, tokens: 0 };
+        row.ok += d.ok;
+        row.failed += d.failed;
+        row.tokens += d.tokens;
+        byDay.set(d.date, row);
+    }
+    const all = daysFrom(ai.since, Math.round((Date.parse(`${todayUtc()}T00:00:00Z`) - Date.parse(`${ai.since}T00:00:00Z`)) / 86400000) + 1);
+    return all.slice(-days).map(date => ({ date, ...(byDay.get(date) || { ok: 0, failed: 0, tokens: 0 }) }));
+}
+
+function todayUtc() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+// Eventos de seguridad por día: los 4 tipos más frecuentes, y los demás en "Otros"
+function securitySeries(data, days) {
+    const totals = new Map();
+    for (const d of data.days) totals.set(d.kind, (totals.get(d.kind) || 0) + d.count);
+    const top = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([kind]) => kind);
+    const series = top.map((kind, i) => ({ key: kind, label: data.kinds[kind] || kind, cls: `s${i + 1}` }));
+    if (totals.size > top.length) series.push({ key: 'other', label: 'Otros', cls: 's-other' });
+    const byDay = new Map();
+    for (const d of data.days) {
+        const row = byDay.get(d.date) || {};
+        const key = top.includes(d.kind) ? d.kind : 'other';
+        row[key] = (row[key] || 0) + d.count;
+        byDay.set(d.date, row);
+    }
+    const rows = daysFrom(data.since, days).map(date => ({ label: dayLabel(date), tip: dayLabel(date), values: byDay.get(date) || {} }));
+    return { series, rows };
+}
+
+function renderSummary(s, ai, security) {
     const grid = document.getElementById('summaryStats');
     grid.replaceChildren(
         stat('Cuentas', number.format(s.accounts), s.unknown_signup ? `${s.unknown_signup} de antes de la 1.27, sin fecha de registro` : ''),
@@ -113,6 +182,29 @@ function renderSummary(s) {
         stat('Problemas abiertos', s.feedback_open),
         stat('IA hoy', `${s.ai_today.ok} · ${s.ai_today.failed}`, 'buenas y fallidas (día UTC)'),
         stat('Borrado programado', s.scheduled_deletion),
+    );
+
+    const signups = columnChart({
+        series: [{ key: 'count', label: 'Cuentas nuevas', cls: 's1' }],
+        rows: s.signups_by_week.map(w => ({ label: dayLabel(w.week), tip: `Semana del ${dayLabel(w.week)}`, values: { count: w.count } })),
+        empty: 'Ninguna cuenta nueva en 12 semanas.',
+    });
+    const activity = barList({
+        rows: Object.entries(ACTIVITY_LABELS).map(([key, label]) => ({ label, value: s.activity[key] })), of: s.accounts,
+    });
+    const modules = barList({
+        rows: Object.keys(s.modules_in_use).map(name => ({ label: MODULE_LABELS[name] || name, value: s.modules_in_use[name] })),
+        of: s.accounts,
+    });
+    const aiDays = aiRows(ai, 14, '').map(d => ({ label: dayLabel(d.date), tip: dayLabel(d.date), values: d }));
+    const sec = securitySeries(security, 7);
+    document.getElementById('summaryCards').replaceChildren(
+        card('Cuentas nuevas por semana', 'Últimas 12 semanas, de lunes a domingo (UTC). Las de antes de la 1.27 no tienen fecha.', signups),
+        card('Última actividad', `Cuándo entró por última vez cada una de las ${number.format(s.accounts)} cuentas.`, activity),
+        card('Módulos en uso', 'Cuentas con el módulo encendido (Maker e IA, además, con acceso).', modules),
+        card('IA, últimos 14 días', 'Textos buenos y fallidos por día (UTC).', columnChart({ series: AI_SERIES, rows: aiDays, height: 110 }), 'ai'),
+        card('Seguridad, últimos 7 días', 'Eventos por día (UTC).',
+            columnChart({ series: sec.series, rows: sec.rows, height: 110, empty: 'Ningún evento.' }), 'security'),
     );
 }
 
@@ -390,7 +482,21 @@ accountDialog.addEventListener('close', () => { accountsState.open = null; });
 
 // ---------- IA ----------
 
+const aiState = { data: null };
+
+async function loadAi() {
+    aiState.data = await adminGet(`/api/ai?days=${document.getElementById('aiDays').value}`);
+    renderAi(aiState.data);
+}
+
 function renderAi(ai) {
+    const days = Number(document.getElementById('aiDays').value);
+    const purpose = document.getElementById('aiPurpose').value;
+    const rows = aiRows(ai, days, purpose).map(d => ({ label: dayLabel(d.date), tip: dayLabel(d.date), values: d }));
+    document.getElementById('aiCalls').replaceChildren(columnChart({ series: AI_SERIES, rows, empty: 'Sin llamadas en estos días.' }));
+    document.getElementById('aiTokens').replaceChildren(columnChart({
+        series: [{ key: 'tokens', label: 'Tokens', cls: 's1' }], rows, empty: 'Sin tokens en estos días.',
+    }));
     const table = document.getElementById('aiTable');
     const head = node('tr');
     for (const label of ['Día (UTC)', 'Contador', 'Buenas', 'Fallidas', 'Tokens']) head.append(node('th', null, label));
@@ -402,7 +508,7 @@ function renderAi(ai) {
         row.append(cell);
         body.append(row);
     }
-    for (const day of [...ai.days].reverse()) {
+    for (const day of [...ai.days].reverse().filter(d => !purpose || d.purpose === purpose)) {
         const row = node('tr');
         row.append(node('td', null, day.date), node('td', null, PURPOSE_LABELS[day.purpose] || day.purpose),
             node('td', 'num', day.ok), node('td', 'num', day.failed), node('td', 'num', number.format(day.tokens)));
@@ -493,10 +599,31 @@ function showFeedbackMessage(text) {
     box.hidden = !text;
 }
 
+// Se piden todos y se filtran aquí: así los chips dicen cuántos hay de cada estado
+const feedbackState = { all: [], status: 'open' };
+
+function renderFeedbackChips() {
+    const counts = { open: 0, reviewed: 0, closed: 0 };
+    for (const item of feedbackState.all) counts[item.status] = (counts[item.status] || 0) + 1;
+    const chips = [['open', 'Abiertos'], ['reviewed', 'Revisados'], ['closed', 'Cerrados'], ['', 'Todos']].map(([status, label]) => {
+        const chip = node('button', 'chip', label);
+        chip.type = 'button';
+        chip.dataset.status = status;
+        chip.setAttribute('aria-pressed', String(feedbackState.status === status));
+        chip.append(node('strong', null, status ? counts[status] : feedbackState.all.length));
+        return chip;
+    });
+    document.getElementById('feedbackChips').replaceChildren(...chips);
+}
+
+function showFeedbackList() {
+    renderFeedbackChips();
+    renderFeedback(feedbackState.all.filter(item => !feedbackState.status || item.status === feedbackState.status));
+}
+
 async function loadFeedback() {
-    const status = document.getElementById('feedbackFilter').value;
-    const data = await adminGet(`/api/feedback${status ? `?status=${status}` : ''}`);
-    renderFeedback(data.feedback);
+    feedbackState.all = (await adminGet('/api/feedback')).feedback;
+    showFeedbackList();
 }
 
 // ---------- Pestañas y arranque ----------
@@ -608,7 +735,11 @@ function fillTable(table, labels, rows) {
 }
 
 async function renderSecurity() {
-    const data = await adminGet('/api/security');
+    const days = Number(document.getElementById('securityDaysSelect').value);
+    const data = await adminGet(`/api/security?days=${days}`);
+    const chart = securitySeries(data, days);
+    document.getElementById('securityChart').replaceChildren(
+        columnChart({ series: chart.series, rows: chart.rows, empty: 'Ningún evento en estos días.' }));
     document.getElementById('proxyWarning').hidden = !data.proxy_warning;
     const alerts = document.getElementById('securityAlerts');
     alerts.replaceChildren(...(data.alerts.length
@@ -683,9 +814,16 @@ document.getElementById('tabs').addEventListener('click', (event) => {
     if (tab) showTab(tab.dataset.tab);
 });
 
-document.getElementById('feedbackFilter').addEventListener('change', () => {
-    loadFeedback().catch(showFailure);
+document.getElementById('feedbackChips').addEventListener('click', (event) => {
+    const chip = event.target.closest('.chip');
+    if (!chip) return;
+    feedbackState.status = chip.dataset.status;
+    showFeedbackList();
 });
+
+document.getElementById('aiDays').addEventListener('change', () => loadAi().catch(showFailure));
+document.getElementById('aiPurpose').addEventListener('change', () => { if (aiState.data) renderAi(aiState.data); });
+document.getElementById('securityDaysSelect').addEventListener('change', () => renderSecurity().catch(showFailure));
 
 function showFailure(error) {
     document.getElementById('loading').hidden = true;
@@ -710,10 +848,11 @@ async function start() {
     try {
         const me = await adminGet('/api/me');
         document.getElementById('who').textContent = `${me.email}${DEV_TOKEN ? ' · modo de desarrollo' : ''}`;
-        const [summary, accounts, ai] = await Promise.all([
-            adminGet('/api/summary'), adminGet('/api/accounts'), adminGet('/api/ai'),
+        const [summary, accounts, ai, security] = await Promise.all([
+            adminGet('/api/summary'), adminGet('/api/accounts'), adminGet('/api/ai'), adminGet('/api/security'),
         ]);
-        renderSummary(summary);
+        aiState.data = ai;
+        renderSummary(summary, ai, security);
         renderAccounts(accounts.accounts);
         renderAi(ai);
         await loadFeedback();

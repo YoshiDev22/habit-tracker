@@ -91,10 +91,38 @@ def _ai_by_user(session: Session, since) -> Dict[int, Dict]:
     return out
 
 
+SIGNUP_WEEKS = 12
+# Grupos de la última actividad, sin solaparse: el panel no guarda quién entró
+# cada día (eso ya sería seguir a cada persona), solo la última vez
+ACTIVITY_BUCKETS = (("day", 1), ("week", 7), ("month", 30))
+
+
+def _activity(last_seen: list, now) -> Dict[str, int]:
+    out = {"day": 0, "week": 0, "month": 0, "older": 0, "never": 0}
+    for seen in last_seen:
+        if seen is None:
+            out["never"] += 1
+            continue
+        age = now - seen
+        out[next((name for name, days in ACTIVITY_BUCKETS if age < timedelta(days=days)), "older")] += 1
+    return out
+
+
+def _signups_by_week(created: list, now) -> list:
+    """Cuentas nuevas por semana (lunes a domingo, UTC), las últimas SIGNUP_WEEKS."""
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    starts = [monday - timedelta(weeks=n) for n in range(SIGNUP_WEEKS - 1, -1, -1)]
+    counts = Counter()
+    for at in created:
+        if at is not None and at >= starts[0]:
+            counts[(at - timedelta(days=at.weekday())).date()] += 1
+    return [{"week": s.date().isoformat(), "count": counts.get(s.date(), 0)} for s in starts]
+
+
 @router.get("/summary")
 def summary(session: Session = Depends(get_session)) -> dict:
     now = utc_now_naive()
-    users = session.exec(select(User.created_at, User.last_seen_at, User.delete_after)).all()
+    users = session.exec(select(User.created_at, User.last_seen_at, User.delete_after, User.id)).all()
 
     def since(days, column):
         return sum(1 for u in users if u[column] is not None and u[column] >= now - timedelta(days=days))
@@ -102,7 +130,13 @@ def summary(session: Session = Depends(get_session)) -> dict:
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     ai_today = Counter(ok for ok in session.exec(select(AiCall.ok).where(AiCall.created_at >= today)).all())
     open_feedback = session.exec(select(func.count(Feedback.id)).where(Feedback.status == "open")).one()
+    modules = _modules_by_user(session)
+    in_use = Counter(name for u in users for name, state in _module_state(modules.get(u[3], {})).items()
+                     if state["enabled"] and state["allowed"])
     return {
+        "signups_by_week": _signups_by_week([u[0] for u in users], now),
+        "activity": _activity([u[1] for u in users], now),
+        "modules_in_use": {name: in_use.get(name, 0) for name in MODULES},
         "accounts": len(users),
         "new_7d": since(7, 0), "new_30d": since(30, 0),
         "active_7d": since(7, 1), "active_30d": since(30, 1),

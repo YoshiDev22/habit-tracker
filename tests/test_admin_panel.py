@@ -69,6 +69,11 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
     summary = get(admin, "/api/summary")
     assert summary["accounts"] == 2 and summary["new_7d"] == 2 and summary["active_7d"] == 2
     assert summary["feedback_open"] == 1 and summary["ai_today"] == {"ok": 1, "failed": 1}
+    # Las gráficas del Resumen (paso 7): solo conteos
+    weeks = summary["signups_by_week"]
+    assert len(weeks) == 12 and weeks[-1]["count"] == 2 and sum(w["count"] for w in weeks) == 2
+    assert summary["activity"] == {"day": 2, "week": 0, "month": 0, "older": 0, "never": 0}
+    assert summary["modules_in_use"]["habits"] == 2 and summary["modules_in_use"]["maker"] == 1
 
     accounts = {a["id"]: a for a in get(admin, "/api/accounts")["accounts"]}
     mine = accounts[me["id"]]
@@ -142,3 +147,21 @@ def test_accounts_from_before_have_no_signup_date(admin, api):
         session.commit()
     summary = get(admin, "/api/summary")
     assert summary["unknown_signup"] == 1 and summary["new_7d"] == 0
+
+
+def test_activity_groups_never_overlap(admin, api):
+    from datetime import timedelta
+    from sqlmodel import select
+    from backend.models import User, utc_now_naive
+    now = utc_now_naive()
+    ages = {"hoy@test.com": timedelta(hours=3), "semana@test.com": timedelta(days=3),
+            "mes@test.com": timedelta(days=20), "vieja@test.com": timedelta(days=90), "nunca@test.com": None}
+    for email in ages:
+        api.login(email)
+    with Session(engine) as session:
+        for email, age in ages.items():
+            user = session.exec(select(User).where(User.email == email)).one()
+            user.last_seen_at = None if age is None else now - age
+            session.add(user)
+        session.commit()
+    assert get(admin, "/api/summary")["activity"] == {"day": 1, "week": 1, "month": 1, "older": 1, "never": 1}

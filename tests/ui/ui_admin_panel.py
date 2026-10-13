@@ -79,6 +79,16 @@ async def main():
     for _ in range(12):
         call("POST", "/api/auth/login", form={"username": "otro@test.com", "password": "equivocada"})
     db = Path(os.environ["HABIT_UI_TMP"]) / "test_admin_panel.db"
+    # Textos de IA de días pasados (paso 7: la gráfica de IA), directo en la base: sin proveedor no hay otra forma
+    import sqlite3
+    from datetime import datetime, timedelta, timezone
+    with sqlite3.connect(db) as con:
+        uid = con.execute("SELECT id FROM users WHERE email = ?", (ADMIN,)).fetchone()[0]
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for days_ago, purpose, ok in [(2, "report", 1), (2, "report", 1), (1, "report", 1), (1, "costs", 0)]:
+            con.execute("INSERT INTO ai_calls (user_id, created_at, purpose, model, ok, input_tokens, output_tokens)"
+                        " VALUES (?, ?, ?, 'm', ?, 300, 200)",
+                        (uid, (now - timedelta(days=days_ago)).isoformat(sep=" "), purpose, ok))
     keys_dirs = lambda: set(Path(tempfile.gettempdir()).glob("habit-admin-dev-*"))  # noqa: E731
     before = keys_dirs()
     proc, link, output = start_panel(db)
@@ -100,6 +110,25 @@ async def main():
         stats = await b.wait_for("[...document.querySelectorAll('#summaryStats .stat-label')].map(e => e.textContent)",
                                  lambda v: v and len(v) == 6)
         check(stats[:3] == ["Cuentas", "Nuevas", "Activas"], f"the summary shows its numbers ({stats})")
+
+        # Paso 7: las gráficas del Resumen, con su tooltip también desde el teclado
+        cards = await b.wait_for("""({cards: document.querySelectorAll('#summaryCards .card').length,
+            svgs: document.querySelectorAll('#summaryCards .chart svg').length,
+            bars: [...document.querySelectorAll('#summaryCards .bar-list li')].map(li => li.textContent)})""",
+                                 lambda v: v and v["svgs"] >= 1)
+        check(cards["cards"] == 5 and len(cards["bars"]) == 8 and "Últimas 24 h" in cards["bars"][0],
+              f"the summary draws its five cards ({cards})")
+        # Las cuentas de la base de prueba son de antes de la 1.27: sin fecha, esa gráfica sale vacía
+        empty = await b.js("document.querySelector('#summaryCards .card .empty').textContent")
+        check("Ninguna cuenta nueva" in empty, f"a chart with nothing says so ({empty})")
+        # Seguridad sí tiene eventos: su última columna (hoy) enseña el tooltip al enfocarla
+        await b.wait_for("document.querySelectorAll('#summaryCards .card')[4].querySelectorAll('.chart-col').length === 7")
+        await b.js("document.querySelectorAll('#summaryCards .card')[4].querySelectorAll('.chart-col')[6]"
+                   ".dispatchEvent(new FocusEvent('focus'))")
+        tip = await b.js("(() => { const t = document.querySelectorAll('#summaryCards .card')[4].querySelector('.chart-tip'); "
+                         "return t.hidden ? '' : t.textContent; })()")
+        check("Contraseña equivocada al entrar" in tip, f"a column shows its tooltip on focus ({tip})")
+        await b.shot("admin_summary", full=False)
 
         await b.js("document.querySelector('[data-tab=accounts]').click()")
         emails = await b.wait_for("[...document.querySelectorAll('#accountsTable .email')].map(e => e.textContent)", bool)
@@ -130,6 +159,13 @@ async def main():
                    if n["kind"] == "feedback_closed"]
         check("le llegó un aviso" in msg and len(notices) == 1 and notices[0]["detail"] == "Ya quedó, gracias por avisar."
               and "loadBoard" not in str(notices), f"closing a problem tells the person, with their note only ({notices})")
+
+        chips = await b.wait_for("[...document.querySelectorAll('#feedbackChips .chip')].map(c => c.textContent)",
+                                 lambda v: v and "Cerrados1" in v)
+        check(chips == ["Abiertos0", "Revisados0", "Cerrados1", "Todos1"], f"the chips count each status ({chips})")
+        await b.js("document.querySelector('#feedbackChips [data-status=closed]').click()")
+        shown = await b.js("document.querySelectorAll('#feedbackList .feedback').length")
+        check(shown == 1, f"a chip filters the list ({shown})")
 
         await b.js("document.querySelector('[data-tab=accounts]').click()")
         await b.shot("admin_accounts", full=False)
@@ -182,7 +218,37 @@ async def main():
         check(sec["warning"] and "Contraseña equivocada al entrar" in sec["heads"]
               and "Login bloqueado por el límite de intentos" in sec["heads"] and sec.get("ip") == "127.0.0.1",
               f"Seguridad shows the events and warns about the proxy IP ({sec})")
+        legend = await b.wait_for("[...document.querySelectorAll('#securityChart .chart-legend li')].map(li => li.textContent)", bool)
+        check("Contraseña equivocada al entrar10" in legend, f"its chart stacks the events by kind, with totals ({legend})")
         await b.shot("admin_security", full=False)
+
+        await b.js("document.querySelector('[data-tab=ai]').click()")
+        legend = await b.wait_for("[...document.querySelectorAll('#aiCalls .chart-legend li')].map(li => li.textContent)", bool)
+        check(legend == ["Buenos3", "Fallidos1"], f"IA stacks good and failed texts per day ({legend})")
+        await b.wait_for("document.querySelectorAll('#aiCalls .chart-col').length === 30")
+        await b.shot("admin_ai", full=False)
+        await b.js("(() => { const s = document.getElementById('aiPurpose'); s.value = 'costs'; s.dispatchEvent(new Event('change')); })()")
+        legend = await b.wait_for("[...document.querySelectorAll('#aiCalls .chart-legend li')].map(li => li.textContent)",
+                                  lambda v: v and v[0] == "Buenos0")
+        check(legend == ["Buenos0", "Fallidos1"], f"the counter filter keeps only its calls ({legend})")
+
+        # En el teléfono nada se sale de lado
+        await b.viewport(390, 844, mobile=True)
+        await b.js("document.querySelector('[data-tab=summary]').click()")
+        await b.wait_for("document.querySelector('#summaryCards .chart svg')", bool)
+        wide = await b.js("document.documentElement.scrollWidth")
+        # Si algo se sale, cuál: el elemento más profundo que pasa del borde
+        out = await b.js("""[...document.querySelectorAll('body *')].filter(e => e.getBoundingClientRect().right > 390
+            && ![...e.children].some(c => c.getBoundingClientRect().right > 390))
+            .slice(0, 3).map(e => `${e.tagName.toLowerCase()}.${e.getAttribute('class') || ''}#${e.id} ${e.getBoundingClientRect().right.toFixed(2)} of ${innerWidth}`)""")
+        check(wide <= 390, f"the summary fits a phone ({wide}px; {out})")
+        await b.shot("admin_summary_phone", full=True)
+        await b.viewport(1280, 900)
+        # El tema oscuro sale del sistema: sus colores de las gráficas son otros (validados aparte)
+        await b.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "dark"}])
+        await b.wait_for("getComputedStyle(document.body).backgroundColor === 'rgb(20, 22, 26)'")
+        await b.shot("admin_summary_dark", full=False)
+        await b.send("Emulation.setEmulatedMedia", features=[])
 
         # La bitácora general: todo lo de arriba, el más nuevo primero, con la cuenta enmascarada
         await b.js("document.querySelector('[data-tab=log]').click()")

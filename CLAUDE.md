@@ -114,7 +114,7 @@ habit-tracker/
 │   └── admin_dev.py       # El panel en tu máquina, sin Access (llave temporal, solo 127.0.0.1)
 ├── deploy/                # Plantillas genéricas del .service y el .timer de los reportes
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
-├── admin.html, admin.js, admin.css  # El panel de administración: los sirve admin_main.py, no la app
+├── admin.html, admin.js, admin-charts.js, admin.css  # El panel: los sirve admin_main.py, no la app
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema, getDateKey
 ├── habits.js              # Hábitos: calendario, racha, configuración, vacaciones
@@ -1023,6 +1023,16 @@ limpio que `backend.main` no carga ningún `backend.admin*`).
   cliente. La IP es la de `ratelimit.client_ip()` (la que uvicorn tomó de `X-Forwarded-For` si
   confía en el proxy); en el panel, `Cf-Connecting-Ip` del Tunnel.
 - Fase 1 es solo lectura (resumen, cuentas, IA, problemas); el Tunnel y Access, la Fase 3.
+- **Gráficas (paso 7, 1.28)**: `admin-charts.js` (con su ruta en `PAGE_FILES`), SVG a mano sin
+  librerías: `columnChart()` (columnas, apiladas con 2px de superficie entre segmentos, tooltip
+  por columna con ratón y teclado) y `barList()`. Los colores son clases (`.s1`…`.s4`, `.s-other`,
+  `.s-failed`) sobre `--series-*` de `admin.css`, una paleta categórica **validada** contra la
+  superficie del panel en claro y en oscuro (en claro, aqua y amarillo quedan bajo 3:1: por eso
+  cada gráfica lleva leyenda con su cifra y su tabla en "Ver tabla"). El color sigue a la serie,
+  nunca a su lugar; en Seguridad, los 4 tipos más frecuentes y el resto en "Otros". Por la CSP, el
+  tamaño que no es atributo SVG se pone por CSSOM (`el.style.width`), nunca con `style=`. El
+  Resumen suma a `/api/summary` cuentas nuevas por semana, grupos de última actividad y módulos en
+  uso, **solo conteos**: no hay "activas por día", que pediría anotar quién entra cada día.
 
 ## Reglas del producto
 
