@@ -191,6 +191,30 @@ async def main():
         await b.wait_for(f"{row} && {row}.querySelector('.cost-tag') && !{row}.querySelector('.cost-make-recurring')")
         same = [r for r in sheet(ht) if r["concept"] == "Dominio"]
         check(len(same) == 1 and same[0]["recurring_id"], f"the expense is marked 🔁 and not duplicated ({len(same)})")
+
+        # Un fin antes de cobros ya anotados: pregunta, y "Borrarlos" quita los posteriores
+        start = date.fromordinal(date.today().toordinal() - 70).isoformat()
+        api.call("POST", "/api/costs/recurring", {
+            "category_id": ia["id"], "concept": "Licencia", "unit_cost_cents": 10000, "frequency": "monthly",
+            "start_date": start, "allocations": [{"project_id": tesis["id"], "bp": 10000}]}, expect=201)
+        charges = sorted(r["cost_date"] for r in sheet(tesis) if r["concept"] == "Licencia")
+        await b.js("loadRecurringCosts()")
+        item = ("[...document.querySelectorAll('#recurringList .recurring-item')]"
+                ".find(li => li.textContent.includes('Licencia'))")
+        await b.wait_for(f"Boolean({item})")
+        await b.js(f"{item}.querySelector('[data-action=edit]').click()")
+        await b.wait_for("!document.getElementById('recurringModal').classList.contains('hidden')")
+        await b.js(f"""(() => {{ document.getElementById('recurringForm').elements.end_date.value = '{charges[1]}';
+            document.getElementById('recurringForm').requestSubmit(); }})()""")
+        asked = await b.wait_for("document.getElementById('confirmModalTitle').textContent === 'Cobros después del fin'"
+                                 " && !document.getElementById('confirmModal').classList.contains('hidden')")
+        check(asked and len(charges) >= 3, f"an end before written charges asks about them ({charges})")
+        await b.js("document.getElementById('confirmModalConfirmBtn').click()")
+        await b.wait_for("document.getElementById('recurringModal').classList.contains('hidden')")
+        await b.wait_for(f"{item}.textContent.includes('Terminado')")
+        left = sorted(r["cost_date"] for r in sheet(tesis) if r["concept"] == "Licencia")
+        ended = await b.js(f"{item}.textContent.includes('Terminado')")
+        check(left == charges[:2] and ended, f"'Borrarlos' drops the later charges and it reads Terminado ({left})")
     finally:
         await b.close()
 
