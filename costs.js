@@ -1146,7 +1146,10 @@ function resetCosts() {
     } catch (error) { /* nada que limpiar */ }
 }
 
-window.appDataHooks.push(applyCostsModule);
+// Primero: los hooks de datos corren en serie, y al final la pestaña aparecía
+// segundos después, cuando ya habían cargado hábitos y tableros. La cuenta ya se
+// conoce al correr el primero, y loadCosts() no necesita a los demás.
+window.appDataHooks.unshift(applyCostsModule);
 window.modulesChangedHooks.push(() => {
     applyCostsModule();
     if (isCostsVisible()) loadCosts();
