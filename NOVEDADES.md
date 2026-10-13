@@ -4,6 +4,16 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.27.1 — 2026-10-13
+### Cambios
+- **Al volver a la app**: si la dejaste un rato en otra pestaña o la usaste en otro
+  dispositivo, al regresar se ponen al día tus tableros, la lista y los reportes, sin
+  recargar la página.
+- **Fin de un gasto recurrente**: si le pones un fin anterior a cobros que ya se anotaron, te
+  pregunta si los borras o los conservas.
+- **Horas de un registro**: al registrar o corregir tiempo a mano, ya no se puede poner una
+  hora que todavía no llega.
+
 ## 1.27.0 — 2026-10-10
 ### Nuevas funciones
 - **Reportar un problema**: en **Mi perfil › Reportar un problema**, cuéntanos qué falló. Antes

@@ -7,6 +7,28 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.27.1] — 2026-10-13
+
+### Cambios
+- Al volver a la app después de un rato en otra pestaña (30 s o más), se vuelven a pedir los
+  tableros, la lista y Reportes: lo que se registró en otro dispositivo aparece sin recargar.
+  No pasa con una ventana abierta ni mientras escribes en un campo, para no perder lo que
+  llevas.
+- La pestaña **Costos** (plan Maker) aparece junto con las demás al entrar, en vez de unos
+  segundos después.
+
+### Correcciones
+- Poner a un **gasto recurrente** una fecha de fin anterior a cobros ya anotados dejaba esos
+  cobros sumando en la hoja, el resumen y los reportes. Ahora pregunta si se borran (con
+  todas sus partes, si iba repartido) o se conservan.
+- Al **registrar tiempo a mano** o corregir un registro se podía poner una hora de hoy que aún
+  no llegaba. El formulario lo avisa y el servidor lo rechaza; los registros del cronómetro
+  no cambian.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: basta con `git pull` y reiniciar el
+servicio.
+
 ## [1.27.0] — 2026-10-10
 
 Reportar un problema desde la app, y el panel de administración (aún no se despliega):
@@ -804,6 +826,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.27.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.1
 [1.27.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.0
 [1.26.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.26.0
 [1.25.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.25.0
