@@ -44,7 +44,7 @@ async def main():
         await b.wait_for("!document.getElementById('profileModal').classList.contains('hidden')")
         st = await b.js("({menu: !document.getElementById('profileMenu').hidden, title: document.getElementById('profileTitle').textContent,"
                         " rows: [...document.querySelectorAll('#profileMenu [data-open]')].map(r => r.dataset.open)})")
-        check(st == {"menu": True, "title": "Mi perfil", "rows": ["profile", "password", "delete", "news", "feedback"]},
+        check(st == {"menu": True, "title": "Mi perfil", "rows": ["profile", "password", "export", "delete", "news", "feedback"]},
               f"Mi perfil opens on its menu ({st})")
         await b.shot("profile_menu", full=False)
         await b.js("document.querySelector('#profileMenu [data-open=password]').click()")
@@ -71,6 +71,20 @@ async def main():
         await b.shot("account_password", full=False)
         login("yoshi@test.com", "nueva-123")
         check(bool(api.TOKEN), "logging in with the new password works")
+
+        # Descargar mis datos: el archivo trae la cuenta y sus tablas (se captura en vez de bajarlo)
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}))")
+        await b.js("document.querySelector('#profileMenu [data-open=export]').click()")
+        await b.js("downloadText = (name, text) => { window.__download = {name, text}; }")
+        await b.js("document.getElementById('exportBtn').click()")
+        await b.wait_for("document.getElementById('exportStatus').textContent === 'Descargado ✓'")
+        st = await b.js("""(() => { const d = window.__download, data = JSON.parse(d.text);
+            return {name: d.name, email: data.account.email, hash: 'hashed_password' in data.account,
+                    tables: 'tasks' in data.tables && 'habits' in data.tables}; })()""")
+        check(st["name"].startswith("habit-tracker-datos-") and st["name"].endswith(".json")
+              and st["email"] == "yoshi@test.com" and not st["hash"] and st["tables"],
+              f"'Descargar mis datos' saves the account and its tables, without the password ({st})")
+        await b.shot("account_export", full=False)
 
         # Irme 30 días: se cierra la sesión
         await enter(b, api.TOKEN)

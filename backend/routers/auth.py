@@ -16,6 +16,7 @@ from backend.auth import (
     token_for,
 )
 from backend.accounts import purge_user, schedule_deletion
+from backend.data_export import export_user
 from backend import ratelimit, security_log
 
 router = APIRouter(tags=["auth"])
@@ -174,6 +175,26 @@ def read_current_user(
     página, donde solo conserva el token y no sabe a quién pertenece.
     """
     return user_response(session, current_user)
+
+
+@router.get("/me/export")
+def export_my_data(request: Request, response: Response, session: Session = Depends(get_session),
+                   current_user: User = Depends(get_current_user)):
+    """Descargar mis datos (Mi perfil): todo lo que la instancia guarda de la
+    cuenta, en JSON (backend/data_export.py). 5 al día por cuenta: 429 con
+    Retry-After y su evento de seguridad al pasarse."""
+    key = str(current_user.id)
+    wait = ratelimit.exports.retry_after(key)
+    if wait is not None:
+        security_log.record("export_limit", ratelimit.client_ip(request), current_user.id)
+        hours = max(1, (wait + 3599) // 3600)
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail=f"Ya descargaste tus datos {ratelimit.exports.limit} veces hoy. "
+                                   f"Podrás volver a hacerlo en {hours} h.",
+                            headers={"Retry-After": str(wait)})
+    ratelimit.exports.hit(key)
+    response.headers["Cache-Control"] = "no-store"
+    return export_user(session, current_user)
 
 
 @router.patch("/me", response_model=UserResponse)

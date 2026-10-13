@@ -194,7 +194,7 @@ class Feedback(SQLModel, table=True):
     text: str                                              # 10 a 2000
     details: Optional[Dict] = Field(default=None, sa_type=JSON)
     status: str = Field(default="open")                    # open | reviewed | closed
-    admin_note: Optional[str] = Field(default=None)        # nota interna: nunca sale del panel
+    admin_note: Optional[str] = Field(default=None)        # nota interna: no sale en avisos; sí en su export
     # Lo que lee quien lo reportó en su aviso al cerrarlo (1.27, Fase 2). Columna de una
     # tabla de esta misma versión: en migrate.py con new_table (las bases de desarrollo)
     user_note: Optional[str] = Field(default=None)

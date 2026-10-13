@@ -35,6 +35,7 @@ KINDS = {
     "account_inactive": "Token de una cuenta desactivada",
     "ai_limit": "Límite de IA alcanzado",
     "feedback_limit": "Límite de reportes de problemas",
+    "export_limit": "Límite de descargas de datos",
     "admin_denied": "Acceso rechazado al panel",
     "admin_csrf": "Cambio rechazado en el panel (CSRF)",
 }

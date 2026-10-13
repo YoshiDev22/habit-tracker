@@ -485,6 +485,10 @@
                     <span class="settings-item-text"><strong>Cambiar contraseña</strong><small>Con la actual y una nueva</small></span>
                     <span class="settings-item-go" aria-hidden="true">›</span>
                 </button>
+                <button type="button" class="settings-item" data-open="export">
+                    <span class="settings-item-text"><strong>Descargar mis datos</strong><small>Todo lo que la app guarda de ti</small></span>
+                    <span class="settings-item-go" aria-hidden="true">›</span>
+                </button>
                 <button type="button" class="settings-item" data-open="delete">
                     <span class="settings-item-text"><strong>Borrar mi cuenta</strong><small>Irte 30 días o borrarla ya</small></span>
                     <span class="settings-item-go" aria-hidden="true">›</span>
@@ -542,10 +546,24 @@
                 </form>
             </section>
 
+            <!-- Descargar mis datos (account.js, GET /api/auth/me/export) -->
+            <section class="settings-page" data-section="export" data-title="Descargar mis datos">
+                <div class="account-form">
+                    <p class="module-hint">Un archivo con todo lo que esta app guarda de tu cuenta: tus datos personales,
+                        hábitos y notas, tableros y tareas, tu tiempo, tus costos, tus reportes, los problemas que
+                        reportaste y los eventos de seguridad de tu cuenta. Va en formato JSON, que se abre con cualquier
+                        editor de texto. Tu contraseña no va: solo se guarda cifrada.</p>
+                    <div id="exportError" class="form-error hidden" role="alert"></div>
+                    <p class="account-status" id="exportStatus" role="status"></p>
+                    <button type="button" class="submit-btn" id="exportBtn">Descargar mis datos</button>
+                </div>
+            </section>
+
             <section class="settings-page" data-section="delete" data-title="Borrar mi cuenta">
                 <div class="account-form">
                     <p class="module-hint">Se borra todo: hábitos, tableros, tareas, tiempo, costos y reportes.
-                        Si quieres conservar algo, descárgalo antes desde Reportes (⬇ Tiempo CSV y ⬇ Hábitos CSV).</p>
+                        Si quieres conservar algo, descárgalo antes: todo en <strong>Descargar mis datos</strong>, o tu tiempo y tus
+                        hábitos en CSV desde Reportes.</p>
                     <div class="account-choices" id="deleteChoices">
                         <button type="button" class="submit-btn btn-neutral" id="leaveLaterBtn">Irme 30 días</button>
                         <button type="button" class="submit-btn btn-danger" id="deleteNowBtn">Borrar ahora</button>

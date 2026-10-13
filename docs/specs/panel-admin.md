@@ -168,7 +168,8 @@ producción solo sale "Reportar un problema" hasta que Access esté listo.
   contador elegido y mañana vuelve al normal. Un límite propio permanente sigue en la entrada 31.
 - **Cerrar un problema reportado avisa a quien lo reportó** en su campanita ("Revisamos el
   problema que reportaste el 9 oct", con la nota para el usuario si se escribe). Revisado no
-  avisa; la nota interna nunca sale del panel.
+  avisa; la nota interna nunca sale en el aviso. Desde la 1.28 sí sale en el *Descargar mis
+  datos* de la persona (derecho de acceso): se escribe sabiendo que la puede leer.
 - **La bitácora sobrevive al borrado de la cuenta**: `admin_actions.account_id` (no `user_id`,
   que `purge_user()` borraría) y sin correo ni datos de la persona, solo el id y el cambio.
 - **CSRF**: toda petición que cambia algo (no GET) pide `Content-Type: application/json` y un

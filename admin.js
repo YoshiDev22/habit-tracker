@@ -455,7 +455,7 @@ function feedbackEditor(item) {
     const internal = node('textarea');
     internal.maxLength = 1000;
     internal.rows = 2;
-    internal.placeholder = 'Nota interna (solo se ve aquí)';
+    internal.placeholder = 'Nota interna (no sale en la campanita; sí en su Descargar mis datos)';
     internal.value = item.admin_note || '';
     const forUser = node('textarea');
     forUser.maxLength = 500;

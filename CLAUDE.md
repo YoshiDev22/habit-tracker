@@ -372,6 +372,11 @@ Lo que no se ve en Swagger:
   (`POST /api/auth/me/keep`). Las vencidas las borra `scripts/purge_accounts.py`, desde el
   mismo `.service` diario de los reportes (segundo `ExecStart`), que no genera reportes de
   cuentas que se van.
+  **Descargar mis datos** (1.28, `GET /api/auth/me/export`, `backend/data_export.py`): el
+  derecho de acceso de la ley de datos personales. Recorre **lo mismo que `purge_user()`** (cada
+  tabla con `user_id`) más la fila del usuario sin `hashed_password` ni `token_version`, así que
+  una tabla nueva sale sola; `test_data_export.py` exige que coincida con lo que se borra. 5 al
+  día por cuenta (`ratelimit.exports`, en memoria), con el evento `export_limit`.
 - **Login y registro tienen límite por IP** (`backend/ratelimit.py`, en memoria): 10
   contraseñas equivocadas cada 15 min y 5 cuentas creadas por hora; al pasarse, 429 con
   `Retry-After` y el motivo en español, que el formulario muestra tal cual. Los logins
@@ -929,7 +934,7 @@ La campanita es un centro de avisos **guardado por cuenta** (`backend/notices.py
   y sin botón. El panel de administración (épica 32) lo hará sin entrar al VPS. Y
   `feedback_closed` (ref = id del reporte): al cerrar en el panel un problema que la cuenta
   reportó, "Revisamos el problema que reportaste el …" con `feedback.user_note` (o "Gracias por
-  avisarnos."); la nota interna (`admin_note`) nunca sale. Uno por reporte: reabrir y volver a
+  avisarnos."); la nota interna (`admin_note`) nunca sale en el aviso (sí en el *Descargar mis datos* de la persona, desde la 1.28). Uno por reporte: reabrir y volver a
   cerrar no lo repite. Sale con 🛠️ y sin botón. Y `message` (ref = id de `account_messages`): un
   aviso del panel para una sola cuenta, escrito a mano o automático al darle IA extra o acceso a
   un módulo. Sale con 💬 y sin botón.

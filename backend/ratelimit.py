@@ -72,6 +72,9 @@ failed_logins = SlidingWindow(limit=10, window=15 * 60)
 # Cuentas creadas: 5 por hora por IP. Frena el registro en masa sin estorbar
 # a quien crea una cuenta de prueba.
 registrations = SlidingWindow(limit=5, window=60 * 60)
+# Descargar mis datos: 5 al día por cuenta. Arma la cuenta entera, y nadie
+# necesita bajarla más seguido
+exports = SlidingWindow(limit=5, window=24 * 60 * 60)
 
 
 def client_ip(request: Request) -> str:
@@ -94,3 +97,4 @@ def reset_all() -> None:
     """Para las pruebas: cada una empieza sin intentos contados."""
     failed_logins.reset()
     registrations.reset()
+    exports.reset()
