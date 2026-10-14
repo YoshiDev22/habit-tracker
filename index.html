@@ -384,6 +384,14 @@
         </div>
     </div>
 
+    <!-- Hay una versión nueva en el servidor (novedades.js): una pestaña abierta días, o la app
+         instalada, sigue con el código con el que abrió hasta recargar -->
+    <div id="updateBanner" class="update-banner" role="status" hidden>
+        <span>Hay una versión nueva de la app.</span>
+        <button type="button" class="update-banner-btn" id="updateReload">Actualizar</button>
+        <button type="button" class="update-banner-close" id="updateDismiss" aria-label="Cerrar">&times;</button>
+    </div>
+
     <!-- Usuario logueado - mostrar logout -->
     <div id="userBar" class="user-bar hidden">
         <button id="themeToggle" class="settings-btn" type="button" title="Tema: Sistema" aria-label="Tema: Sistema">🖥️</button>

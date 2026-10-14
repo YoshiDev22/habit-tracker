@@ -1133,6 +1133,12 @@ separarlo deja claro qué se desplegó y cuándo.
    recién registrada empieza al día) y *Mi perfil › Novedades* las lista. Las pruebas de
    navegador arrancan el servidor con `HABIT_NOVEDADES_FILE` vacío para que la ventana no
    tape nada; `ui_novedades.py` le da las suyas.
+   **Una página abierta no se actualiza sola** (1.28): el HTTP está bien (`no-cache` + ETag,
+   un F5 normal trae lo nuevo, también a través de Cloudflare), pero una pestaña de días o la
+   app instalada siguen con el código con el que abrieron. `novedades.js` recuerda esa versión
+   (`updateState.pageVersion`) y compara con `GET /api/version` al volver a la pestaña (cada
+   5 min como mucho) y cada 30 min; si el servidor tiene una más nueva, `#updateBanner` ofrece
+   *Actualizar*. Nunca recarga sola, y cerrada no vuelve por esa misma versión.
 2. Tag anotado sobre ese commit: `git tag -a vX.Y.Z -m "vX.Y.Z"`. Las versiones 1.0.0 a
    1.9.0 también tienen el suyo, puesto después sobre el commit que cambió `VERSION`.
 3. Yoshio hace `git push` y `git push --tags`, y despliega.

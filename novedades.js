@@ -116,6 +116,9 @@ async function loadNovedades() {
     }
     renderNewsPage();
     const { current, versions } = novedadesState.data;
+    // La versión con la que abrió esta página: la primera que se supo (otra cuenta en
+    // la misma pestaña no la cambia; el código sigue siendo el mismo)
+    if (!updateState.pageVersion) updateState.pageVersion = current;
     let justRegistered = false;
     try {
         justRegistered = sessionStorage.getItem(NOVEDADES_REGISTERED_KEY) === '1';
@@ -138,6 +141,44 @@ async function loadNovedades() {
     }
     showNovedades(pending);
 }
+
+// ---------- ¿Hay una versión nueva en el servidor? ----------
+// Una pestaña abierta días, o la app instalada en el teléfono, sigue con el código
+// con el que abrió: el HTTP está bien (no-cache + ETag, un F5 basta), pero nadie
+// recarga. Al volver a la pestaña (como mucho cada 5 min) y cada 30 min a la vista
+// se compara la versión del servidor con la de esta página; si es más nueva, una
+// franja ofrece recargar. Nunca recarga sola: se perdería lo que se está escribiendo
+// (el cronómetro no: vive en localStorage).
+
+const UPDATE_CHECK_EVERY_MS = 30 * 60 * 1000;
+const UPDATE_CHECK_MIN_GAP_MS = 5 * 60 * 1000;
+const updateState = { pageVersion: null, lastCheck: 0, dismissed: null };
+const updateBanner = document.getElementById('updateBanner');
+
+async function checkForUpdate(force = false) {
+    if (!updateState.pageVersion || document.visibilityState !== 'visible') return;
+    if (!force && Date.now() - updateState.lastCheck < UPDATE_CHECK_MIN_GAP_MS) return;
+    updateState.lastCheck = Date.now();
+    let server;
+    try {
+        server = (await apiFetch('/api/version')).version;
+    } catch (error) {
+        return;   // sin red o en pleno reinicio del servicio: se vuelve a intentar después
+    }
+    if (server && compareVersions(server, updateState.pageVersion) > 0 && server !== updateState.dismissed) {
+        updateBanner.dataset.version = server;
+        updateBanner.hidden = false;
+    }
+}
+
+document.getElementById('updateReload').addEventListener('click', () => location.reload());
+document.getElementById('updateDismiss').addEventListener('click', () => {
+    // Cerrada, no vuelve por esa misma versión; sí por una más nueva
+    updateState.dismissed = updateBanner.dataset.version || null;
+    updateBanner.hidden = true;
+});
+document.addEventListener('visibilitychange', () => { checkForUpdate(); });
+setInterval(() => { checkForUpdate(true); }, UPDATE_CHECK_EVERY_MS);
 
 // Registrarse en este navegador: la cuenta nueva no ve las Novedades de hoy
 document.getElementById('registerForm').addEventListener('submit', () => {

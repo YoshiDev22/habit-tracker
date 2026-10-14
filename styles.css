@@ -1626,6 +1626,57 @@ body.has-pomodoro-bar {
     width: 100%;
 }
 
+/* Versión nueva en el servidor (novedades.js): encima de la barra de usuario */
+.update-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 10px 44px 10px 16px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 0.95rem;
+    box-shadow: var(--shadow-md);
+}
+
+.update-banner[hidden] { display: none; }
+
+.update-banner-btn {
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--text-on-accent);
+    border: 0;
+    border-radius: 999px;
+    padding: 4px 14px;
+    cursor: pointer;
+}
+
+.update-banner-close {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--text-on-accent);
+    background: none;
+    border: 0;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.update-banner-btn:focus-visible, .update-banner-close:focus-visible {
+    outline: 2px solid var(--text-on-accent);
+    outline-offset: 2px;
+}
+
 /* User Bar */
 .user-bar {
     position: fixed;
