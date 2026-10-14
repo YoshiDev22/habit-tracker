@@ -108,75 +108,25 @@ lo que borra `purge_user()` salga en el export. Más la fila de `users` sin `has
   (art. 11).
 - `GUIA-DE-USO.md` enlaza el aviso en su pregunta frecuente de seguridad.
 
-## Borrador del texto
+## El texto
 
-Los `{{…}}` vienen del `.env` de la instancia.
+El texto aprobado (2026-10-14) vive en `privacidad.html`: el borrador que estaba aquí se
+quitó para no tener dos versiones. Decisiones de esa revisión:
 
-> ### Aviso de privacidad
-> *Última actualización: AAAA-MM-DD*
->
-> **Quién responde por tus datos.** Esta instalación de Habit Tracker la administra
-> {{PRIVACY_OWNER}}, desde {{PRIVACY_LOCATION}}. Para cualquier duda o solicitud sobre tus
-> datos: {{PRIVACY_EMAIL}}. Habit Tracker es un proyecto personal y de código abierto; usarlo
-> es voluntario y gratuito.
->
-> **Qué datos guardamos.** Tu correo y tu contraseña (solo cifrada: nadie puede leerla), y si
-> quieres, alias, nombre y apellido. Todo lo que anotas en la app: hábitos y notas, tableros y
-> tareas, el tiempo que registras, tus proyectos y sus costos, y los reportes que se generan.
-> Además, para administrar y proteger la app: la fecha en que te registraste, tu última
-> actividad, los problemas que nos reportes (con los detalles técnicos solo si los dejas) y,
-> cuando algo falla o parece un abuso (una contraseña equivocada, demasiados intentos), la
-> hora y la dirección IP desde la que llegó. La app no te pide datos sensibles (de salud,
-> creencias u otros); si escribes alguno, se trata igual que el resto.
->
-> **Para qué.** Solo para que la app funcione para ti: guardar lo que anotas, calcular tus
-> rachas, tiempos y reportes, mantener tu cuenta segura y arreglar fallos. No vendemos ni
-> compartimos tus datos, no hay publicidad ni analítica, y no usamos tus datos para nada más.
-> Si algún día quisiéramos usarlos para otra cosa, te lo pediríamos antes.
->
-> **Quién más los ve.** Nadie más los usa para sí. Los tratan por nuestra cuenta, sin poder
-> usarlos para otra cosa: {{PRIVACY_HOSTING}}, donde vive la app; Cloudflare, que la protege y
-> ve tu dirección IP y tu tráfico; y, solo si enciendes la IA para tus reportes, el modelo
-> {{AI_MODEL}} en {{AI_PROVIDER_NAME}}, que recibe las cifras del reporte, los nombres de tus
-> proyectos, hábitos y etiquetas y tus notas del periodo, **nunca tu correo ni tu nombre**.
-> {{AI_PROVIDER_NAME}} dice que eso no se usa para entrenar modelos.
->
-> **Cuánto tiempo.** Mientras tengas tu cuenta. Los eventos de seguridad y los registros
-> técnicos del servidor se borran a los 30 días, y las copias de respaldo también. Al borrar
-> tu cuenta se borra todo lo tuyo; en las copias de respaldo desaparece a los 30 días.
->
-> **Cómo limitar su uso.** Apaga la IA o cualquier módulo en *Configuración › Módulos*; quita
-> los detalles técnicos al reportar un problema; y deja vacíos alias, nombre y apellido si no
-> quieres darlos.
->
-> **Tus derechos (acceso, rectificación, cancelación y oposición).** Puedes hacerlo tú mismo:
-> *Mi perfil › Descargar mis datos* te da todo lo que guardamos de ti; *Mi perfil › Datos
-> personales* los corrige; y *Mi perfil › Borrar mi cuenta* lo borra todo, al momento o en 30
-> días. Para lo demás, u oponerte a algún uso, escríbenos a {{PRIVACY_EMAIL}} desde el correo
-> de tu cuenta, diciendo qué pides. Te respondemos en un máximo de 20 días hábiles y, si
-> procede, lo hacemos en los 15 siguientes. Es gratis. Si no te respondemos o no estás de
-> acuerdo, puedes acudir a la Secretaría Anticorrupción y Buen Gobierno.
->
-> **En tu navegador.** La app guarda en tu dispositivo tu sesión y tus preferencias (tema,
-> tamaño de letra, la última pestaña) y el cronómetro en curso. No usa cookies de terceros.
->
-> **Si cambia este aviso.** Lo verás aquí con su fecha y te avisaremos en la campanita 📢 de
-> la app.
->
-> *Ley Federal de Protección de Datos Personales en Posesión de los Particulares (DOF
-> 20-03-2025).*
-
-**Aviso simplificado (registro):**
-
-> Tus datos los administra {{PRIVACY_OWNER}} ({{PRIVACY_LOCATION}}) solo para que la app
-> funcione para ti: tu correo, lo que anotas y, para protegerla, la IP cuando algo falla. No
-> los vendemos ni los compartimos. Puedes limitar su uso desde *Configuración*. Lee el
-> [aviso de privacidad completo](/privacidad).
+- **Responsable**, con estas palabras exactas: "Para conocer la identidad y domicilio del
+  responsable del tratamiento, o para ejercer tus derechos ARCO, escribe a {correo}.
+  Responderemos a la brevedad." Sin nombre, domicilio ni teléfono (sustituye a la opción B).
+- **Nada que sugiera usos futuros**: no "si quisiéramos usarlos para otra cosa…". Los cambios
+  se publican con su fecha y se avisan con antelación; el consentimiento se pide "cuando la ley
+  lo pida" (art. 11).
+- **Descargo aparte**: proyecto en desarrollo, bajo propio riesgo.
+- En el registro, solo la línea con el enlace (no el aviso simplificado completo).
 
 ## Pendientes fuera del código
 
 - El responsable: el correo de contacto (Cloudflare Email Routing reenvía `privacidad@…` a su
-  bandeja; para *responder* desde esa dirección hace falta además un "enviar como").
+  bandeja; para *responder* desde esa dirección hace falta además un "enviar como"), y las
+  `PRIVACY_*` en el `.env` del VPS.
 - VPS: journald a 30 días y respaldo diario con 30 días (ya en el Acordeón, Pendientes).
 - Leer el Reglamento: el transitorio Décimo Segundo daba 90 días para armonizarlo; no se
   comprobó si ya hay uno nuevo.

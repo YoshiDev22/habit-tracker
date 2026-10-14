@@ -81,6 +81,8 @@ habit-tracker/
 │   ├── ai.py              # El proveedor de IA (uno por instancia, en .env): una sola llamada
 │   ├── accounts.py        # Borrar una cuenta (ya, o programada a 30 días) y todo lo suyo
 │   ├── novedades.py       # Lee NOVEDADES.md (lo sirve GET /api/novedades)
+│   ├── privacy.py         # El aviso de privacidad: privacidad.html con los datos de la instancia (.env)
+│   ├── data_export.py     # Descargar mis datos: lo mismo que borra purge_user(), en JSON
 │   ├── notices.py         # El centro de avisos: pendientes calculados e informativos guardados
 │   ├── admin_main.py      # El panel de administración: OTRO proceso, solo en 127.0.0.1 (épica 32)
 │   ├── admin_auth.py      # Quién entra al panel: JWT de Cloudflare Access + ADMIN_EMAILS
@@ -114,6 +116,7 @@ habit-tracker/
 │   └── admin_dev.py       # El panel en tu máquina, sin Access (llave temporal, solo 127.0.0.1)
 ├── deploy/                # Plantillas genéricas del .service y el .timer de los reportes
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
+├── privacidad.html        # Plantilla del aviso de privacidad (la llena backend/privacy.py)
 ├── admin.html, admin.js, admin-charts.js, admin.css  # El panel: los sirve admin_main.py, no la app
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
 ├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema, getDateKey
@@ -386,6 +389,16 @@ Lo que no se ve en Swagger:
   tabla con `user_id`) más la fila del usuario sin `hashed_password` ni `token_version`, así que
   una tabla nueva sale sola; `test_data_export.py` exige que coincida con lo que se borra. 5 al
   día por cuenta (`ratelimit.exports`, en memoria), con el evento `export_limit`.
+- **Aviso de privacidad** (1.28, BACKLOG 39; plan en `docs/specs/aviso-privacidad.md`):
+  `GET /privacidad`, pública, la arma `backend/privacy.py` con `privacidad.html`. **El texto dice
+  lo que hace el código** (igual para cualquier instalación) y **los datos de la instancia van
+  en `.env`**, nunca en el repo: `PRIVACY_EMAIL` (el responsable y los derechos ARCO; sin él, un
+  recuadro dice que falta), `PRIVACY_HOSTING`, y opcionales `PRIVACY_PROXY` y `PRIVACY_AI` (sin
+  ellos, sus frases no salen; con IA configurada y sin nombre, sale genérico). Todo escapado.
+  `UPDATED` en `privacy.py` es la fecha del aviso: cambia en el mismo commit que el texto, y un
+  cambio se avisa con 📢. Enlaces: la línea de `#registerPrivacy` justo antes de "Crear Cuenta",
+  el pie de la pantalla de entrar y *Mi perfil › Aviso de privacidad* (otra pestaña). **Un dato
+  personal nuevo** (una columna, otro envío a la IA o a un tercero) **va también en el aviso**.
 - **Login y registro tienen límite por IP** (`backend/ratelimit.py`, en memoria): 10
   contraseñas equivocadas cada 15 min y 5 cuentas creadas por hora; al pasarse, 429 con
   `Retry-After` y el motivo en español, que el formulario muestra tal cual. Los logins

@@ -52,6 +52,7 @@
             </div>
 
             <p class="app-version" id="authVersion"></p>
+            <p class="auth-privacy"><a href="/privacidad">Aviso de privacidad</a></p>
         </div>
     </div>
 
@@ -115,6 +116,10 @@
                 </div>
 
                 <div id="registerError" class="form-error hidden"></div>
+                <!-- Antes de crear la cuenta (LFPDPPP, art. 16): el aviso a la vista -->
+                <p class="privacy-note" id="registerPrivacy">Al crear tu cuenta aceptas el
+                    <a href="/privacidad" target="_blank" rel="noopener">aviso de privacidad</a>. Usar la app es
+                    voluntario y bajo tu propio riesgo.</p>
                 <button type="submit" class="submit-btn">Crear Cuenta</button>
             </form>
             <p class="auth-switch">
@@ -509,6 +514,11 @@
                     <span class="settings-item-text"><strong>Reportar un problema</strong><small>Cuéntanos qué falló</small></span>
                     <span class="settings-item-go" aria-hidden="true">›</span>
                 </button>
+                <!-- Una página aparte, no del menú: se abre en otra pestaña -->
+                <a class="settings-item" id="profilePrivacy" href="/privacidad" target="_blank" rel="noopener">
+                    <span class="settings-item-text"><strong>Aviso de privacidad</strong><small>Qué datos guardamos y tus derechos</small></span>
+                    <span class="settings-item-go" aria-hidden="true">↗</span>
+                </a>
                 <p class="module-hint profile-settings-hint">Módulos, días festivos, pomodoro y tamaño del texto
                     están en <strong>⚙️ Configuración</strong>.</p>
             </nav>

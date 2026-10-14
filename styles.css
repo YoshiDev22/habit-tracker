@@ -1626,6 +1626,58 @@ body.has-pomodoro-bar {
     width: 100%;
 }
 
+/* Aviso de privacidad (/privacidad, backend/privacy.py) y sus enlaces */
+.privacy-body { display: block; }
+
+.privacy-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 8px 0 48px;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.privacy-page h1 { font-size: 1.8rem; margin: 8px 0 4px; }
+.privacy-page h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+.privacy-page p, .privacy-page li { font-size: 1rem; }
+.privacy-page ul { padding-left: 1.2rem; display: grid; gap: 6px; margin: 8px 0 14px; }
+.privacy-page a { color: var(--accent); }
+.privacy-back { margin: 0; font-size: 0.9rem; }
+.privacy-updated, .privacy-law { color: var(--text-muted); font-size: 0.9rem; }
+
+.privacy-missing {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+}
+
+.privacy-disclaimer {
+    margin-top: 32px;
+    padding: 4px 18px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-surface);
+}
+
+.privacy-disclaimer h2 { margin-top: 14px; }
+
+.privacy-note {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.privacy-note a, .auth-privacy a { color: var(--accent); }
+
+/* Una fila de menú que es un enlace (Mi perfil › Aviso de privacidad) */
+a.settings-item { text-decoration: none; color: inherit; }
+
+.auth-privacy {
+    margin: 12px 0 0;
+    font-size: 0.8rem;
+}
+
 /* Versión nueva en el servidor (novedades.js): encima de la barra de usuario */
 .update-banner {
     position: fixed;

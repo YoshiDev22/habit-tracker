@@ -1,9 +1,9 @@
 import os
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from dotenv import load_dotenv
 
-from backend import novedades
+from backend import novedades, privacy
 from backend.database import create_db_and_tables, check_pending_migrations
 from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports, notices, feedback
 
@@ -214,6 +214,12 @@ APP_ICONS = {
     "icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png",
     "apple-touch-icon.png", "favicon-48.png",
 }
+
+
+@app.get("/privacidad")
+def privacy_notice():
+    """El aviso de privacidad (backend/privacy.py): público, sin sesión"""
+    return HTMLResponse(privacy.render(), headers=NO_CACHE)
 
 
 @app.get("/manifest.webmanifest")

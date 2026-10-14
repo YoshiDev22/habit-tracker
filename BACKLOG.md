@@ -31,7 +31,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 32 | P2 | Panel de administración y "Reportar un problema" | en producción (1.27); paso 7 (gráficas) hecho para la 1.28 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
-| 39 | P2 | Aviso de privacidad | para la 1.28 |
+| 39 | P2 | Aviso de privacidad | en código (1.28); antes de publicar: correo, `.env` y plazos del VPS |
 | 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
 
 ---
