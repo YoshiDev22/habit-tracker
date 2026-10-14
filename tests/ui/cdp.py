@@ -187,9 +187,42 @@ class Browser:
         time.sleep(1.0)
 
     async def close(self):
+        """Cierra el navegador entero. Matar solo self.proc no basta: en Windows Edge
+        abre procesos hijos (render, GPU, utilidades) que sobreviven al padre, y cada
+        prueba dejaba 5-10 vivos (cientos en una corrida, con la máquina a rastras).
+        Primero Browser.close, como quit(); si no responde, el árbol completo."""
         try:
+            await self.ws.send(json.dumps({"id": next(self.ids), "method": "Browser.close"}))
             await self.ws.close()
-        finally:
-            self.proc.kill()
-            self.proc.wait()
-            time.sleep(1.0)  # que suelte el perfil antes de volver a arrancar
+        except Exception:
+            pass
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            kill_tree(self.proc)
+        time.sleep(1.0)  # que suelte el perfil antes de volver a arrancar
+
+
+def kill_tree(proc):
+    """El proceso y todos sus hijos (en Windows, kill() solo mata al padre)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        proc.kill()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def kill_leftovers(profiles_dir):
+    """Red de seguridad al final de una corrida: cualquier navegador que siga con un
+    perfil de esa carpeta (solo los de las pruebas: los perfiles son temporales)."""
+    if os.name != "nt" or not profiles_dir:
+        return
+    script = ("Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | "
+              f"Where-Object {{ $_.CommandLine -like '*{profiles_dir}*' }} | "
+              "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+    subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)

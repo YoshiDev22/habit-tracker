@@ -76,6 +76,10 @@ def _prepare_db(db: Path):
 
 
 def pytest_sessionfinish(session, exitstatus):
+    # Ningún navegador de esta corrida sigue vivo (una prueba que falla a medias no llega
+    # a su close()); después, la carpeta, que ya nadie tiene abierta
+    from cdp import kill_leftovers
+    kill_leftovers(str(TMP))
     shutil.rmtree(TMP, ignore_errors=True)
 
 
