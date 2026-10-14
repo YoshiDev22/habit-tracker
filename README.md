@@ -197,6 +197,33 @@ pytest -m ui      # navegador (necesita Edge o Chrome)
 
 Usan una base temporal: no tocan la de desarrollo.
 
+> **Aviso: navegadores que quedaban abiertos (corregido el 2026-10-14).** Desde que las
+> pruebas de navegador entraron al repo (2026-09-24, v1.15.0) hasta esa fecha, en Windows
+> cada `pytest -m ui` dejaba procesos de Edge o Chrome vivos: entre 5 y 10 por prueba, que
+> no se cerraban hasta reiniciar. Unas cuantas corridas sumaban cientos y la máquina se
+> volvía lenta; también hacían fallar pruebas al azar. Se corrigió en `tests/ui/cdp.py`
+> (cierra el navegador con todos sus procesos) y `tests/ui/conftest.py` (al terminar cierra
+> lo que haya quedado de la corrida).
+>
+> Si corriste las pruebas de navegador antes de esa fecha y no has reiniciado, revisa si
+> quedan (PowerShell; solo cuenta los de las pruebas, que usan perfiles `habit-ui-*` en la
+> carpeta temporal):
+>
+> ```powershell
+> (Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" |
+>   Where-Object { $_.CommandLine -match 'habit-ui-' }).Count
+> ```
+>
+> y ciérralos (tus ventanas normales del navegador no se tocan):
+>
+> ```powershell
+> Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" |
+>   Where-Object { $_.CommandLine -match 'habit-ui-' } |
+>   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+> ```
+>
+> Reiniciar la computadora también los cierra.
+
 ## API
 
 Documentación interactiva generada por FastAPI (con el server corriendo):
