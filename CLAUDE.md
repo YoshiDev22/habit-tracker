@@ -347,6 +347,15 @@ pruebas se saltan. Las capturas van a `%TEMP%/habit-ui-shots`.
 - Lo que aparece tras un fetch y un repintado se espera con `b.wait_for(expr, ok)`, no
   con un `sleep` fijo: con la máquina ocupada, 1,5 s a veces no alcanzaban.
 - Tardan más de 10 minutos. Para una sola: `pytest -m ui tests/ui/ui_board.py`.
+- **Para entrar con un token**: `goto(BASE + "/api/health")`, guardar el token y luego
+  `goto(BASE + "/")`. Abrir la app para guardar el token la arrancaba con el token de un paso
+  anterior, y la segunda navegación cancelaba sus peticiones: "Failed to fetch" en la consola,
+  1 de cada 3 o 4 corridas (BACKLOG 38, cerrada el 2026-10-14).
+- **`cdp.py` cierra el navegador entero** (`Browser.close` y, si no responde, `taskkill /T`)
+  y usa un puerto libre por arranque: matar solo el proceso padre dejaba en Windows sus hijos
+  vivos (cientos por corrida). `pytest_sessionfinish` cierra lo que quede con un perfil de la
+  corrida. "Sin red" se simula dentro de la página (`window.fetch` que rechaza), no con la
+  emulación de DevTools, que con la máquina cargada no siempre llegaba a tiempo.
 
 ## Endpoints
 

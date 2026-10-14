@@ -8,6 +8,7 @@ import itertools
 import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -46,7 +47,7 @@ def find_browser():
 
 
 class Browser:
-    def __init__(self, port=9333, fresh=True):
+    def __init__(self, port=None, fresh=True):
         self.port = port
         self.fresh = fresh
         self.proc = None
@@ -68,6 +69,12 @@ class Browser:
         if self.fresh or _last_profile is None:
             _last_profile = Path(tempfile.mkdtemp(prefix="profile-", dir=os.environ.get("HABIT_UI_TMP")))
         profile = _last_profile
+        # Un puerto libre en cada arranque: con uno fijo, el navegador de la prueba anterior
+        # aún cerrándose lo tenía ocupado y este no arrancaba ("the browser did not start")
+        if self.port is None:
+            with socket.socket() as probe:
+                probe.bind(("127.0.0.1", 0))
+                self.port = probe.getsockname()[1]
         self.proc = subprocess.Popen([
             find_browser(), "--headless=new", f"--remote-debugging-port={self.port}",
             f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",

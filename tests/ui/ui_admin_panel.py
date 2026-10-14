@@ -195,10 +195,13 @@ async def main():
         other_id = await b.js("accountsState.list.find(a => a.email === 'o•••@test.com').id")
         await b.js(f"openAccount({other_id})")
         await b.wait_for("document.getElementById('accountDialog').open", bool)
-        await b.js("document.getElementById('accountDeactivate').click()")
-        first = await b.js("""({label: document.getElementById('accountDeactivate').textContent,
-            state: document.getElementById('accountState').textContent})""")
-        await b.js("document.getElementById('accountDeactivate').click()")
+        # Los dos clics y lo de en medio en una sola evaluación: una recarga de la lista aún en
+        # camino (del paso anterior) repinta el estado y desarma el botón entre dos llamadas
+        first = await b.js("""(() => { const btn = document.getElementById('accountDeactivate');
+            btn.click();
+            const seen = {label: btn.textContent, state: document.getElementById('accountState').textContent};
+            btn.click();
+            return seen; })()""")
         state = await b.wait_for("document.getElementById('accountState').textContent",
                                  lambda v: (v or "").startswith("Desactivada"))
         row = await b.js(f"[...document.querySelectorAll('#accountsTable tr')].find(r => r.textContent.includes('o•••@test.com')).textContent")

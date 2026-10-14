@@ -23,7 +23,7 @@ def sessions_for(title):
 async def open_app(b, first=False, token=None):
     await b.viewport(1280, 900)
     if first:
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});")
     await b.goto(BASE + "/", wait=3.0)
     await b.js(CLOSE_WELCOME)
@@ -96,15 +96,15 @@ async def main():
 
     # 4. Network down when stopping: queued, sent on the next visit
     await b.js(f"{CARD}.querySelector('.board-card-play').click()")
-    await asyncio.sleep(1.2)
+    await b.wait_for("pomoState.status === 'running'")
     await b.js("pomoState.startedEpochMs = Date.now() - 120000; savePomoState();")
-    await b.send("Network.enable")
-    await b.send("Network.emulateNetworkConditions", offline=True, latency=0, downloadThroughput=-1, uploadThroughput=-1)
+    # Sin red, dentro de la página: fetch falla como sin conexión. La emulación de red de
+    # DevTools no siempre llegaba a tiempo con la máquina cargada, y la sesión se guardaba
+    await b.js("window.__fetch = window.fetch; window.fetch = () => Promise.reject(new TypeError('Failed to fetch'))")
     await b.js(f"{CARD}.querySelector('.board-card-play').click()")
-    await asyncio.sleep(2.0)
-    pending = await b.js("JSON.parse(localStorage.getItem('pomodoro_pending') || '[]').length")
+    pending = await b.wait_for("JSON.parse(localStorage.getItem('pomodoro_pending') || '[]').length", lambda v: v == 1)
     check(pending == 1 and len(sessions_for(TITLE)) == 2, f"offline stop keeps the time in the pending queue ({pending} queued, {len(sessions_for(TITLE))} saved)")
-    await b.send("Network.emulateNetworkConditions", offline=False, latency=0, downloadThroughput=-1, uploadThroughput=-1)
+    await b.js("window.fetch = window.__fetch")
     await b.quit()
     await asyncio.sleep(2)
 

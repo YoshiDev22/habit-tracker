@@ -13,7 +13,7 @@ código y no se reprodujeron todavía.
 Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros), el
 2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas) y el 2026-10-02
 sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) y el
-2026-10-13 sobre v1.27.0 (orden 1.28–1.30; 38, 39 y 40 en la tabla).
+2026-10-13 sobre v1.27.0 (orden 1.28–1.30; 39 y 40 en la tabla; 38 cerrada el 2026-10-14).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
@@ -31,7 +31,6 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 32 | P2 | Panel de administración y "Reportar un problema" | en producción (1.27); paso 7 (gráficas) hecho para la 1.28 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
-| 38 | P3 | Pruebas de navegador que fallan a veces por "Failed to fetch" | diagnosticado en parte, para la 1.28 |
 | 39 | P2 | Aviso de privacidad | para la 1.28 |
 | 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
 
@@ -552,25 +551,6 @@ cookies de terceros si se puede. Lo que hoy explica `GUIA-DE-USO.md` sirve de ba
 
 **Por decidir.** Si la portada vive en la misma app o en un sitio estático aparte; dónde se
 aloja el video; y si se enlaza la guía de uso.
-
----
-
-## 38 · P3 · Pruebas de navegador que fallan a veces por "Failed to fetch"
-
-**Visto desde el 2026-10-09** (Fase 1 del panel, antes de los eventos de seguridad), en 1 de cada
-3 o 4 corridas de algunas pruebas (`ui_costs`, `ui_newproject`, `ui_account`, `ui_onboarding`):
-todas sus comprobaciones pasan salvo un `Failed to fetch` en la consola, o falta lo que creó una
-petición. El diagnóstico de `tests/ui/cdp.py` (`[network]` y `[nav]`, con su hora) muestra que **el
-navegador cancela** la petición (`net::ERR_ABORTED`, canceled), a veces el propio `POST` de un
-formulario, **sin una navegación cerca**. La app no cancela nada (sin `AbortController`).
-
-**Descartado, con experimentos**: que la prueba cierre el navegador con peticiones en curso (al
-cerrar se corta antes la conexión de DevTools) y que la página que se va escriba esos errores
-(con una navegación lenta, no escribe nada). Se deshicieron los dos arreglos.
-
-**Siguiente paso**: en la próxima falla, el orden de `[nav]`, `[network]` y `console.error`.
-Ideas sin probar: el socket keep-alive que uvicorn cierra en Windows (el `ConnectionResetError`
-que filtra el `conftest.py`), o el `initiator` de la petición (`Network.requestWillBeSent`).
 
 ---
 

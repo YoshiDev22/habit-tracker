@@ -18,7 +18,7 @@ def check(cond, label):
 
 
 async def enter(b, token):
-    await b.goto(BASE + "/")
+    await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
     await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});")
     await b.goto(BASE + "/", wait=2.5)
 
