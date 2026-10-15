@@ -6,7 +6,7 @@
     <title>Aviso de privacidad · Habit Tracker</title>
     <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
     <!-- Plantilla: backend/privacy.py llena las llaves dobles con los datos de esta
-         instancia (backend/.env) y quita los bloques proxy e ai que no apliquen.
+         instancia (backend/.env) y quita los bloques backups, proxy e ai que no apliquen.
          El texto describe lo que hace el código; quién responde es de cada instancia. -->
     <script>
     // El mismo arranque de tema y tamaño de texto que index.html, antes de los estilos
@@ -59,7 +59,8 @@
         hay analítica.</p>
 
     <h2>Quién más los trata</h2>
-    <p>Nadie los usa para sí. Los tratan por nuestra cuenta: {{HOSTING}}, donde vive la app<!--proxy-->;
+    <p>Nadie los usa para sí. Los tratan por nuestra cuenta: {{HOSTING}}, donde vive la app<!--backups-->;
+        {{BACKUPS}}, donde se guardan las copias de respaldo<!--/backups--><!--proxy-->;
         {{PROXY}}, que la protege y ve tu IP<!--/proxy--><!--ai-->; y, solo si enciendes la IA para tus
         reportes, {{AI}}, que recibe las cifras del reporte y los nombres de tus proyectos, hábitos, etiquetas,
         tareas y gastos, tus notas y tu horario. Nunca recibe tu correo ni tu nombre<!--/ai-->.</p>

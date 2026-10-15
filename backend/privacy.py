@@ -6,6 +6,7 @@ el repo (que es público). Plan y razones: docs/specs/aviso-privacidad.md.
 
   PRIVACY_EMAIL    correo para el responsable y los derechos ARCO
   PRIVACY_HOSTING  dónde vive el servidor ("Proveedor (servidor en País)")
+  PRIVACY_BACKUPS  opcional: dónde se guardan además las copias de respaldo ("Un servicio de almacenamiento")
   PRIVACY_PROXY    opcional: la red delante de la app ("Cloudflare")
   PRIVACY_AI       opcional: el proveedor de IA y lo que dice del contenido
 
@@ -37,9 +38,11 @@ def render() -> str:
     from backend.ai import ai_config   # aquí: el aviso no debe frenar el arranque de nada
 
     page = open(TEMPLATE, encoding="utf-8").read()
-    email, hosting, proxy, ai = (_env(n) for n in ("PRIVACY_EMAIL", "PRIVACY_HOSTING", "PRIVACY_PROXY", "PRIVACY_AI"))
+    email, hosting, backups, proxy, ai = (_env(n) for n in ("PRIVACY_EMAIL", "PRIVACY_HOSTING", "PRIVACY_BACKUPS",
+                                                             "PRIVACY_PROXY", "PRIVACY_AI"))
     if not ai and ai_config() is not None:
         ai = "el proveedor de IA de esta instalación"
+    page = _block(page, "backups", bool(backups))
     page = _block(page, "proxy", bool(proxy))
     page = _block(page, "ai", bool(ai))
 
@@ -55,6 +58,7 @@ def render() -> str:
         "EMAIL": email_html,
         "IP_LOGS": ip_logs,
         "HOSTING": html.escape(hosting) if hosting else "el proveedor del servidor",
+        "BACKUPS": html.escape(backups),
         "PROXY": html.escape(proxy),
         "AI": html.escape(ai),
     }

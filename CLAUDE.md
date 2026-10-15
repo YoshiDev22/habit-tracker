@@ -393,7 +393,8 @@ Lo que no se ve en Swagger:
   `GET /privacidad`, pública, la arma `backend/privacy.py` con `privacidad.html`. **El texto dice
   lo que hace el código** (igual para cualquier instalación) y **los datos de la instancia van
   en `.env`**, nunca en el repo: `PRIVACY_EMAIL` (el responsable y los derechos ARCO; sin él, un
-  recuadro dice que falta), `PRIVACY_HOSTING`, y opcionales `PRIVACY_PROXY` y `PRIVACY_AI` (sin
+  recuadro dice que falta), `PRIVACY_HOSTING`, y opcionales `PRIVACY_BACKUPS` (dónde más viven las
+  copias de respaldo), `PRIVACY_PROXY` y `PRIVACY_AI` (sin
   ellos, sus frases no salen; con IA configurada y sin nombre, sale genérico). Todo escapado.
   `UPDATED` en `privacy.py` es la fecha del aviso: cambia en el mismo commit que el texto, y un
   cambio se avisa con 📢. Enlaces: la línea de `#registerPrivacy` justo antes de "Crear Cuenta",
