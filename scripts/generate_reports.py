@@ -61,9 +61,11 @@ def main(argv=None) -> int:
             # antes de los reportes: el de costos del mes ya los cuenta
             if not args.dry_run and user_modules(session, user.id)["maker"]["enabled"]:
                 for cost in generate_due(session, user.id, today):
-                    print(f"recurring cost {user.email}: {cost.concept} on {cost.cost_date.isoformat()}")
+                    print(f"recurring cost for account {user.id} on {cost.cost_date.isoformat()}")
+            # La salida va al registro del servidor (journald, 30 días): el número de la
+            # cuenta, nunca su correo ni lo que escribió (el aviso de privacidad no lo dice)
             for kind, start in missing_reports(session, user, today):
-                label = f"{user.email}: {kind} from {start.isoformat()}"
+                label = f"account {user.id}: {kind} from {start.isoformat()}"
                 if args.dry_run:
                     print(f"would generate {label}")
                     continue
