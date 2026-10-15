@@ -452,3 +452,36 @@ def test_deleting_the_account_removes_its_folder(api):
     api.call("POST", "/api/auth/me/delete", {"mode": "now", "password": "secret123", "confirm": "BORRAR"}, expect=204)
     assert not achievement_files.user_dir(me["id"]).exists()
 
+
+
+# ==================== Revertir ====================
+
+def test_drop_script_only_touches_achievements(api):
+    import sqlite3
+    import subprocess
+    import sys
+    from conftest import DB_PATH, ROOT
+    on(api.login("yoshi@test.com"))
+    me = api.call("GET", "/api/auth/me", expect=200)[1]
+    upload(api, new(api)["id"], png())
+    api.call("POST", "/api/projects", {"name": "Se queda"}, expect=201)
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    run = lambda *args: subprocess.run([sys.executable, str(ROOT / "scripts" / "drop_achievements.py"), *args],
+                                       cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8")
+
+    dry = run()
+    assert dry.returncode == 0 and "Nada cambió" in dry.stdout and "achievements (1 filas)" in dry.stdout
+    assert achievement_files.user_dir(me["id"]).exists()
+
+    done = run("--yes")
+    assert done.returncode == 0, done.stderr
+    connection = sqlite3.connect(DB_PATH)
+    tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert not tables & {"achievements", "achievement_files", "achievement_categories", "achievement_collections",
+                         "sos_actions", "sos_notes"}
+    assert connection.execute("SELECT COUNT(*) FROM user_modules WHERE module = 'achievements'").fetchone()[0] == 0
+    assert connection.execute("SELECT COUNT(*) FROM projects WHERE name = 'Se queda'").fetchone()[0] == 1
+    connection.close()
+    assert not achievement_files.user_dir(me["id"]).exists()
+    # Otra vez: no hay nada que borrar y no falla
+    assert run("--yes").returncode == 0
