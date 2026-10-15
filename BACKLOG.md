@@ -32,6 +32,8 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
 | 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
+| 41 | P3 | Tablero: ocultar columnas, plegar los filtros y tarjetas más compactas | en curso |
+| 42 | P3 | Más espacio arriba: barra de usuario compacta y plegable | pedido |
 
 ---
 
@@ -565,3 +567,40 @@ si se borran los cobros posteriores al fin).
 
 **Siguiente paso.** Volver a probarlo y anotar qué se ve en la lista ("Siguiente: …"
 o "Terminado") y en la hoja. Si no se repite, cerrar la entrada.
+
+---
+
+## 41 · P3 · Tablero: ocultar columnas, plegar los filtros y tarjetas más compactas
+
+**Pedido por Yoshio (2026-10-15).** Al sumar proyectos, etiquetas y columnas, el tablero deja poco
+espacio útil para ver las tareas.
+
+- **Ocultar columnas** como se filtran etiquetas: una fila **Columnas** con un chip por columna del
+  tablero (su nombre, su color y cuántas tarjetas tiene). Al revés que las etiquetas, encendido = se
+  ve: empiezan todas encendidas, apagar una la oculta. Al final de esa fila, **× Mostrar todas**
+  (solo si hay ocultas, y solo para las columnas; "Quitar filtros" sigue siendo de proyectos y
+  etiquetas). Siempre queda al menos una. **Se recuerda en este dispositivo, por tablero**
+  (decidido). En el teléfono, las ocultas tampoco salen en las pestañas; "Mover a…" las sigue
+  ofreciendo, marcadas "(oculta)".
+- **Plegar los filtros**: un botón que oculta las filas de Proyectos, Etiquetas y Columnas; plegado
+  dice cuántos filtros están activos. Se recuerda en el dispositivo.
+- **Tarjetas más compactas**: el tiempo sale de la línea del título (que se partía en dos o tres
+  líneas, "procedimie/nto") y va con las etiquetas, en horas ("11h/15h", "2.2h", "45m"); lo exacto,
+  en el tooltip.
+
+Pariente de la 28 (reordenar y cambiar el ancho de las columnas).
+
+---
+
+## 42 · P3 · Más espacio arriba: barra de usuario compacta y plegable
+
+**Pedido por Yoshio (2026-10-15).** Arriba se pierde mucho espacio, y en el teléfono más: la barra
+de usuario (tema, ⚙️, campanita, nombre, versión, Cerrar sesión) va en su propia franja, y debajo el
+título y el saludo.
+
+**Idea.** En computadora, una barra más chica a la altura del título, a la derecha. Que se pueda
+plegar en un menú (el nombre o un botón despliega el resto), para ganar espacio. En el teléfono,
+lo mismo con más razón: quizá título y saludo más chicos, o que se oculten al bajar.
+
+**Por decidir.** Qué queda siempre a la vista (la campanita, por los pendientes), si "Cerrar sesión"
+y la versión pasan a *Mi perfil*, y si el título se encoge al desplazar.
