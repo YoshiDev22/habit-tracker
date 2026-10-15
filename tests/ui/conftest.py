@@ -105,6 +105,8 @@ def ui_server(request):
            "HABIT_HOLIDAYS_OFFLINE": "1",   # sin internet: festivos vacíos
            # ni proveedor de IA, aunque backend/.env lo tenga
            "AI_PROVIDER": "", "AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": "",
+           # ni los datos de la instancia para el aviso de privacidad (ui_privacy espera que falten)
+           "PRIVACY_EMAIL": "", "PRIVACY_HOSTING": "", "PRIVACY_BACKUPS": "", "PRIVACY_PROXY": "", "PRIVACY_AI": "",
            "REPORT_COOLDOWN_SECONDS": "0",   # las pruebas regeneran seguido
            # sin Novedades: la ventana taparía cada prueba (ui_novedades da las suyas)
            "HABIT_NOVEDADES_FILE": str(TMP / "sin-novedades.md")}
