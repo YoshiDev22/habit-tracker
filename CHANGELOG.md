@@ -7,6 +7,47 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.28.0] — 2026-10-15
+
+Descarga tus datos, el aviso de privacidad de la app y un aviso cuando hay versión nueva; y en el
+panel de administración, gráficas.
+
+### Nuevo
+- **Descargar mis datos**, en *Mi perfil*: un archivo JSON con todo lo que la app guarda de tu cuenta
+  (tus datos personales, hábitos y notas, tableros y tareas, tiempo, costos, reportes, problemas
+  reportados y eventos de seguridad de tu cuenta). Sin la contraseña, que solo se guarda cifrada. Hasta
+  5 descargas al día.
+- **Aviso de privacidad** en `/privacidad`: qué datos se guardan y dónde, para qué, quién más los trata,
+  cuánto tiempo, cómo limitar su uso, cómo ejercer los derechos de acceso, rectificación, cancelación y
+  oposición (acceso con *Descargar mis datos*, cancelación con *Borrar mi cuenta*) y cómo se avisan los
+  cambios, con un descargo de proyecto en desarrollo. Se enlaza en el registro, antes de crear la cuenta,
+  en la pantalla de entrar y en *Mi perfil*.
+- **Aviso de versión nueva**: una pestaña que dejas abierta días, o la app instalada en el teléfono,
+  seguía con la versión con la que abrió. Ahora, al volver a ella (y cada 30 minutos), si hay una más
+  nueva, una franja ofrece *Actualizar*. Nunca recarga sola.
+- **Panel de administración**: gráficas. El Resumen suma cuentas nuevas por semana, la última actividad
+  por grupos, los módulos en uso y los últimos días de IA y de seguridad; IA y Seguridad tienen columnas
+  por día con su periodo; Problemas, chips con cuántos hay de cada estado.
+
+### Cambios
+- *Borrar mi cuenta* sugiere descargar antes todo con *Descargar mis datos*.
+- La nota interna de un problema reportado, en el panel, sale también en el *Descargar mis datos* de
+  quien lo reportó (es un dato sobre esa persona). El panel lo dice junto al campo.
+
+### Para quien desarrolla
+- **Navegadores que quedaban abiertos**: desde que las pruebas de navegador entraron al repo
+  (2026-09-24, v1.15.0), en Windows cada `pytest -m ui` dejaba procesos de Edge o Chrome vivos hasta
+  reiniciar. Corregido; el README dice cómo revisar y cerrar los que hayan quedado.
+- Las pruebas de navegador ya no fallan a veces por "Failed to fetch": cancelaban sus propias peticiones
+  al entrar dos veces seguidas a la app.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel. Antes,
+en `backend/.env`, los datos de tu instancia para el aviso de privacidad: `PRIVACY_EMAIL` (sin él, la
+página avisa que falta el contacto) y `PRIVACY_HOSTING`, y si aplican `PRIVACY_BACKUPS`, `PRIVACY_PROXY`
+y `PRIVACY_AI` (ver `backend/.env.example`). El aviso dice que los registros del servidor y las copias de
+respaldo se borran a los 30 días: configúralos así antes de publicarlo, o cambia esa frase.
+
 ## [1.27.1] — 2026-10-13
 
 ### Cambios
@@ -826,6 +867,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.28.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.0
 [1.27.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.1
 [1.27.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.0
 [1.26.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.26.0
