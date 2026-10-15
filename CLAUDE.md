@@ -42,6 +42,8 @@ Versiones confirmadas en `requirements.txt` (no hay `pyproject.toml` en el repo)
 - `python-dotenv==1.0.1` para cargar `backend/.env`
 - `tzdata` para que `zoneinfo` conozca los husos horarios en Windows (en Linux usa los del
   sistema): las métricas pasan las horas UTC a la hora local de cada usuario
+- `pillow` para las evidencias de Logros: comprobar que una imagen lo es y hacer su miniatura
+  (12.2: la última con ruedas para Python 3.10, el del VPS)
 - Frontend estático servido por la misma app (sin build step, sin dependencias JS)
 
 `requirements.txt` declara las dependencias directas; **`requirements.lock`** fija el árbol
@@ -86,6 +88,8 @@ habit-tracker/
 │   ├── admin_auth.py      # Quién entra al panel: JWT de Cloudflare Access + ADMIN_EMAILS
 │   ├── admin_api.py       # La API del panel: cuenta filas (no lee contenido) y sus acciones
 │   ├── security_log.py    # Eventos de seguridad agrupados por hora, IP y cuenta (30 días)
+│   ├── achievements.py    # Logros: listas de inicio, hitos automáticos y el sorteo del SOS
+│   ├── achievement_files.py # Evidencias de Logros: tipo por contenido, topes, miniaturas, disco
 │   ├── .env               # NO versionado. Contiene DATABASE_URL y SECRET_KEY
 │   ├── .env.example       # Plantilla versionada del .env
 │   └── routers/
@@ -98,6 +102,7 @@ habit-tracker/
 │       ├── tags.py        # /api/tags/*
 │       ├── costs.py       # /api/costs/*      (gastos, categorías y resumen; plan maker)
 │       ├── days.py        # /api/days/*       (huso, país, festivos y días marcados)
+│       ├── achievements.py # /api/achievements (logros, evidencias, categorías, colecciones, SOS)
 │       ├── metrics.py     # /api/metrics      (las cifras de un periodo)
 │       ├── reports.py     # /api/reports      (reportes guardados)
 │       ├── feedback.py    # /api/feedback     (Reportar un problema; solo guarda)
@@ -111,7 +116,8 @@ habit-tracker/
 │   ├── generate_reports.py # Reportes automáticos: lo dispara el timer de systemd
 │   ├── purge_accounts.py  # Borra las cuentas con el borrado programado vencido (mismo timer)
 │   ├── announce.py        # Publica un aviso para todas las cuentas (mantenimiento): --list, --end
-│   └── admin_dev.py       # El panel en tu máquina, sin Access (llave temporal, solo 127.0.0.1)
+│   ├── admin_dev.py       # El panel en tu máquina, sin Access (llave temporal, solo 127.0.0.1)
+│   └── drop_achievements.py # Revierte Logros: borra sus tablas y su carpeta (sin --yes, solo lo dice)
 ├── deploy/                # Plantillas genéricas del .service y el .timer de los reportes
 ├── index.html             # Única página. Contiene todos los modales y las tres vistas
 ├── admin.html, admin.js, admin.css  # El panel de administración: los sirve admin_main.py, no la app
@@ -133,6 +139,7 @@ habit-tracker/
 ├── account.js             # Mi perfil: su menú, Cambiar contraseña y Borrar mi cuenta
 ├── feedback.js            # Mi perfil › Reportar un problema, y los errores de la sesión
 ├── drilldown.js           # createDrillDown(): el menú de desglose de todo menú de opciones
+├── achievements.js        # Pestaña Logros: línea del tiempo, vitrina, detalle, evidencias y SOS
 ├── manifest.webmanifest   # Instalable como app (sin service worker: nada en caché)
 ├── icons/                 # Iconos PNG de la app y favicon
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
@@ -194,7 +201,8 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
 `ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`,
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
-`TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
+`TaskTag`, `TaskChecklistItem`, `TaskComment`, y las de Logros: `Achievement`,
+`AchievementCategory`, `AchievementCollection`, `AchievementFile`, `SosAction`, `SosNote`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
 es lo único que separa los datos entre usuarios.
 
@@ -522,7 +530,7 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los diecisiete scripts en orden y **el
+Sin build step, sin módulos ES. `index.html` carga los dieciocho scripts en orden y **el
 orden importa**:
 
 ```html
@@ -543,6 +551,7 @@ orden importa**:
 <script src="account.js"></script>      <!-- contraseña y borrar la cuenta: usa confirmDialog y handleLogout -->
 <script src="costs-recurring.js"></script> <!-- reparto y recurrentes: usa costsState y loadCostRows de costs.js -->
 <script src="novedades.js"></script>    <!-- Novedades: usa el() de reports.js y la página news de Mi perfil -->
+<script src="achievements.js"></script> <!-- Logros: usa el() de reports.js, confirmDialog y setViewVisible -->
 ```
 
 Todo corre en el scope global compartido. Cuidado con colisiones de nombres entre archivos.
@@ -941,6 +950,61 @@ Avisos y Hechos (los 10 más recientes); lo que no está pendiente se borra a lo
 campanita (`markHabitOnDay()`). La ventana "¿Olvidaste anotar ayer?" se queda: cerrarla con la
 × deja el aviso pendiente, y "No, no lo hice" lo descarta (`dismissMissedDayNotice()`). El
 panel de administración (épica 32) sumará "te dimos más textos de IA".
+
+### Logros (módulo `achievements`)
+
+Módulo por cuenta (`backend/modules.py`): cualquiera puede encenderlo y **nace apagado**.
+Todo `/api/achievements` empieza con `require_module(..., "achievements")` (403 apagado,
+también los archivos). Vista `'achievements'` entre Costos y Reportes, oculta en el HTML;
+`achievements.js` la muestra con `applyAchievementsModule()`, como Costos.
+
+- **Un logro** (`achievements`): solo `title` y la fecha son obligatorios. La fecha va en la
+  API como `date`: `AAAA-MM-DD` o `AAAA-MM` (solo mes y año, `date_precision = "month"`;
+  `achieved_on` guarda el día 1 para ordenar). `parse_partial_date()` en `schemas.py`; una
+  fecha futura (más de un día) es 422. `kind`: `diploma | anecdote | milestone`. La
+  anécdota son tres textos opcionales (`situation`, `what_i_did`, `what_it_shows`, 2000).
+  `origin`: `manual` (siempre, al crear por la API), `auto` (hitos) u `objective`
+  (reservado para cuando los hábitos pasen a objetivos; nada lo crea todavía).
+- **Categorías** (`achievement_categories`) de la cuenta, con seis de inicio
+  (`ensure_defaults()`, perezoso como las de gastos); la última no se borra (409) y borrar
+  una deja sus logros sin categoría. **Colecciones** (`achievement_collections`) agrupan
+  los repetidos en la Vitrina; borrarla deja sus logros sueltos.
+- **Hitos automáticos** (`sync_milestones()` en `backend/achievements.py`): al pedir la
+  lista o el SOS, uno por cruzar 10, 25, 50, 100, 250 o 500 h de **enfoque** en un proyecto
+  (no "Sin asignar") o esa cantidad de **días cumplidos** de un hábito (los hábitos son
+  sí/no; con el módulo Hábitos apagado no se crean). La fecha es el día en que se cruzó.
+  Solo LEEN sesiones y registros. `auto_key` (`project:12:100h`, `habit:leer:10d`) es única
+  por cuenta: un hito ya escrito no cambia aunque se renombre el proyecto o se borren
+  horas; ocultarlo es `is_hidden`, y borrarlo lo deja como fila `is_deleted` para que no
+  vuelva. Cuando los hábitos tengan duración u objetivos, los hitos de hábito pasan a horas.
+- **Evidencias** (`achievement_files`, `backend/achievement_files.py`): PDF, JPG, PNG y
+  WEBP, **reconocidos por su contenido** (primeros bytes y, las imágenes, que Pillow las
+  abra), nunca por la extensión ni el `Content-Type`. Topes: 10 MB por archivo, 200 MB por
+  cuenta y 20 por logro (`ACHIEVEMENT_FILE_MAX_BYTES`, `ACHIEVEMENT_QUOTA_BYTES` en `.env`);
+  la subida mira el `Content-Length` **antes** de leer el formulario (411 sin él, 413 si
+  pasa). Se guardan en `UPLOADS_DIR/achievements/<user_id>/` (por defecto `<repo>/uploads`,
+  ignorado por git) con nombre aleatorio, carpetas 700 y archivos 600. Las imágenes tienen
+  miniatura WEBP de 400 px hecha al subir (sin EXIF); los PDF, no. `GET
+  /api/achievements/files/{id}` (y `/thumb`) entrega solo al dueño, con `nosniff`,
+  `no-store` y `CSP sandbox`. El navegador las pide con `apiFetch(path, {blob: true})` y las
+  enseña con `URL.createObjectURL()` (un `<img src>` no llevaría el token); las URLs se
+  sueltan al cerrar sesión. `purge_user()` borra la carpeta de la cuenta después del commit.
+- **Botón SOS** (`GET /api/achievements/sos?exclude=`): hasta 3 logros no ocultos al azar,
+  sin los ids de `exclude` (los ya vistos mientras el SOS está abierto; los guarda el
+  navegador en `achState.sosSeen`). Sorteo con peso (`pick_achievements()`): anécdotas y
+  destacados pesan 3. Si ya se vieron todos, vuelve a empezar con `restarted: true`. Un
+  **dato acumulado** (`cumulative_facts()`): horas totales de un proyecto, días cumplidos de
+  un hábito, la racha récord o las tareas terminadas; **nunca de la semana** y nunca un 0.
+  Una acción de `sos_actions` (lista editable con cinco de inicio; la última no se borra).
+  Las pruebas fijan el azar con `monkeypatch.setattr(achievements, "rng", random.Random(n))`.
+- **Privado**: las notas del SOS (`sos_notes`, fecha local del cliente) no salen en
+  reportes, exportaciones, métricas ni la IA (ningún código de esos lee sus tablas, y
+  `test_achievements.py` lo comprueba). El panel de administración no cuenta ni lee nada de
+  Logros, y `PRIVATE` en `modules.py` le oculta hasta si el módulo está encendido.
+- **Revertir**: todo son tablas nuevas (`create_all()`), así que `migrate.py` no tiene nada
+  suyo. `scripts/drop_achievements.py --yes` borra sus tablas, sus filas de `user_modules` y
+  la carpeta; antes, desplegar el código sin el módulo (si no, la app vuelve a crear las
+  tablas vacías).
 
 ### Panel de administración (1.27, épica 32)
 
