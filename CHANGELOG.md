@@ -7,6 +7,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.28.1] — 2026-10-15
+
+### Cambios
+- El servicio diario de los reportes escribe en el registro del servidor el **número de la cuenta**, ya no
+  su correo, y los cobros de los gastos recurrentes ya no incluyen el nombre del gasto. El registro se
+  guarda 30 días y el aviso de privacidad no menciona correos ni conceptos ahí. (El borrado de cuentas ya
+  escribía solo el número.) Para saber de quién es un número, el panel de administración, pestaña
+  *Cuentas*.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel. El
+servicio diario de los reportes toma el cambio en su siguiente corrida, sin cambiar su plantilla.
+
 ## [1.28.0] — 2026-10-15
 
 Descarga tus datos, el aviso de privacidad de la app y un aviso cuando hay versión nueva; y en el
@@ -867,6 +880,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.28.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.1
 [1.28.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.0
 [1.27.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.1
 [1.27.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.0
