@@ -15,7 +15,7 @@ import pytest
 from PIL import Image
 
 from backend import achievement_files, achievements
-from conftest import H, client_today, log_time
+from conftest import DB_PATH, H, ROOT, client_today, log_time
 
 TODAY = date.today()
 PDF = b"%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n"
@@ -460,7 +460,6 @@ def test_drop_script_only_touches_achievements(api):
     import sqlite3
     import subprocess
     import sys
-    from conftest import DB_PATH, ROOT
     on(api.login("yoshi@test.com"))
     me = api.call("GET", "/api/auth/me", expect=200)[1]
     upload(api, new(api)["id"], png())
