@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from backend import novedades
 from backend.database import create_db_and_tables, check_pending_migrations
-from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports, notices, feedback
+from backend.routers import auth, habits, projects, tasks, pomodoro, boards, tags, costs, days, metrics, reports, notices, feedback, achievements
 
 # Rutas de los archivos frontend (directorio raíz del proyecto)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,6 +55,7 @@ app.include_router(metrics.router, prefix="/api/metrics")
 app.include_router(reports.router, prefix="/api/reports")
 app.include_router(notices.router, prefix="/api/notices")
 app.include_router(feedback.router, prefix="/api/feedback")
+app.include_router(achievements.router, prefix="/api/achievements")
 
 
 def get_frontend_path(filename: str = "index.html") -> str:
@@ -206,6 +207,12 @@ def feedback_js():
 def drilldown_js():
     """Serve drilldown.js"""
     return frontend_file("drilldown.js")
+
+
+@app.get("/achievements.js")
+def achievements_js():
+    """Serve achievements.js"""
+    return frontend_file("achievements.js")
 
 
 # Instalable como app: manifest, iconos y favicon. Los iconos van por una lista
