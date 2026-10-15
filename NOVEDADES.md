@@ -4,6 +4,12 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.28.1 — 2026-10-15
+### Cambios
+- **Más privacidad en el servidor**: los registros técnicos de la app ya no guardan tu correo ni los
+  nombres de tus gastos, solo un número de cuenta. Se borran a los 30 días, como dice el **aviso de
+  privacidad** (en **Mi perfil**).
+
 ## 1.28.0 — 2026-10-15
 ### Nuevas funciones
 - **Descargar mis datos**: en **Mi perfil › Descargar mis datos**, un archivo con todo lo que la app
