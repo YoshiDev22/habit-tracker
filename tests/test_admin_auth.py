@@ -142,6 +142,10 @@ def test_security_headers(admin):
     assert admin().headers["Content-Security-Policy"] == csp
     # Sin documentación de la API
     assert admin("/docs").status_code == 404 and admin("/openapi.json").status_code == 404
+    # El ícono de la pestaña: sin sesión, como las páginas, y con las mismas cabeceras
+    icon = admin("/admin-icon.svg")
+    assert icon.status_code == 200 and icon.headers["content-type"].startswith("image/svg+xml")
+    assert icon.text.startswith("<svg") and icon.headers["Content-Security-Policy"] == csp
 
 
 def test_the_public_app_has_no_admin_route(api):

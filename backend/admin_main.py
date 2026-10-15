@@ -38,6 +38,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Las únicas páginas del panel: no hay StaticFiles, como en la app pública
 PAGE_FILES = {"/": ("admin.html", "text/html"), "/admin.js": ("admin.js", "text/javascript"),
               "/admin-charts.js": ("admin-charts.js", "text/javascript"),
+              "/admin-icon.svg": ("admin-icon.svg", "image/svg+xml"),
               "/admin.css": ("admin.css", "text/css")}
 
 create_db_and_tables()
