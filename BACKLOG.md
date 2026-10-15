@@ -13,7 +13,7 @@ código y no se reprodujeron todavía.
 Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros), el
 2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas) y el 2026-10-02
 sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) y el
-2026-10-13 sobre v1.27.0 (orden 1.28–1.30; 39 y 40 en la tabla; 38 cerrada el 2026-10-14).
+2026-10-13 sobre v1.27.0 (orden 1.28–1.30; 40 en la tabla; 38 cerrada el 2026-10-14 y 39 el 2026-10-15, en la 1.28).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
@@ -31,7 +31,6 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 32 | P2 | Panel de administración y "Reportar un problema" | en producción (1.27); paso 7 (gráficas) hecho para la 1.28 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
-| 39 | P2 | Aviso de privacidad | en código (1.28); antes de publicar: correo, `.env` y plazos del VPS |
 | 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
 
 ---
@@ -551,16 +550,6 @@ cookies de terceros si se puede. Lo que hoy explica `GUIA-DE-USO.md` sirve de ba
 
 **Por decidir.** Si la portada vive en la misma app o en un sitio estático aparte; dónde se
 aloja el video; y si se enlaza la guía de uso.
-
----
-
-## 39 · P2 · Aviso de privacidad
-
-La app guarda IP completa en los eventos de seguridad (30 días, 1.27), la última actividad de
-cada cuenta y, si el usuario quiere, detalles técnicos al reportar un problema. Hoy solo lo dice
-una pregunta frecuente de `GUIA-DE-USO.md`. Antes de abrirla a más gente: un aviso de privacidad
-(qué se guarda, para qué, cuánto tiempo, cómo pedir que se borre) enlazado desde el registro y
-Mi perfil. Revisar la ley mexicana vigente de protección de datos en posesión de particulares.
 
 ---
 
