@@ -90,6 +90,7 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
     assert mine["counts"]["sessions"] == 5 and mine["counts"]["boards"] >= 1
     assert accounts[other["id"]]["counts"]["tasks"] == 1
     assert mine["modules"]["maker"] == {"enabled": True, "allowed": True}
+    assert "achievements" not in mine["modules"], "the panel does not even say who uses Logros"
     assert mine["ai"]["today"] == {"ok": 1, "failed": 1, "tokens": 150}
 
     ai = get(admin, "/api/ai")

@@ -26,6 +26,10 @@ MODULES = {
     "achievements": {"enabled": False, "allowed": True},
 }
 
+# Módulos que el panel de administración no enseña, ni siquiera encendidos o
+# apagados: que una cuenta use Logros ya dice algo de la persona.
+PRIVATE = ("achievements",)
+
 
 def resolve(module, enabled=None, allowed=None):
     """Estado de un módulo para una cuenta, a partir de su fila (NULL = el

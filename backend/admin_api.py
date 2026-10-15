@@ -24,7 +24,7 @@ from backend.models import (AccountMessage, AdminAction, AiCall, AiGrant, Announ
                             PomodoroSession, ProjectCost, Report, SecurityEvent, Task, User, UserModule, utc_now_naive)
 from backend.security_log import KINDS as SECURITY_KINDS, cleanup as cleanup_security_events, is_proxy_ip
 from backend.report_ai import ai_usage as account_ai_usage, extra_today
-from backend.modules import MODULES, resolve as resolve_module
+from backend.modules import MODULES, PRIVATE as PRIVATE_MODULES, resolve as resolve_module
 
 router = APIRouter()
 
@@ -76,8 +76,9 @@ def _modules_by_user(session: Session) -> Dict[int, Dict]:
 
 
 def _module_state(rows: Dict) -> Dict:
+    """Los módulos de una cuenta, sin los privados (PRIVATE en backend/modules.py)."""
     return {name: resolve_module(name, getattr(rows.get(name), "enabled", None), getattr(rows.get(name), "allowed", None))
-            for name in MODULES}
+            for name in MODULES if name not in PRIVATE_MODULES}
 
 
 def _ai_by_user(session: Session, since) -> Dict[int, Dict]:
