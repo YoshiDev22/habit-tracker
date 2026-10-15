@@ -14,3 +14,7 @@ python-multipart==0.0.6
 python-dotenv==1.0.1
 # Husos horarios para zoneinfo (Windows no trae la base del sistema; en Linux es respaldo)
 tzdata==2026.5
+
+# Evidencias de Logros: comprobar que una imagen lo es de verdad y hacer su miniatura
+# (backend/achievement_files.py). 12.2 es la última con ruedas para Python 3.10 (el VPS).
+pillow==12.2.0
