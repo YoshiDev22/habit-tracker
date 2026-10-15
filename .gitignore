@@ -31,6 +31,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Evidencias de Logros (UPLOADS_DIR por defecto): archivos de los usuarios
+/uploads/
+
 # Pruebas
 .pytest_cache/
 

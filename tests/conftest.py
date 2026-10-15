@@ -28,6 +28,8 @@ os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
 # Los festivos oficiales no salen a internet (backend/holidays.py); las pruebas que
 # los necesitan reemplazan fetch_official con monkeypatch
 os.environ["HABIT_HOLIDAYS_OFFLINE"] = "1"
+# Las evidencias de Logros, en la carpeta temporal: nunca en uploads/ del repo
+os.environ["UPLOADS_DIR"] = str(TMP / "uploads")
 # Ni a un proveedor de IA: vacías ganan a las de backend/.env (load_dotenv no las
 # pisa). Las pruebas de la IA reemplazan backend.report_ai.chat_completion
 for _name in ("AI_PROVIDER", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "AI_DAILY_LIMIT"):

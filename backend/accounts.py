@@ -11,6 +11,7 @@ from typing import List
 from sqlalchemy import delete
 from sqlmodel import Session, SQLModel, select
 
+from backend import achievement_files
 from backend.models import User, utc_now_naive
 
 GRACE_DAYS = 30
@@ -20,7 +21,9 @@ def purge_user(session: Session, user: User) -> None:
     """
     Borra la cuenta y todo lo suyo: cada tabla con user_id, de las que dependen
     de otras hacia las de las que dependen, y al final el usuario. Las tablas
-    que no son de nadie (holiday_cache) no se tocan. Hace commit.
+    que no son de nadie (holiday_cache) no se tocan. Hace commit. Después borra
+    sus archivos (las evidencias de Logros): primero la base, para que un fallo
+    no deje filas apuntando a archivos que ya no están.
     """
     user_id = user.id
     for table in reversed(SQLModel.metadata.sorted_tables):
@@ -28,6 +31,7 @@ def purge_user(session: Session, user: User) -> None:
             session.exec(delete(table).where(table.c.user_id == user_id))
     session.delete(user)
     session.commit()
+    achievement_files.remove_user(user_id)
 
 
 def schedule_deletion(user: User, now: datetime = None) -> datetime:

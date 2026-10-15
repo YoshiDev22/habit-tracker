@@ -99,6 +99,7 @@ def ui_server(request):
     env = {**os.environ, "DATABASE_URL": f"sqlite:///{db.as_posix()}",
            "SECRET_KEY": "test-secret-key-not-for-production", "PYTHONIOENCODING": "utf-8",
            "HABIT_HOLIDAYS_OFFLINE": "1",   # sin internet: festivos vacíos
+           "UPLOADS_DIR": str(TMP / f"{request.node.name}-uploads"),   # evidencias de Logros
            # ni proveedor de IA, aunque backend/.env lo tenga
            "AI_PROVIDER": "", "AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": "",
            "REPORT_COOLDOWN_SECONDS": "0",   # las pruebas regeneran seguido
