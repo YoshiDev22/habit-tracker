@@ -285,8 +285,10 @@ Lo que no se deduce leyendo los modelos:
   sus sesiones. El tiempo registrado sin tarea no se toca.
 - **`Task.estimate_minutes`** (Fase 4, columna en `migrate.py`): NULL = sin estimado, de 1 a
   6000 (100 h). Es **de todos**, con o sin el plan maker: el `PATCH` no mira el módulo y
-  `null` lo borra. La tarjeta y la Lista pintan "1h 30m de 3h" con `taskTimeLabel()`
-  (`projects.js`), en `--danger-fg` al pasarse y sin avisos.
+  `null` lo borra. La Lista pinta "1h 30m de 3h" con `taskTimeLabel()` (`projects.js`) y la
+  tarjeta del tablero, en corto y en la línea de las etiquetas, "1.5h/3h" con `taskTimeCompact()`
+  (solo horas, minutos truncados como `formatDuration()`; lo exacto en el tooltip): al lado del
+  título lo partía en varias líneas (1.29, BACKLOG 41). En `--danger-fg` al pasarse y sin avisos.
 - **"Sin asignar"** es un `Project` con `is_system=True` que cada usuario recibe para las
   tareas sin proyecto (existe porque `tasks.project_id` es NOT NULL y quitarlo en SQLite
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;
@@ -816,6 +818,11 @@ Dentro de Proyectos, `board.js` alterna **Tablero** y **Lista**. El tablero:
   repintado. Soltar debajo de la última visible cae delante de la primera oculta
   (`dropBeforeId()`), y una tarjeta nueva expande su columna y la baja hasta ella
   (`scrollToEnd`, que espera a que la tarjeta esté pintada).
+- **Filtros (1.29, BACKLOG 41):** filas de Proyectos, Etiquetas y **Columnas**. En Columnas,
+  encendido = se ve: apagar un chip oculta la columna (siempre queda una; "Mover a…" la ofrece
+  como "(oculta)"), y "× Mostrar todas" solo toca las columnas. Las ocultas se recuerdan en el
+  dispositivo, por tablero (`board_hidden_columns`); "▾ Filtros" pliega las filas y, plegado,
+  dice cuántos filtros hay activos (`board_filters_folded`).
 - **Pantalla angosta (< 700 px):** una columna a la vez con pestañas que saltan de línea.
   **Nada del tablero puede desplazarse en horizontal**: pelearía con el swipe entre vistas.
   En táctil se mueve con el `<select>` nativo "Mover a…" de cada tarjeta.
@@ -841,6 +848,8 @@ tecla en la app, para el cronómetro olvidado), `projects_view` (tablero o lista
 del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar sesión), `card_comments_hidden`
 (comentarios plegados en el detalle de tarjeta, de este dispositivo) y
 `costs_project` (proyecto elegido en la hoja de Costos; se borra al cerrar sesión),
+`board_hidden_columns` (columnas ocultas del tablero, por tablero; se borra al cerrar sesión),
+`board_filters_folded` (filtros del tablero plegados, del dispositivo),
 `costs_chart_project` (proyecto de la gráfica Costos; se borra al cerrar sesión),
 `novedades_seen` (la última versión cuyas Novedades se vieron en este dispositivo; sobrevive
 al cierre de sesión),

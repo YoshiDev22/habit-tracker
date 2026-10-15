@@ -161,6 +161,9 @@ class Browser:
     async def goto(self, url, wait=1.5):
         await self.send("Page.navigate", url=url)
         await asyncio.sleep(wait)
+        # Sin historial: un deslizamiento táctil desde el borde es "atrás" para el navegador,
+        # y volvía a /api/health (la página que solo sirve para guardar el token)
+        await self.send("Page.resetNavigationHistory")
 
     async def viewport(self, width, height, mobile=False):
         await self.send("Emulation.setDeviceMetricsOverride", width=width, height=height,

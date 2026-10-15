@@ -47,6 +47,11 @@ async def main():
         await b.js(CLOSE_WELCOME)
         await b.js("document.getElementById('tabProjects').click()")
         await asyncio.sleep(1.0)
+        # Acostado, los filtros (con su fila de Columnas, BACKLOG 41) dejan las columnas bajo
+        # el borde: se baja la página hasta verlas, como haría una persona
+        await b.js("""(() => { const c = document.querySelector('.board-columns');
+            window.scrollTo(0, window.scrollY + c.getBoundingClientRect().top - 60); })()""")
+        await asyncio.sleep(0.3)
         m = await b.js("""(() => { const c = document.querySelector('.board-columns');
             return {top: c.getBoundingClientRect().top, overflow: c.scrollWidth - c.clientWidth}; })()""")
         check(m["overflow"] > 0, f"columns overflow horizontally ({m['overflow']} px)")
@@ -65,6 +70,12 @@ async def main():
         await b.js("goToView(1, {animate: false})")
         await b.js("document.querySelector('.board-columns').scrollLeft = 300")
         await asyncio.sleep(0.3)
+        # De vuelta en Tableros la página cambió de alto: se vuelven a ver y a medir las columnas
+        await b.js("""(() => { const c = document.querySelector('.board-columns');
+            window.scrollTo(0, window.scrollY + c.getBoundingClientRect().top - 60); })()""")
+        await asyncio.sleep(0.3)
+        m = await b.js("({top: document.querySelector('.board-columns').getBoundingClientRect().top})")
+        y = m["top"] + 40
         await swipe(b, w * 0.2, y, w * 0.8)
         s = await b.js(STATE)
         check(s["view"] == 1 and s["scrollLeft"] < 300, f"swipe right scrolls back, stays on Tableros ({s})")

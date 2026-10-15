@@ -51,8 +51,10 @@ async def main():
         st = await js("({open: !document.getElementById('cardModal').classList.contains('hidden'), time: document.getElementById('cardTime').textContent})")
         check(st["open"] and minutes(st["time"]) - minutes(before) == 5,
               f"stopping from the open card updates its time without closing ({before} -> {st['time']})")
-        card_time = await js(f"{KANBAN_CARD}.querySelector('.board-card-time, .card-time-badge, [class*=time]').textContent")
-        check(st["time"] in card_time, f"the board card behind shows the same ({card_time})")
+        # La tarjeta lo dice en corto (BACKLOG 41): el mismo tiempo, con compactHours()
+        card_time = await js(f"{KANBAN_CARD}.querySelector('.board-card-time .timer-idle').textContent")
+        expected = await js(f"compactHours({minutes(st['time'])} * 60)")
+        check(card_time == expected, f"the board card behind shows the same ({card_time}, {st['time']})")
 
         if STAGE >= 2:
             HIST = """({open: !document.getElementById('cardModal').classList.contains('hidden'),

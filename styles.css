@@ -2456,6 +2456,34 @@ a.settings-item { text-decoration: none; color: inherit; }
     box-shadow: 0 0 0 1px var(--text-on-accent);
 }
 
+/* Plegar o desplegar los filtros del tablero (BACKLOG 41) */
+.filters-toggle {
+    align-self: flex-start;
+    border: none;
+    background: none;
+    padding: 2px 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.filters-toggle:focus-visible,
+.filter-chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.filter-chip:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+/* "× Mostrar todas" va dentro de la fila de Columnas */
+.filter-row .filter-clear {
+    align-self: center;
+}
+
 .filter-clear {
     align-self: flex-start;
     border: none;
@@ -2614,12 +2642,14 @@ a.settings-item { text-decoration: none; color: inherit; }
     overflow-wrap: anywhere;
 }
 
+/* El tiempo va con las etiquetas (BACKLOG 41): el título se queda con todo el ancho */
 .board-card-time {
     flex-shrink: 0;
-    padding-top: 2px;
+    margin-right: 2px;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 /* Pasado de su estimado: solo el número cambia de color, sin avisos */

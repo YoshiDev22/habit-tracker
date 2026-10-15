@@ -548,6 +548,23 @@ function taskTimeLabel(seconds, estimateMinutes) {
     };
 }
 
+// La tarjeta del tablero, en corto: solo horas ("11h/15h", "2.2h", "45m"). Larga
+// ("11h 16m de 15h") partía el título en varias líneas; lo exacto va en el tooltip.
+function compactHours(seconds) {
+    // Los minutos se truncan, como formatDuration(): la tarjeta y la Lista cuadran
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    const hours = seconds / 3600;
+    return hours < 10 ? `${Number(hours.toFixed(1))}h` : `${Math.round(hours)}h`;
+}
+
+function taskTimeCompact(seconds, estimateMinutes) {
+    const exact = taskTimeLabel(seconds, estimateMinutes);
+    if (!estimateMinutes) {
+        return { text: compactHours(seconds), over: false, title: `${exact.text} registrados` };
+    }
+    return { text: `${compactHours(seconds)}/${compactHours(estimateMinutes * 60)}`, over: exact.over, title: exact.title };
+}
+
 function formatProjectMeta(summary) {
     if (!summary || summary.task_total === 0) {
         return 'Sin tareas';
