@@ -128,6 +128,12 @@ async function apiFetch(path, options = {}) {
         return null;
     }
 
+    // Un archivo (las evidencias de Logros): <img src> no manda el token, así
+    // que se pide aquí y se enseña con URL.createObjectURL()
+    if (options.blob) {
+        return response.blob();
+    }
+
     return response.json();
 }
 
@@ -247,6 +253,10 @@ const MODULE_STATUS = {
     ai: {
         on: 'IA encendida: escribirá el texto de tus próximos reportes. En uno ya guardado, usa «Reescribir con IA».',
         off: 'IA apagada: el texto de los reportes sale de reglas fijas.',
+    },
+    achievements: {
+        on: 'Logros encendido: ya tienes la pestaña Logros.',
+        off: 'Logros apagado: tus logros y evidencias se guardan y vuelven al encenderlo.',
     },
     habits: {
         on: 'Hábitos encendido: vuelve la pestaña Calendario.',
