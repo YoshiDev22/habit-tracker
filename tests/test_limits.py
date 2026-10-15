@@ -226,3 +226,29 @@ def test_feedback_text(api):
     assert api.call("POST", url, {"text": "  " + "x" * 9 + "  "})[0] == 422   # 9 sin los espacios
     api.call("POST", url, {"text": "x" * 10}, expect=201)
     api.call("POST", url, {"text": "x" * 2000}, expect=201)
+
+
+def test_achievement_fields(api):
+    api.login("topes-logros@test.com")
+    api.call("PUT", "/api/auth/me/modules/achievements", {"enabled": True}, expect=200)
+    url = "/api/achievements"
+    base = {"title": "Diploma", "date": "2020-01"}
+    assert api.call("POST", url, {**base, "title": "x" * 121})[0] == 422
+    assert api.call("POST", url, {**base, "title": ""})[0] == 422
+    assert api.call("POST", url, {**base, "title": "   "})[0] == 422
+    assert api.call("POST", url, {**base, "date": "2020-01-011"})[0] == 422
+    for field in ("situation", "what_i_did", "what_it_shows"):
+        assert api.call("POST", url, {**base, field: "x" * 2001})[0] == 422, field
+    _, a = api.call("POST", url, {**base, "title": "x" * 120, "situation": "x" * 2000, "what_i_did": "x" * 2000,
+                                  "what_it_shows": "x" * 2000}, expect=201)
+    assert api.call("PATCH", f"{url}/{a['id']}", {"title": "x" * 121})[0] == 422
+    assert api.call("PATCH", f"{url}/{a['id']}", {"what_i_did": "x" * 2001})[0] == 422
+    assert api.call("PATCH", f"{url}/{a['id']}", {"kind": "medalla"})[0] == 422
+    assert api.call("POST", f"{url}/categories", {"name": "x" * 41})[0] == 422
+    api.call("POST", f"{url}/categories", {"name": "x" * 40}, expect=201)
+    assert api.call("POST", f"{url}/collections", {"name": "x" * 81})[0] == 422
+    api.call("POST", f"{url}/collections", {"name": "x" * 80}, expect=201)
+    assert api.call("POST", f"{url}/sos/actions", {"text": "x" * 121})[0] == 422
+    api.call("POST", f"{url}/sos/actions", {"text": "x" * 120}, expect=201)
+    assert api.call("POST", f"{url}/sos/notes", {"note_date": "2026-10-01", "body": "x" * 2001})[0] == 422
+    api.call("POST", f"{url}/sos/notes", {"note_date": "2026-10-01", "body": "x" * 2000}, expect=201)

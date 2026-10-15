@@ -9,6 +9,7 @@ Cada prueba empieza con la base vacía (fixture `fresh_db`, automática). Las qu
 simulan un deploy piden `old_db`: la base de la 1.9 migrada con el migrate.py real.
 """
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -129,6 +130,7 @@ def fresh_db():
     engine.dispose()
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
+    shutil.rmtree(os.environ["UPLOADS_DIR"], ignore_errors=True)   # las evidencias van con la base
     yield
 
 

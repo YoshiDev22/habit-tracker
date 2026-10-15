@@ -175,3 +175,31 @@ def test_saved_reports(seeded):
     assert other.call("GET", f"/api/reports/{rep['id']}")[0] == 404
     assert all(r["id"] != rep["id"] for r in other.call("GET", "/api/reports", expect=200)[1]["reports"])
     assert other.call("POST", f"/api/reports/{rep['id']}/rewrite")[0] == 404
+
+
+def test_achievements(seeded):
+    from test_achievements import listing, new, on
+    api, other = on(seeded["api"]), on(seeded["other"])
+    cats = listing(api)["categories"]
+    _, col = api.call("POST", "/api/achievements/collections", {"name": "Mía"}, expect=201)
+    a = new(api, category_id=cats[0]["id"], collection_id=col["id"])
+    _, action = api.call("POST", "/api/achievements/sos/actions", {"text": "Mía"}, expect=201)
+    _, note = api.call("POST", "/api/achievements/sos/notes", {"note_date": str(date.today()), "body": "Mía"}, expect=201)
+
+    assert listing(other)["achievements"] == []
+    assert other.call("GET", f"/api/achievements/{a['id']}")[0] == 404
+    assert other.call("PATCH", f"/api/achievements/{a['id']}", {"title": "hack"})[0] == 404
+    assert other.call("DELETE", f"/api/achievements/{a['id']}")[0] == 404
+    # Ni usar mi categoría o mi colección en sus logros
+    assert other.call("POST", "/api/achievements", {"title": "x", "date": "2020-01", "category_id": cats[0]["id"]})[0] == 404
+    assert other.call("POST", "/api/achievements", {"title": "x", "date": "2020-01", "collection_id": col["id"]})[0] == 404
+    assert other.call("PATCH", f"/api/achievements/categories/{cats[0]['id']}", {"name": "hack"})[0] == 404
+    assert other.call("DELETE", f"/api/achievements/categories/{cats[0]['id']}")[0] == 404
+    assert other.call("PATCH", f"/api/achievements/collections/{col['id']}", {"name": "hack"})[0] == 404
+    assert other.call("DELETE", f"/api/achievements/collections/{col['id']}")[0] == 404
+    assert other.call("PATCH", f"/api/achievements/sos/actions/{action['id']}", {"text": "hack"})[0] == 404
+    assert other.call("DELETE", f"/api/achievements/sos/actions/{action['id']}")[0] == 404
+    assert other.call("DELETE", f"/api/achievements/sos/notes/{note['id']}")[0] == 404
+    assert all(n["body"] != "Mía" for n in other.call("GET", "/api/achievements/sos/notes", expect=200)[1])
+    _, sos = other.call("GET", "/api/achievements/sos", expect=200)
+    assert sos["achievements"] == [] and sos["action"]["text"] != "Mía"

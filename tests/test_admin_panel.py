@@ -34,6 +34,19 @@ def sow_marks(api):
                                     "cost_date": TODAY, "concept": f"{MARK}-gasto", "quantity": 1,
                                     "unit_cost_cents": 1000}, expect=201)
     api.call("POST", "/api/feedback", {"text": f"Falla {MARK}-FEEDBACK <script>alert(1)</script>"}, expect=201)
+    # Logros: el panel no los cuenta ni los lee, tampoco sus archivos ni las notas del SOS
+    api.call("PUT", "/api/auth/me/modules/achievements", {"enabled": True}, expect=200)
+    _, col = api.call("POST", "/api/achievements/collections", {"name": f"{MARK}-coleccion"}, expect=201)
+    _, cat = api.call("POST", "/api/achievements/categories", {"name": f"{MARK}-categoria"}, expect=201)
+    _, logro = api.call("POST", "/api/achievements", {
+        "title": f"{MARK}-logro", "date": "2020-01", "kind": "anecdote", "category_id": cat["id"],
+        "collection_id": col["id"], "situation": f"{MARK}-situacion", "what_i_did": f"{MARK}-hice",
+        "what_it_shows": f"{MARK}-demuestra"}, expect=201)
+    status = api.client.post(f"/api/achievements/{logro['id']}/files", headers={"Authorization": f"Bearer {api.token}"},
+                             files={"file": (f"{MARK}-archivo.pdf", b"%PDF-1.4\n%%EOF\n", "application/pdf")}).status_code
+    assert status == 201
+    api.call("POST", "/api/achievements/sos/actions", {"text": f"{MARK}-accion"}, expect=201)
+    api.call("POST", "/api/achievements/sos/notes", {"note_date": TODAY, "body": f"{MARK}-nota-sos"}, expect=201)
 
 
 def sow_ai(user_ids):
