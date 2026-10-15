@@ -1413,3 +1413,186 @@ class FeedbackCreate(SQLModel):
 class FeedbackResponse(SQLModel):
     id: int
     created_at: datetime
+
+
+# ==================== Logros (módulo "achievements") ====================
+
+ACHIEVEMENT_KINDS = ("diploma", "anecdote", "milestone")   # los mismos que backend/achievements.py
+ACHIEVEMENT_TEXT_MAX = 2000
+PARTIAL_DATE = re.compile(r"^(\d{4})-(\d{2})(?:-(\d{2}))?$")
+
+
+def parse_partial_date(value: str):
+    """'AAAA-MM-DD' (fecha exacta) o 'AAAA-MM' (solo mes y año) -> (date, precisión).
+    El mes solo se guarda como su día 1. ValueError con el motivo si no vale."""
+    match = PARTIAL_DATE.match(value or "")
+    if not match:
+        raise ValueError("La fecha va como AAAA-MM-DD, o AAAA-MM si solo sabes el mes")
+    year, month, day = int(match.group(1)), int(match.group(2)), match.group(3)
+    if year < 1900:
+        raise ValueError("La fecha no puede ser anterior a 1900")
+    try:
+        return date_type(year, month, int(day) if day else 1), ("day" if day else "month")
+    except ValueError:
+        raise ValueError("Esa fecha no existe")
+
+
+def format_partial_date(day: date_type, precision: str) -> str:
+    return day.isoformat() if precision == "day" else day.strftime("%Y-%m")
+
+
+class AchievementFields(SQLModel):
+    title: str = Field(min_length=1, max_length=120)
+    date: str = Field(max_length=10)
+    kind: str = "diploma"
+    category_id: Optional[int] = None
+    collection_id: Optional[int] = None
+    situation: Optional[str] = Field(default=None, max_length=ACHIEVEMENT_TEXT_MAX)
+    what_i_did: Optional[str] = Field(default=None, max_length=ACHIEVEMENT_TEXT_MAX)
+    what_it_shows: Optional[str] = Field(default=None, max_length=ACHIEVEMENT_TEXT_MAX)
+    is_featured: bool = False
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        parse_partial_date(v)
+        return v
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v: str) -> str:
+        if v not in ACHIEVEMENT_KINDS:
+            raise ValueError(f"El tipo debe ser uno de: {', '.join(ACHIEVEMENT_KINDS)}")
+        return v
+
+
+class AchievementCreate(AchievementFields):
+    """Un logro escrito por el usuario: su origen siempre es "manual"."""
+
+
+class AchievementUpdate(SQLModel):
+    """PATCH parcial. `category_id` / `collection_id` en null lo dejan sin."""
+    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    date: Optional[str] = Field(default=None, max_length=10)
+    kind: Optional[str] = None
+    category_id: Optional[int] = None
+    collection_id: Optional[int] = None
+    situation: Optional[str] = Field(default=None, max_length=ACHIEVEMENT_TEXT_MAX)
+    what_i_did: Optional[str] = Field(default=None, max_length=ACHIEVEMENT_TEXT_MAX)
+    what_it_shows: Optional[str] = Field(default=None, max_length=ACHIEVEMENT_TEXT_MAX)
+    is_featured: Optional[bool] = None
+    is_hidden: Optional[bool] = None
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            parse_partial_date(v)
+        return v
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ACHIEVEMENT_KINDS:
+            raise ValueError(f"El tipo debe ser uno de: {', '.join(ACHIEVEMENT_KINDS)}")
+        return v
+
+
+class AchievementFileResponse(SQLModel):
+    id: int
+    achievement_id: int
+    original_name: str
+    mime: str
+    size_bytes: int
+    has_thumb: bool
+    created_at: datetime
+
+
+class AchievementResponse(SQLModel):
+    id: int
+    title: str
+    date: str                    # AAAA-MM-DD o AAAA-MM, según date_precision
+    date_precision: str
+    achieved_on: date_type       # para ordenar: el día 1 si solo se sabe el mes
+    kind: str
+    category_id: Optional[int] = None
+    collection_id: Optional[int] = None
+    situation: Optional[str] = None
+    what_i_did: Optional[str] = None
+    what_it_shows: Optional[str] = None
+    is_featured: bool
+    origin: str
+    is_hidden: bool
+    files: List[AchievementFileResponse] = []
+    created_at: datetime
+
+
+class AchievementCategoryCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=40)
+
+
+class AchievementCategoryUpdate(SQLModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    order: Optional[int] = None
+
+
+class AchievementCategoryResponse(SQLModel):
+    id: int
+    name: str
+    order: int
+
+
+class AchievementCollectionCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class AchievementCollectionResponse(SQLModel):
+    id: int
+    name: str
+
+
+class AchievementUsage(SQLModel):
+    bytes: int
+    quota: int
+    file_max: int
+
+
+class AchievementListResponse(SQLModel):
+    achievements: List[AchievementResponse]
+    categories: List[AchievementCategoryResponse]
+    collections: List[AchievementCollectionResponse]
+    usage: AchievementUsage
+
+
+class SosActionCreate(SQLModel):
+    text: str = Field(min_length=1, max_length=120)
+
+
+class SosActionUpdate(SQLModel):
+    text: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    order: Optional[int] = None
+
+
+class SosActionResponse(SQLModel):
+    id: int
+    text: str
+    order: int
+
+
+class SosNoteCreate(SQLModel):
+    note_date: date_type         # la fecha LOCAL del usuario
+    body: str = Field(min_length=1, max_length=ACHIEVEMENT_TEXT_MAX)
+
+
+class SosNoteResponse(SQLModel):
+    id: int
+    note_date: date_type
+    body: str
+    created_at: datetime
+
+
+class SosResponse(SQLModel):
+    achievements: List[AchievementResponse]
+    restarted: bool              # ya se habían visto todos: se volvió a empezar
+    fact: Optional[str] = None
+    action: Optional[SosActionResponse] = None

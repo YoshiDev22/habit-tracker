@@ -740,3 +740,113 @@ class AiCall(SQLModel, table=True):
     error: Optional[str] = Field(default=None)       # motivo corto, sin datos del usuario
     input_tokens: Optional[int] = Field(default=None)
     output_tokens: Optional[int] = Field(default=None)
+
+
+# ==================== Logros (módulo "achievements") ====================
+# Tablas NUEVAS: create_all() las crea, sin migración. Todas cuelgan de users.id,
+# así que purge_user() las borra con la cuenta (los archivos en disco los borra
+# backend/achievement_files.py). El panel de administración no las cuenta ni las lee.
+
+
+class AchievementCategory(SQLModel, table=True):
+    """Categoría de un logro ("Académico", "Docencia"...). Cada cuenta recibe las de
+    inicio la primera vez (backend/achievements.py) y después son suyas."""
+    __tablename__ = "achievement_categories"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_achievement_categories_user_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    name: str
+    order: int = Field(default=0)
+
+
+class AchievementCollection(SQLModel, table=True):
+    """Agrupa logros que se repiten ("Impartí clases": seis constancias). Borrarla
+    deja sus logros sin colección."""
+    __tablename__ = "achievement_collections"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_achievement_collections_user_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    name: str
+
+
+class Achievement(SQLModel, table=True):
+    """
+    Un logro: un diploma o constancia, una anécdota o un hito. La fecha puede ser
+    exacta o solo mes y año (`date_precision` = "month", y `achieved_on` es el día 1
+    de ese mes): así se ordenan juntos.
+
+    `origin`: "manual" (lo escribió el usuario), "auto" (un hito de horas o días,
+    backend/achievements.py) u "objective" (reservado para cuando los hábitos
+    pasen a objetivos; nada lo crea todavía). Un hito automático lleva su
+    `auto_key` ("project:12:100h"), única por cuenta: borrarlo no quita la fila,
+    la marca `is_deleted`, para que no vuelva a generarse.
+    """
+    __tablename__ = "achievements"
+    __table_args__ = (Index("uq_achievements_user_auto_key", "user_id", "auto_key", unique=True),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    title: str
+    achieved_on: date_type = Field(index=True)
+    date_precision: str = Field(default="day")       # day | month
+    kind: str = Field(default="milestone")          # diploma | anecdote | milestone
+    category_id: Optional[int] = Field(default=None, foreign_key="achievement_categories.id")
+    collection_id: Optional[int] = Field(default=None, foreign_key="achievement_collections.id")
+    # La anécdota, en tres partes, todas opcionales
+    situation: Optional[str] = Field(default=None)
+    what_i_did: Optional[str] = Field(default=None)
+    what_it_shows: Optional[str] = Field(default=None)
+    is_featured: bool = Field(default=False)
+    origin: str = Field(default="manual")           # manual | auto | objective
+    auto_key: Optional[str] = Field(default=None)
+    is_hidden: bool = Field(default=False)
+    is_deleted: bool = Field(default=False)         # solo los automáticos (ver arriba)
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
+class AchievementFile(SQLModel, table=True):
+    """
+    Una evidencia de un logro (PDF, JPG, PNG o WEBP). El archivo vive fuera de la
+    carpeta del repo que se sirve, en UPLOADS_DIR/achievements/<user_id>/, con un
+    nombre aleatorio (`stored_name`); el nombre original solo se enseña. Las
+    imágenes tienen miniatura (`thumb_name`); los PDF no.
+    """
+    __tablename__ = "achievement_files"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    achievement_id: int = Field(foreign_key="achievements.id", index=True)
+    original_name: str
+    mime: str
+    size_bytes: int
+    stored_name: str
+    thumb_name: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
+class SosAction(SQLModel, table=True):
+    """Una acción pequeña (unos 10 minutos) que el botón SOS puede sugerir. La lista
+    es del usuario; cada cuenta recibe unas de inicio la primera vez."""
+    __tablename__ = "sos_actions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    text: str
+    order: int = Field(default=0)
+
+
+class SosNote(SQLModel, table=True):
+    """
+    "¿Cómo me siento?", escrito desde el botón SOS. Privada: no sale en reportes,
+    exportaciones, la IA ni el panel de administración. `note_date` es la fecha
+    LOCAL del usuario.
+    """
+    __tablename__ = "sos_notes"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    note_date: date_type = Field(index=True)
+    body: str
+    created_at: datetime = Field(default_factory=utc_now_naive)

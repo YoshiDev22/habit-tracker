@@ -21,6 +21,9 @@ MODULES = {
     # con acceso, y apagada hasta que el usuario la enciende. El proveedor es
     # uno por instancia, en backend/.env (backend/ai.py).
     "ai": {"enabled": False, "allowed": False},
+    # Logros: diplomas, anécdotas e hitos, con sus evidencias y el botón SOS.
+    # Cualquier cuenta puede encenderlo; nace apagado.
+    "achievements": {"enabled": False, "allowed": True},
 }
 
 
