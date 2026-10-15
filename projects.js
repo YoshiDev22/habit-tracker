@@ -31,6 +31,7 @@ const tabCalendar = document.getElementById('tabCalendar');
 const tabProjects = document.getElementById('tabProjects');
 const tabReports = document.getElementById('tabReports');
 const tabCosts = document.getElementById('tabCosts');
+const tabAchievements = document.getElementById('tabAchievements');
 const viewsViewport = document.getElementById('viewsViewport');
 const viewsTrack = document.getElementById('viewsTrack');
 const tabIndicator = document.querySelector('.tab-indicator');
@@ -69,6 +70,8 @@ const VIEWS = [
     // Solo con el plan Maker (costs.js la muestra): nace oculta en el HTML.
     // Va antes de Reportes, que siempre es la última.
     { id: 'costs', tab: tabCosts, section: document.getElementById('viewCosts') },
+    // Solo con el módulo Logros (achievements.js la muestra): nace oculta.
+    { id: 'achievements', tab: tabAchievements, section: document.getElementById('viewAchievements') },
     { id: 'reports', tab: tabReports, section: document.getElementById('viewReports') },
 ];
 

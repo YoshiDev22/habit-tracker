@@ -6542,3 +6542,562 @@ button.day-log-date:focus-visible {
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
+
+/* ============================================
+   Logros (achievements.js)
+   ============================================ */
+
+.ach-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ach-toolbar .view-toggle {
+    margin-left: 0;
+}
+
+/* Fijo, visible y distinto del resto: es para encontrarlo en un mal día */
+.ach-sos-btn {
+    margin-left: auto;
+    padding: 8px 18px;
+    border: 2px solid var(--danger-solid);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--danger-fg);
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.ach-sos-btn:hover,
+.ach-sos-btn:focus-visible {
+    background: var(--danger-solid);
+    color: var(--text-on-accent);
+}
+
+.ach-sos-hint {
+    margin: 8px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.ach-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.ach-filters label:not(.ach-check) {
+    flex: 1 1 160px;
+    min-width: 0;
+    display: flex;
+}
+
+.ach-filters .board-select {
+    max-width: none;
+    width: 100%;
+}
+
+.ach-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.ach-add-btn {
+    width: 100%;
+    margin: 12px 0 4px;
+}
+
+.ach-body {
+    margin-top: 8px;
+}
+
+.ach-empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 24px 8px;
+    margin: 0;
+    list-style: none;
+}
+
+.ach-usage {
+    margin: 12px 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.ach-year {
+    margin: 18px 0 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+}
+
+.ach-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ach-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+.ach-item:hover {
+    background: var(--bg-hover);
+}
+
+.ach-item.is-hidden,
+.ach-tile.is-hidden {
+    opacity: 0.6;
+}
+
+.ach-item-thumb {
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    background: var(--bg-surface-3);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 1.3rem;
+}
+
+.ach-item-thumb img,
+.ach-tile-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ach-item-thumb.is-pdf,
+.ach-tile-thumb.is-pdf {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--danger-fg);
+}
+
+.ach-item-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ach-item-title {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.ach-star {
+    color: var(--warning-solid);
+}
+
+.ach-item-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+.ach-item-story {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ach-showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.ach-collection-title {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.ach-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.ach-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.ach-tile:hover {
+    background: var(--bg-hover);
+}
+
+.ach-tile-thumb {
+    aspect-ratio: 4 / 3;
+    border-radius: 8px;
+    background: var(--bg-surface-3);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 1.6rem;
+}
+
+.ach-tile-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+/* Modales de Logros */
+.ach-modal {
+    max-width: 520px;
+}
+
+.ach-modal textarea,
+.ach-new-collection input,
+.ach-month select,
+.ach-month input,
+#achDay,
+.sos-action-form input {
+    padding: 10px 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 1rem;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.ach-modal textarea {
+    resize: vertical;
+}
+
+.ach-modal textarea:focus,
+.ach-modal input:focus,
+.ach-modal select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.ach-date {
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ach-date legend {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.ach-precision {
+    align-self: flex-start;
+    margin-left: 0;
+}
+
+.ach-month {
+    display: flex;
+    gap: 8px;
+}
+
+.ach-month[hidden] {
+    display: none;
+}
+
+.ach-month input {
+    max-width: 7.5rem;
+}
+
+.ach-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.ach-optional {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.ach-new-collection {
+    margin-top: 6px;
+}
+
+.ach-story {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.ach-story summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.ach-story[open] summary {
+    margin-bottom: 10px;
+}
+
+.ach-story .form-group + .form-group {
+    margin-top: 10px;
+}
+
+.ach-file-list,
+.sos-notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ach-file-row,
+.sos-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--bg-surface-2);
+}
+
+.sos-note {
+    flex-wrap: wrap;
+}
+
+.sos-note .ach-detail-text {
+    flex: 1 1 100%;
+    order: 3;
+}
+
+.ach-file-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.9rem;
+}
+
+.ach-file-remove {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+.ach-file-remove:hover {
+    background: var(--bg-hover);
+    color: var(--danger-fg);
+}
+
+.ach-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.ach-actions .submit-btn {
+    flex: 1 1 auto;
+}
+
+.ach-detail-date {
+    margin: 0 40px 4px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.ach-detail-title {
+    text-align: left;
+    margin: 0 40px 10px 0;
+    overflow-wrap: anywhere;
+}
+
+.ach-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.ach-tag {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--bg-surface-3);
+    color: var(--text-secondary);
+}
+
+.ach-detail-text {
+    margin: 0 0 16px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--text-primary);
+}
+
+.ach-files {
+    margin-bottom: 16px;
+}
+
+.ach-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.ach-viewer[hidden] {
+    display: none;
+}
+
+.ach-viewer img {
+    width: 100%;
+    border-radius: 8px;
+    background: var(--bg-surface-3);
+}
+
+.ach-detail-actions {
+    margin-top: 8px;
+}
+
+/* SOS */
+.sos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sos-card {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--bg-surface-2);
+}
+
+.sos-story {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.sos-shows {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+#sosMore {
+    width: 100%;
+}
+
+#sosMore[hidden],
+.sos-block[hidden] {
+    display: none;
+}
+
+.sos-block {
+    margin-top: 20px;
+}
+
+.sos-block .report-card-title {
+    margin-bottom: 8px;
+}
+
+.sos-fact {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+}
+
+.sos-note-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sos-note-form .submit-btn {
+    align-self: flex-start;
+}
+
+.sos-modal .ach-story {
+    margin-top: 16px;
+}
+
+.sos-action-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.sos-action-form .submit-btn {
+    margin-top: 0;
+    padding: 10px 16px;
+}
+
+@media (max-width: 480px) {
+    .ach-row {
+        grid-template-columns: 1fr;
+    }
+
+    .ach-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ach-modal {
+        padding: 24px 18px;
+    }
+}

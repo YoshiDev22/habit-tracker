@@ -139,6 +139,9 @@
             <!-- Solo con el plan Maker encendido (costs.js, setViewVisible) -->
             <button id="tabCosts" class="tab-btn" role="tab" hidden
                     aria-selected="false" aria-controls="viewCosts" tabindex="-1">Costos</button>
+            <!-- Solo con el módulo Logros encendido (achievements.js, setViewVisible) -->
+            <button id="tabAchievements" class="tab-btn" role="tab" hidden
+                    aria-selected="false" aria-controls="viewAchievements" tabindex="-1">Logros</button>
             <button id="tabReports" class="tab-btn" role="tab"
                     aria-selected="false" aria-controls="viewReports" data-view="2" tabindex="-1">Reportes</button>
             <span class="tab-indicator" aria-hidden="true"></span>
@@ -328,6 +331,40 @@
                         </form>
                         <div id="costsCategoryError" class="form-error hidden"></div>
                     </details>
+                </section>
+
+                <!-- Logros (módulo achievements): línea del tiempo, vitrina y el botón
+                     SOS. achievements.js pinta todo. -->
+                <section id="viewAchievements" class="view" role="tabpanel" aria-labelledby="tabAchievements" hidden>
+                    <div class="ach-toolbar">
+                        <div class="view-toggle" role="group" aria-label="Cómo ver tus logros">
+                            <button type="button" class="view-toggle-btn" data-ach-view="timeline" aria-pressed="true">Línea del tiempo</button>
+                            <button type="button" class="view-toggle-btn" data-ach-view="showcase" aria-pressed="false">Vitrina</button>
+                        </div>
+                        <button type="button" id="achSosBtn" class="ach-sos-btn" aria-describedby="achSosHint">SOS</button>
+                    </div>
+                    <p id="achSosHint" class="ach-sos-hint">Para un día difícil: lo que ya lograste, un dato de tu registro y algo pequeño para hacer ahora.</p>
+                    <div class="ach-filters">
+                        <label>
+                            <span class="visually-hidden">Categoría</span>
+                            <select id="achFilterCategory" class="board-select"></select>
+                        </label>
+                        <label>
+                            <span class="visually-hidden">Tipo</span>
+                            <select id="achFilterKind" class="board-select">
+                                <option value="">Todos los tipos</option>
+                                <option value="diploma">Diplomas y constancias</option>
+                                <option value="anecdote">Anécdotas</option>
+                                <option value="milestone">Hitos</option>
+                            </select>
+                        </label>
+                        <label class="ach-check">
+                            <input type="checkbox" id="achShowHidden"> Ver ocultos
+                        </label>
+                    </div>
+                    <button type="button" id="achAddBtn" class="submit-btn ach-add-btn">+ Nuevo logro</button>
+                    <div id="achBody" class="ach-body" aria-live="polite"></div>
+                    <p id="achUsage" class="ach-usage"></p>
                 </section>
 
                 <section id="viewReports" class="view" role="tabpanel" aria-labelledby="tabReports">
@@ -789,6 +826,13 @@
                     <span class="module-text">
                         <span class="module-name">Hábitos y metas</span>
                         <span class="module-hint">La pestaña Calendario, tu racha y los hábitos en Reportes. Si lo apagas, tus registros se guardan y vuelven al encenderlo.</span>
+                    </span>
+                </label>
+                <label class="module-option">
+                    <input type="checkbox" id="moduleAchievements" data-module="achievements">
+                    <span class="module-text">
+                        <span class="module-name">Logros</span>
+                        <span class="module-hint">Guarda tus diplomas, constancias y anécdotas con sus evidencias, los hitos de tus horas y días, y el botón SOS. Solo tú los ves. Si lo apagas, se guardan y vuelven al encenderlo.</span>
                     </span>
                 </label>
                 <!-- Solo para las cuentas con acceso (scripts/grant_module.py) -->
@@ -1394,6 +1438,149 @@
 
     <!-- Confirm genérico (sí/no), reutilizado por confirmDialog() en script.js.
          Es de propósito general, con mensaje y botones dinámicos. -->
+    <!-- Logros (achievements.js): escribir o editar uno. Solo título y fecha son
+         obligatorios. Cierra con sus propios listeners (no hideAllModals). -->
+    <div id="achievementModal" class="modal hidden">
+        <div class="modal-overlay" data-ach-close></div>
+        <div class="modal-content ach-modal" role="dialog" aria-modal="true" aria-labelledby="achFormTitle">
+            <button class="modal-close" type="button" data-ach-close aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="achFormTitle">Nuevo logro</h2>
+            <form id="achForm" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="achTitle">Qué lograste</label>
+                    <input type="text" id="achTitle" maxlength="120" required placeholder="Ej. Constancia de ponente">
+                </div>
+                <fieldset class="form-group ach-date">
+                    <legend>Cuándo</legend>
+                    <div class="view-toggle ach-precision" role="group" aria-label="Precisión de la fecha">
+                        <button type="button" class="view-toggle-btn" data-precision="day" aria-pressed="true">Fecha exacta</button>
+                        <button type="button" class="view-toggle-btn" data-precision="month" aria-pressed="false">Solo mes y año</button>
+                    </div>
+                    <input type="date" id="achDay" aria-label="Fecha">
+                    <div class="ach-month" hidden>
+                        <select id="achMonth" aria-label="Mes"></select>
+                        <input type="number" id="achYear" min="1900" max="2100" inputmode="numeric" aria-label="Año" placeholder="Año">
+                    </div>
+                </fieldset>
+                <div class="ach-row">
+                    <div class="form-group">
+                        <label for="achKind">Tipo</label>
+                        <select id="achKind">
+                            <option value="diploma">Diploma o constancia</option>
+                            <option value="anecdote">Anécdota</option>
+                            <option value="milestone">Hito</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="achCategory">Categoría</label>
+                        <select id="achCategory"></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="achCollection">Colección <span class="ach-optional">(para agrupar los que se repiten)</span></label>
+                    <select id="achCollection"></select>
+                    <div class="ach-new-collection" hidden>
+                        <input type="text" id="achNewCollection" maxlength="80" placeholder="Ej. Impartí clases" aria-label="Nombre de la colección nueva">
+                    </div>
+                </div>
+                <details id="achStory" class="ach-story">
+                    <summary>La historia (opcional)</summary>
+                    <div class="form-group">
+                        <label for="achSituation">Situación: cómo estaba</label>
+                        <textarea id="achSituation" rows="3" maxlength="2000"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="achDid">Qué hice</label>
+                        <textarea id="achDid" rows="3" maxlength="2000"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="achShows">Qué demuestra</label>
+                        <textarea id="achShows" rows="3" maxlength="2000"></textarea>
+                    </div>
+                </details>
+                <label class="ach-check">
+                    <input type="checkbox" id="achFeatured"> Destacado
+                </label>
+                <div class="form-group">
+                    <label for="achFiles">Evidencias <span class="ach-optional">(PDF, JPG, PNG o WEBP)</span></label>
+                    <ul id="achExistingFiles" class="ach-file-list"></ul>
+                    <input type="file" id="achFiles" multiple accept="application/pdf,image/jpeg,image/png,image/webp">
+                    <p class="ach-optional" id="achFilesHint"></p>
+                </div>
+                <div id="achFormError" class="form-error hidden"></div>
+                <div class="ach-actions">
+                    <button type="button" class="submit-btn btn-neutral" data-ach-close>Cancelar</button>
+                    <button type="submit" class="submit-btn" id="achSaveBtn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logros: el detalle de uno, con sus textos y evidencias -->
+    <div id="achDetailModal" class="modal hidden">
+        <div class="modal-overlay" data-ach-close></div>
+        <div class="modal-content ach-modal" role="dialog" aria-modal="true" aria-labelledby="achDetailTitle">
+            <button class="modal-close" type="button" data-ach-close aria-label="Cerrar">&times;</button>
+            <p class="ach-detail-date" id="achDetailDate"></p>
+            <h2 class="modal-title ach-detail-title" id="achDetailTitle"></h2>
+            <div class="ach-tags" id="achDetailTags"></div>
+            <div id="achDetailBody"></div>
+            <div class="ach-viewer" id="achViewer" hidden>
+                <img id="achViewerImg" alt="">
+                <button type="button" class="submit-btn btn-neutral" id="achViewerClose">Cerrar imagen</button>
+            </div>
+            <div id="achDetailError" class="form-error hidden"></div>
+            <div class="ach-actions ach-detail-actions">
+                <button type="button" class="submit-btn btn-neutral" id="achDetailHide">Ocultar</button>
+                <button type="button" class="submit-btn btn-danger" id="achDetailDelete">Borrar</button>
+                <button type="button" class="submit-btn" id="achDetailEdit">Editar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logros: el botón SOS. Logros al azar (sin repetir mientras está abierto),
+         un dato acumulado, una acción pequeña y la nota "¿cómo me siento?" -->
+    <div id="sosModal" class="modal hidden">
+        <div class="modal-overlay" data-ach-close></div>
+        <div class="modal-content ach-modal sos-modal" role="dialog" aria-modal="true" aria-labelledby="sosTitle">
+            <button class="modal-close" type="button" data-ach-close aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="sosTitle">Lo que ya lograste</h2>
+            <p class="ach-optional" id="sosRestarted" hidden>Ya los viste todos; empiezan otra vez.</p>
+            <div id="sosAchievements" class="sos-list"></div>
+            <button type="button" class="submit-btn btn-neutral" id="sosMore">Otros logros</button>
+            <section class="sos-block" id="sosFactBlock">
+                <h3 class="report-card-title">Un dato de tu registro</h3>
+                <p id="sosFact" class="sos-fact"></p>
+            </section>
+            <section class="sos-block" id="sosActionBlock">
+                <h3 class="report-card-title">Algo pequeño para ahora</h3>
+                <p id="sosAction" class="sos-fact"></p>
+            </section>
+            <section class="sos-block">
+                <h3 class="report-card-title"><label for="sosNote">¿Cómo me siento?</label></h3>
+                <form id="sosNoteForm" class="sos-note-form">
+                    <textarea id="sosNote" rows="3" maxlength="2000" placeholder="Opcional. Solo tú la ves, con su fecha."></textarea>
+                    <div id="sosNoteError" class="form-error hidden"></div>
+                    <button type="submit" class="submit-btn">Guardar nota</button>
+                    <span class="ach-optional" id="sosNoteStatus" role="status"></span>
+                </form>
+                <details id="sosNotesPast" class="ach-story">
+                    <summary>Notas anteriores</summary>
+                    <ul id="sosNotesList" class="sos-notes"></ul>
+                </details>
+            </section>
+            <details id="sosActionsEdit" class="ach-story">
+                <summary>Editar las acciones pequeñas</summary>
+                <ul id="sosActionsList" class="sos-notes"></ul>
+                <form id="sosActionForm" class="sos-action-form">
+                    <input type="text" id="sosActionText" maxlength="120" placeholder="Ej. Escribir un párrafo" aria-label="Acción nueva">
+                    <button type="submit" class="submit-btn">Agregar</button>
+                </form>
+                <div id="sosActionError" class="form-error hidden"></div>
+            </details>
+        </div>
+    </div>
+
     <div id="confirmModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content setup-modal" style="max-width: 400px;">
@@ -1440,5 +1627,6 @@
     <script src="account.js"></script>
     <script src="costs-recurring.js"></script>
     <script src="novedades.js"></script>
+    <script src="achievements.js"></script>
 </body>
 </html>
