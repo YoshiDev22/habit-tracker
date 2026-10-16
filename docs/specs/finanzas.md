@@ -178,8 +178,9 @@ producción.
 
 ## Fuera de alcance
 
-Conexión directa a bancos (agregadores tipo Open Finance: costo y regulación), inversiones,
-deudas con tabla de amortización, impuestos y declaraciones, conversión entre monedas, y
+Conexión directa a bancos (agregadores tipo Open Finance: costo y regulación), deudas con
+tabla de amortización (la fase D solo lleva pago y lo que falta), cotizaciones automáticas de
+inversiones, impuestos y declaraciones, conversión entre monedas, y
 finanzas compartidas con otra persona (dependería de la épica 21).
 
 ## Decidido al empezar la fase 1 (2026-10-09)
@@ -191,7 +192,7 @@ finanzas compartidas con otra persona (dependería de la épica 21).
 - **Categorías de inicio.** Gasto: Súper, Comer fuera, Transporte, Casa y servicios,
   Suscripciones, Salud, Personal, Ocio y Otros. Ingreso: Sueldo y Otros ingresos.
 - **Sin saldo por cuenta**: el resumen dice lo que entró y salió de cada cuenta en el
-  periodo, no cuánto hay.
+  periodo, no cuánto hay. *(Cambió el 2026-10-16: ver Rediseño.)*
 - **Fijos quincenales** (`semimonthly`: el 15 y el último día, u otros dos días que elige el
   usuario), para el sueldo. Solo en Finanzas: Costos sigue con mensual y anual.
 - **El sueldo se pregunta después del periodo** (decidido el 2026-10-15, probando con una cuenta
@@ -201,6 +202,117 @@ finanzas compartidas con otra persona (dependería de la épica 21).
 - **La regla de la serie se extrajo** a `backend/series.py` (solo las fechas, sin base de
   datos); la generación de cobros se copió y adaptó, porque la de Costos va pegada a los
   repartos entre proyectos.
+
+## Rediseño: Finanzas como su propia página (decidido el 2026-10-16)
+
+La fase 1 funcionaba, pero como una pestaña más se quedaba corta. El problema de fondo es
+llevar varias cuentas y varias hojas de cálculo a la vez: el pago de cada tarjeta y sus MSI,
+el reparto del ingreso por porcentajes, el flujo "¿la voy a hacer este mes?" y las
+inversiones. La idea: **juntar todo en un solo sistema y luego simplificar**, para que
+registrar un gasto sea fácil y amigable, las finanzas se lleven en un solo lugar y crezca la
+conciencia financiera. Se tomó como referencia el uso general de aplicaciones de organización.
+
+### Decisiones
+
+- **`/finance` es otra página de la misma app**, no otra app ni un subdominio: mismo
+  servidor, misma base, misma API (`/api/finance`) y, por ser el mismo origen, **la misma
+  sesión** (no se vuelve a entrar). La sirve `main.py` con su ruta, como todo archivo.
+- **La pestaña Finanzas de Habit Tracker lleva a `/finance`**, y la flecha ‹ de arriba regresa a
+  `/` (a la pestaña de donde se vino). Con el módulo apagado o sin acceso, `/finance` regresa a
+  `/`.
+- **`core.js`**: lo que las dos páginas comparten (token, `apiFetch`, `ApiError`, tema, tamaño de
+  letra, `getDateKey`, modales y mensajes de error) sale de `script.js` a un archivo propio que
+  las dos cargan primero. Es un cambio al núcleo, aprobado.
+- **Saldo por cuenta** (cambia la decisión de la fase 1): saldo inicial más los movimientos. En
+  las tarjetas de crédito, la deuda y lo disponible con su límite. El saldo se calcula, no se
+  guarda.
+- **Las deudas grandes van aparte** (carro, casa, negocio). Sumadas al total, el balance
+  siempre diría que se debe muchísimo: aquí "Todas las cuentas" es el dinero del día a día
+  (efectivo, débito y tarjetas), y los préstamos largos tienen su sección (fase D).
+- **Inversiones aparte, sin revolverlas con el saldo**: una sección propia que dice lo
+  invertido y una ganancia estimada. Para la fase D; hasta entonces sale como *Próximamente*.
+- **Ayudar, no regañar** sigue valiendo: el presupuesto dice cuánto va y cuánto queda, en
+  colores neutros, sin alarmas.
+
+### La página
+
+- **Arriba, siempre**: ‹ (regresar), "Todas las cuentas" con el total (por moneda si hay
+  varias) y el periodo (mes o quincena, como hoy) con ‹ ›.
+- **Abajo, cinco pestañas**: Cuentas, Categorías, Transacciones, Presupuesto y Resumen.
+  Presupuesto sale como *Próximamente* hasta la fase C.
+- **Categorías** (la principal): un anillo con el gasto del periodo (y lo ingresado debajo) en
+  el centro; alrededor, cada categoría como un círculo de color con su icono, su nombre y lo
+  gastado.
+- **Agregar con un toque**: tocar un círculo abre una hoja desde abajo con dos bandas de color,
+  *De cuenta* (se cambia tocándola) y *A categoría*, el monto grande, *Notas…* y un **teclado
+  propio con calculadora** (+ − × ÷, punto, borrar, 📅 y ✓). El 📅 abre *Fecha*: elegir el día en
+  el calendario, *Ayer*, *Hoy* y *Periodicidad* (lo vuelve un fijo, como "Se repite"). Abajo
+  dice la fecha ("Hoy, 16 oct 2026"). La calculadora no usa `eval`: un intérprete pequeño de
+  las cuatro operaciones.
+- **Transacciones**: agrupadas por día, con el total del día; tocar una la edita en la misma
+  hoja. Pegar el estado de cuenta sigue aquí.
+- **Resumen**: balance, gasto e ingreso, columnas por día, promedio diario, hoy y semana, y
+  barras por categoría con su porcentaje.
+- **Cuentas**: arriba *Cuentas · Tarjetas · Inversiones · Deudas*. Cada cuenta con su icono
+  de color, su saldo y, en las de crédito, lo disponible.
+- **Iconos**: un conjunto cerrado de iconos de línea tomados de Lucide (licencia ISC, se
+  conserva su aviso), copiados al repo: nada se carga de otro sitio. El color es del usuario.
+
+### Fases del rediseño
+
+| Fase | Qué | Deja de hacer falta |
+|---|---|---|
+| **A + B** (juntas) | La página con su navegación y el diseño de arriba; saldos; **tarjetas de crédito**: día de corte y de pago, "paga esto antes del día X", MSI y **dividir un cargo en varias categorías** | La hoja de las tarjetas |
+| **C** | **Presupuesto**: un límite por categoría en monto o en % del ingreso (uno calcula el otro), grupos opcionales con una referencia a elegir (abajo), Teórico contra Real, y el flujo mes a mes con fijos, pagos de tarjeta y MSI | La hoja del flujo y los porcentajes |
+| **D** | **Inversiones** (lo aportado, el valor que se actualiza a mano y la ganancia estimada) y **deudas grandes** (préstamos con su pago y lo que falta), las dos fuera del total | La hoja de inversiones |
+| **E** | **Que se llene solo**: correos o avisos de los bancos (las fases 3 y 4 de arriba) con reglas comercio → categoría; lo que llega queda por confirmar | Capturar |
+| **F** | La tarjeta de Finanzas en los Reportes de Habit Tracker, **solo si se activa** | Ver todo junto |
+
+### Tarjetas de crédito (fase B)
+
+- Una cuenta de crédito tiene **límite**, **día de corte** y **día de pago** (del 1 al 31; el
+  que el mes no tiene cae en el último).
+- **Deuda** = lo que se ha cargado menos lo que se ha abonado (saldo inicial incluido).
+  **Disponible** = límite − deuda.
+- **Pago para no generar intereses** = la deuda al último corte − las mensualidades de MSI que
+  aún no se facturan − lo abonado desde el corte. Fecha: el día de pago siguiente al corte. Se
+  comprueba contra un estado de cuenta real antes de darlo por bueno.
+- **MSI**: una compra a meses (total, número de meses y el primer corte que la factura). La
+  compra cuenta como gasto **el día que se hace y completa**, como cualquier compra con
+  tarjeta (regla de la fase 1); lo que cambia es cuánto pide cada corte. Contarla por
+  mensualidad en el presupuesto es una opción de la fase C.
+- **Dividir un cargo**: un movimiento puede partirse en varias categorías, cada parte con su
+  monto, y las partes suman exacto el total. Es un solo cargo a la tarjeta, así que el estado
+  de cuenta sigue cuadrando; el resumen y el presupuesto cuentan cada parte en su categoría.
+
+### Esquema de A + B
+
+Ninguna tabla de Finanzas existe en producción todavía, así que allá `create_all()` las crea
+completas y **no hay migración**. Las columnas nuevas sobre tablas que ya existen en una base
+de desarrollo van en `scripts/migrate.py` con `new_table` (como los días de pago de la quincena).
+
+| Tabla | Cambio |
+|---|---|
+| `fin_accounts` | `icon` y `color` (lista cerrada y hexadecimal); `opening_balance_cents` (0 por defecto; negativo en una tarjeta = lo que ya se debía); `credit_limit_cents`, `statement_day` y `due_day` (solo crédito) |
+| `fin_categories` | `icon` (lista cerrada) |
+| `fin_splits` (nueva) | `user_id`, `transaction_id`, `category_id`, `amount_cents`, `order`. Con partes, el movimiento queda sin `category_id` |
+| `fin_installments` (nueva) | `user_id`, `account_id` (de crédito), `transaction_id` (la compra, opcional), `concept`, `total_cents`, `months`, `first_statement` (el corte que factura la primera), `created_at` |
+
+### Presupuesto: las referencias (fase C)
+
+La app ofrece **referencias para empezar, nunca reglas**: cada quien elige una, la ajusta o
+pone sus propios límites por categoría, en monto o en porcentaje. Un reparto que no viene de
+una fuente publicada no se atribuye a nadie: se guarda como plantilla propia.
+
+| Referencia | Qué dice | Fuente |
+|---|---|---|
+| 50/30/20 | Del ingreso neto: 50 % necesidades, 30 % gustos, 20 % ahorro y pago de deudas | Warren y Warren Tyagi, *All Your Worth* (Free Press). Las fuentes secundarias dan 2005 o 2006: verificar el año antes de citarlo en la app |
+| Vivienda ≤ 30 % | Pagar más del 30 % del ingreso en vivienda (renta más servicios) es "carga de costo"; más del 50 %, carga severa | Estándar federal de EE. UU.: la Enmienda Brooke de 1969 fijó 25 % y las leyes de 1981 y 1983 lo subieron a 30 %. CRS, *Housing Cost Burdens in 2023: In Brief* (R48450, 2025) |
+| Deudas ≤ 35 % | La capacidad de endeudamiento no debe pasar del 35 % del ingreso **neto** | CONDUSEF, Comunicado No. 33, 18 de marzo de 2022 |
+| Fondo de emergencia | De 3 a 6 meses de gastos esenciales; más con un solo ingreso o dependientes | Regla general de planeadores financieros (CFP Board, 2025); no es una norma oficial |
+
+Las de vivienda y deudas son **límites que la app puede señalar** (por ejemplo, "Casa y
+servicios: 34 % de tu ingreso"), dichos como dato, no como regaño.
 
 ## Por decidir
 
@@ -218,3 +330,15 @@ finanzas compartidas con otra persona (dependería de la épica 21).
   "duele" menos cuanto más se separa del consumo, como con la tarjeta de crédito. Sostiene
   que el aviso del día y el de ritmo importen más que las gráficas: ponen el gasto a la vista
   cuando la tarjeta lo esconde.
+- Warren, E., y Warren Tyagi, A. *All Your Worth: The Ultimate Lifetime Money Plan*. Free
+  Press (2005 o 2006, por verificar). La regla 50/30/20: una de las referencias del presupuesto.
+- Congressional Research Service (2025). *Housing Cost Burdens in 2023: In Brief* (R48450).
+  https://www.everycrsreport.com/files/2025-03-11_R48450_92f1c8f866f58679c14d89b71339e1e40fa821e5.html
+  — "Cost burdened" es más del 30 % del ingreso en vivienda y "severely", más del 50 %; viene
+  de la Enmienda Brooke (1969, 25 %) y las leyes de 1981 y 1983 (30 %).
+- CONDUSEF (2022). Comunicado No. 33, 18 de marzo de 2022: "la capacidad de endeudamiento de
+  una persona no debe exceder el 35% de su percepción o ingresos netos".
+  https://www.gob.mx/cms/uploads/attachment/file/710716/Comunicado-033-Cobranza_Delegada.pdf
+- CFP Board (2025). *A CFP's 3-step emergency fund plan*.
+  https://www.cfp.net/news/2025/12/a-cfps-3-step-emergency-fund-plan — De 3 a 6 meses de gastos
+  como regla general.
