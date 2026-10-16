@@ -281,6 +281,30 @@ async def main():
         label = await b.wait_for("document.getElementById('financePeriodLabel').textContent", lambda t: t == expected)
         check(label == expected, f"the label follows the new period ({label})")
 
+        # Desde ＋ Agregar, un gasto que se repite: se guarda como fijo y se anota hoy una vez
+        await b.js("document.getElementById('financeAddBtn').click()")
+        await b.wait_for("!document.getElementById('financeTxModal').classList.contains('hidden')")
+        check(not await b.js("document.getElementById('financeTxRepeatField').hidden"), "adding offers to repeat it")
+        await set_value("#financeTxAmount", "299")
+        await set_value("#financeTxConcept", "Netflix")
+        await select_by_text("#financeTxCategory", "Suscripciones")
+        await set_value("#financeTxRepeat", "monthly")
+        hint = await b.js("document.getElementById('financeTxRepeatHint').textContent")
+        check(f"el {date.today().day} de cada mes" in hint, f"it says when it repeats ({hint})")
+        await b.js("document.getElementById('financeTxSave').click()")
+        await b.wait_for("document.getElementById('financeTxModal').classList.contains('hidden')")
+        fixed = [r for r in api.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"] if r["concept"] == "Netflix"]
+        netflix = [t for t in transactions() if t["concept"] == "Netflix"]
+        check(len(fixed) == 1 and fixed[0]["frequency"] == "monthly" and fixed[0]["start_date"] == TODAY,
+              f"it is saved as a monthly fixed ({fixed})")
+        check(len(netflix) == 1 and netflix[0]["recurring_id"] == fixed[0]["id"] and netflix[0]["amount_cents"] == 29900,
+              f"and today's charge is noted once ({netflix})")
+        await b.wait_for("[...document.querySelectorAll('.finance-tx')].some(t => t.textContent.includes('Netflix'))")
+        await b.js("[...document.querySelectorAll('.finance-tx')].find(t => t.textContent.includes('Netflix')).click()")
+        await b.wait_for("document.getElementById('financeTxTitle').textContent === 'Editar movimiento'")
+        check(await b.js("document.getElementById('financeTxRepeatField').hidden"), "editing a movement does not offer it")
+        await b.js("document.getElementById('financeTxCancel').click()")
+
         # Apagarlo: la pestaña se va, los datos se quedan
         await b.js("openSettings('modules')")
         await b.js("document.getElementById('moduleFinance').click()")
@@ -289,7 +313,7 @@ async def main():
         check(await b.js("document.getElementById('tabFinance').hidden"), "turning it off hides the tab")
         await b.js("document.getElementById('settingsClose').click()")
         api.call("PUT", "/api/auth/me/modules/finance", {"enabled": True}, expect=200)
-        check(len(transactions()) == 4, "and keeps every movement")
+        check(len(transactions()) == 5, "and keeps every movement")
     finally:
         await b.close()
 

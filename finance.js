@@ -374,6 +374,9 @@ function setFinanceTxKind(kind) {
     document.getElementById('financeTxCategoryField').hidden = transfer;
     document.getElementById('financeTxToField').hidden = !transfer;
     document.getElementById('financeTxAccountLabel').textContent = transfer ? 'De la cuenta' : 'Cuenta';
+    // Repetir es de un gasto o ingreso nuevo: una transferencia no es un fijo, y editar toca solo ese
+    document.getElementById('financeTxRepeatField').hidden = transfer || Boolean(financeState.editing);
+    renderFinanceTxRepeat();
     if (!transfer) {
         const categories = financeKindCategories(kind);
         const current = Number(financeTxCategory.value);
@@ -420,6 +423,7 @@ function openFinanceTx(tx = null) {
     financeTxDate.value = date;
     financeTxConcept.value = tx ? tx.concept : '';
     financeTxNote.value = tx ? (tx.note || '') : '';
+    document.getElementById('financeTxRepeat').value = '';
     const accounts = financeUsableAccounts(tx ? tx.account_id : null);
     const defaultAccount = accounts.find(a => a.is_default) || accounts[0];
     financeOptions(financeTxAccount, accounts, tx ? tx.account_id : (defaultAccount && defaultAccount.id), financeAccountLabel);
@@ -458,6 +462,47 @@ function financeTxPayload() {
     };
 }
 
+// Lo que hará el fijo, dicho con la fecha elegida
+function renderFinanceTxRepeat() {
+    const hint = document.getElementById('financeTxRepeatHint');
+    const frequency = financeTxRepeatFrequency();
+    hint.hidden = !frequency || !financeTxDate.value;
+    if (hint.hidden) return;
+    const day = financePayDay(financeTxDate.value);
+    const d = financeDate(financeTxDate.value);
+    const when = {
+        // El mensual repite el día exacto (un 31 cae en el último de los meses cortos)
+        monthly: `el ${d.getDate()} de cada mes${d.getDate() > 28 ? ' (o el último, si el mes es más corto)' : ''}`,
+        semimonthly: (() => {
+            const [first, second] = [day, financeOtherPayDay(day)].sort((a, b) => a - b);
+            return `${financeDayText(first)} y ${financeDayText(second)} de cada mes`;
+        })(),
+        yearly: `cada ${d.getDate()} de ${FINANCE_MONTHS[d.getMonth()]}`,
+    }[frequency];
+    hint.textContent = `Se anota solo ${when}, como un fijo. Lo cambias o lo quitas en Organizar › Fijos.`;
+}
+
+function financeTxRepeatFrequency() {
+    const field = document.getElementById('financeTxRepeatField');
+    return field.hidden ? '' : document.getElementById('financeTxRepeat').value;
+}
+
+// Un fijo cuyo primer cobro es este movimiento: el servidor lo anota en su fecha
+// (ya, si es hoy o antes), así que no se crea el movimiento aparte
+function financeTxRecurringPayload(payload, frequency) {
+    const fields = {
+        kind: payload.kind, account_id: payload.account_id, category_id: payload.category_id,
+        concept: payload.concept, note: payload.note, amount_cents: payload.amount_cents,
+        frequency, start_date: payload.tx_date,
+    };
+    if (frequency === 'semimonthly') {
+        const day = financePayDay(payload.tx_date);
+        const other = financeOtherPayDay(day);
+        Object.assign(fields, { first_day: Math.min(day, other), second_day: Math.max(day, other) });
+    }
+    return fields;
+}
+
 async function saveFinanceTx(event) {
     event.preventDefault();
     const saveBtn = document.getElementById('financeTxSave');
@@ -471,8 +516,13 @@ async function saveFinanceTx(event) {
     saveBtn.disabled = true;
     try {
         const editing = financeState.editing;
+        const frequency = financeTxRepeatFrequency();
         if (editing) {
             await apiFetch(`/api/finance/transactions/${editing.id}`, { method: 'PATCH', json: payload });
+        } else if (frequency) {
+            await apiFetch('/api/finance/recurring', {
+                method: 'POST', json: financeTxRecurringPayload(payload, frequency),
+            });
         } else {
             await apiFetch('/api/finance/transactions', { method: 'POST', json: payload });
         }
@@ -883,7 +933,9 @@ function renderFinanceSalaryDays() {
     }
     const day = financePayDay(date);
     if (!financeSalaryBiweekly()) {
-        text.textContent = `Te pagan ${financeDayText(day)} de cada mes${shorter(day)}.`;
+        // El mensual repite el día exacto de la fecha, no "el último"
+        const exact = financeDate(date).getDate();
+        text.textContent = `Te pagan el ${exact} de cada mes${exact > 28 ? ' (o el último, si el mes es más corto)' : ''}.`;
         return;
     }
     const other = Number(document.getElementById('financeSalarySecond').value);
@@ -1004,6 +1056,8 @@ document.getElementById('financeSalaryDate').addEventListener('change', (event) 
     renderFinanceSalaryDays();
 });
 document.getElementById('financeSalarySecond').addEventListener('input', renderFinanceSalaryDays);
+document.getElementById('financeTxRepeat').addEventListener('change', renderFinanceTxRepeat);
+financeTxDate.addEventListener('change', renderFinanceTxRepeat);
 
 document.getElementById('financePrev').addEventListener('click', () => {
     if (financeState.summary) goToFinancePeriod(financeState.summary.prev_day);

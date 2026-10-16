@@ -521,6 +521,9 @@ Lo que no se ve en Swagger:
   esa cuenta (mismo día, monto y tipo, contando repeticiones) sale tachado y no entra salvo que
   se pida, y un abono a una tarjeta de crédito se salta (es el pago: va como transferencia).
   *Organizar* (cuentas, fijos y categorías) es un desglose con `createDrillDown()`.
+  En *＋ Agregar*, un gasto o ingreso nuevo puede llevar **Se repite** (mes, quincena o año): no se
+  crea el movimiento, sino el fijo con su fecha como primer cobro, y `generate_due()` lo anota (una
+  vez) si ya llegó. Editar un movimiento no lo ofrece.
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va
   siempre al final; el orden de `VIEWS` y el de las secciones del HTML deben coincidir), oculta en el HTML y
   mostrada por `applyCostsModule()` con el plan encendido. Si se recargó estando en ella,

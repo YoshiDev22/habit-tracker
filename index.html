@@ -1257,6 +1257,16 @@
                 <label class="recurring-field wide">Nota (opcional)
                     <input type="text" id="financeTxNote" maxlength="500" autocomplete="off">
                 </label>
+                <!-- Solo al agregar un gasto o ingreso: guardarlo como fijo (Organizar › Fijos) -->
+                <label class="recurring-field" id="financeTxRepeatField">Se repite
+                    <select id="financeTxRepeat">
+                        <option value="">No</option>
+                        <option value="monthly">Cada mes</option>
+                        <option value="semimonthly">Cada quincena</option>
+                        <option value="yearly">Cada año</option>
+                    </select>
+                </label>
+                <p class="costs-hint wide" id="financeTxRepeatHint" hidden></p>
                 <p class="costs-hint wide" id="financeTxHint" hidden>El pago de la tarjeta es una transferencia: la
                     compra ya contó como gasto el día que la hiciste.</p>
                 <div id="financeTxError" class="form-error hidden wide"></div>
