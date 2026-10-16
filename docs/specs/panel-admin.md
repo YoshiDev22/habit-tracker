@@ -7,7 +7,7 @@
 
 ## La idea, en limpio
 
-YoshiDev22 quiere **gestionar y monitorear** la app y sus usuarios sin entrar al VPS ni correr
+Un panel para **gestionar y monitorear** la app y sus usuarios sin entrar al VPS ni correr
 scripts: cuántas cuentas hay, quién usa qué, cuánto gasta la IA, dar o quitar módulos y
 recibir los problemas que reporten los usuarios. **Gestión, no vigilancia:** el panel nunca
 enseña lo que escribe cada persona (tareas, hábitos, gastos, textos de reportes).
@@ -23,8 +23,8 @@ enseña lo que escribe cada persona (tareas, hábitos, gastos, textos de reporte
 - **Las rutas de administración no existen en la app pública.** `backend/main.py` nunca
   monta el router de admin: aunque alguien adivine la ruta en el dominio público, recibe 404.
 - **Zero Trust delante.** Al proceso de admin solo se llega por un **Cloudflare Tunnel**
-  (`cloudflared`) en un subdominio propio, protegido con **Cloudflare Access** (correo de
-  YoshiDev22 y MFA). No pasa por Caddy ni abre puertos en `ufw`. Los nombres reales (subdominio,
+  (`cloudflared`) en un subdominio propio, protegido con **Cloudflare Access** (correo del
+  administrador y MFA). No pasa por Caddy ni abre puertos en `ufw`. Los nombres reales (subdominio,
   tunnel, políticas) van en el documento privado de infraestructura, **no en este repo**.
 - **Y verificado dentro de la app.** Cada petición al panel trae el JWT de Access
   (`Cf-Access-Jwt-Assertion`); la app lo valida contra las llaves públicas del equipo de
@@ -51,7 +51,7 @@ enseña lo que escribe cada persona (tareas, hábitos, gastos, textos de reporte
 - `POST /api/feedback` guarda el reporte. Límite: 5 por cuenta al día (429, como el login).
 - Al enviar: "Gracias, lo vamos a revisar". Sin correo de respuesta todavía (entrada 26).
 
-**Para YoshiDev22: el panel, solo lectura.**
+**El panel, solo lectura.**
 
 - **Resumen:** cuentas totales, nuevas en 7 y 30 días, activas en 7 y 30 días, cuentas con
   borrado programado, reportes de problemas abiertos.
@@ -87,7 +87,7 @@ importa esos campos: las consultas cuentan filas, no las leen.
   clic). El aviso a una cuenta es un tipo nuevo de `notices` (uno por cuenta, tipo y
   referencia): sin migración. La app pública sigue sin ninguna ruta que cree avisos
   (`test_no_account_can_publish_to_every_bell`).
-- **Diseño del panel** (pedido por YoshiDev22 el 2026-10-09: la Fase 1 quedó sobria a propósito).
+- **Diseño del panel** (pedido el 2026-10-09: la Fase 1 quedó sobria a propósito).
   Gráficas en el resumen (cuentas activas por día en 30 días, uso de IA por día buenas contra
   fallidas, cuántas cuentas usan cada módulo), tarjetas con la cifra grande y su cambio contra
   la semana anterior, color solo donde importa (problemas abiertos, borrados programados),
@@ -100,7 +100,7 @@ importa esos campos: las consultas cuentan filas, no las leen.
   antes y después), también publicar, terminar y enviar avisos. El panel la enseña; no se
   edita ni se borra desde la UI.
 
-## Fase 3 · Cloudflare (la hace YoshiDev22, con una guía)
+## Fase 3 · Cloudflare (a mano, con una guía)
 
 1. Instalar `cloudflared` en el VPS y crear un tunnel hacia `http://127.0.0.1:<puerto de
    admin>`.
@@ -117,7 +117,7 @@ producción solo sale "Reportar un problema" hasta que Access esté listo.
 ## Seguridad: lo que hay que cuidar
 
 - **XSS hacia el administrador.** El texto de un problema lo escribe cualquier usuario y lo
-  lee YoshiDev22 con su sesión de admin. Todo se pinta con `textContent`, nunca `innerHTML`, y
+  lee el administrador con su sesión. Todo se pinta con `textContent`, nunca `innerHTML`, y
   la página de admin lleva una `Content-Security-Policy` estricta (`script-src 'self'`).
 - **CSRF.** Las acciones del panel son `POST`/`PUT` con JSON y el JWT de Access en la
   cabecera; además la app exige `Content-Type: application/json` y un `Origin` igual al del
@@ -175,7 +175,7 @@ producción solo sale "Reportar un problema" hasta que Access esté listo.
 - **CSRF**: toda petición que cambia algo (no GET) pide `Content-Type: application/json` y un
   `Origin` del mismo host que el panel; si no, 403 antes de llegar a la ruta.
 
-## Fase 2, paso 8: eventos de seguridad (pedido por YoshiDev22, 2026-10-10)
+## Fase 2, paso 8: eventos de seguridad (pedido el 2026-10-10)
 
 Para detectar abusos, **no comportamiento**: nada de qué hace cada persona en la app, solo lo que
 delata un ataque o un abuso de recursos. Complementa a Cloudflare, que ve la red pero no lo que

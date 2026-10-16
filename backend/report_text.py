@@ -1,6 +1,6 @@
 """
 El texto de un reporte guardado, escrito con reglas fijas (épica 30, Fases 4 y
-5). Sigue las secciones de los reportes de ejemplo de YoshiDev22: resumen con la
+5). Sigue las secciones de unos reportes de ejemplo: resumen con la
 limpieza de datos, patrones, legibilidad y etiquetado, observaciones,
 comparativa (el mes), próximos pasos o metas, y un cierre con "Bien hecho" y
 "Tip". Solo lee las cifras que el reporte ya guarda (backend/reports.py): no

@@ -1,6 +1,6 @@
 """
 /api/feedback: "Reportar un problema" desde Mi perfil (1.27, épica 32). Solo
-guarda: lo lee YoshiDev22 en el panel de administración, que la app pública no
+guarda: se lee en el panel de administración, que la app pública no
 monta. Cada cuenta puede enviar FEEDBACK_DAILY_LIMIT al día (día UTC).
 """
 from datetime import datetime, timedelta

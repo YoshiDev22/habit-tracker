@@ -5,7 +5,7 @@ backend/admin_main.py, detrás de require_admin; la app pública no la importa.
 Gestión, no vigilancia: estas consultas CUENTAN filas de los datos de cada
 cuenta, nunca leen sus campos (títulos, nombres, conceptos, notas, textos de
 reportes). Lo único escrito por un usuario que sale de aquí son sus reportes de
-problemas, que escribió para YoshiDev22. Los correos van enmascarados en las listas;
+problemas, que escribió para quien administra. Los correos van enmascarados en las listas;
 el completo, solo al pedir el de una cuenta.
 """
 from collections import Counter, defaultdict

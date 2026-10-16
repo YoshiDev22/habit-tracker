@@ -5,8 +5,8 @@
 // Una página del menú de Mi perfil: un texto (10 a 2000 caracteres) y, si el
 // usuario lo deja encendido, detalles técnicos que ve tal cual antes de
 // enviarlos: versión, pestaña abierta, pantalla, navegador y los últimos
-// errores de la consola de esta sesión. POST /api/feedback lo guarda; lo lee
-// YoshiDev22 en el panel de administración. Nunca va un token ni nada de lo que
+// errores de la consola de esta sesión. POST /api/feedback lo guarda y se lee
+// en el panel de administración. Nunca va un token ni nada de lo que
 // el usuario escribe en la app (tareas, hábitos, gastos).
 //
 // Se carga justo después de script.js para oír los errores desde el principio.

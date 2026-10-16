@@ -1,6 +1,6 @@
 # CLAUDE.md — habit-tracker
 
-Proyecto personal de YoshiDev22. Responde en español salvo que el prompt esté en inglés.
+Proyecto personal. Responde en español salvo que el prompt esté en inglés.
 Código, comentarios, nombres de variables y mensajes de commit: en inglés.
 
 ## Qué es
@@ -695,11 +695,11 @@ muestra con la clase `.active` y entra deslizándose; ‹ (`#settingsBack`) o Es
 queda para el módulo Hábitos apagado: la fila y la página de Hábitos, el grupo de días de
 descanso y las frases de las ayudas que hablan de la racha llevan `data-habits-only`
 (vacaciones, festivos y huso siguen: los usan los reportes). El menú es solo texto, sin emojis (como los ajustes de
-Todoist o Linear). El pie solo se ve en la página Hábitos. Lo llena `showHabitsSetup()`
+las apps de productividad). El pie solo se ve en la página Hábitos. Lo llena `showHabitsSetup()`
 (`habits.js`), que al final llama a `onSettingsOpened()` (`settings.js`): abre el menú, o
 Hábitos como bienvenida si aún no hay hábitos; `openSettings(nombre)` abre directo una página.
 
-**Todo menú de opciones es de desglose (drill-down), nunca un acordeón** (pedido por YoshiDev22,
+**Todo menú de opciones es de desglose (drill-down), nunca un acordeón** (decidido el
 2026-10-05): una lista de filas de solo texto con una línea de ayuda y "›"; cada fila
 desliza a su página, el título del modal pasa a ser el de la página y ‹ o Escape vuelven a
 la lista. Uno nuevo se hace con `createDrillDown()` (`drilldown.js`) y las mismas clases
@@ -767,8 +767,8 @@ días por export.
 `previous` (el periodo anterior completo: por día, por proyecto con su %, sesión media…),
 `days_detail` (cada día: `worked`, `missing`, `off` con su motivo, `today`, `pending`),
 `by_week` (el mes), `projected_seconds` (proyección al cierre si va a medias) y
-`total_without_unconfirmed_seconds`. Sigue las secciones de los reportes de ejemplo de
-YoshiDev22 (Word en `docs/briefs/`, fuera del repo por traer datos personales); el `text` de
+`total_without_unconfirmed_seconds`. Sigue las secciones de los reportes de ejemplo
+(Word en `docs/briefs/`, fuera del repo por traer datos personales); el `text` de
 `backend/report_text.py` las escribe con reglas: `summary`, `data_cleanup`, `patterns`,
 `legibility`, `observations`, `comparison` (solo el mes), `next_steps` y
 `closing: {well_done, tip}`, con horas en decimal ("14.3 h"). Solo lee esas cifras, y la IA
@@ -979,7 +979,7 @@ Las pestañas se sincronizan con el evento `storage`: un ajuste, pausa o final e
 adopta en las demás, y antes de guardar se relee la sesión (`adoptStoredSession()`).
 
 **Tope del cronómetro.** Nada interrumpe mientras se trabaja, y la app no adivina cuánto se
-trabajó (YoshiDev22 lo pidió así: es decisión del usuario). Al llegar a 8 h el cronómetro se
+trabajó (a propósito: es decisión del usuario). Al llegar a 8 h el cronómetro se
 detiene en 8:00:00 y `#idleCheckModal` (`askStopwatchCap()`) pregunta cuánto se trabajó,
 empezando en 8 h. La última actividad en la app (`pomodoro_activity`) sale solo como pista,
 con "Usar esa hora". Lo elegido se guarda sin la nota de cierre automático
@@ -1215,7 +1215,7 @@ separarlo deja claro qué se desplegó y cuándo.
    *Actualizar*. Nunca recarga sola, y cerrada no vuelve por esa misma versión.
 2. Tag anotado sobre ese commit: `git tag -a vX.Y.Z -m "vX.Y.Z"`. Las versiones 1.0.0 a
    1.9.0 también tienen el suyo, puesto después sobre el commit que cambió `VERSION`.
-3. YoshiDev22 hace `git push` y `git push --tags`, y despliega.
+3. Quien mantiene el repo hace `git push` y `git push --tags`, y despliega.
 4. Release en GitHub con el texto de la sección del CHANGELOG (con `gh release create` si
    `gh` está instalado; si no, se pega en la web).
 
@@ -1252,7 +1252,7 @@ servidor de esta instancia están en **Referencias privadas** (abajo), no en el 
   `deploy/` llevan `CHANGE_ME` donde van el usuario, el grupo y las rutas reales.
 
 **El deploy es manual.** No asumir CI/CD ni ejecutar comandos contra el VPS
-sin que YoshiDev22 lo pida explícitamente.
+sin que se pida explícitamente.
 
 **Reportes automáticos**: `deploy/habit-reports.service` y `.timer` son plantillas; se
 copian a `/etc/systemd/system/` con el usuario y las rutas reales, y se activa el timer

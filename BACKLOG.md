@@ -111,8 +111,8 @@ swipe, las flechas del teclado y `Home`/`End` ya funcionan así.
 ## 17 · P2 · Metas con hábitos y avance medible
 
 **Esto es una épica.** Que los hábitos estén al servicio de **metas** con avance visible,
-sin perder el registro diario que ya existe. Planteado el 2026-09-22; modelo acordado con
-YoshiDev22 el 2026-09-23.
+sin perder el registro diario que ya existe. Planteado el 2026-09-22; modelo acordado el
+2026-09-23.
 
 **Modelo acordado: una meta agrupa hábitos; los hábitos siguen siendo sí/no.**
 
@@ -192,8 +192,8 @@ Plan cuando se retome:
   modelo), y avisar que el texto de la meta se envía a Anthropic.
 
 **Decidido (2026-09-23): el Calendario no cambia.** Sigue siendo la vista diaria que
-motiva con constancia (días marcados, racha). Los objetivos van en un lugar aparte; YoshiDev22
-propone el menú de configuración para crearlos y editarlos. El avance se expresa en días
+motiva con constancia (días marcados, racha). Los objetivos van en un lugar aparte: se
+crean y editan desde el menú de configuración. El avance se expresa en días
 siempre que se pueda ("12 de 30 días", "8 días sin fumar") y no solo como porcentaje.
 
 **Pendiente para el plan detallado:** dónde se ve el avance a diario (propuesta: una
@@ -249,7 +249,7 @@ con pausa y escudos, todavía hace falta.
 
 **Esto es una épica.** Plan completo, fases, esquema y referencias en
 [docs/specs/modulos-y-costeo.md](docs/specs/modulos-y-costeo.md). Planteado y decidido
-con YoshiDev22 el 2026-09-30.
+el 2026-09-30.
 
 **Idea.** Usar lo que la app ya registra (tareas, tiempo por proyecto, tarea y etiqueta)
 para lo que hacía la administración en un trabajo anterior con el kanban: sacar horas
@@ -350,7 +350,7 @@ cuenta. Para eso sigue pendiente decidir el punto 1 (cómo se envían).
 **Orden.** Antes de abrir el registro a más gente o de anunciar los módulos (entrada 24).
 Mientras tanto, `ALLOW_REGISTRATION=false` permite cerrarlo.
 
-**Aceptación.** Alguien que olvidó su contraseña la recupera sin intervención de YoshiDev22;
+**Aceptación.** Alguien que olvidó su contraseña la recupera sin intervención del administrador;
 un correo mal escrito no deja una cuenta usable a nombre de otro; pedir recuperación con
 un correo sin cuenta responde lo mismo que con uno que sí tiene.
 
@@ -358,7 +358,7 @@ un correo sin cuenta responde lo mismo que con uno que sí tiene.
 
 ## 27 · P3 · Reordenar las pestañas de secciones
 
-**Pedido por YoshiDev22 (2026-10-01).** Que cada usuario pueda ordenar las pestañas
+**Pedido el 2026-10-01.** Que cada usuario pueda ordenar las pestañas
 (Calendario, Tableros, Costos, Reportes) a su gusto.
 
 **Cómo encaja.** La navegación ya nombra las vistas por id (`VIEWS` en projects.js) y la
@@ -375,7 +375,7 @@ swipe y el teclado lo siguen.
 
 ## 28 · P3 · Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas
 
-**Pedido por YoshiDev22 (2026-10-01).** En el Tablero, un **modo ordenar** (un botón que se
+**Pedido el 2026-10-01.** En el Tablero, un **modo ordenar** (un botón que se
 activa y desactiva) en el que se puedan reordenar las columnas arrastrándolas y cambiarles
 el ancho (resize). Solo en ese modo, para no mover ni estirar nada por accidente.
 
@@ -392,7 +392,7 @@ columnas se arrastran y se estiran, y el resultado se conserva al recargar.
 
 ## 29 · P3 · Periodo de la gráfica "Costos" en la pestaña Costos
 
-**Decisión pendiente con YoshiDev22 (2026-10-01).** La gráfica de la pestaña Costos (mano de
+**Decisión pendiente (2026-10-01).** La gráfica de la pestaña Costos (mano de
 obra y gasto por categoría) y el resumen suman **todo, desde siempre**. ¿Debería ser por
 mes, por año, o con un selector (Mes / Año / Todo, como el rango de Reportes)?
 
@@ -411,8 +411,8 @@ pestaña.
 ## 30 · P2 · Reportes automáticos (semanal y mensual) con IA opcional
 
 **Esto es una épica.** Plan, decisiones, fases y esquema en
-[docs/specs/reportes-ia.md](docs/specs/reportes-ia.md). Decidido con YoshiDev22 el 2026-10-03, a
-partir de un brief suyo que no está en el repo (los ejemplos traen datos personales).
+[docs/specs/reportes-ia.md](docs/specs/reportes-ia.md). Decidido el 2026-10-03, a
+partir de un brief que no está en el repo (los ejemplos traen datos personales).
 
 **Idea.** Que la app genere y guarde sola los reportes que hoy arma Claude a partir del
 CSV: cifras por código, texto opcional por IA (Cloudflare Workers AI, Gemini, OpenAI o un
@@ -438,7 +438,7 @@ fase 2: "más textos de IA para una cuenta"), así que se trabaja ahí, no apart
 
 **Idea.** Hoy el límite de textos con IA es uno para toda la instancia (`AI_DAILY_LIMIT` en
 `backend/.env`, 10 por defecto, día UTC) y cada cuenta ve "te quedan N de 10" en el
-reporte. Pedido por YoshiDev22 el 2026-10-03: dejarlo en 10 por ahora, pero poder cambiarlo por
+reporte. Pedido el 2026-10-03: dejarlo en 10 por ahora, pero poder cambiarlo por
 cuenta (más para quien lo use mucho, menos para una cuenta de prueba).
 
 **Cómo podría ser.** Una columna `daily_limit` (NULL = el de la instancia) en
@@ -454,7 +454,7 @@ cuenta, el reporte lo dice, y sin `--limit` sigue el de `AI_DAILY_LIMIT`.
 
 ## 32 · P2 · Panel de administración y "Reportar un problema"
 
-**Esto es una épica.** Pedida por YoshiDev22 el 2026-10-07; va después de la 1.24 (gastos
+**Esto es una épica.** Pedida el 2026-10-07; va después de la 1.24 (gastos
 recurrentes y repartidos). El plan completo está en
 [`docs/specs/panel-admin.md`](docs/specs/panel-admin.md).
 
@@ -471,7 +471,7 @@ lista de correos en `.env`.
 **Fases.** 1: "Reportar un problema" y el panel de solo lectura. 2: acciones (módulos, más
 textos de IA, desactivar cuentas, estado de los problemas, publicar y terminar avisos
 para todas las cuentas —hoy `scripts/announce.py`, desde la 1.26—) con bitácora. 3: tunnel y Access
-(YoshiDev22, con una guía). El panel no se despliega antes de la fase 3.
+(a mano, con una guía). El panel no se despliega antes de la fase 3.
 
 **Aceptación.** Las de cada fase en el spec; en todas, que el dominio público no tenga
 rutas de admin y que ninguna respuesta del panel traiga contenido de usuario.
@@ -480,7 +480,7 @@ rutas de admin y que ninguna respuesta del panel traiga contenido de usuario.
 
 ## 33 · P3 · Lugar donde se trabajó, y la duración de ciertos hábitos
 
-**Pedido por YoshiDev22 el 2026-10-08**, como cambio menor para después de la 1.24.
+**Pedido el 2026-10-08**, como cambio menor para después de la 1.24.
 
 **Idea.** Poder decir **dónde** se hizo cada tiempo registrado: Escuela, Oficina, Casa,
 Lugar público u Otro (la lista se puede editar, como las categorías de gastos). Para qué:
@@ -506,7 +506,7 @@ tener que elegirlo cada vez. En los hábitos, `habits.default_minutes` y `habits
 (**migración**). El cruce lugar × hora sale de la capa de métricas (`backend/metrics.py`),
 que ya tiene las horas locales de cada sesión.
 
-**Decidido con YoshiDev22 (2026-10-08), para tareas y tiempo: tres niveles, gana el más
+**Decidido el 2026-10-08, para tareas y tiempo: tres niveles, gana el más
 específico.**
 
 1. **Tablero**: el lugar por defecto ("Mi tablero" → Escuela).
@@ -535,13 +535,13 @@ migración: decidido el 2026-10-08).
 
 ## 36 · P3 · Página de inicio pública: qué es la app, video de uso, entrar y registrarse
 
-**Idea de YoshiDev22, 2026-10-08.** Hoy quien abre la app sin sesión ve solo el formulario de
-entrar. Una página de inicio (como la de Habitify o cualquier app) explicaría qué hace y
+**Idea del 2026-10-08.** Hoy quien abre la app sin sesión ve solo el formulario de
+entrar. Una página de inicio (como la de cualquier app) explicaría qué hace y
 serviría a los primeros usuarios que invite: no es un producto a la venta, así que **sin
 precios, blog ni planes**.
 
 **Qué traería.** Qué es y para quién (hábitos, tableros con tiempo, reportes, costeo para
-freelance), capturas o un **video de uso** (YoshiDev22 tiene uno de la 1.14; grabaría otros más
+freelance), capturas o un **video de uso** (ya hay uno de la 1.14; se grabarían otros más
 actuales), por qué la racha funciona así (las fuentes de `docs/referencias.md`), y los
 botones **Entrar** y **Crear cuenta** (este último solo si `ALLOW_REGISTRATION`).
 
@@ -557,7 +557,7 @@ aloja el video; y si se enlaza la guía de uso.
 
 ## 37 · P2 · Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo
 
-**Esto es una épica.** Pedida por YoshiDev22 el 2026-10-09; va **después de la 1.27** (panel de
+**Esto es una épica.** Pedida el 2026-10-09; va **después de la 1.27** (panel de
 administración). El plan completo está en [`docs/specs/finanzas.md`](docs/specs/finanzas.md).
 
 **Idea.** Llevar las finanzas personales sin capturar todo a mano: las compras con tarjeta
@@ -603,7 +603,7 @@ o "Terminado") y en la hoja. Si no se repite, cerrar la entrada.
 
 ## 42 · P3 · Más espacio arriba: barra de usuario compacta y plegable
 
-**Pedido por YoshiDev22 (2026-10-15).** Arriba se pierde mucho espacio, y en el teléfono más: la barra
+**Pedido el 2026-10-15.** Arriba se pierde mucho espacio, y en el teléfono más: la barra
 de usuario (tema, ⚙️, campanita, nombre, versión, Cerrar sesión) va en su propia franja, y debajo el
 título y el saludo.
 
