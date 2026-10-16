@@ -4,7 +4,7 @@
 //
 // Quinta vista, solo con el módulo Finanzas encendido (como Costos con Maker).
 // Arriba, el periodo (mes o quincena: la primera vez se pregunta "¿Cada cuándo
-// cobras?") con ‹ ›; luego el resumen de /api/finance/summary y los
+// cobras?", y luego cuánto: el fijo "Sueldo") con ‹ ›; luego el resumen de /api/finance/summary y los
 // movimientos del periodo. ＋ Agregar abre la alta rápida; pegar filas de un
 // estado de cuenta (o un CSV) abre la vista previa, que marca lo repetido.
 // Organizar (cuentas, fijos y categorías) es un menú de desglose.
@@ -29,6 +29,7 @@ const financeState = {
     pending: null,          // la vista previa de lo pegado
     editingFixed: null,     // el fijo que se edita en Organizar
     fixedKind: 'expense',
+    salaryStep: false,      // se ve el paso "¿Cuánto cobras?" (solo en esta sesión)
 };
 // "tacos" → la última categoría usada con ese concepto, para adivinar la siguiente
 const financeConceptCategory = new Map();
@@ -107,15 +108,16 @@ async function loadFinance() {
     financeErrorEl.classList.add('hidden');
     const day = financeState.day ? `?day=${financeState.day}` : '';
     try {
-        const [summary, list, accounts, categories] = await Promise.all([
+        const [summary, list, accounts, categories, recurring] = await Promise.all([
             apiFetch(`/api/finance/summary${day}`),
             apiFetch(`/api/finance/transactions${day}`),
             apiFetch('/api/finance/accounts'),
             apiFetch('/api/finance/categories'),
+            apiFetch('/api/finance/recurring'),   // para saber si ya hay sueldo
         ]);
         Object.assign(financeState, {
             summary, transactions: list.transactions, accounts: accounts.accounts,
-            categories: categories.categories, loaded: true,
+            categories: categories.categories, recurring: recurring.recurring, loaded: true,
         });
     } catch (error) {
         financeSummaryEl.replaceChildren(reportsMessage(error.message || 'No se pudo cargar Finanzas.'));
@@ -133,6 +135,11 @@ function renderFinance() {
     if (!s) return;
     financeAskEl.hidden = s.period_asked;
     syncFinancePeriodToggle(s.period_asked ? s.period : null);
+    // Después del periodo, el sueldo: el paso, o una línea discreta mientras no haya
+    document.getElementById('financeSalary').hidden = !(s.period_asked && financeState.salaryStep);
+    document.getElementById('financeSalaryHint').hidden = !s.period_asked || financeState.salaryStep
+        || Boolean(financeSalaryFixed());
+    renderFinanceSalarySetting();
     document.getElementById('financePeriodLabel').textContent = financePeriodLabel(s);
     // No hay movimientos en el futuro: el siguiente periodo empieza después de hoy
     document.getElementById('financeNext').disabled = s.next_day > financeToday();
@@ -779,9 +786,12 @@ async function saveFinancePeriod(period, errorEl) {
     }
 }
 
-financeAskEl.addEventListener('click', (event) => {
+financeAskEl.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-period]');
-    if (button) saveFinancePeriod(button.dataset.period, financeErrorEl);
+    if (!button) return;
+    await saveFinancePeriod(button.dataset.period, financeErrorEl);
+    // Contestado el cada cuándo, el cuánto (si aún no hay sueldo)
+    if (financeState.summary && financeState.summary.period_asked && !financeSalaryFixed()) openFinanceSalary();
 });
 document.getElementById('financePeriodToggle').addEventListener('click', (event) => {
     const button = event.target.closest('[data-period]');
@@ -791,12 +801,209 @@ document.getElementById('financePeriodToggle').addEventListener('click', (event)
 document.getElementById('settingsFinanceItem').addEventListener('click', async () => {
     document.getElementById('financePeriodError').classList.add('hidden');
     try {
-        const settings = await apiFetch('/api/finance/settings');
+        const [settings, recurring, accounts, categories] = await Promise.all([
+            apiFetch('/api/finance/settings'),
+            apiFetch('/api/finance/recurring'),
+            apiFetch('/api/finance/accounts'),
+            apiFetch('/api/finance/categories'),
+        ]);
         syncFinancePeriodToggle(settings.period);
+        Object.assign(financeState, {
+            recurring: recurring.recurring, accounts: accounts.accounts, categories: categories.categories,
+        });
+        renderFinanceSalarySetting();
     } catch (error) {
         showError(document.getElementById('financePeriodError'), error.message);
     }
 });
+
+function renderFinanceSalarySetting() {
+    const salary = financeSalaryFixed();
+    document.getElementById('financeSalarySetting').textContent = salary ? financeFixedText(salary) : 'Sin agregar';
+    document.getElementById('financeSalarySettingAdd').hidden = Boolean(salary);
+}
+
+document.getElementById('financeSalarySettingAdd').addEventListener('click', async () => {
+    hideHabitsSetup();
+    goToView('finance');
+    if (!financeState.summary) await loadFinance();
+    openFinanceSalary();
+});
+
+// ============================================
+// El sueldo: "¿Cuánto cobras?", guardado como el fijo "Sueldo"
+// ============================================
+
+// El fijo que hace de sueldo: el ingreso de la categoría Sueldo, o cualquier ingreso fijo
+function financeSalaryFixed() {
+    const income = financeState.recurring.filter(rc => rc.kind === 'income');
+    const category = financeState.categories.find(c => c.kind === 'income' && c.name === 'Sueldo');
+    return income.find(rc => category && rc.category_id === category.id) || income[0] || null;
+}
+
+function financeLastDay(date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+// El día de pago de una fecha: el último del mes cuenta como 31 (así se repite cada fin de mes)
+function financePayDay(iso) {
+    const d = financeDate(iso);
+    return d.getDate() === financeLastDay(d) ? 31 : d.getDate();
+}
+
+// El otro pago de la quincena, para proponerlo: quince días antes o después
+function financeOtherPayDay(day) {
+    if (day === 31) return 15;
+    if (day === 15) return 31;
+    return day < 15 ? day + 15 : day - 15;
+}
+
+function financeDayText(day) {
+    return day >= 31 ? 'el último día' : `el ${day}`;
+}
+
+// La fecha que se propone: el siguiente 15 o fin de mes (quincena), o el fin de mes
+function financeNextPayDate(biweekly) {
+    const today = financeDate(financeToday());
+    const day = biweekly && today.getDate() <= 15 ? 15 : financeLastDay(today);
+    return getDateKey(new Date(today.getFullYear(), today.getMonth(), day));
+}
+
+function financeSalaryBiweekly() {
+    return Boolean(financeState.summary && financeState.summary.period === 'biweekly');
+}
+
+function renderFinanceSalaryDays() {
+    const date = document.getElementById('financeSalaryDate').value;
+    const text = document.getElementById('financeSalaryDays');
+    const shorter = day => (day > 28 && day < 31 ? ' (o el último, si el mes es más corto)' : '');
+    if (!date) {
+        text.textContent = '';
+        return;
+    }
+    const day = financePayDay(date);
+    if (!financeSalaryBiweekly()) {
+        text.textContent = `Te pagan ${financeDayText(day)} de cada mes${shorter(day)}.`;
+        return;
+    }
+    const other = Number(document.getElementById('financeSalarySecond').value);
+    if (!other) {
+        text.textContent = '';
+        return;
+    }
+    const [first, second] = [day, other].sort((a, b) => a - b);
+    text.textContent = first === second ? 'Los dos pagos tienen que ser en días distintos.'
+        : `Te pagan ${financeDayText(first)} y ${financeDayText(second)} de cada mes${shorter(second)}.`;
+}
+
+function renderFinanceSalaryAccounts(selectedId) {
+    const select = document.getElementById('financeSalaryAccount');
+    const accounts = financeUsableAccounts(null);
+    // El sueldo casi nunca llega en efectivo: de entrada, la primera de débito
+    const preferred = selectedId || (accounts.find(a => a.kind === 'debit')
+        || accounts.find(a => a.is_default) || accounts[0] || {}).id;
+    financeOptions(select, accounts, preferred, financeAccountLabel);
+    const fresh = document.createElement('option');
+    fresh.value = 'new';
+    fresh.textContent = 'Nueva cuenta de débito…';
+    select.append(fresh);
+    if (!accounts.length) select.value = 'new';
+    document.getElementById('financeSalaryNewAccountField').hidden = select.value !== 'new';
+}
+
+function openFinanceSalary() {
+    const biweekly = financeSalaryBiweekly();
+    financeState.salaryStep = true;
+    document.getElementById('financeSalaryError').classList.add('hidden');
+    document.getElementById('financeSalaryTitle').textContent =
+        `¿Cuánto cobras ${biweekly ? 'cada quincena' : 'cada mes'}?`;
+    document.getElementById('financeSalaryForm').reset();
+    renderFinanceSalaryAccounts(null);
+    const date = financeNextPayDate(biweekly);
+    document.getElementById('financeSalaryDate').value = date;
+    document.getElementById('financeSalarySecondField').hidden = !biweekly;
+    document.getElementById('financeSalarySecond').value = String(financeOtherPayDay(financePayDay(date)));
+    renderFinanceSalaryDays();
+    renderFinance();
+    window.scrollTo({ top: 0 });
+    document.getElementById('financeSalaryAmount').focus();
+}
+
+function closeFinanceSalary() {
+    financeState.salaryStep = false;
+    renderFinance();
+}
+
+async function saveFinanceSalary(event) {
+    event.preventDefault();
+    const errorEl = document.getElementById('financeSalaryError');
+    errorEl.classList.add('hidden');
+    const biweekly = financeSalaryBiweekly();
+    const cents = parseMoneyCents(document.getElementById('financeSalaryAmount').value);
+    const date = document.getElementById('financeSalaryDate').value;
+    const accountSelect = document.getElementById('financeSalaryAccount');
+    const newName = document.getElementById('financeSalaryNewAccount').value.trim();
+    if (cents == null || cents <= 0) return showError(errorEl, 'Escribe cuánto cobras: un número mayor que cero.');
+    if (!date) return showError(errorEl, 'Elige en el calendario cuándo te pagan la próxima vez.');
+    const fields = { frequency: biweekly ? 'semimonthly' : 'monthly' };
+    if (biweekly) {
+        const day = financePayDay(date);
+        const other = Number(document.getElementById('financeSalarySecond').value);
+        if (!Number.isInteger(other) || other < 1 || other > 31) {
+            return showError(errorEl, 'Escribe el día del otro pago: del 1 al 31 (31 es el último día).');
+        }
+        if (other === day) return showError(errorEl, 'Los dos pagos tienen que ser en días distintos.');
+        Object.assign(fields, { first_day: Math.min(day, other), second_day: Math.max(day, other) });
+    }
+    if (accountSelect.value === 'new' && !newName) return showError(errorEl, 'Escribe el nombre de la cuenta.');
+    const category = financeState.categories.find(c => c.kind === 'income' && c.name === 'Sueldo')
+        || financeKindCategories('income')[0];
+    if (!category) return showError(errorEl, 'Crea una categoría de ingresos en Organizar › Categorías.');
+    const save = document.getElementById('financeSalarySave');
+    save.disabled = true;
+    try {
+        let accountId = Number(accountSelect.value);
+        if (accountSelect.value === 'new') {
+            const account = await apiFetch('/api/finance/accounts', {
+                method: 'POST', json: { name: newName, kind: 'debit', currency: financeDefaultCurrency() },
+            });
+            financeState.accounts.push(account);
+            // Si lo siguiente falla, reintentar no crea la cuenta otra vez
+            renderFinanceSalaryAccounts(account.id);
+            accountId = account.id;
+        }
+        await apiFetch('/api/finance/recurring', {
+            method: 'POST',
+            json: {
+                ...fields, kind: 'income', concept: 'Sueldo', amount_cents: Math.abs(cents),
+                account_id: accountId, category_id: category.id, start_date: date,
+            },
+        });
+        financeState.salaryStep = false;
+        await loadFinance();
+    } catch (error) {
+        showError(errorEl, error.message);
+    } finally {
+        save.disabled = false;
+    }
+}
+
+document.getElementById('financeSalaryForm').addEventListener('submit', saveFinanceSalary);
+document.getElementById('financeSalaryLater').addEventListener('click', closeFinanceSalary);
+document.getElementById('financeSalaryOpen').addEventListener('click', openFinanceSalary);
+document.getElementById('financeSalaryAccount').addEventListener('change', (event) => {
+    const fresh = event.target.value === 'new';
+    document.getElementById('financeSalaryNewAccountField').hidden = !fresh;
+    if (fresh) document.getElementById('financeSalaryNewAccount').focus();
+});
+document.getElementById('financeSalaryDate').addEventListener('change', (event) => {
+    if (event.target.value && financeSalaryBiweekly()) {
+        document.getElementById('financeSalarySecond').value =
+            String(financeOtherPayDay(financePayDay(event.target.value)));
+    }
+    renderFinanceSalaryDays();
+});
+document.getElementById('financeSalarySecond').addEventListener('input', renderFinanceSalaryDays);
 
 document.getElementById('financePrev').addEventListener('click', () => {
     if (financeState.summary) goToFinancePeriod(financeState.summary.prev_day);
@@ -1039,7 +1246,9 @@ document.getElementById('financeCategoryForm').addEventListener('submit', (event
 
 function financeFixedText(rc) {
     const account = financeAccount(rc.account_id);
-    const parts = [`${formatMoney(rc.amount_cents, rc.currency)} ${FINANCE_FREQUENCY_LABELS[rc.frequency]}`];
+    const days = rc.frequency === 'semimonthly' && rc.first_day
+        ? ` (${financeDayText(rc.first_day)} y ${financeDayText(rc.second_day)})` : '';
+    const parts = [`${formatMoney(rc.amount_cents, rc.currency)} ${FINANCE_FREQUENCY_LABELS[rc.frequency]}${days}`];
     if (account) parts.push(account.name);
     if (rc.paused) parts.push('en pausa');
     else if (rc.next_date) {
@@ -1107,7 +1316,20 @@ function resetFinanceFixedForm() {
     document.getElementById('financeFixedKind').hidden = false;
     document.getElementById('financeFixedAccount').value = '';
     document.getElementById('financeFixedCategory').value = '';
+    setFinanceFixedDays(15, 31);
     setFinanceFixedKind('expense');
+}
+
+// Los días de una quincenal: solo se ven con Quincena
+function setFinanceFixedDays(first, second) {
+    document.getElementById('financeFixedFirstDay').value = String(first);
+    document.getElementById('financeFixedSecondDay').value = String(second);
+    syncFinanceFixedDays();
+}
+
+function syncFinanceFixedDays() {
+    document.getElementById('financeFixedDaysField').hidden =
+        document.getElementById('financeFixedFrequency').value !== 'semimonthly';
 }
 
 function editFinanceFixed(rc) {
@@ -1116,6 +1338,7 @@ function editFinanceFixed(rc) {
     document.getElementById('financeFixedConcept').value = rc.concept;
     document.getElementById('financeFixedAmount').value = (rc.amount_cents / 100).toFixed(2);
     document.getElementById('financeFixedFrequency').value = rc.frequency;
+    setFinanceFixedDays(rc.first_day || 15, rc.second_day || 31);
     // Con cobros ya anotados, la fecha es la del siguiente
     document.getElementById('financeFixedStartLabel').textContent = rc.generated ? 'Siguiente cobro' : 'Primer cobro';
     document.getElementById('financeFixedStart').value = (rc.generated ? rc.next_date : rc.start_date) || rc.start_date;
@@ -1133,6 +1356,7 @@ document.querySelectorAll('#financeFixedKind [data-kind]').forEach(button => {
     button.addEventListener('click', () => setFinanceFixedKind(button.dataset.kind));
 });
 document.getElementById('financeFixedCancel').addEventListener('click', resetFinanceFixedForm);
+document.getElementById('financeFixedFrequency').addEventListener('change', syncFinanceFixedDays);
 
 document.getElementById('financeFixedForm').addEventListener('submit', (event) => {
     event.preventDefault();
@@ -1153,6 +1377,14 @@ document.getElementById('financeFixedForm').addEventListener('submit', (event) =
         account_id: Number(document.getElementById('financeFixedAccount').value),
         category_id: Number(document.getElementById('financeFixedCategory').value),
     };
+    if (fields.frequency === 'semimonthly') {
+        const days = ['financeFixedFirstDay', 'financeFixedSecondDay'].map(id => Number(document.getElementById(id).value));
+        if (days.some(d => !Number.isInteger(d) || d < 1 || d > 31)) {
+            showError(financeConfigError, 'Los días de pago van del 1 al 31 (31 es el último día).');
+            return;
+        }
+        [fields.first_day, fields.second_day] = days;
+    }
     const editing = financeState.editingFixed;
     financeConfigAction(async () => {
         if (editing) {
@@ -1201,7 +1433,7 @@ resetFinanceFixedForm();
 function resetFinance() {
     Object.assign(financeState, {
         day: null, summary: null, transactions: [], accounts: [], categories: [], recurring: [],
-        loaded: false, editing: null, pending: null, editingFixed: null,
+        loaded: false, editing: null, pending: null, editingFixed: null, salaryStep: false,
     });
     financeConceptCategory.clear();
     financeSummaryEl.replaceChildren();

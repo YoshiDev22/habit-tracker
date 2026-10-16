@@ -6696,6 +6696,39 @@ button.day-log-date:focus-visible {
     flex: 1 1 140px;
 }
 
+#financeSalary .finance-ask-actions {
+    align-items: center;
+}
+
+.finance-salary-hint {
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.finance-salary-hint[hidden] {
+    display: none;
+}
+
+.finance-salary-setting {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.finance-days-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.finance-days-inputs input {
+    width: 4.5em;
+    min-width: 0;
+}
+
 .finance-toolbar {
     display: flex;
     flex-wrap: wrap;

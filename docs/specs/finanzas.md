@@ -192,8 +192,12 @@ finanzas compartidas con otra persona (dependería de la épica 21).
   Suscripciones, Salud, Personal, Ocio y Otros. Ingreso: Sueldo y Otros ingresos.
 - **Sin saldo por cuenta**: el resumen dice lo que entró y salió de cada cuenta en el
   periodo, no cuánto hay.
-- **Fijos quincenales** (`semimonthly`: el 15 y el último día), para el sueldo. Solo en
-  Finanzas: Costos sigue con mensual y anual.
+- **Fijos quincenales** (`semimonthly`: el 15 y el último día, u otros dos días que elige el
+  usuario), para el sueldo. Solo en Finanzas: Costos sigue con mensual y anual.
+- **El sueldo se pregunta después del periodo** (decidido el 2026-10-15, probando con una cuenta
+  nueva): "¿Cuánto cobras?" con el monto, la cuenta y el próximo pago en el calendario; se
+  guarda como un fijo de ingreso, que es como se suele resolver el ingreso que se repite. Se
+  puede dejar para después.
 - **La regla de la serie se extrajo** a `backend/series.py` (solo las fechas, sin base de
   datos); la generación de cobros se copió y adaptó, porque la de Costos va pegada a los
   repartos entre proyectos.

@@ -503,13 +503,20 @@ Lo que no se ve en Swagger:
   contestado y se mide por mes): `month` o `biweekly` (1–15 y 16–fin); las fechas las calcula
   `period_bounds()` en `backend/series.py` y `GET /summary?day=` las devuelve con un día del
   periodo anterior y del siguiente. Los **fijos** (`fin_recurring`) usan la misma serie que los
-  recurrentes de Costos (`series.py`), más la quincenal (`semimonthly`, el 15 y el último día,
-  solo aquí), y `generate_due()` los anota con `source = recurring`. Las columnas de las fases
+  recurrentes de Costos (`series.py`), más la quincenal (`semimonthly`, solo aquí: el 15 y el
+  último día, u otros dos con `first_day`/`second_day`, donde 31 = el último; el 15 y el 31 se
+  guardan como NULL), y `generate_due()` los anota con `source = recurring`. Cambiar la
+  frecuencia o los días de un fijo con cobros anotados vuelve a anclar la serie (como la fecha):
+  lo anotado nunca se mueve, y quitarlo deja sus movimientos sin el 🔁. Las columnas de las fases
   3 y 4 (`external_id`, `linked_id`, `needs_review`) ya existen para no migrar después. El panel
   de administración solo cuenta movimientos (`COUNTED`), nunca montos ni conceptos.
 - **Pestaña Finanzas** (`finance.js`): la vista `'finance'`, entre Costos y Reportes, oculta
   hasta que `applyFinanceModule()` la muestra; también la página *Configuración › Finanzas*
-  (el periodo). Pegar filas en *Movimientos* (o un CSV) abre la vista previa
+  (el periodo y el sueldo). Tras "¿Cada cuándo cobras?" viene "¿Cuánto cobras?"
+  (`openFinanceSalary()`): monto, cuenta (o una de débito nueva), el próximo pago en el
+  calendario y, por quincena, el otro día; se guarda como el fijo de ingreso "Sueldo" (sin
+  tabla propia). *Dejar para después* no guarda nada: mientras no haya un ingreso fijo
+  (`financeSalaryFixed()`), una línea discreta lo ofrece. Pegar filas en *Movimientos* (o un CSV) abre la vista previa
   (`rowsToFinance()`, con columnas Cargo/Abono o un solo Monto con signo): lo que ya existe en
   esa cuenta (mismo día, monto y tipo, contando repeticiones) sale tachado y no entra salvo que
   se pida, y un abono a una tarjeta de crédito se salta (es el pago: va como transferencia).

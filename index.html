@@ -352,6 +352,38 @@
                         </div>
                     </section>
 
+                    <!-- Después del periodo: cuánto cobra. Se guarda como el fijo "Sueldo" -->
+                    <section class="report-card finance-ask" id="financeSalary" hidden>
+                        <h3 class="report-card-title" id="financeSalaryTitle">¿Cuánto cobras?</h3>
+                        <p class="costs-hint">Se anota solo en cada día de pago, como un fijo. Lo cambias en
+                            Organizar › Fijos.</p>
+                        <form id="financeSalaryForm" class="recurring-form" novalidate>
+                            <label class="recurring-field">Monto
+                                <input type="text" id="financeSalaryAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                            </label>
+                            <label class="recurring-field">Te llega a
+                                <select id="financeSalaryAccount"></select>
+                            </label>
+                            <label class="recurring-field wide" id="financeSalaryNewAccountField" hidden>Nombre de la cuenta de débito
+                                <input type="text" id="financeSalaryNewAccount" maxlength="40" placeholder="Nómina, banco…">
+                            </label>
+                            <label class="recurring-field">Próximo pago
+                                <input type="date" id="financeSalaryDate">
+                            </label>
+                            <label class="recurring-field" id="financeSalarySecondField">El otro pago, el día
+                                <input type="number" id="financeSalarySecond" min="1" max="31" inputmode="numeric">
+                            </label>
+                            <p class="costs-hint wide" id="financeSalaryDays"></p>
+                            <div class="finance-ask-actions wide">
+                                <button type="submit" class="submit-btn" id="financeSalarySave">Guardar</button>
+                                <button type="button" class="link-btn" id="financeSalaryLater">Dejar para después</button>
+                            </div>
+                            <div id="financeSalaryError" class="form-error hidden wide"></div>
+                        </form>
+                    </section>
+                    <p class="finance-salary-hint" id="financeSalaryHint" hidden>¿Cuánto cobras?
+                        <button type="button" class="link-btn" id="financeSalaryOpen">Agregar tu sueldo</button></p>
+
                     <div class="finance-toolbar">
                         <div class="finance-period">
                             <button type="button" class="finance-nav" id="financePrev" aria-label="Periodo anterior">‹</button>
@@ -944,6 +976,11 @@
                         </div>
                         <p class="module-hint">La quincena va del 1 al 15 y del 16 al último día del mes. Cambiarlo
                             no mueve ningún movimiento: solo cómo se agrupan.</p>
+                        <div class="device-setting-row">
+                            <span>Tu sueldo</span>
+                            <span class="finance-salary-setting" id="financeSalarySetting"></span>
+                            <button type="button" class="link-btn" id="financeSalarySettingAdd" hidden>Agregar</button>
+                        </div>
                         <div id="financePeriodError" class="form-error hidden"></div>
                     </div>
                 </section>
@@ -1333,9 +1370,17 @@
                     <label class="recurring-field">Cada
                         <select id="financeFixedFrequency">
                             <option value="monthly">Mes</option>
-                            <option value="semimonthly">Quincena (el 15 y el último día)</option>
+                            <option value="semimonthly">Quincena</option>
                             <option value="yearly">Año</option>
                         </select>
+                    </label>
+                    <label class="recurring-field" id="financeFixedDaysField" hidden>Los días
+                        <span class="finance-days-inputs">
+                            <input type="number" id="financeFixedFirstDay" min="1" max="31" inputmode="numeric" aria-label="Primer día de pago">
+                            <span>y</span>
+                            <input type="number" id="financeFixedSecondDay" min="1" max="31" inputmode="numeric" aria-label="Segundo día de pago">
+                        </span>
+                        <small>31 = el último día del mes</small>
                     </label>
                     <label class="recurring-field">Cuenta
                         <select id="financeFixedAccount"></select>

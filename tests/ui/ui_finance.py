@@ -1,4 +1,4 @@
-"""Finanzas (épica 37, fase 1): el módulo, "¿Cada cuándo cobras?", la alta rápida,
+"""Finanzas (épica 37, fase 1): el módulo, "¿Cada cuándo cobras?" y cuánto, la alta rápida,
 una transferencia que no es gasto, pegar un estado de cuenta con repetidos,
 un fijo desde Organizar y Configuración › Finanzas."""
 import asyncio
@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import api
@@ -100,6 +100,46 @@ async def main():
         check(label.startswith(f"{start.day}–{end.day} "), f"the period is the biweekly one ({label})")
         check(await b.js("document.getElementById('financeNext').disabled"), "no going into the future")
 
+        # Luego, cuánto: se puede dejar para después y volver desde una línea discreta
+        await b.wait_for("!document.getElementById('financeSalary').hidden")
+        st = await b.js("""({title: document.getElementById('financeSalaryTitle').textContent,
+            focus: document.activeElement.id, date: document.getElementById('financeSalaryDate').value,
+            second: document.getElementById('financeSalarySecond').value,
+            options: [...document.querySelectorAll('#financeSalaryAccount option')].map(o => o.textContent)})""")
+        check(st["title"] == "¿Cuánto cobras cada quincena?" and st["focus"] == "financeSalaryAmount",
+              f"choosing the fortnight asks how much ({st['title']}, {st['focus']})")
+        check(st["date"] >= TODAY and st["second"] in ("15", "31"), f"it proposes the next payday ({st})")
+        check(st["options"][-1] == "Nueva cuenta de débito…", f"a new debit account is one option ({st['options']})")
+        await b.shot("finance_salary", full=False)
+        await b.js("document.getElementById('financeSalaryLater').click()")
+        await b.wait_for("document.getElementById('financeSalary').hidden")
+        check(not await b.js("document.getElementById('financeSalaryHint').hidden"), "later leaves a quiet way back")
+        await b.js("document.getElementById('financeSalaryOpen').click()")
+        await b.wait_for("!document.getElementById('financeSalary').hidden")
+        # Le pagan el 14 y el 29, en una cuenta nueva
+        today = date.today()
+        payday = (today.replace(day=1) + timedelta(days=32)).replace(day=14)
+        await set_value("#financeSalaryAmount", "15000")
+        await set_value("#financeSalaryDate", payday.isoformat())
+        check(await b.js("document.getElementById('financeSalarySecond').value") == "29",
+              "the other payday follows the calendar (14 → 29)")
+        days = await b.js("document.getElementById('financeSalaryDays').textContent")
+        check("el 14 y el 29" in days, f"it says the two days ({days})")
+        await b.js("""(() => { const s = document.getElementById('financeSalaryAccount');
+            s.value = 'new'; s.dispatchEvent(new Event('change', {bubbles: true})); })()""")
+        await set_value("#financeSalaryNewAccount", "Nómina")
+        await b.js("document.getElementById('financeSalarySave').click()")
+        await b.wait_for("document.getElementById('financeSalary').hidden")
+        salary = api.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"]
+        nomina = [a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"] if a["name"] == "Nómina"]
+        check(len(salary) == 1 and salary[0]["concept"] == "Sueldo" and salary[0]["kind"] == "income"
+              and salary[0]["frequency"] == "semimonthly" and (salary[0]["first_day"], salary[0]["second_day"]) == (14, 29)
+              and salary[0]["amount_cents"] == 1500000 and salary[0]["next_date"] == payday.isoformat(),
+              f"the salary is saved as a fixed income ({salary})")
+        check(len(nomina) == 1 and nomina[0]["kind"] == "debit" and salary[0]["account_id"] == nomina[0]["id"],
+              f"into the new debit account ({nomina})")
+        check(await b.js("document.getElementById('financeSalaryHint').hidden"), "with a salary, the quiet line goes away")
+
         # Alta rápida: un gasto en efectivo, con su categoría
         await b.js("document.getElementById('financeAddBtn').click()")
         await b.wait_for("!document.getElementById('financeTxModal').classList.contains('hidden')")
@@ -115,7 +155,7 @@ async def main():
         # Una tarjeta, y su pago: es transferencia, no gasto
         api.call("POST", "/api/finance/accounts", {"name": "Tarjeta", "kind": "credit", "last4": "1234"}, expect=201)
         await b.js("loadFinance()")   # la creó la API: la pantalla la conoce al recargar
-        await b.wait_for("financeState.accounts.length === 2")
+        await b.wait_for("financeState.accounts.length === 3")
         await b.js("document.getElementById('financeAddBtn').click()")
         await b.wait_for("!document.getElementById('financeTxModal').classList.contains('hidden')")
         await b.js("document.querySelector('#financeTxKind [data-kind=\"transfer\"]').click()")
@@ -200,13 +240,14 @@ async def main():
         await set_value("#financeFixedAmount", "8000")
         await select_by_text("#financeFixedCategory", "Casa y servicios")
         await b.js("document.getElementById('financeFixedSave').click()")
-        await b.wait_for("document.querySelectorAll('#financeFixedList .recurring-item').length === 1")
-        fixed = await b.js("document.querySelector('#financeFixedList .recurring-item').textContent")
-        check("Renta" in fixed and "cada mes" in fixed, f"the fixed charge is listed ({fixed})")
+        await b.wait_for("document.querySelectorAll('#financeFixedList .recurring-item').length === 2")
+        fixed = await b.js("[...document.querySelectorAll('#financeFixedList .recurring-item')].map(i => i.textContent)")
+        check("Renta" in fixed[0] and "cada mes" in fixed[0], f"the fixed charge is listed ({fixed[0]})")
+        check("Sueldo" in fixed[1] and "(el 14 y el 29)" in fixed[1], f"the salary is a fixed too ({fixed[1]})")
         # Cuentas: la tarjeta con sus últimos 4
         await b.js("document.getElementById('financeConfigBack').click()")
         await b.js("document.querySelector('#financeConfigMenu [data-open=\"accounts\"]').click()")
-        await b.wait_for("document.querySelectorAll('#financeAccountList .config-row').length === 2")
+        await b.wait_for("document.querySelectorAll('#financeAccountList .config-row').length === 3")
         accounts = await b.js("[...document.querySelectorAll('#financeAccountList .config-row')].map(r => r.textContent)")
         check(any("•1234" in a for a in accounts), f"the card shows only its last 4 digits ({accounts})")
         await asyncio.sleep(0.4)   # la página entra deslizándose: medir cuando ya llegó
@@ -228,6 +269,9 @@ async def main():
         # Configuración › Finanzas: cambiar a mes
         await b.js("openSettings('finance')")
         await b.wait_for("document.querySelector('#financePeriodToggle [data-period=\"biweekly\"]').getAttribute('aria-pressed') === 'true'")
+        st = await b.js("""({text: document.getElementById('financeSalarySetting').textContent,
+            add: document.getElementById('financeSalarySettingAdd').hidden})""")
+        check("cada quincena (el 14 y el 29)" in st["text"] and st["add"], f"Configuración shows the salary ({st})")
         await b.js("document.querySelector('#financePeriodToggle [data-period=\"month\"]').click()")
         await wait_api("/api/finance/settings", lambda body: body["period"] == "month")
         await b.js("document.getElementById('settingsClose').click()")
