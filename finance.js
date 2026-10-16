@@ -81,6 +81,11 @@ function financeDefaultCurrency() {
 
 function applyFinanceModule() {
     const on = moduleEnabled('finance');
+    // La casilla de Configuración › Módulos solo para las cuentas con acceso.
+    // currentUser solo cambia al entrar y al tocar un módulo: los dos hooks
+    // que llaman aquí, así que script.js no necesita saber de Finanzas.
+    const state = currentUser && currentUser.modules && currentUser.modules.finance;
+    document.getElementById('moduleFinanceOption').hidden = !(state && state.allowed);
     // Antes de mostrarla: setViewVisible() pasa por goToView(), que recuerda la
     // pestaña actual y taparía que se recargó estando en Finanzas
     const wasOnFinance = readLastView() === 'finance';
@@ -1203,6 +1208,7 @@ function resetFinance() {
     financeListEl.replaceChildren();
     [financeTxModal, financeImportModal, financeConfigModal].forEach(hideModal);
     setViewVisible('finance', false);
+    document.getElementById('moduleFinanceOption').hidden = true;
     document.getElementById('settingsFinanceItem').hidden = true;
     document.getElementById('settingsFinancePage').hidden = true;
 }

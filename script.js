@@ -420,8 +420,6 @@ function syncModuleSettings() {
     // Un módulo sin acceso para esta cuenta no se ofrece
     const maker = currentUser.modules && currentUser.modules.maker;
     document.getElementById('moduleMakerOption').hidden = !(maker && maker.allowed);
-    const finance = currentUser.modules && currentUser.modules.finance;
-    document.getElementById('moduleFinanceOption').hidden = !(finance && finance.allowed);
     const ai = currentUser.modules && currentUser.modules.ai;
     document.getElementById('moduleAiOption').hidden = !(ai && ai.allowed);
     document.getElementById('aiPreview').hidden = !(ai && ai.allowed);
