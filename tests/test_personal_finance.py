@@ -309,3 +309,52 @@ def test_seeding_twice_at_once_does_not_fail(api, monkeypatch):
     with Session(engine) as session:
         assert len(session.exec(select(FinAccount).where(FinAccount.user_id == uid)).all()) == 1
         assert len(session.exec(select(FinCategory).where(FinCategory.user_id == uid)).all()) == len(DEFAULT_CATEGORIES)
+
+
+def test_download_my_data_and_deleting_the_account_cover_finances(api):
+    """Descargar mis datos y Borrar mi cuenta recorren cada tabla con user_id: las
+    de Finanzas salen en el JSON con sus filas y se van con la cuenta."""
+    from test_accounts import PASSWORD, rows_of
+    cash, debit, credit, cats = setup(api, "exporta@test.com")
+    api.call("PUT", "/api/finance/settings", {"period": "biweekly"}, expect=200)
+    api.call("POST", "/api/finance/transactions", tx(credit, 49900, "Audífonos", cats["Personal"]), expect=201)
+    api.call("POST", "/api/finance/recurring", {"account_id": debit["id"], "category_id": cats["Casa y servicios"]["id"],
+                                                "concept": "Renta", "amount_cents": 800000,
+                                                "start_date": TODAY.isoformat()}, expect=201)
+    uid = user_id("exporta@test.com")
+
+    _, data = api.call("GET", "/api/auth/me/export", expect=200)
+    tables = data["tables"]
+    for name in ("fin_accounts", "fin_categories", "fin_transactions", "fin_recurring", "fin_settings"):
+        assert tables[name], name
+    assert {name: len(rows) for name, rows in tables.items()} == rows_of(uid)
+    bought = next(r for r in tables["fin_transactions"] if r["concept"] == "Audífonos")
+    assert bought["amount_cents"] == 49900 and bought["account_id"] == credit["id"]
+    assert tables["fin_settings"][0]["period"] == "biweekly"
+
+    api.call("POST", "/api/auth/me/delete", {"password": PASSWORD, "mode": "now", "confirm": "BORRAR"}, expect=204)
+    assert sum(rows_of(uid).values()) == 0
+
+
+def test_the_timer_charges_fixed_and_logs_no_email(api, capsys):
+    """El timer diario anota los fijos que llegaron. Su salida va al registro del
+    servidor: el número de la cuenta, nunca su correo."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import generate_reports
+
+    cash, debit, credit, cats = setup(api, "timer-fin@test.com")
+    due = TODAY + timedelta(days=5)
+    api.call("POST", "/api/finance/recurring", {"account_id": debit["id"], "category_id": cats["Suscripciones"]["id"],
+                                                "concept": "Streaming", "amount_cents": 19900,
+                                                "start_date": due.isoformat()}, expect=201)
+    uid = user_id("timer-fin@test.com")
+    assert generate_reports.main(["--email", "timer-fin@test.com", "--today", due.isoformat()]) == 0
+    out = capsys.readouterr().out
+    assert f"fixed charge for account {uid} on {due.isoformat()}" in out and "@" not in out
+    # Con el módulo apagado, el timer no anota nada
+    api.call("PUT", "/api/auth/me/modules/finance", {"enabled": False}, expect=200)
+    later = TODAY + timedelta(days=40)
+    assert generate_reports.main(["--email", "timer-fin@test.com", "--today", later.isoformat()]) == 0
+    assert "fixed charge" not in capsys.readouterr().out
