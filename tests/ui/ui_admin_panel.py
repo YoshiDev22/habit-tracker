@@ -116,7 +116,7 @@ async def main():
             svgs: document.querySelectorAll('#summaryCards .chart svg').length,
             bars: [...document.querySelectorAll('#summaryCards .bar-list li')].map(li => li.textContent)})""",
                                  lambda v: v and v["svgs"] >= 1)
-        check(cards["cards"] == 5 and len(cards["bars"]) == 8 and "Últimas 24 h" in cards["bars"][0],
+        check(cards["cards"] == 5 and len(cards["bars"]) == 9 and "Últimas 24 h" in cards["bars"][0],
               f"the summary draws its five cards ({cards})")
         # Las cuentas de la base de prueba son de antes de la 1.27: sin fecha, esa gráfica sale vacía
         empty = await b.js("document.querySelector('#summaryCards .card .empty').textContent")
