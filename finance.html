@@ -140,6 +140,9 @@
             </div>
             <input type="text" class="fin-entry-notes" id="finEntryNotes" maxlength="200" placeholder="Notas…" autocomplete="off">
             <div class="fin-entry-flags" id="finEntryFlags"></div>
+            <div class="fin-entry-tools">
+                <button type="button" class="fin-chip" id="finSplitBtn"><span data-icon="split"></span>Dividir en categorías</button>
+            </div>
             <div id="finEntryError" class="form-error hidden"></div>
             <div class="fin-keypad" id="finKeypad"></div>
             <div class="fin-entry-foot">
@@ -183,8 +186,38 @@
                     </select>
                     <small id="finRepeatHint"></small>
                 </label>
+                <label class="fin-date-tile wide" id="finMsiTile" hidden><span class="fin-tile-icon" data-icon="credit-card"></span>
+                    <span>Meses sin intereses</span>
+                    <select id="finMsiSelect">
+                        <option value="">No</option>
+                        <option value="3">3 meses</option>
+                        <option value="6">6 meses</option>
+                        <option value="9">9 meses</option>
+                        <option value="12">12 meses</option>
+                        <option value="18">18 meses</option>
+                        <option value="24">24 meses</option>
+                    </select>
+                    <small id="finMsiHint"></small>
+                </label>
             </div>
             <button type="button" class="submit-btn fin-sheet-done" id="finDateDone">Listo</button>
+        </div>
+    </div>
+
+    <!-- Dividir un cargo en varias categorías: las partes suman el monto -->
+    <div class="fin-sheet hidden" id="finSplitSheet" role="dialog" aria-modal="true" aria-labelledby="finSplitTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finSplitTitle">Dividir en categorías</h2>
+            <p class="fin-hint" id="finSplitTotal"></p>
+            <div class="fin-split-rows" id="finSplitRows"></div>
+            <button type="button" class="link-btn" id="finSplitAdd">＋ Otra parte</button>
+            <p class="fin-split-left" id="finSplitLeft"></p>
+            <div id="finSplitError" class="form-error hidden"></div>
+            <div class="fin-form-actions">
+                <button type="button" class="link-btn" id="finSplitClear">No dividir</button>
+                <button type="button" class="submit-btn" id="finSplitDone">Listo</button>
+            </div>
         </div>
     </div>
 

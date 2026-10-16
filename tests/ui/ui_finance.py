@@ -171,6 +171,75 @@ async def main():
         card = accounts()["Tarjeta"]
         check(card["balance_cents"] == -30000, f"paying the card lowers its debt, not an expense ({card['balance_cents']})")
 
+        # La tarjeta dice cuánto pagar para no generar intereses, y se paga desde ahí
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        statement = api.call("GET", f"/api/finance/accounts/{card['id']}/statement", expect=200)[1]
+        shown = await b.wait_for("(document.querySelector('.fin-statement-pay strong') || {}).textContent",
+                                 lambda v: v and ("$" in v or v == "Pagado"))
+        check(statement["remaining_cents"] == 30000 and "300.00" in (shown or ""),
+              f"the card says what to pay before its due date ({shown}, {statement['remaining_cents']})")
+        await b.shot("finance_statement", full=False)
+        await b.js("document.querySelector('[data-pay-card]').click()")
+        await b.wait_for("!document.getElementById('finEntry').classList.contains('hidden')")
+        st = await b.js("""({kind: document.getElementById('finEntryKind').textContent,
+            expr: document.getElementById('finEntryExpr').textContent,
+            to: document.getElementById('finBandToName').textContent})""")
+        check(st["kind"] == "Transferencia" and "300" in st["expr"] and st["to"] == "Tarjeta",
+              f"Pagar opens a transfer to the card for what is left ({st})")
+        await keys(["ok"])
+        paid = await b.wait_for("(document.querySelector('.fin-statement-pay strong') || {}).textContent",
+                                lambda v: v == "Pagado")
+        check(paid == "Pagado", f"after paying, the card says it is paid ({paid})")
+
+        # Una compra a meses con la tarjeta
+        await b.js("document.querySelector('#finNav [data-tab=\"categories\"]').click()")
+        await open_category("Personal")
+        await b.js("document.getElementById('finBandFrom').click()")
+        await b.wait_for("!document.getElementById('finPicker').classList.contains('hidden')")
+        await b.js("[...document.querySelectorAll('#finPickerGrid [data-pick-account]')].find(x => x.textContent.includes('Tarjeta')).click()")
+        await keys(["1", "2", "0", "0"])
+        await b.js("document.querySelector('#finKeypad [data-key=\"date\"]').click()")
+        await b.wait_for("!document.getElementById('finDateSheet').classList.contains('hidden')")
+        check(not await b.js("document.getElementById('finMsiTile').hidden"), "a card purchase offers months without interest")
+        await set_value("#finMsiSelect", "12")
+        hint = await b.js("document.getElementById('finMsiHint').textContent")
+        check(hint.startswith("12 pagos de $100.00"), f"it says the monthly payment ({hint})")
+        await b.js("document.getElementById('finDateDone').click()")
+        await set_value("#finEntryNotes", "Laptop")
+        await keys(["ok"])
+        await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
+        plans = api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
+        check(len(plans) == 1 and plans[0]["months"] == 12 and plans[0]["concept"] == "Laptop"
+              and plans[0]["monthly_cents"] == 10000, f"the purchase is planned in 12 months ({plans})")
+
+        # Un cargo dividido en dos categorías
+        await open_category("Súper")
+        await keys(["1", "0", "0", "0"])
+        await b.js("document.getElementById('finSplitBtn').click()")
+        await b.wait_for("!document.getElementById('finSplitSheet').classList.contains('hidden')")
+        await b.js("""(() => {
+            const rows = document.querySelectorAll('#finSplitRows .fin-split-row');
+            const set = (node, value) => { node.value = value; node.dispatchEvent(new Event('input', {bubbles: true}));
+                node.dispatchEvent(new Event('change', {bubbles: true})); };
+            set(rows[0].querySelector('input'), '800');
+            const salud = [...rows[1].querySelector('select').options].find(o => o.textContent === 'Salud');
+            set(rows[1].querySelector('select'), salud.value);
+            set(rows[1].querySelector('input'), '200');
+        })()""")
+        left = await b.js("document.getElementById('finSplitLeft').textContent")
+        check(left == "Cuadra con el total.", f"the split adds up to the total ({left})")
+        await b.shot("finance_split", full=False)
+        await b.js("document.getElementById('finSplitDone').click()")
+        band = await b.wait_for("document.getElementById('finBandToName').textContent", lambda v: v == "2 categorías")
+        check(band == "2 categorías", f"the band says it is split ({band})")
+        await set_value("#finEntryNotes", "Costco")
+        await keys(["ok"])
+        await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
+        costco = [t for t in transactions() if t["concept"] == "Costco"]
+        check(len(costco) == 1 and costco[0]["category_id"] is None and [x["amount_cents"] for x in costco[0]["splits"]] == [80000, 20000],
+              f"one charge, two categories ({costco})")
+
         # Ayer, cada mes: se guarda como fijo y el cobro de ayer queda anotado
         await open_category("Suscripciones")
         await keys(["1", "9", "9"])

@@ -502,7 +502,19 @@ Lo que no se ve en Swagger:
   Costos. Una **cuenta** (`cash | debit | credit`, una moneda, solo `last4`, icono y color de lista cerrada) tiene
   **saldo**: el inicial (`opening_balance_cents`; negativo en crédito = lo que se debía) más sus
   movimientos hasta hoy, calculado (`account_balances()`), nunca guardado; una de crédito lleva además
-  límite (y su disponible), día de corte y de pago, que se vacían si deja de serlo. Hay movimientos de
+  límite (y su disponible), día de corte y de pago, que se vacían si deja de serlo.
+  `GET /accounts/{id}/statement` calcula su estado de cuenta (`card_statement()`): el último corte
+  (`cut_on_or_before()`, el día que el mes no tiene cae en el último), la fecha límite
+  (`due_after()`), y **para no generar intereses** = la deuda al corte − las mensualidades de MSI aún
+  sin facturar − lo abonado desde el corte (transferencias que llegan e ingresos a la tarjeta).
+  **MSI** (`fin_installments`, `/installments`): una compra a meses cuenta como gasto completa el día
+  que se hace (regla de la fase 1); el plan solo dice cuánto pide cada corte (`installment_parts()`,
+  los centavos que sobran a las primeras), desde el primer corte en o después de la compra. Una
+  compra, un plan (409); borrar la compra se lleva su plan. **Dividir un cargo** (`fin_splits`,
+  `splits` en el movimiento): al menos dos partes, cada una con una categoría de su tipo sin repetir,
+  que suman exacto el monto; el movimiento queda sin `category_id`, el resumen cuenta cada parte en su
+  categoría y una categoría con partes no se borra. Editar el monto sin mandar las partes, si ya las
+  tiene, es 422; `splits: null` las quita. Hay movimientos de
   tipo `expense | income | transfer`, con el monto siempre positivo. **La compra con crédito es
   el gasto y el pago de la tarjeta una transferencia**: el resumen (`summary()` en
   `backend/finance.py`) nunca cuenta una transferencia como gasto, y una transferencia solo va

@@ -262,7 +262,7 @@ conciencia financiera. Se tomó como referencia el uso general de aplicaciones d
 
 | Fase | Qué | Deja de hacer falta |
 |---|---|---|
-| **A + B** (juntas) | La página con su navegación y el diseño de arriba; saldos; **tarjetas de crédito**: día de corte y de pago, "paga esto antes del día X", MSI y **dividir un cargo en varias categorías** | La hoja de las tarjetas |
+| **A + B** (juntas; hechas en `feat/finanzas`, sin publicar) | La página con su navegación y el diseño de arriba; saldos; **tarjetas de crédito**: día de corte y de pago, "paga esto antes del día X", MSI y **dividir un cargo en varias categorías** | La hoja de las tarjetas |
 | **C** | **Presupuesto**: un límite por categoría en monto o en % del ingreso (uno calcula el otro), grupos opcionales con una referencia a elegir (abajo), Teórico contra Real, y el flujo mes a mes con fijos, pagos de tarjeta y MSI | La hoja del flujo y los porcentajes |
 | **D** | **Inversiones** (lo aportado, el valor que se actualiza a mano y la ganancia estimada) y **deudas grandes** (préstamos con su pago y lo que falta), las dos fuera del total | La hoja de inversiones |
 | **E** | **Que se llene solo**: correos o avisos de los bancos (las fases 3 y 4 de arriba) con reglas comercio → categoría; lo que llega queda por confirmar | Capturar |

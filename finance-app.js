@@ -420,7 +420,8 @@ function finTxRow(tx) {
     const to = tx.kind === 'transfer' ? finAccount(tx.to_account_id) : null;
     const where = [account ? account.name : '', to ? `→ ${to.name}` : ''].filter(Boolean).join(' ');
     const concept = tx.concept && tx.concept !== title ? tx.concept : '';
-    text.append(el('strong', '', title), el('small', '', [concept, where].filter(Boolean).join(' · ')));
+    const msi = tx.installment_id ? 'a meses' : '';
+    text.append(el('strong', '', title), el('small', '', [concept, where, msi].filter(Boolean).join(' · ')));
     const amount = el('span', 'fin-tx-amount', finTxAmountText(tx));
     if (tx.recurring_id) amount.prepend(financeIcon('repeat', 14));
     row.append(badge, text, amount);
@@ -627,7 +628,81 @@ function finRenderAccounts() {
     add.type = 'button';
     add.dataset.newAccount = sub === 'cards' ? 'credit' : 'debit';
     if (!rows.length) rows.push(el('p', 'fin-empty', sub === 'cards' ? 'Aún no tienes tarjetas de crédito.' : 'Sin cuentas.'));
-    body.replaceChildren(head, ...rows, add);
+    if (sub !== 'cards') {
+        body.replaceChildren(head, ...rows, add);
+        return;
+    }
+    // Cada tarjeta, con su estado de cuenta debajo (se pide al entrar)
+    const blocks = accounts.map((a, i) => {
+        const block = el('div', 'fin-card-block');
+        const statement = el('div', 'fin-statement');
+        statement.dataset.statementFor = String(a.id);
+        block.append(rows[i], statement);
+        return block;
+    });
+    body.replaceChildren(head, ...(blocks.length ? blocks : rows), add);
+    finLoadStatements(accounts);
+}
+
+async function finLoadStatements(cards) {
+    let plans = [];
+    try {
+        plans = (await apiFetch('/api/finance/installments')).installments;
+    } catch (error) { /* sin la lista de MSI: el estado de cuenta igual sale */ }
+    await Promise.all(cards.map(async (card) => {
+        const box = document.querySelector(`[data-statement-for="${card.id}"]`);
+        if (!box) return;
+        if (!card.statement_day || !card.due_day) {
+            const hint = el('button', 'link-btn fin-statement-setup', 'Pon el día de corte y de pago para saber cuánto pagar');
+            hint.type = 'button';
+            hint.dataset.editAccount = String(card.id);
+            box.replaceChildren(hint);
+            return;
+        }
+        try {
+            const st = await apiFetch(`/api/finance/accounts/${card.id}/statement`);
+            box.replaceChildren(...finStatementView(card, st, plans.filter(p => p.account_id === card.id)));
+        } catch (error) {
+            box.replaceChildren(el('p', 'fin-hint', error.message));
+        }
+    }));
+}
+
+function finStatementView(card, st, plans) {
+    const money = cents => formatMoney(cents, card.currency);
+    const lines = [];
+    const main = el('div', 'fin-statement-main');
+    const pay = el('div', 'fin-statement-pay');
+    pay.append(el('span', 'fin-stat-label', `Para no generar intereses, antes del ${finShortDate(st.due_date)}`),
+        el('strong', st.remaining_cents ? '' : 'paid', st.remaining_cents ? money(st.remaining_cents) : 'Pagado'));
+    main.appendChild(pay);
+    if (st.remaining_cents) {
+        const button = el('button', 'submit-btn fin-pay-btn', 'Pagar');
+        button.type = 'button';
+        button.dataset.payCard = String(card.id);
+        button.dataset.payAmount = String(st.remaining_cents);
+        main.appendChild(button);
+    }
+    lines.push(main);
+    const facts = [`Corte del ${finShortDate(st.last_cut)}: ${money(st.pay_no_interest_cents)}`];
+    if (st.paid_since_cut_cents) facts.push(`ya pagaste ${money(st.paid_since_cut_cents)}`);
+    if (st.cycle_charges_cents) facts.push(`desde el corte, ${money(st.cycle_charges_cents)} (van al del ${finShortDate(st.next_cut)})`);
+    lines.push(el('p', 'fin-statement-facts', facts.join(' · ')));
+    if (plans.length) {
+        const list = el('ul', 'fin-msi-list');
+        plans.forEach(p => {
+            const item = el('li', 'fin-msi');
+            const done = p.billed >= p.months;
+            const progress = p.billed ? `${p.billed} de ${p.months} facturadas`
+                : `la primera, en el corte del ${finShortDate(p.next_statement)}`;
+            item.append(el('span', '', p.concept),
+                el('small', '', done ? `Liquidada (${p.months} meses)`
+                    : `${progress} · ${money(p.monthly_cents)} al mes · faltan ${money(p.remaining_cents)}`));
+            list.appendChild(item);
+        });
+        lines.push(el('p', 'fin-stat-label', 'Meses sin intereses'), list);
+    }
+    return lines;
 }
 
 document.getElementById('finAccountTabs').addEventListener('click', (event) => {
@@ -637,6 +712,16 @@ document.getElementById('finAccountTabs').addEventListener('click', (event) => {
     finRenderAccounts();
 });
 document.getElementById('finAccountsBody').addEventListener('click', (event) => {
+    const pay = event.target.closest('[data-pay-card]');
+    if (pay) {
+        openFinEntry({ kind: 'transfer', toAccountId: Number(pay.dataset.payCard), amountCents: Number(pay.dataset.payAmount) });
+        return;
+    }
+    const setup = event.target.closest('[data-edit-account]');
+    if (setup) {
+        openFinAccount(finAccount(Number(setup.dataset.editAccount)));
+        return;
+    }
     const add = event.target.closest('[data-new-account]');
     if (add) {
         openFinAccount(null, add.dataset.newAccount);
