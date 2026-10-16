@@ -1,13 +1,13 @@
 # Spec: Reportes automáticos con IA opcional
 
-> Base: v1.19.0 · Planteado el 2026-10-03 a partir de un brief de Yoshio y dos reportes de
+> Base: v1.19.0 · Planteado el 2026-10-03 a partir de un brief de YoshiDev22 y dos reportes de
 > ejemplo (fuera del repo: traen datos personales) · Entrada 30 del [BACKLOG](../../BACKLOG.md).
 > Nada de esto está implementado: es el plan acordado antes de escribir código. El esquema
 > se revisa otra vez al empezar cada fase.
 
 ## La idea, en limpio
 
-Hoy los reportes semanal y mensual los arma Claude con tareas programadas: Yoshio sube a
+Hoy los reportes semanal y mensual los arma Claude con tareas programadas: YoshiDev22 sube a
 mano el CSV de tiempo y recibe un Word con métricas, gráficas, observaciones y un cierre.
 La meta es que **la app los genere sola**, cada viernes y cada día 1, y los guarde para
 compararlos con el periodo anterior.
@@ -19,7 +19,7 @@ compararlos con el periodo anterior.
 - **La IA es opcional**: sin ella, el texto sale de reglas y la app funciona completa.
 - **Cada usuario elige su proveedor** entre los que tenga configurados la instancia.
 
-**Para quién, por ahora.** Yoshio y quizá algunos conocidos. Lo que haría falta para
+**Para quién, por ahora.** YoshiDev22 y quizá algunos conocidos. Lo que haría falta para
 abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
 
 ## Decisiones (2026-10-03)
@@ -47,14 +47,14 @@ abrirlo a más gente queda escrito en *Pendiente*, no se construye ahora.
    costo de IA es cero.
 
    **Quién configura qué (decidido 2026-10-03).** Un **solo proveedor por instancia**, en
-   `backend/.env` (`AI_PROVIDER`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`); el de Yoshio, el
+   `backend/.env` (`AI_PROVIDER`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`); el de YoshiDev22, el
    de Cloudflare en su capa gratuita. `backend/.env.example` trae el bloque vacío con los
-   valores de cada proveedor comentados, para que quien descargue el repo (o Yoshio, si
+   valores de cada proveedor comentados, para que quien descargue el repo (o YoshiDev22, si
    escala) cambie de proveedor sin tocar código.
 
    **El uso de la IA es un módulo con acceso, como el plan maker.** Módulo `ai` en
    `backend/modules.py`, sin acceso por defecto; lo da `scripts/grant_module.py --module ai`
-   a las cuentas que Yoshio elija. Todo endpoint que llame al proveedor empieza con
+   a las cuentas que YoshiDev22 elija. Todo endpoint que llame al proveedor empieza con
    `require_module(..., "ai")`: sin acceso, 403, por cualquier enlace o llamada directa a
    la API. Con acceso, el usuario la enciende o apaga en *⚙️ Configuración › Módulos*.
 
@@ -167,7 +167,7 @@ proveedores van en `backend/.env`, nunca en el repo ni en la base.
 
 ## Transparencia y privacidad
 
-- Solo las cuentas a las que Yoshio da acceso (`grant_module.py --module ai`) pueden usar
+- Solo las cuentas a las que YoshiDev22 da acceso (`grant_module.py --module ai`) pueden usar
   la IA, y está apagada hasta que el usuario la enciende. El servidor lo comprueba en cada
   llamada (403), no solo la pantalla.
 - *⚙️ Configuración* muestra el JSON exacto que se enviaría. Incluye títulos de tareas y nombres de

@@ -31,7 +31,7 @@ def test_comments(seeded):
     tid = seeded["tasks"]["Revisión de idea para cambiar a kanban"]["id"]
     _, c1 = api.call("POST", f"/api/tasks/{tid}/comments", {"body": "Empecé el capítulo"}, expect=201)
     _, c2 = api.call("POST", f"/api/tasks/{tid}/comments", {"body": "Me atoré en decoradores"}, expect=201)
-    assert c1["author_name"] == "Yoshio"
+    assert c1["author_name"] == "Yoshi"
     age = datetime.now(timezone.utc).replace(tzinfo=None) - datetime.fromisoformat(c1["created_at"])
     assert abs(age.total_seconds()) < 60, "created_at is UTC now"
     _, r = api.call("PATCH", f"/api/tasks/{tid}/comments/{c1['id']}", {"body": "Empecé el capítulo 3"}, expect=200)

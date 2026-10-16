@@ -11,7 +11,7 @@ BASE = api.BASE
 
 def seed():
     login("yoshi@test.com")
-    call("PATCH", "/api/auth/me", {"display_name": "Yoshio"})
+    call("PATCH", "/api/auth/me", {"display_name": "Yoshi"})
     _, bl = call("GET", "/api/boards", expect=200)
     board = bl["boards"][0]
     col = {c["name"]: c["id"] for c in board["columns"]}

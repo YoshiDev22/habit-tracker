@@ -30,7 +30,7 @@ def test_the_export_has_everything_a_deletion_would_remove(seeded):
 
     # La cuenta, sin lo que solo sirve para la sesión
     account = data["account"]
-    assert account["email"] == "yoshi@test.com" and account["display_name"] == "Yoshio"
+    assert account["email"] == "yoshi@test.com" and account["display_name"] == "Yoshi"
     assert "hashed_password" not in account and "token_version" not in account
     assert data["version"] and data["exported_at"]
 

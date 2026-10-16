@@ -1,5 +1,5 @@
 """El panel de administración en el navegador (1.27, Fase 1), arrancado con
-scripts/admin_dev.py como lo hace Yoshio en su máquina."""
+scripts/admin_dev.py como lo hace Yoshi en su máquina."""
 import asyncio
 import os
 import tempfile

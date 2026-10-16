@@ -12,8 +12,8 @@ def test_register_login_and_profile(api):
     _, me = api.call("GET", "/api/auth/me", expect=200)
     assert me["email"] == "nuevo@test.com"
     assert api.call("POST", "/api/auth/login", form={"username": "nuevo@test.com", "password": "mala"})[0] == 401
-    _, me = api.call("PATCH", "/api/auth/me", {"display_name": "  Yoshio  ", "first_name": ""}, expect=200)
-    assert me["display_name"] == "Yoshio" and me["first_name"] is None
+    _, me = api.call("PATCH", "/api/auth/me", {"display_name": "  Yoshi  ", "first_name": ""}, expect=200)
+    assert me["display_name"] == "Yoshi" and me["first_name"] is None
     assert api.call("PATCH", "/api/auth/me", {"rest_days": [7]})[0] == 422
 
 

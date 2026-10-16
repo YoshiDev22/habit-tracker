@@ -189,7 +189,7 @@ def seeded(api):
     _, ajena = other.call("POST", "/api/tasks", {"project_id": ajeno["id"], "title": "Tarea ajena"}, expect=201)
 
     api.login("yoshi@test.com")
-    api.call("PATCH", "/api/auth/me", {"display_name": "Yoshio"}, expect=200)
+    api.call("PATCH", "/api/auth/me", {"display_name": "Yoshi"}, expect=200)
     _, p = api.call("POST", "/api/projects", {"name": "Habit Tracker", "color": "#3498db"}, expect=201)
     _, arch = api.call("POST", "/api/projects", {"name": "Archivado"}, expect=201)
     api.call("PATCH", f"/api/projects/{arch['id']}", {"is_active": False}, expect=200)

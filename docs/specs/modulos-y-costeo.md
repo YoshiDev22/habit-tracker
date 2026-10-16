@@ -6,7 +6,7 @@
 
 ## La idea, en limpio
 
-En un trabajo anterior, Yoshio anotaba tareas y tiempos en un kanban. Además de organizar,
+En un trabajo anterior se anotaban tareas y tiempos en un kanban. Además de organizar,
 eso le servía a la administración para sacar **horas hombre** y, con el historial, cotizar:
 *"un proyecto así, con este tamaño y estas features, lleva unas X horas"*, más materiales
 y gastos. La app ya hace la primera mitad (tablero, tiempo por tarea, proyecto y etiqueta,
@@ -41,7 +41,7 @@ maker, empresa) sino una, donde cada persona activa lo que usa.
 - **Plan maker con acceso (decidido 2026-10-01).** Costeo se presenta como el **plan
   maker**: mismas funciones de base, más las de costeo. Es gratis, pero por ahora solo lo
   encienden las cuentas a las que se les da acceso (`scripts/grant_module.py`), empezando
-  por la de Yoshio. Los códigos de invitación vienen cuando se quiera dar a más gente.
+  por la de YoshiDev22. Los códigos de invitación vienen cuando se quiera dar a más gente.
   Quizá donaciones más adelante; cobrar solo tendría sentido si se añaden APIs de IA de
   pago, para cubrir ese costo. En la app se llama "Maker", no "Pro".
 - **Apagar un módulo no borra nada.** Oculta su pestaña y su UI; los datos siguen ahí y

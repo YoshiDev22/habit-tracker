@@ -54,7 +54,7 @@ async def main():
         print(json.dumps(st, ensure_ascii=False))
         check(st["open"] and st["title"] == KANBAN, "click opens the card detail")
         check(st["progress"] == "1/3" and st["items"] == 3, "checklist loaded (1/3)")
-        check(st["comment"] and "Yoshio" in st["comment"] and "Investigar GTD" in st["comment"], "comment shows author and text")
+        check(st["comment"] and "Yoshi" in st["comment"] and "Investigar GTD" in st["comment"], "comment shows author and text")
         check(st["columnGroups"] == ["Mi tablero", "Escuela"], "column select offers every board")
         check(st["project"] == "Habit Tracker" and st["tagsOn"] == ["documentación"], "project and tags preselected")
         await b.shot("card_desktop", full=False)

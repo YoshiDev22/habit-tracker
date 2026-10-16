@@ -182,7 +182,7 @@ class Feedback(SQLModel, table=True):
     """
     Un problema que reporta un usuario desde Mi perfil (1.27, épica 32): su
     texto y, si quiso, detalles técnicos (versión, pestaña, pantalla, navegador
-    y los últimos errores de la consola; nunca tokens). Lo lee Yoshio en el
+    y los últimos errores de la consola; nunca tokens). Lo lee YoshiDev22 en el
     panel de administración, que cambia `status` y deja `admin_note`. Se borra
     con la cuenta (purge_user). Tabla NUEVA: create_all(), sin migración.
     """
