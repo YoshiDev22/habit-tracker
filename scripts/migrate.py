@@ -82,6 +82,10 @@ MIGRATIONS = [
     # La nota para quien reportó un problema (1.27, Fase 2). feedback es de la 1.27: en
     # producción create_all() la crea completa; esto es para las bases que ya la tenían
     {"table": "feedback", "column": "user_note", "type": "VARCHAR", "new_table": True},
+    # Los dos días de pago de una quincenal (épica 37). fin_recurring nace con la épica:
+    # en producción create_all() la crea completa; esto es para las bases que ya la tenían
+    {"table": "fin_recurring", "column": "first_day", "type": "INTEGER", "new_table": True},
+    {"table": "fin_recurring", "column": "second_day", "type": "INTEGER", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado
