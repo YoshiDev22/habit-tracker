@@ -309,7 +309,7 @@ una fuente publicada no se atribuye a nadie: se guarda como plantilla propia.
 | 50/30/20 | Del ingreso neto: 50 % necesidades, 30 % gustos, 20 % ahorro y pago de deudas | Warren y Warren Tyagi, *All Your Worth* (Free Press). Las fuentes secundarias dan 2005 o 2006: verificar el año antes de citarlo en la app |
 | Vivienda ≤ 30 % | Pagar más del 30 % del ingreso en vivienda (renta más servicios) es "carga de costo"; más del 50 %, carga severa | Estándar federal de EE. UU.: la Enmienda Brooke de 1969 fijó 25 % y las leyes de 1981 y 1983 lo subieron a 30 %. CRS, *Housing Cost Burdens in 2023: In Brief* (R48450, 2025) |
 | Deudas ≤ 35 % | La capacidad de endeudamiento no debe pasar del 35 % del ingreso **neto** | CONDUSEF, Comunicado No. 33, 18 de marzo de 2022 |
-| Fondo de emergencia | De 3 a 6 meses de gastos esenciales; más con un solo ingreso o dependientes | Regla general de planeadores financieros (CFP Board, 2025); no es una norma oficial |
+| Fondo de emergencia | La meta usual es de 3 a 6 meses de gastos, pero no es una norma oficial, y una planeadora certificada advierte que para mucha gente no es realista: mejor empezar por una meta pequeña | Rodriguez (CNBC Select, reproducido por CFP Board, 19 de diciembre de 2025) |
 
 Las de vivienda y deudas son **límites que la app puede señalar** (por ejemplo, "Casa y
 servicios: 34 % de tu ingreso"), dichos como dato, no como regaño.
@@ -339,6 +339,8 @@ servicios: 34 % de tu ingreso"), dichos como dato, no como regaño.
 - CONDUSEF (2022). Comunicado No. 33, 18 de marzo de 2022: "la capacidad de endeudamiento de
   una persona no debe exceder el 35% de su percepción o ingresos netos".
   https://www.gob.mx/cms/uploads/attachment/file/710716/Comunicado-033-Cobranza_Delegada.pdf
-- CFP Board (2025). *A CFP's 3-step emergency fund plan*.
-  https://www.cfp.net/news/2025/12/a-cfps-3-step-emergency-fund-plan — De 3 a 6 meses de gastos
-  como regla general.
+- Rodriguez, A. (2025, 19 de diciembre). *Feeling Overwhelmed by Saving? A CFP's 3-Step
+  Emergency Fund Plan*. CNBC Select, reproducido por CFP Board.
+  https://www.cfp.net/news/2025/12/a-cfps-3-step-emergency-fund-plan — "saving three to six
+  months' worth of expenses isn't realistic for many people": la meta de 3 a 6 meses es la
+  usual, pero se propone empezar por una más pequeña.
