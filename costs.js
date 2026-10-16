@@ -745,75 +745,10 @@ const HEADER_ALIASES = {
 // Sin encabezado: el orden de las columnas de la hoja
 const DEFAULT_ORDER = ['cost_date', 'concept', 'category', 'quantity', 'unit_cost', 'note'];
 
-function normalize(text) {
-    return String(text).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-
-// Texto de una hoja o un CSV en filas de celdas. Respeta comillas ("a, b") y
-// saltos de línea dentro de ellas. El separador: tabulador (lo que copia
-// Excel/Sheets), si no punto y coma (Excel en español), si no coma.
-function parseTable(text) {
-    const clean = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
-    const firstLine = clean.split('\n')[0];
-    const sep = firstLine.includes('\t') ? '\t' : (firstLine.split(';').length > firstLine.split(',').length ? ';' : ',');
-    const rows = [];
-    let row = [];
-    let value = '';
-    let quoted = false;
-    for (let i = 0; i < clean.length; i++) {
-        const ch = clean[i];
-        if (quoted) {
-            if (ch === '"' && clean[i + 1] === '"') { value += '"'; i++; }
-            else if (ch === '"') quoted = false;
-            else value += ch;
-        } else if (ch === '"' && value === '') quoted = true;
-        else if (ch === sep) { row.push(value); value = ''; }
-        else if (ch === '\n') { row.push(value); rows.push(row); row = []; value = ''; }
-        else value += ch;
-    }
-    if (value !== '' || row.length) { row.push(value); rows.push(row); }
-    return rows.filter(r => r.some(c => c.trim() !== ''));
-}
-
-// "1,234.50", "1.234,50", "$ 350", "350,5" → centavos; null si no es número
-function parseMoneyCents(text) {
-    let s = String(text).replace(/[^\d.,-]/g, '');
-    if (!s) return null;
-    const lastComma = s.lastIndexOf(',');
-    const lastDot = s.lastIndexOf('.');
-    if (lastComma > -1 && lastDot > -1) {
-        // El que va al final es el decimal
-        s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
-    } else if (lastComma > -1) {
-        // Solo coma: decimal si le siguen 1 o 2 cifras al final ("350,5"); si no, de miles
-        s = /,\d{1,2}$/.test(s) ? s.replace(',', '.') : s.replace(/,/g, '');
-    }
-    const number = Number(s);
-    return Number.isFinite(number) ? Math.round(number * 100) : null;
-}
-
 function parseQuantity(text) {
     if (String(text).trim() === '') return 1;
     const cents = parseMoneyCents(text);
     return cents == null ? null : cents / 100;
-}
-
-// "2026-09-30", "30/09/2026", "30/9/26" → "AAAA-MM-DD" (día primero: México); vacío → hoy
-function parseDate(text) {
-    const s = String(text).trim();
-    if (!s) return getDateKey(new Date());
-    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-    m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
-    if (m) {
-        const year = m[3].length === 2 ? `20${m[3]}` : m[3];
-        const day = Number(m[1]);
-        const month = Number(m[2]);
-        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-            return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        }
-    }
-    return null;
 }
 
 // Filas de texto → gastos para la vista previa, con el problema de cada una

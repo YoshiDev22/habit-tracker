@@ -198,17 +198,6 @@ function estimatesCard(estimates, title) {
 // el detalle de tarjeta. Al guardar solo se repinta el resultado, no los
 // campos: repintarlos le quitaría el foco al siguiente.
 
-// Las de CURRENCIES en backend/schemas.py
-const CURRENCIES = ['MXN', 'USD', 'EUR', 'CAD', 'GBP', 'COP', 'ARS', 'CLP', 'PEN'];
-
-function formatMoney(cents, currency) {
-    try {
-        return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(cents / 100);
-    } catch (error) {
-        return `${(cents / 100).toFixed(2)} ${currency}`;
-    }
-}
-
 // "350.5" → 35050; vacío → null. Centavos enteros, como los guarda el backend.
 function centsFromInput(value) {
     const text = String(value).trim().replace(',', '.');

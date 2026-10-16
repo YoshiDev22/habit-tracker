@@ -232,13 +232,6 @@ function elapsedDays() {
     return daysBetween(from, to < today ? to : today);
 }
 
-function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined) node.textContent = text;
-    return node;
-}
-
 function reportCard(title, ...children) {
     const card = el('section', 'report-card');
     card.appendChild(el('h3', 'report-card-title', title));
