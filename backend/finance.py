@@ -23,19 +23,19 @@ from backend.models import FinAccount, FinCategory, FinRecurring, FinSettings, F
 from backend.schemas import (FinAccountTotal, FinCategoryTotal, FinCurrencyTotal, FinSummaryResponse)
 from backend.series import adjacent_period, next_date, period_bounds
 
-DEFAULT_ACCOUNTS = [("Efectivo", "cash")]
+DEFAULT_ACCOUNTS = [("Efectivo", "cash", "banknote", "#16a085")]
 DEFAULT_CATEGORIES = [
-    ("Súper", "#27ae60", "expense"),
-    ("Comer fuera", "#e67e22", "expense"),
-    ("Transporte", "#3498db", "expense"),
-    ("Casa y servicios", "#8d6e63", "expense"),
-    ("Suscripciones", "#9b59b6", "expense"),
-    ("Salud", "#e74c3c", "expense"),
-    ("Personal", "#e84393", "expense"),
-    ("Ocio", "#f1c40f", "expense"),
-    ("Otros", "#95a5a6", "expense"),
-    ("Sueldo", "#00b894", "income"),
-    ("Otros ingresos", "#1abc9c", "income"),
+    ("Súper", "#27ae60", "expense", "shopping-basket"),
+    ("Comer fuera", "#e67e22", "expense", "utensils"),
+    ("Transporte", "#3498db", "expense", "bus"),
+    ("Casa y servicios", "#8d6e63", "expense", "house"),
+    ("Suscripciones", "#9b59b6", "expense", "tv"),
+    ("Salud", "#e74c3c", "expense", "heart-pulse"),
+    ("Personal", "#e84393", "expense", "shirt"),
+    ("Ocio", "#f1c40f", "expense", "ticket"),
+    ("Otros", "#95a5a6", "expense", "ellipsis"),
+    ("Sueldo", "#00b894", "income", "briefcase"),
+    ("Otros ingresos", "#1abc9c", "income", "hand-coins"),
 ]
 # Cobros que se ponen al día de una vez (un fijo que empezó hace mucho)
 MAX_CATCH_UP = 36
@@ -48,11 +48,12 @@ def ensure_finance_setup(session: Session, user_id: int) -> None:
     juntas: la restricción única por nombre frena la segunda, y cada siembra va
     en su propio commit para que el choque de una no se lleve la otra."""
     if session.exec(select(FinAccount.id).where(FinAccount.user_id == user_id)).first() is None:
-        _seed(session, [FinAccount(user_id=user_id, name=name, kind=kind, order=order, is_default=order == 0)
-                        for order, (name, kind) in enumerate(DEFAULT_ACCOUNTS)])
+        _seed(session, [FinAccount(user_id=user_id, name=name, kind=kind, icon=icon, color=color, order=order,
+                                   is_default=order == 0)
+                        for order, (name, kind, icon, color) in enumerate(DEFAULT_ACCOUNTS)])
     if session.exec(select(FinCategory.id).where(FinCategory.user_id == user_id)).first() is None:
-        _seed(session, [FinCategory(user_id=user_id, name=name, color=color, kind=kind, order=order)
-                        for order, (name, color, kind) in enumerate(DEFAULT_CATEGORIES)])
+        _seed(session, [FinCategory(user_id=user_id, name=name, color=color, kind=kind, icon=icon, order=order)
+                        for order, (name, color, kind, icon) in enumerate(DEFAULT_CATEGORIES)])
 
 
 def _seed(session: Session, rows: list) -> None:
@@ -72,6 +73,26 @@ def user_period(session: Session, user_id: int) -> str:
     """month | biweekly. Sin respuesta todavía, el mes."""
     row = settings_row(session, user_id)
     return row.period if row and row.period else "month"
+
+
+def account_balances(session: Session, user_id: int, today: date_type) -> Dict[int, int]:
+    """El saldo de cada cuenta a hoy: su saldo inicial, más ingresos y
+    transferencias que llegan, menos gastos y transferencias que salen. En una
+    de crédito, negativo es lo que se debe. Lo de después de hoy no cuenta."""
+    balances = dict(session.exec(select(FinAccount.id, FinAccount.opening_balance_cents)
+                                 .where(FinAccount.user_id == user_id)).all())
+    rows = session.exec(select(FinTransaction.kind, FinTransaction.account_id, FinTransaction.to_account_id,
+                               func.sum(FinTransaction.amount_cents))
+                        .where(FinTransaction.user_id == user_id, FinTransaction.tx_date <= today)
+                        .group_by(FinTransaction.kind, FinTransaction.account_id, FinTransaction.to_account_id)).all()
+    for kind, account_id, to_account_id, cents in rows:
+        if kind == "income":
+            balances[account_id] = balances.get(account_id, 0) + cents
+        else:
+            balances[account_id] = balances.get(account_id, 0) - cents
+            if kind == "transfer" and to_account_id is not None:
+                balances[to_account_id] = balances.get(to_account_id, 0) + cents
+    return balances
 
 
 def account_currencies(session: Session, user_id: int) -> Dict[int, str]:

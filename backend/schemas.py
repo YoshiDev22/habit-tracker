@@ -1425,6 +1425,53 @@ FIN_TX_KINDS = ("expense", "income", "transfer")
 # La quincenal (el 15 y el último día) es solo de Finanzas: el sueldo
 FIN_FREQUENCIES = ("monthly", "yearly", "semimonthly")
 FIN_PERIODS = ("month", "biweekly")
+# Los iconos de Finanzas (Lucide, en finance-icons.js): un icono nuevo va en los dos
+FIN_ICONS = (
+    "baby",
+    "banknote",
+    "beer",
+    "bike",
+    "book-open",
+    "briefcase",
+    "bus",
+    "car",
+    "coffee",
+    "credit-card",
+    "droplet",
+    "dumbbell",
+    "ellipsis",
+    "film",
+    "flame",
+    "fuel",
+    "gamepad-2",
+    "gift",
+    "graduation-cap",
+    "hand-coins",
+    "heart-handshake",
+    "heart-pulse",
+    "house",
+    "landmark",
+    "paw-print",
+    "piggy-bank",
+    "pill",
+    "plane",
+    "receipt",
+    "scissors",
+    "shirt",
+    "shopping-bag",
+    "shopping-basket",
+    "smartphone",
+    "sparkles",
+    "ticket",
+    "train-front",
+    "trending-up",
+    "tv",
+    "utensils",
+    "wallet",
+    "wifi",
+    "wrench",
+    "zap",
+)
 
 
 def _one_of(value: Optional[str], allowed: tuple, field: str) -> Optional[str]:
@@ -1446,6 +1493,23 @@ class FinAccountCreate(SQLModel):
     currency: str = "MXN"
     last4: Optional[str] = None
     is_default: bool = False
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    opening_balance_cents: int = Field(default=0, ge=-MAX_MONEY_CENTS, le=MAX_MONEY_CENTS)
+    # Solo crédito (en otra cuenta se ignoran)
+    credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    statement_day: Optional[int] = Field(default=None, ge=1, le=31)
+    due_day: Optional[int] = Field(default=None, ge=1, le=31)
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, v):
+        return _one_of(v, FIN_ICONS, "icon")
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v):
+        return _validate_hex_color(v)
 
     @field_validator("kind")
     @classmethod
@@ -1473,6 +1537,22 @@ class FinAccountUpdate(SQLModel):
     is_default: Optional[bool] = None
     is_active: Optional[bool] = None
     order: Optional[int] = Field(default=None, ge=0, le=10_000)
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    opening_balance_cents: Optional[int] = Field(default=None, ge=-MAX_MONEY_CENTS, le=MAX_MONEY_CENTS)
+    credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    statement_day: Optional[int] = Field(default=None, ge=1, le=31)
+    due_day: Optional[int] = Field(default=None, ge=1, le=31)
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, v):
+        return _one_of(v, FIN_ICONS, "icon")
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v):
+        return _validate_hex_color(v)
 
     @field_validator("kind")
     @classmethod
@@ -1500,6 +1580,16 @@ class FinAccountResponse(SQLModel):
     is_active: bool
     order: int
     tx_count: int = 0         # con alguno, no se borra: se archiva
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    opening_balance_cents: int = 0
+    credit_limit_cents: Optional[int] = None
+    statement_day: Optional[int] = None
+    due_day: Optional[int] = None
+    # El saldo a hoy (saldo inicial más movimientos hasta hoy); en crédito,
+    # negativo es deuda. Disponible: límite + saldo, solo con límite.
+    balance_cents: int = 0
+    available_cents: Optional[int] = None
 
 
 class FinAccountListResponse(SQLModel):
@@ -1510,6 +1600,12 @@ class FinCategoryCreate(SQLModel):
     name: str = Field(min_length=1, max_length=40)
     color: Optional[str] = None
     kind: str = "expense"
+    icon: Optional[str] = None
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, v):
+        return _one_of(v, FIN_ICONS, "icon")
 
     @field_validator("color")
     @classmethod
@@ -1527,11 +1623,17 @@ class FinCategoryUpdate(SQLModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=40)
     color: Optional[str] = None
     order: Optional[int] = Field(default=None, ge=0, le=10_000)
+    icon: Optional[str] = None
 
     @field_validator("color")
     @classmethod
     def validate_color(cls, v):
         return _validate_hex_color(v)
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, v):
+        return _one_of(v, FIN_ICONS, "icon")
 
 
 class FinCategoryResponse(SQLModel):
@@ -1541,6 +1643,7 @@ class FinCategoryResponse(SQLModel):
     kind: str
     order: int
     tx_count: int = 0
+    icon: Optional[str] = None
 
 
 class FinCategoryListResponse(SQLModel):

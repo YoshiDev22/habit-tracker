@@ -766,6 +766,16 @@ class FinAccount(SQLModel, table=True):
     is_default: bool = Field(default=False)      # la de la alta rápida: solo una
     is_active: bool = Field(default=True)
     order: int = Field(default=0)
+    icon: Optional[str] = Field(default=None)    # FIN_ICONS; NULL = el de su tipo
+    color: Optional[str] = Field(default=None)
+    # El saldo es este más sus movimientos (no se guarda). En una de crédito,
+    # negativo es lo que ya se debía al empezar a usar la app.
+    opening_balance_cents: int = Field(default=0)
+    # Solo crédito: el límite, el día de corte y el día de pago (1 a 31; el que
+    # el mes no tiene cae en el último)
+    credit_limit_cents: Optional[int] = Field(default=None)
+    statement_day: Optional[int] = Field(default=None)
+    due_day: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
@@ -780,6 +790,7 @@ class FinCategory(SQLModel, table=True):
     name: str
     color: Optional[str] = Field(default=None)
     kind: str = Field(default="expense")         # expense | income
+    icon: Optional[str] = Field(default=None)    # FIN_ICONS
     order: int = Field(default=0)
 
 

@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from backend.auth import get_current_user
 from backend.database import get_session
-from backend.finance import (account_currencies, ensure_finance_setup, generate_due, last_charge, settings_row,
+from backend.finance import (account_balances, account_currencies, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
 from backend.models import FinAccount, FinCategory, FinRecurring, FinSettings, FinTransaction, User
 from backend.routers.auth import require_module
@@ -238,12 +238,23 @@ def _account_counts(session: Session, user_id: int) -> Dict[int, int]:
     return counts
 
 
-def _account_response(account: FinAccount, counts: Dict[int, int]) -> FinAccountResponse:
+def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dict[int, int]) -> FinAccountResponse:
+    balance = balances.get(account.id, account.opening_balance_cents)
+    credit = account.kind == "credit"
     return FinAccountResponse(
         id=account.id, name=account.name, kind=account.kind, currency=account.currency, last4=account.last4,
         is_default=account.is_default, is_active=account.is_active, order=account.order,
-        tx_count=counts.get(account.id, 0),
+        tx_count=counts.get(account.id, 0), icon=account.icon, color=account.color,
+        opening_balance_cents=account.opening_balance_cents, credit_limit_cents=account.credit_limit_cents,
+        statement_day=account.statement_day, due_day=account.due_day, balance_cents=balance,
+        available_cents=account.credit_limit_cents + balance if credit and account.credit_limit_cents is not None else None,
     )
+
+
+def _credit_only(account: FinAccount) -> None:
+    """Límite, corte y pago son de una tarjeta de crédito: en otra, se vacían."""
+    if account.kind != "credit":
+        account.credit_limit_cents = account.statement_day = account.due_day = None
 
 
 def _make_default(session: Session, user_id: int, account: FinAccount) -> None:
@@ -261,7 +272,8 @@ def list_accounts(session: Session = Depends(get_session), user: User = Depends(
     accounts = session.exec(select(FinAccount).where(FinAccount.user_id == user.id)
                             .order_by(FinAccount.order, FinAccount.id)).all()
     counts = _account_counts(session, user.id)
-    return FinAccountListResponse(accounts=[_account_response(a, counts) for a in accounts])
+    balances = account_balances(session, user.id, _today(session, user))
+    return FinAccountListResponse(accounts=[_account_response(a, counts, balances) for a in accounts])
 
 
 @router.post("/accounts", response_model=FinAccountResponse, status_code=status.HTTP_201_CREATED)
@@ -271,13 +283,16 @@ def create_account(body: FinAccountCreate, session: Session = Depends(get_sessio
     _unique_name(session, FinAccount, user.id, name, None, "cuenta")
     last = session.exec(select(func.max(FinAccount.order)).where(FinAccount.user_id == user.id)).one()
     account = FinAccount(user_id=user.id, name=name, kind=body.kind, currency=body.currency, last4=body.last4,
-                         order=(last or 0) + 1)
+                         order=(last or 0) + 1, icon=body.icon, color=body.color,
+                         opening_balance_cents=body.opening_balance_cents, credit_limit_cents=body.credit_limit_cents,
+                         statement_day=body.statement_day, due_day=body.due_day)
+    _credit_only(account)
     if body.is_default:
         _make_default(session, user.id, account)
     session.add(account)
     session.commit()
     session.refresh(account)
-    return _account_response(account, {})
+    return _account_response(account, {}, {})
 
 
 @router.patch("/accounts/{account_id}", response_model=FinAccountResponse)
@@ -287,7 +302,7 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
     por defecto; archivarla. La moneda solo cambia sin movimientos ni fijos."""
     account = _own_account(session, user.id, account_id)
     changes = body.model_dump(exclude_unset=True)
-    for field in ("name", "kind", "currency", "is_default", "is_active", "order"):
+    for field in ("name", "kind", "currency", "is_default", "is_active", "order", "opening_balance_cents"):
         if field in changes and changes[field] is None:
             raise _unprocessable("Ese dato no puede quedar vacío")
     counts = _account_counts(session, user.id)
@@ -311,10 +326,11 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
         _make_default(session, user.id, account)
     for field, value in changes.items():
         setattr(account, field, value)
+    _credit_only(account)
     session.add(account)
     session.commit()
     session.refresh(account)
-    return _account_response(account, counts)
+    return _account_response(account, counts, account_balances(session, user.id, _today(session, user)))
 
 
 @router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -357,7 +373,7 @@ def _recurring_count(session: Session, user_id: int, account_id: Optional[int] =
 
 def _category_response(category: FinCategory, counts: Dict[int, int]) -> FinCategoryResponse:
     return FinCategoryResponse(id=category.id, name=category.name, color=category.color, kind=category.kind,
-                               order=category.order, tx_count=counts.get(category.id, 0))
+                               order=category.order, tx_count=counts.get(category.id, 0), icon=category.icon)
 
 
 @router.get("/categories", response_model=FinCategoryListResponse)
@@ -377,7 +393,8 @@ def create_category(body: FinCategoryCreate, session: Session = Depends(get_sess
     name = _clean_name(body.name)
     _unique_name(session, FinCategory, user.id, name, None, "categoría")
     last = session.exec(select(func.max(FinCategory.order)).where(FinCategory.user_id == user.id)).one()
-    category = FinCategory(user_id=user.id, name=name, color=body.color, kind=body.kind, order=(last or 0) + 1)
+    category = FinCategory(user_id=user.id, name=name, color=body.color, kind=body.kind, icon=body.icon,
+                           order=(last or 0) + 1)
     session.add(category)
     session.commit()
     session.refresh(category)
@@ -397,6 +414,8 @@ def update_category(category_id: int, body: FinCategoryUpdate, session: Session 
         _unique_name(session, FinCategory, user.id, category.name, category.id, "categoría")
     if "color" in changes:
         category.color = changes["color"]
+    if "icon" in changes:
+        category.icon = changes["icon"]
     if changes.get("order") is not None:
         category.order = changes["order"]
     session.add(category)

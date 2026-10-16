@@ -86,6 +86,15 @@ MIGRATIONS = [
     # en producción create_all() la crea completa; esto es para las bases que ya la tenían
     {"table": "fin_recurring", "column": "first_day", "type": "INTEGER", "new_table": True},
     {"table": "fin_recurring", "column": "second_day", "type": "INTEGER", "new_table": True},
+    # La página de Finanzas (rediseño, fases A y B): iconos, colores, saldo inicial y los
+    # datos de una tarjeta de crédito. Igual: solo para las bases que ya tenían las tablas
+    {"table": "fin_accounts", "column": "icon", "type": "VARCHAR", "new_table": True},
+    {"table": "fin_accounts", "column": "color", "type": "VARCHAR", "new_table": True},
+    {"table": "fin_accounts", "column": "opening_balance_cents", "type": "INTEGER", "default": 0, "new_table": True},
+    {"table": "fin_accounts", "column": "credit_limit_cents", "type": "INTEGER", "new_table": True},
+    {"table": "fin_accounts", "column": "statement_day", "type": "INTEGER", "new_table": True},
+    {"table": "fin_accounts", "column": "due_day", "type": "INTEGER", "new_table": True},
+    {"table": "fin_categories", "column": "icon", "type": "VARCHAR", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

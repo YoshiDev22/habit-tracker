@@ -237,7 +237,9 @@ def test_personal_finance(api):
     assert api.call("POST", acc, {"name": "x" * 41})[0] == 422
     api.call("POST", acc, {"name": "x" * 40}, expect=201)
     for bad in ({"kind": "savings"}, {"currency": "BTC"}, {"last4": "12345"}, {"last4": "12a4"},
-                {"last4": "4111111111111111"}):
+                {"last4": "4111111111111111"}, {"icon": "<svg>"}, {"color": "verde"},
+                {"opening_balance_cents": 100_000_000_001}, {"credit_limit_cents": -1},
+                {"statement_day": 0}, {"due_day": 32}):
         assert api.call("POST", acc, {"name": "y", **bad})[0] == 422, bad
     assert api.call("PATCH", f"{acc}/{cash['id']}", {"order": -1})[0] == 422
     assert api.call("PATCH", f"{acc}/{cash['id']}", {"name": None})[0] == 422
@@ -246,6 +248,7 @@ def test_personal_finance(api):
     assert api.call("POST", cats, {"name": "x" * 41})[0] == 422
     assert api.call("POST", cats, {"name": "y", "color": "rojo"})[0] == 422
     assert api.call("POST", cats, {"name": "y", "kind": "transfer"})[0] == 422
+    assert api.call("POST", cats, {"name": "y", "icon": "skull"})[0] == 422
 
     txs = "/api/finance/transactions"
     ok = tx(cash, 100, "ok", cat)

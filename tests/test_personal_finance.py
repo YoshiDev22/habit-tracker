@@ -60,7 +60,8 @@ def test_starts_with_cash_and_the_categories_once(api):
         accounts = api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"]
         cats = api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]
     assert [(a["name"], a["kind"], a["is_default"]) for a in accounts] == [("Efectivo", "cash", True)]
-    assert [(c["name"], c["kind"]) for c in cats] == [(name, kind) for name, _, kind in DEFAULT_CATEGORIES]
+    assert [(c["name"], c["kind"], c["icon"]) for c in cats] == [(name, kind, icon) for name, _, kind, icon in DEFAULT_CATEGORIES]
+    assert accounts[0]["icon"] == "banknote" and accounts[0]["balance_cents"] == 0
 
 
 def test_a_credit_purchase_counts_once(api):
@@ -92,6 +93,33 @@ def test_a_credit_purchase_counts_once(api):
     only_card = api.call("GET", f"/api/finance/transactions?account_id={credit['id']}", expect=200)[1]
     assert sorted(t["concept"] for t in only_card["transactions"]) == ["Audífonos", "Pago de la tarjeta"]
 
+
+
+def test_balances_and_credit_cards(api):
+    cash, debit, credit, cats = setup(api, "saldos@test.com")
+    api.call("PATCH", f"/api/finance/accounts/{debit['id']}", {"opening_balance_cents": 1_000_000}, expect=200)
+    _, card = api.call("PATCH", f"/api/finance/accounts/{credit['id']}",
+                       {"opening_balance_cents": -50_000, "credit_limit_cents": 2_000_000, "statement_day": 5,
+                        "due_day": 25, "icon": "credit-card", "color": "#5c6bc0"}, expect=200)
+    assert (card["statement_day"], card["due_day"], card["icon"]) == (5, 25, "credit-card")
+    api.call("POST", "/api/finance/transactions", tx(debit, 200_000, "Sueldo", cats["Sueldo"], kind="income"), expect=201)
+    api.call("POST", "/api/finance/transactions", tx(credit, 30_000, "Súper", cats["Súper"]), expect=201)
+    api.call("POST", "/api/finance/transactions", tx(debit, 50_000, "Pago tarjeta", kind="transfer", to=credit), expect=201)
+    api.call("POST", "/api/finance/transactions", tx(cash, 9_900, "Mañana", cats["Otros"], day=TODAY + timedelta(days=1)),
+             expect=201)
+    accounts = {a["name"]: a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"]}
+    assert accounts["Débito"]["balance_cents"] == 1_000_000 + 200_000 - 50_000
+    # La deuda: lo que se debía, más la compra, menos el pago; lo de mañana aún no cuenta
+    assert accounts["Crédito"]["balance_cents"] == -50_000 - 30_000 + 50_000
+    assert accounts["Crédito"]["available_cents"] == 2_000_000 - 30_000
+    assert accounts["Efectivo"]["balance_cents"] == 0 and accounts["Efectivo"]["available_cents"] is None
+    # Límite, corte y pago son solo de crédito
+    _, plain = api.call("POST", "/api/finance/accounts", {"name": "Ahorro", "kind": "debit", "statement_day": 3,
+                                                          "credit_limit_cents": 100}, expect=201)
+    assert plain["statement_day"] is None and plain["credit_limit_cents"] is None
+    _, moved = api.call("PATCH", f"/api/finance/accounts/{credit['id']}", {"kind": "debit"}, expect=200)
+    assert moved["due_day"] is None and moved["available_cents"] is None
+    assert api.call("PATCH", f"/api/finance/accounts/{debit['id']}", {"opening_balance_cents": None})[0] == 422
 
 def test_transaction_rules(api):
     cash, debit, credit, cats = setup(api, "reglas@test.com")
