@@ -267,3 +267,9 @@ def test_personal_finance(api):
                 {"frequency": "semimonthly", "first_day": 0, "second_day": 15}):
         assert api.call("POST", "/api/finance/recurring", {**rec, **bad})[0] == 422, bad
     assert api.call("PUT", "/api/finance/settings", {"period": "x" * 5000})[0] == 422
+    part = {"category_id": cat["id"], "amount_cents": 1}
+    assert api.call("POST", txs, {**ok, "category_id": None, "amount_cents": 21, "splits": [part] * 21})[0] == 422
+    assert api.call("POST", txs, {**ok, "category_id": None, "splits": [{**part, "amount_cents": 0}] * 2})[0] == 422
+    for bad in ({"months": 1}, {"months": 49}, {"months": 3, "concept": "x" * 201}, {"months": 3, "total_cents": 0}):
+        assert api.call("POST", "/api/finance/installments", {"account_id": cash["id"], "purchase_date": "2030-01-01",
+                                                               "concept": "x", "total_cents": 100, **bad})[0] == 422, bad

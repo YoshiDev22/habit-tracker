@@ -181,6 +181,9 @@ def test_personal_finance(seeded):
     _, rc = api.call("POST", "/api/finance/recurring", {
         "account_id": mine["id"], "category_id": cat["id"], "concept": "Renta", "amount_cents": 100,
         "start_date": (date.today() + timedelta(days=5)).isoformat()}, expect=201)
+    api.call("PATCH", f"/api/finance/accounts/{card['id']}", {"statement_day": 5, "due_day": 25}, expect=200)
+    _, laptop = api.call("POST", "/api/finance/transactions", tx(card, 1200, "Laptop", cat), expect=201)
+    _, msi = api.call("POST", "/api/finance/installments", {"transaction_id": laptop["id"], "months": 3}, expect=201)
     theirs = other.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"][0]
     their_cat = other.call("GET", "/api/finance/categories", expect=200)[1]["categories"][0]
 
@@ -200,6 +203,12 @@ def test_personal_finance(seeded):
         ("POST", "/api/finance/transactions/import", {"rows": [tx(theirs, 1, "x", cat)]}),
         ("POST", "/api/finance/recurring", {"account_id": theirs["id"], "category_id": cat["id"], "concept": "x",
                                             "amount_cents": 1, "start_date": date.today().isoformat()}),
+        ("GET", f"/api/finance/accounts/{card['id']}/statement", None),
+        ("DELETE", f"/api/finance/installments/{msi['id']}", None),
+        ("POST", "/api/finance/installments", {"transaction_id": laptop["id"], "months": 2}),
+        ("POST", "/api/finance/transactions", {**tx(theirs, 2, "x"), "category_id": None,
+                                               "splits": [{"category_id": cat["id"], "amount_cents": 1},
+                                                          {"category_id": their_cat["id"], "amount_cents": 1}]}),
     ]:
         assert other.call(method, path, body)[0] == 404, (method, path)
     _, their_tx = other.call("POST", "/api/finance/transactions", tx(theirs, 1, "suyo", their_cat), expect=201)
@@ -209,9 +218,10 @@ def test_personal_finance(seeded):
     assert [a["name"] for a in sm["accounts"]] == ["Efectivo"] and sm["totals"][0]["expense_cents"] == 1
     assert [t["concept"] for t in other.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]] == ["suyo"]
     assert other.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"] == []
+    assert other.call("GET", "/api/finance/installments", expect=200)[1]["installments"] == []
     assert other.call("GET", f"/api/finance/transactions?account_id={mine['id']}", expect=200)[1]["transactions"] == []
     # Lo mío, intacto
-    assert [x["concept"] for x in api.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]] == ["Tacos"]
+    assert sorted(x["concept"] for x in api.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]) == ["Laptop", "Tacos"]
 
 def test_saved_reports(seeded):
     api, other = seeded["api"], seeded["other"]

@@ -6,8 +6,9 @@ from datetime import date, timedelta
 from sqlmodel import Session, select
 
 from backend.database import engine
-from backend.finance import DEFAULT_CATEGORIES, generate_due
-from backend.models import FinRecurring, User
+from backend.finance import (DEFAULT_CATEGORIES, card_statement, cut_on_or_after, cut_on_or_before, due_after,
+                             generate_due, installment_parts)
+from backend.models import FinAccount, FinRecurring, User
 from backend.series import occurrence, period_bounds
 from test_modules import grant
 
@@ -120,6 +121,101 @@ def test_balances_and_credit_cards(api):
     _, moved = api.call("PATCH", f"/api/finance/accounts/{credit['id']}", {"kind": "debit"}, expect=200)
     assert moved["due_day"] is None and moved["available_cents"] is None
     assert api.call("PATCH", f"/api/finance/accounts/{debit['id']}", {"opening_balance_cents": None})[0] == 422
+
+
+def test_a_charge_split_into_categories(api):
+    cash, debit, credit, cats = setup(api, "partes@test.com")
+    parts = [{"category_id": cats["Súper"]["id"], "amount_cents": 80_000},
+             {"category_id": cats["Salud"]["id"], "amount_cents": 20_000}]
+    body = {**tx(credit, 100_000, "Costco"), "category_id": None, "splits": parts}
+    _, charge = api.call("POST", "/api/finance/transactions", body, expect=201)
+    assert charge["category_id"] is None and charge["splits"] == parts
+    # El resumen cuenta cada parte en su categoría; el gasto total, una vez
+    _, sm = api.call("GET", "/api/finance/summary", expect=200)
+    by_cat = {c["name"]: c["cents"] for c in sm["categories"]}
+    assert by_cat["Súper"] == 80_000 and by_cat["Salud"] == 20_000 and sm["totals"][0]["expense_cents"] == 100_000
+    # Filtrar por una categoría encuentra el dividido; borrarla con partes es 409
+    found = api.call("GET", f"/api/finance/transactions?category_id={cats['Salud']['id']}", expect=200)[1]["transactions"]
+    assert [t["id"] for t in found] == [charge["id"]]
+    assert api.call("DELETE", f"/api/finance/categories/{cats['Salud']['id']}")[0] == 409
+
+    # Las reglas
+    def bad(**changes):
+        return api.call("POST", "/api/finance/transactions", {**body, **changes})[0]
+    assert bad(amount_cents=99_999) == 422                                     # no suman
+    assert bad(splits=parts[:1], amount_cents=80_000) == 422                    # una sola parte
+    assert bad(splits=[parts[0], {**parts[0], "amount_cents": 20_000}]) == 422  # categoría repetida
+    assert bad(splits=[parts[0], {"category_id": cats["Sueldo"]["id"], "amount_cents": 20_000}]) == 422  # de ingresos
+    assert bad(category_id=cats["Otros"]["id"]) == 422                          # categoría y partes
+    assert api.call("POST", "/api/finance/transactions",
+                    {**tx(debit, 100_000, "x", kind="transfer", to=credit), "splits": parts})[0] == 422
+
+    # Editar: cambiar el monto sin las partes no cuadra; con ellas, sí; null las quita
+    url = f"/api/finance/transactions/{charge['id']}"
+    assert api.call("PATCH", url, {"amount_cents": 90_000})[0] == 422
+    _, edited = api.call("PATCH", url, {"amount_cents": 90_000, "splits": [{**parts[0], "amount_cents": 70_000}, parts[1]]},
+                         expect=200)
+    assert [p["amount_cents"] for p in edited["splits"]] == [70_000, 20_000]
+    assert api.call("PATCH", url, {"splits": None})[0] == 422                    # sin partes pide categoría
+    _, plain = api.call("PATCH", url, {"splits": None, "category_id": cats["Súper"]["id"]}, expect=200)
+    assert plain["splits"] == [] and plain["category_id"] == cats["Súper"]["id"]
+    api.call("DELETE", f"/api/finance/categories/{cats['Salud']['id']}", expect=204)
+
+
+def test_card_dates():
+    assert cut_on_or_before(31, date(2026, 2, 15)) == date(2026, 1, 31)
+    assert cut_on_or_before(31, date(2026, 2, 28)) == date(2026, 2, 28)
+    assert cut_on_or_after(31, date(2026, 2, 1)) == date(2026, 2, 28)
+    assert cut_on_or_after(5, date(2026, 12, 6)) == date(2027, 1, 5)
+    assert due_after(date(2026, 1, 31), 20) == date(2026, 2, 20)
+    assert due_after(date(2026, 3, 5), 25) == date(2026, 3, 25)
+    assert installment_parts(1000, 3) == [334, 333, 333] and sum(installment_parts(99_999, 7)) == 99_999
+
+
+def test_card_statement_and_installments(api):
+    cash, debit, credit, cats = setup(api, "corte@test.com")
+    api.call("PATCH", f"/api/finance/accounts/{credit['id']}", {"statement_day": 5, "due_day": 25}, expect=200)
+    # Un corte de hace un mes o más, y "hoy" diez días después de él
+    cut = cut_on_or_before(5, TODAY - timedelta(days=40))
+    today = cut + timedelta(days=10)
+    super_ = cats["Súper"]
+    api.call("POST", "/api/finance/transactions", tx(credit, 100_000, "Súper", super_, day=cut - timedelta(days=3)), expect=201)
+    _, laptop = api.call("POST", "/api/finance/transactions",
+                         tx(credit, 1_200_000, "Laptop", cats["Personal"], day=cut - timedelta(days=2)), expect=201)
+    _, plan = api.call("POST", "/api/finance/installments", {"transaction_id": laptop["id"], "months": 12}, expect=201)
+    assert plan["first_statement"] == cut.isoformat() and plan["monthly_cents"] == 100_000 and plan["concept"] == "Laptop"
+    assert api.call("POST", "/api/finance/installments", {"transaction_id": laptop["id"], "months": 6})[0] == 409
+    api.call("POST", "/api/finance/transactions", tx(debit, 30_000, "Pago", kind="transfer", to=credit,
+                                                     day=cut + timedelta(days=2)), expect=201)
+    api.call("POST", "/api/finance/transactions", tx(credit, 5_000, "Café", cats["Comer fuera"], day=cut + timedelta(days=4)),
+             expect=201)
+
+    with Session(engine) as session:
+        account = session.get(FinAccount, credit["id"])
+        st = card_statement(session, account, today)
+    # Al corte se debían el súper y la laptop completa; de la laptop solo se factura 1 de 12
+    assert st.last_cut == cut and st.due_date == cut.replace(day=25)
+    assert st.debt_at_cut_cents == 1_300_000 and st.msi_pending_cents == 1_100_000
+    assert st.pay_no_interest_cents == 200_000 and st.paid_since_cut_cents == 30_000 and st.remaining_cents == 170_000
+    assert st.cycle_charges_cents == 5_000
+    assert [(i.concept, i.part, i.months, i.amount_cents) for i in st.installments] == [("Laptop", 1, 12, 100_000)]
+
+    # La ruta: con hoy de verdad, y 409 sin días; una de débito no es tarjeta
+    _, live = api.call("GET", f"/api/finance/accounts/{credit['id']}/statement", expect=200)
+    assert live["due_day"] == 25 and live["last_cut"] <= TODAY.isoformat()
+    assert api.call("GET", f"/api/finance/accounts/{debit['id']}/statement")[0] == 422
+    _, other_card = api.call("POST", "/api/finance/accounts", {"name": "Otra", "kind": "credit"}, expect=201)
+    assert api.call("GET", f"/api/finance/accounts/{other_card['id']}/statement")[0] == 409
+    assert api.call("POST", "/api/finance/installments", {"account_id": debit["id"], "concept": "x", "total_cents": 300,
+                                                          "months": 3, "purchase_date": TODAY.isoformat()})[0] == 422
+    # Una sola compra en la lista, con lo que falta; borrar la compra se lleva su plan
+    plans = api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
+    assert [p["id"] for p in plans] == [plan["id"]] and plans[0]["remaining_cents"] < 1_200_000
+    listed = api.call("GET", f"/api/finance/transactions?date_from={(cut - timedelta(days=5)).isoformat()}"
+                             f"&date_to={cut.isoformat()}", expect=200)[1]["transactions"]
+    assert [t["installment_id"] for t in listed if t["concept"] == "Laptop"] == [plan["id"]]
+    api.call("DELETE", f"/api/finance/transactions/{laptop['id']}", expect=204)
+    assert api.call("GET", "/api/finance/installments", expect=200)[1]["installments"] == []
 
 def test_transaction_rules(api):
     cash, debit, credit, cats = setup(api, "reglas@test.com")

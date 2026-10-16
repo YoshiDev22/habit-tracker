@@ -860,6 +860,45 @@ class FinTransaction(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
+
+class FinSplit(SQLModel, table=True):
+    """
+    Una parte de un movimiento dividido en categorías (un cargo de la tarjeta
+    con súper y farmacia). Las partes suman exacto el monto del movimiento, y
+    ese movimiento queda sin category_id: el resumen cuenta cada parte en su
+    categoría. Se borran con su movimiento.
+    """
+    __tablename__ = "fin_splits"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    transaction_id: int = Field(foreign_key="fin_transactions.id", index=True)
+    category_id: int = Field(foreign_key="fin_categories.id")
+    amount_cents: int
+    order: int = Field(default=0)
+
+
+class FinInstallment(SQLModel, table=True):
+    """
+    Una compra a meses sin intereses en una tarjeta de crédito. La compra cuenta
+    como gasto completa el día que se hace (es un movimiento normal); esto solo
+    dice cuánto pide cada corte: el total en `months` partes, la primera en el
+    corte `first_statement`. Se borra con su movimiento.
+    """
+    __tablename__ = "fin_installments"
+    __table_args__ = (UniqueConstraint("transaction_id", name="uq_fin_installments_transaction"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    transaction_id: Optional[int] = Field(default=None, foreign_key="fin_transactions.id")
+    concept: str
+    total_cents: int
+    months: int
+    purchase_date: date_type
+    first_statement: date_type                   # el corte que factura la primera mensualidad
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
 class FinSettings(SQLModel, table=True):
     """
     Cómo mide sus finanzas cada cuenta. `period` es la respuesta a "¿Cada cuándo

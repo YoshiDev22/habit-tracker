@@ -12,15 +12,18 @@ Finanzas personales (épica 37, docs/specs/finanzas.md): lo que no es una ruta.
 
 Todo en centavos enteros; ninguna suma mezcla monedas.
 """
-from datetime import date as date_type
+from datetime import date as date_type, timedelta
 from typing import Dict, List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from backend.models import FinAccount, FinCategory, FinRecurring, FinSettings, FinTransaction
-from backend.schemas import (FinAccountTotal, FinCategoryTotal, FinCurrencyTotal, FinSummaryResponse)
+import calendar
+
+from backend.models import FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit, FinTransaction
+from backend.schemas import (FinAccountTotal, FinCategoryTotal, FinCurrencyTotal, FinStatementInstallment,
+                             FinStatementResponse, FinSummaryResponse)
 from backend.series import adjacent_period, next_date, period_bounds
 
 DEFAULT_ACCOUNTS = [("Efectivo", "cash", "banknote", "#16a085")]
@@ -76,9 +79,9 @@ def user_period(session: Session, user_id: int) -> str:
 
 
 def account_balances(session: Session, user_id: int, today: date_type) -> Dict[int, int]:
-    """El saldo de cada cuenta a hoy: su saldo inicial, más ingresos y
-    transferencias que llegan, menos gastos y transferencias que salen. En una
-    de crédito, negativo es lo que se debe. Lo de después de hoy no cuenta."""
+    """El saldo de cada cuenta a hoy (o al día que se pida): su saldo inicial,
+    más ingresos y transferencias que llegan, menos gastos y transferencias que
+    salen. En una de crédito, negativo es lo que se debe. Lo de después no cuenta."""
     balances = dict(session.exec(select(FinAccount.id, FinAccount.opening_balance_cents)
                                  .where(FinAccount.user_id == user_id)).all())
     rows = session.exec(select(FinTransaction.kind, FinTransaction.account_id, FinTransaction.to_account_id,
@@ -93,6 +96,105 @@ def account_balances(session: Session, user_id: int, today: date_type) -> Dict[i
             if kind == "transfer" and to_account_id is not None:
                 balances[to_account_id] = balances.get(to_account_id, 0) + cents
     return balances
+
+
+# ==================== Tarjetas de crédito: cortes y MSI ====================
+
+def _clamp(year: int, month: int, day: int) -> date_type:
+    """El día `day` de ese mes, o el último si el mes es más corto."""
+    return date_type(year, month, min(day, calendar.monthrange(year, month)[1]))
+
+
+def _shift(day: date_type, months: int) -> tuple:
+    index = day.year * 12 + day.month - 1 + months
+    return index // 12, index % 12 + 1
+
+
+def cut_on_or_before(statement_day: int, day: date_type) -> date_type:
+    """El corte más reciente en o antes de `day`."""
+    cut = _clamp(day.year, day.month, statement_day)
+    return cut if cut <= day else _clamp(*_shift(day, -1), statement_day)
+
+
+def cut_on_or_after(statement_day: int, day: date_type) -> date_type:
+    """El primer corte en o después de `day` (el que factura una compra de ese día)."""
+    cut = _clamp(day.year, day.month, statement_day)
+    return cut if cut >= day else _clamp(*_shift(day, 1), statement_day)
+
+
+def due_after(cut: date_type, due_day: int) -> date_type:
+    """La fecha límite de pago de un corte: el primer día de pago después de él."""
+    due = _clamp(cut.year, cut.month, due_day)
+    return due if due > cut else _clamp(*_shift(cut, 1), due_day)
+
+
+def installment_parts(total_cents: int, months: int) -> List[int]:
+    """El total en partes que suman exacto: los centavos que sobran, uno a cada
+    una de las primeras."""
+    base, extra = divmod(total_cents, months)
+    return [base + (1 if i < extra else 0) for i in range(months)]
+
+
+def installment_bills(inst: FinInstallment, statement_day: Optional[int]) -> List[tuple]:
+    """(fecha del corte, centavos) de cada mensualidad, en orden."""
+    day = statement_day or inst.first_statement.day
+    return [(_clamp(*_shift(inst.first_statement, k), day), cents)
+            for k, cents in enumerate(installment_parts(inst.total_cents, inst.months))]
+
+
+def _balance_until(session: Session, account: FinAccount, until: date_type) -> int:
+    return account_balances(session, account.user_id, until).get(account.id, account.opening_balance_cents)
+
+
+def card_statement(session: Session, account: FinAccount, today: date_type) -> FinStatementResponse:
+    """El estado de cuenta calculado de una tarjeta con día de corte y de pago.
+    Pagar para no generar intereses = lo que se debía al último corte, menos las
+    mensualidades de MSI que aún no se facturan (la compra entró completa), menos
+    lo que ya se abonó desde el corte."""
+    last_cut = cut_on_or_before(account.statement_day, today)
+    prev_cut = cut_on_or_before(account.statement_day, last_cut - timedelta(days=1))
+    next_cut = cut_on_or_after(account.statement_day, last_cut + timedelta(days=1))
+    debt = max(0, -_balance_until(session, account, last_cut))
+    pending = 0
+    billed_now: List[FinStatementInstallment] = []
+    for inst in session.exec(select(FinInstallment).where(
+            FinInstallment.user_id == account.user_id, FinInstallment.account_id == account.id)).all():
+        for k, (cut, cents) in enumerate(installment_bills(inst, account.statement_day)):
+            if inst.purchase_date <= last_cut < cut:
+                pending += cents
+            if cut == last_cut:
+                billed_now.append(FinStatementInstallment(id=inst.id, concept=inst.concept, part=k + 1,
+                                                          months=inst.months, amount_cents=cents))
+    after_cut = select(FinTransaction).where(FinTransaction.user_id == account.user_id,
+                                             FinTransaction.tx_date > last_cut, FinTransaction.tx_date <= today)
+    paid = charges = 0
+    for tx in session.exec(after_cut.where(or_(FinTransaction.account_id == account.id,
+                                               FinTransaction.to_account_id == account.id))).all():
+        if tx.kind == "transfer" and tx.to_account_id == account.id:
+            paid += tx.amount_cents
+        elif tx.kind == "income" and tx.account_id == account.id:
+            paid += tx.amount_cents
+        elif tx.kind in ("expense", "transfer") and tx.account_id == account.id:
+            charges += tx.amount_cents
+    pay = max(0, debt - pending)
+    return FinStatementResponse(
+        account_id=account.id, currency=account.currency, statement_day=account.statement_day,
+        due_day=account.due_day, last_cut=last_cut, prev_cut=prev_cut, due_date=due_after(last_cut, account.due_day),
+        next_cut=next_cut, debt_at_cut_cents=debt, msi_pending_cents=pending, pay_no_interest_cents=pay,
+        paid_since_cut_cents=paid, remaining_cents=max(0, pay - paid), cycle_charges_cents=charges,
+        installments=sorted(billed_now, key=lambda i: i.concept),
+    )
+
+
+def splits_by_transaction(session: Session, user_id: int, tx_ids: List[int]) -> Dict[int, List[FinSplit]]:
+    """Las partes de esos movimientos, en su orden."""
+    if not tx_ids:
+        return {}
+    out: Dict[int, List[FinSplit]] = {}
+    for split in session.exec(select(FinSplit).where(FinSplit.user_id == user_id, FinSplit.transaction_id.in_(tx_ids))
+                              .order_by(FinSplit.order, FinSplit.id)).all():
+        out.setdefault(split.transaction_id, []).append(split)
+    return out
 
 
 def account_currencies(session: Session, user_id: int) -> Dict[int, str]:
@@ -110,6 +212,7 @@ def summary(session: Session, user_id: int, day: date_type) -> FinSummaryRespons
     rows = session.exec(select(FinTransaction).where(
         FinTransaction.user_id == user_id, FinTransaction.tx_date >= date_from, FinTransaction.tx_date <= date_to)).all()
 
+    splits = splits_by_transaction(session, user_id, [tx.id for tx in rows])
     by_account = {a.id: FinAccountTotal(account_id=a.id, name=a.name, kind=a.kind, currency=a.currency)
                   for a in accounts}
     by_category: Dict[tuple, int] = {}
@@ -131,8 +234,11 @@ def summary(session: Session, user_id: int, day: date_type) -> FinSummaryRespons
         else:
             account.income_cents += tx.amount_cents
             total.income_cents += tx.amount_cents
-        key = (tx.category_id, account.currency)
-        by_category[key] = by_category.get(key, 0) + tx.amount_cents
+        # Un movimiento dividido cuenta cada parte en su categoría
+        for category_id, cents in ([(s.category_id, s.amount_cents) for s in splits[tx.id]] if tx.id in splits
+                                   else [(tx.category_id, tx.amount_cents)]):
+            key = (category_id, account.currency)
+            by_category[key] = by_category.get(key, 0) + cents
 
     for account in by_account.values():
         account.net_cents = (account.income_cents + account.transfer_in_cents

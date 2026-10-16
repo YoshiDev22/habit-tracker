@@ -7,7 +7,7 @@ el resumen. Lo que no es una ruta vive en backend/finance.py. Las rutas
 literales van antes que las /{id}.
 """
 from datetime import date as date_type
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
@@ -15,11 +15,15 @@ from sqlmodel import Session, select
 
 from backend.auth import get_current_user
 from backend.database import get_session
-from backend.finance import (account_balances, account_currencies, ensure_finance_setup, generate_due, last_charge, settings_row,
+from backend.finance import (account_balances, account_currencies, card_statement, cut_on_or_after,
+                             installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
-from backend.models import FinAccount, FinCategory, FinRecurring, FinSettings, FinTransaction, User
+from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
+                            FinTransaction, User)
 from backend.routers.auth import require_module
 from backend.schemas import (
+    FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
+    FinStatementResponse,
     FinAccountCreate,
     FinAccountListResponse,
     FinAccountResponse,
@@ -138,13 +142,13 @@ def _plural(n: int, one: str, many: str) -> str:
 # ==================== Movimientos: las reglas ====================
 
 def _check_transaction(session: Session, user_id: int, kind: str, account_id: int,
-                       category_id: Optional[int], to_account_id: Optional[int]) -> None:
-    """Un gasto o un ingreso lleva categoría de su tipo y ninguna cuenta de
-    destino; una transferencia, otra cuenta propia de la misma moneda y ninguna
-    categoría. La app no convierte entre monedas."""
+                       category_id: Optional[int], to_account_id: Optional[int], has_splits: bool = False) -> None:
+    """Un gasto o un ingreso lleva categoría de su tipo (o partes, cada una con
+    la suya) y ninguna cuenta de destino; una transferencia, otra cuenta propia
+    de la misma moneda y ninguna categoría. La app no convierte entre monedas."""
     account = _own_account(session, user_id, account_id)
     if kind == "transfer":
-        if category_id is not None:
+        if category_id is not None or has_splits:
             raise _unprocessable("Una transferencia no lleva categoría")
         if to_account_id is None:
             raise _unprocessable("Elige la cuenta a la que va la transferencia")
@@ -156,6 +160,10 @@ def _check_transaction(session: Session, user_id: int, kind: str, account_id: in
         return
     if to_account_id is not None:
         raise _unprocessable("Solo una transferencia lleva cuenta de destino")
+    if has_splits:
+        if category_id is not None:
+            raise _unprocessable("Un movimiento dividido lleva la categoría en cada parte")
+        return
     if category_id is None:
         raise _unprocessable("Elige una categoría")
     category = _own_category(session, user_id, category_id)
@@ -163,22 +171,75 @@ def _check_transaction(session: Session, user_id: int, kind: str, account_id: in
         raise _unprocessable(f"'{category.name}' es una categoría de {'ingresos' if category.kind == 'income' else 'gastos'}")
 
 
-def _new_transaction(session: Session, user_id: int, body: FinTransactionFields, source: str) -> FinTransaction:
-    _check_transaction(session, user_id, body.kind, body.account_id, body.category_id, body.to_account_id)
-    return FinTransaction(
+def _check_splits(session: Session, user_id: int, kind: str, amount_cents: int,
+                  splits: Optional[List[FinSplitFields]]) -> List[FinSplitFields]:
+    """Las partes de un movimiento dividido: al menos dos, cada una con una
+    categoría propia de su tipo y sin repetir, y que sumen exacto el monto."""
+    if not splits:
+        return []
+    if kind == "transfer":
+        raise _unprocessable("Una transferencia no se divide en categorías")
+    if len(splits) < 2:
+        raise _unprocessable("Para dividir hacen falta al menos dos partes")
+    seen = set()
+    for part in splits:
+        category = _own_category(session, user_id, part.category_id)
+        if category.kind != kind:
+            raise _unprocessable(f"'{category.name}' es una categoría de {'ingresos' if category.kind == 'income' else 'gastos'}")
+        if category.id in seen:
+            raise _unprocessable(f"'{category.name}' está dos veces: júntalas en una parte")
+        seen.add(category.id)
+    total = sum(part.amount_cents for part in splits)
+    if total != amount_cents:
+        raise _unprocessable(f"Las partes suman {total / 100:,.2f} y el movimiento es de {amount_cents / 100:,.2f}")
+    return splits
+
+
+def _save_splits(session: Session, user_id: int, tx: FinTransaction, splits: List[FinSplitFields]) -> None:
+    """Reemplaza las partes de `tx` (necesita su id: después de un flush)."""
+    for old in session.exec(select(FinSplit).where(FinSplit.user_id == user_id, FinSplit.transaction_id == tx.id)).all():
+        session.delete(old)
+    for order, part in enumerate(splits):
+        session.add(FinSplit(user_id=user_id, transaction_id=tx.id, category_id=part.category_id,
+                             amount_cents=part.amount_cents, order=order))
+
+
+def _new_transaction(session: Session, user_id: int, body: FinTransactionFields, source: str):
+    """El movimiento (sin guardar) y sus partes ya revisadas."""
+    splits = _check_splits(session, user_id, body.kind, body.amount_cents, body.splits)
+    _check_transaction(session, user_id, body.kind, body.account_id, body.category_id, body.to_account_id,
+                       has_splits=bool(splits))
+    tx = FinTransaction(
         user_id=user_id, account_id=body.account_id, kind=body.kind, amount_cents=body.amount_cents,
         tx_date=body.tx_date, category_id=body.category_id, to_account_id=body.to_account_id,
         concept=_clean_concept(body.concept), note=_clean_note(body.note), source=source,
     )
+    return tx, splits
 
 
-def _tx_response(tx: FinTransaction, currencies: Dict[int, str]) -> FinTransactionResponse:
+def _tx_response(tx: FinTransaction, currencies: Dict[int, str], splits: Optional[List[FinSplit]] = None,
+                 installment_id: Optional[int] = None) -> FinTransactionResponse:
     return FinTransactionResponse(
         id=tx.id, kind=tx.kind, account_id=tx.account_id, to_account_id=tx.to_account_id,
         category_id=tx.category_id, amount_cents=tx.amount_cents, currency=currencies.get(tx.account_id, "MXN"),
         tx_date=tx.tx_date, concept=tx.concept, note=tx.note, source=tx.source,
         recurring_id=tx.recurring_id, needs_review=tx.needs_review,
+        splits=[FinSplitFields(category_id=p.category_id, amount_cents=p.amount_cents) for p in splits or []],
+        installment_id=installment_id,
     )
+
+
+def _installments_by_transaction(session: Session, user_id: int, tx_ids: List[int]) -> Dict[int, int]:
+    if not tx_ids:
+        return {}
+    return dict(session.exec(select(FinInstallment.transaction_id, FinInstallment.id).where(
+        FinInstallment.user_id == user_id, FinInstallment.transaction_id.in_(tx_ids))).all())
+
+
+def _one_response(session: Session, user_id: int, tx: FinTransaction) -> FinTransactionResponse:
+    return _tx_response(tx, account_currencies(session, user_id),
+                        splits_by_transaction(session, user_id, [tx.id]).get(tx.id),
+                        _installments_by_transaction(session, user_id, [tx.id]).get(tx.id))
 
 
 def _range(session: Session, user: User, day: Optional[date_type], date_from: Optional[date_type],
@@ -343,6 +404,9 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
     recurring = _recurring_count(session, user.id, account_id=account.id)
     if recurring:
         raise _conflict(f"'{account.name}' la usa{'n' if recurring > 1 else ''} {_plural(recurring, 'fijo', 'fijos')}: cámbialos de cuenta antes de borrarla")
+    if session.exec(select(FinInstallment.id).where(FinInstallment.user_id == user.id,
+                                                    FinInstallment.account_id == account.id)).first():
+        raise _conflict(f"'{account.name}' tiene compras a meses: archívala en vez de borrarla")
     if account.is_default:
         raise _conflict(f"'{account.name}' es tu cuenta por defecto: elige otra antes de borrarla")
     session.delete(account)
@@ -352,11 +416,16 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
 # ==================== Categorías ====================
 
 def _category_counts(session: Session, user_id: int) -> Dict[int, int]:
-    return dict(session.exec(
+    """Movimientos por categoría, contando las partes de los divididos."""
+    counts = dict(session.exec(
         select(FinTransaction.category_id, func.count())
         .where(FinTransaction.user_id == user_id, FinTransaction.category_id.is_not(None))
         .group_by(FinTransaction.category_id)
     ).all())
+    for category_id, count in session.exec(select(FinSplit.category_id, func.count())
+                                           .where(FinSplit.user_id == user_id).group_by(FinSplit.category_id)).all():
+        counts[category_id] = counts.get(category_id, 0) + count
+    return counts
 
 
 def _recurring_count(session: Session, user_id: int, account_id: Optional[int] = None,
@@ -587,22 +656,28 @@ def list_transactions(day: Optional[date_type] = None, date_from: Optional[date_
     if account_id is not None:
         query = query.where(or_(FinTransaction.account_id == account_id, FinTransaction.to_account_id == account_id))
     if category_id is not None:
-        query = query.where(FinTransaction.category_id == category_id)
+        in_parts = select(FinSplit.transaction_id).where(FinSplit.user_id == user.id, FinSplit.category_id == category_id)
+        query = query.where(or_(FinTransaction.category_id == category_id, FinTransaction.id.in_(in_parts)))
     rows = session.exec(query.order_by(FinTransaction.tx_date.desc(), FinTransaction.id.desc())).all()
     currencies = account_currencies(session, user.id)
-    return FinTransactionListResponse(date_from=start, date_to=end,
-                                      transactions=[_tx_response(tx, currencies) for tx in rows])
+    ids = [tx.id for tx in rows]
+    splits = splits_by_transaction(session, user.id, ids)
+    installments = _installments_by_transaction(session, user.id, ids)
+    return FinTransactionListResponse(date_from=start, date_to=end, transactions=[
+        _tx_response(tx, currencies, splits.get(tx.id), installments.get(tx.id)) for tx in rows])
 
 
 @router.post("/transactions", response_model=FinTransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(body: FinTransactionFields, session: Session = Depends(get_session),
                        user: User = Depends(finance_user)):
-    """Un movimiento escrito a mano (la alta rápida)."""
-    tx = _new_transaction(session, user.id, body, "manual")
+    """Un movimiento escrito a mano (la alta rápida), con partes si se dividió."""
+    tx, splits = _new_transaction(session, user.id, body, "manual")
     session.add(tx)
+    session.flush()
+    _save_splits(session, user.id, tx, splits)
     session.commit()
     session.refresh(tx)
-    return _tx_response(tx, account_currencies(session, user.id))
+    return _one_response(session, user.id, tx)
 
 
 @router.post("/transactions/import", response_model=FinTransactionListResponse, status_code=status.HTTP_201_CREATED)
@@ -610,10 +685,14 @@ def import_transactions(body: FinTransactionImport, session: Session = Depends(g
                         user: User = Depends(finance_user)):
     """Varios de una vez (el estado de cuenta pegado), ya revisados en la vista
     previa. Si uno no vale, no entra ninguno."""
-    new = [_new_transaction(session, user.id, row, "import") for row in body.rows]
-    for tx in new:
+    pairs = [_new_transaction(session, user.id, row, "import") for row in body.rows]
+    for tx, _ in pairs:
         session.add(tx)
+    session.flush()
+    for tx, splits in pairs:
+        _save_splits(session, user.id, tx, splits)
     session.commit()
+    new = [tx for tx, _ in pairs]
     for tx in new:
         session.refresh(tx)
     currencies = account_currencies(session, user.id)
@@ -636,19 +715,140 @@ def update_transaction(tx_id: int, body: FinTransactionUpdate, session: Session 
         changes["concept"] = _clean_concept(changes["concept"])
     if "note" in changes:
         changes["note"] = _clean_note(changes["note"])
+    # Las partes: una lista las reemplaza, null las quita; sin mandarlas, las de
+    # antes tienen que seguir cuadrando con el monto y el tipo que queden
+    replace_splits = "splits" in changes
+    new_splits = changes.pop("splits", None)
+    if not replace_splits:
+        existing = splits_by_transaction(session, user.id, [tx.id]).get(tx.id, [])
+        new_splits = [FinSplitFields(category_id=p.category_id, amount_cents=p.amount_cents) for p in existing]
+        replace_splits = bool(existing)
+    else:
+        new_splits = [FinSplitFields(**p) if isinstance(p, dict) else p for p in (new_splits or [])]
+    kind = changes.get("kind", tx.kind)
+    splits = _check_splits(session, user.id, kind, changes.get("amount_cents", tx.amount_cents), new_splits)
+    if splits:
+        changes["category_id"] = None
     merged = {field: changes.get(field, getattr(tx, field))
               for field in ("kind", "account_id", "category_id", "to_account_id")}
-    _check_transaction(session, user.id, **merged)
+    _check_transaction(session, user.id, **merged, has_splits=bool(splits))
     for field, value in changes.items():
         setattr(tx, field, value)
     session.add(tx)
+    if replace_splits:
+        _save_splits(session, user.id, tx, splits)
     session.commit()
     session.refresh(tx)
-    return _tx_response(tx, account_currencies(session, user.id))
+    return _one_response(session, user.id, tx)
 
 
 @router.delete("/transactions/{tx_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(tx_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
-    """Borra un movimiento. Si salió de un fijo, ese cobro no vuelve a generarse."""
-    session.delete(_own_transaction(session, user.id, tx_id))
+    """Borra un movimiento, con sus partes y su plan de meses. Si salió de un
+    fijo, ese cobro no vuelve a generarse."""
+    tx = _own_transaction(session, user.id, tx_id)
+    for row in session.exec(select(FinSplit).where(FinSplit.user_id == user.id, FinSplit.transaction_id == tx.id)).all():
+        session.delete(row)
+    for row in session.exec(select(FinInstallment).where(
+            FinInstallment.user_id == user.id, FinInstallment.transaction_id == tx.id)).all():
+        session.delete(row)
+    session.delete(tx)
+    session.commit()
+
+
+# ==================== Tarjetas: estado de cuenta y meses sin intereses ====================
+
+def _credit_card(session: Session, user_id: int, account_id: int) -> FinAccount:
+    account = _own_account(session, user_id, account_id)
+    if account.kind != "credit":
+        raise _unprocessable(f"'{account.name}' no es una tarjeta de crédito")
+    return account
+
+
+@router.get("/accounts/{account_id}/statement", response_model=FinStatementResponse)
+def account_statement(account_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """El estado de cuenta calculado de una tarjeta: último corte, cuánto pagar
+    para no generar intereses (sin las mensualidades de MSI que faltan) y lo
+    abonado desde el corte. Pide día de corte y de pago (409 sin ellos)."""
+    account = _credit_card(session, user.id, account_id)
+    if not account.statement_day or not account.due_day:
+        raise _conflict(f"Pon el día de corte y el de pago de '{account.name}' para calcular su pago")
+    generate_due(session, user.id, _today(session, user))
+    return card_statement(session, account, _today(session, user))
+
+
+def _installment_response(inst: FinInstallment, account: FinAccount, today: date_type) -> FinInstallmentResponse:
+    bills = installment_bills(inst, account.statement_day)
+    done = [cents for cut, cents in bills if cut <= today]
+    upcoming = [cut for cut, _ in bills if cut > today]
+    return FinInstallmentResponse(
+        id=inst.id, account_id=inst.account_id, transaction_id=inst.transaction_id, concept=inst.concept,
+        total_cents=inst.total_cents, currency=account.currency, months=inst.months,
+        purchase_date=inst.purchase_date, first_statement=inst.first_statement, monthly_cents=bills[0][1],
+        billed=len(done), remaining_cents=inst.total_cents - sum(done),
+        next_statement=upcoming[0] if upcoming else None,
+    )
+
+
+@router.get("/installments", response_model=FinInstallmentListResponse)
+def list_installments(account_id: Optional[int] = None, session: Session = Depends(get_session),
+                      user: User = Depends(finance_user)):
+    """Las compras a meses, de la más reciente a la más antigua."""
+    query = select(FinInstallment).where(FinInstallment.user_id == user.id)
+    if account_id is not None:
+        query = query.where(FinInstallment.account_id == account_id)
+    rows = session.exec(query.order_by(FinInstallment.purchase_date.desc(), FinInstallment.id.desc())).all()
+    accounts = {a.id: a for a in session.exec(select(FinAccount).where(FinAccount.user_id == user.id)).all()}
+    today = _today(session, user)
+    return FinInstallmentListResponse(installments=[_installment_response(i, accounts[i.account_id], today)
+                                                    for i in rows if i.account_id in accounts])
+
+
+@router.post("/installments", response_model=FinInstallmentResponse, status_code=status.HTTP_201_CREATED)
+def create_installment(body: FinInstallmentCreate, session: Session = Depends(get_session),
+                       user: User = Depends(finance_user)):
+    """Una compra a meses. Con transaction_id, la compra ya anotada (un gasto en
+    una tarjeta de crédito) da la cuenta, la fecha, el monto y el concepto; una
+    compra tiene un solo plan (409). El primer corte, si no viene, es el primero
+    desde la compra."""
+    if body.transaction_id is not None:
+        tx = _own_transaction(session, user.id, body.transaction_id)
+        if tx.kind != "expense":
+            raise _unprocessable("Solo una compra (un gasto) va a meses")
+        account = _credit_card(session, user.id, tx.account_id)
+        if session.exec(select(FinInstallment.id).where(FinInstallment.user_id == user.id,
+                                                        FinInstallment.transaction_id == tx.id)).first():
+            raise _conflict("Esa compra ya está a meses")
+        concept, total, purchase = tx.concept, tx.amount_cents, tx.tx_date
+    else:
+        if body.account_id is None or body.total_cents is None or body.purchase_date is None or not body.concept:
+            raise _unprocessable("Sin la compra anotada, pide cuenta, concepto, total y fecha de compra")
+        account = _credit_card(session, user.id, body.account_id)
+        concept, total, purchase = _clean_concept(body.concept), body.total_cents, body.purchase_date
+    if total < body.months:
+        raise _unprocessable("El total no alcanza para tantos meses")
+    first = body.first_statement
+    if first is None:
+        if not account.statement_day:
+            raise _conflict(f"Pon el día de corte de '{account.name}' (o el primer corte de la compra)")
+        first = cut_on_or_after(account.statement_day, purchase)
+    if first < purchase:
+        raise _unprocessable("El primer corte no puede ser antes de la compra")
+    inst = FinInstallment(user_id=user.id, account_id=account.id, transaction_id=body.transaction_id,
+                          concept=concept, total_cents=total, months=body.months, purchase_date=purchase,
+                          first_statement=first)
+    session.add(inst)
+    session.commit()
+    session.refresh(inst)
+    return _installment_response(inst, account, _today(session, user))
+
+
+@router.delete("/installments/{installment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_installment(installment_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Quita el plan de meses; la compra se queda (para rehacer uno creado mal)."""
+    inst = session.exec(select(FinInstallment).where(FinInstallment.id == installment_id,
+                                                     FinInstallment.user_id == user.id)).first()
+    if not inst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compra a meses no encontrada")
+    session.delete(inst)
     session.commit()

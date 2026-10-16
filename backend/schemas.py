@@ -1650,9 +1650,20 @@ class FinCategoryListResponse(SQLModel):
     categories: List[FinCategoryResponse]
 
 
+FIN_MAX_SPLITS = 20
+FIN_MAX_INSTALLMENT_MONTHS = 48
+
+
+class FinSplitFields(SQLModel):
+    """Una parte de un movimiento dividido: su categoría y su monto."""
+    category_id: int
+    amount_cents: int = Field(gt=0, le=MAX_MONEY_CENTS)
+
+
 class FinTransactionFields(SQLModel):
     """Un movimiento escrito a mano o pegado. Un gasto o un ingreso lleva
-    categoría de su tipo; una transferencia, la cuenta de destino y ninguna."""
+    categoría de su tipo, o partes (splits) que suman su monto; una
+    transferencia, la cuenta de destino y ninguna."""
     kind: str = "expense"
     account_id: int
     amount_cents: int = Field(gt=0, le=MAX_MONEY_CENTS)
@@ -1661,6 +1672,7 @@ class FinTransactionFields(SQLModel):
     to_account_id: Optional[int] = None
     concept: str = Field(min_length=1, max_length=200)
     note: Optional[str] = Field(default=None, max_length=500)
+    splits: Optional[List[FinSplitFields]] = Field(default=None, max_length=FIN_MAX_SPLITS)
 
     @field_validator("kind")
     @classmethod
@@ -1679,6 +1691,8 @@ class FinTransactionUpdate(SQLModel):
     concept: Optional[str] = Field(default=None, min_length=1, max_length=200)
     note: Optional[str] = Field(default=None, max_length=500)
     needs_review: Optional[bool] = None
+    # Una lista las reemplaza; null las quita (y entonces lleva categoría)
+    splits: Optional[List[FinSplitFields]] = Field(default=None, max_length=FIN_MAX_SPLITS)
 
     @field_validator("kind")
     @classmethod
@@ -1706,6 +1720,68 @@ class FinTransactionResponse(SQLModel):
     source: str
     recurring_id: Optional[int] = None
     needs_review: bool = False
+    splits: List[FinSplitFields] = []
+    installment_id: Optional[int] = None    # si es una compra a meses
+
+
+class FinInstallmentCreate(SQLModel):
+    """Una compra a meses en una tarjeta de crédito. Con transaction_id, la compra
+    ya anotada (su cuenta, fecha y monto mandan); sin él, solo el plan de pagos."""
+    account_id: Optional[int] = None
+    transaction_id: Optional[int] = None
+    concept: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    total_cents: Optional[int] = Field(default=None, gt=0, le=MAX_MONEY_CENTS)
+    months: int = Field(ge=2, le=FIN_MAX_INSTALLMENT_MONTHS)
+    purchase_date: Optional[date_type] = None
+    first_statement: Optional[date_type] = None   # sin él, el primer corte desde la compra
+
+
+class FinInstallmentResponse(SQLModel):
+    id: int
+    account_id: int
+    transaction_id: Optional[int] = None
+    concept: str
+    total_cents: int
+    currency: str
+    months: int
+    purchase_date: date_type
+    first_statement: date_type
+    monthly_cents: int            # la primera parte (las demás, igual o un centavo menos)
+    billed: int                   # cuántas partes ya pidió algún corte hasta hoy
+    remaining_cents: int          # lo que aún no se factura
+    next_statement: Optional[date_type] = None
+
+
+class FinInstallmentListResponse(SQLModel):
+    installments: List[FinInstallmentResponse]
+
+
+class FinStatementInstallment(SQLModel):
+    id: int
+    concept: str
+    part: int                     # 3 (de 12)
+    months: int
+    amount_cents: int
+
+
+class FinStatementResponse(SQLModel):
+    """El estado de cuenta de una tarjeta de crédito, calculado: el último corte,
+    cuánto pagar antes del día de pago para no generar intereses y lo ya pagado."""
+    account_id: int
+    currency: str
+    statement_day: int
+    due_day: int
+    last_cut: date_type
+    prev_cut: date_type
+    due_date: date_type
+    next_cut: date_type
+    debt_at_cut_cents: int        # lo que se debía al corte (MSI completos incluidos)
+    msi_pending_cents: int        # mensualidades de MSI que aún no se facturan
+    pay_no_interest_cents: int    # deuda al corte − MSI por facturar
+    paid_since_cut_cents: int     # abonos y pagos después del corte
+    remaining_cents: int          # lo que falta para no generar intereses
+    cycle_charges_cents: int      # compras desde el corte (van al siguiente)
+    installments: List[FinStatementInstallment] = []
 
 
 class FinTransactionListResponse(SQLModel):
