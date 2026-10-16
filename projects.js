@@ -31,7 +31,6 @@ const tabCalendar = document.getElementById('tabCalendar');
 const tabProjects = document.getElementById('tabProjects');
 const tabReports = document.getElementById('tabReports');
 const tabCosts = document.getElementById('tabCosts');
-const tabFinance = document.getElementById('tabFinance');
 const viewsViewport = document.getElementById('viewsViewport');
 const viewsTrack = document.getElementById('viewsTrack');
 const tabIndicator = document.querySelector('.tab-indicator');
@@ -70,8 +69,6 @@ const VIEWS = [
     // Solo con el plan Maker (costs.js la muestra): nace oculta en el HTML.
     // Va antes de Reportes, que siempre es la última.
     { id: 'costs', tab: tabCosts, section: document.getElementById('viewCosts') },
-    // Solo con el módulo Finanzas (finance.js la muestra), igual que Costos
-    { id: 'finance', tab: tabFinance, section: document.getElementById('viewFinance') },
     { id: 'reports', tab: tabReports, section: document.getElementById('viewReports') },
 ];
 
@@ -109,12 +106,22 @@ function goToView(target, opts = {}) {
         view.tab.setAttribute('aria-selected', String(active));
         view.tab.tabIndex = active ? 0 : -1;
     });
-    tabIndicator.style.width = `${100 / views.length}%`;
-    tabIndicator.style.transform = `translateX(${100 * currentViewIndex}%)`;
+    syncTabIndicator();
     watchActiveView();
     if (!fellBack) writeLastView(currentViewId);
 
     window.viewChangedHooks.forEach(hook => hook(currentViewId));
+}
+
+// La raya bajo la pestaña activa. Las pestañas visibles se reparten el ancho
+// por igual, y entre ellas puede haber una que no es vista (Finanzas lleva a
+// /finance), así que se cuenta por pestañas, no por vistas.
+function syncTabIndicator() {
+    const tabs = [...document.querySelectorAll('.tabs .tab-btn:not([hidden])')];
+    const active = visibleViews()[currentViewIndex];
+    const index = active ? tabs.indexOf(active.tab) : -1;
+    tabIndicator.style.width = `${100 / Math.max(1, tabs.length)}%`;
+    tabIndicator.style.transform = `translateX(${100 * Math.max(0, index)}%)`;
 }
 
 // Muestra u oculta una vista entera (su tab y su sección), p. ej. al apagar un

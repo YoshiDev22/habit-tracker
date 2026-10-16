@@ -122,7 +122,8 @@ habit-tracker/
 ├── privacidad.html        # Plantilla del aviso de privacidad (la llena backend/privacy.py)
 ├── admin.html, admin.js, admin-charts.js, admin.css  # El panel: los sirve admin_main.py, no la app
 ├── styles.css             # Todo el CSS, con variables de tema en :root / [data-theme]
-├── script.js              # Núcleo: auth, hooks, apiFetch, perfil, tema, getDateKey
+├── core.js                # Lo compartido por las dos páginas: token, apiFetch, modales, confirm, tema, dinero y tablas
+├── script.js              # Núcleo de la app: auth, hooks, perfil, módulos
 ├── habits.js              # Hábitos: calendario, racha, configuración, vacaciones
 ├── projects.js            # Tabs con swipe, vista Lista (proyectos y tareas), menú y borrado de proyecto
 ├── board.js               # Vista Tablero, detalle de tarjeta y "Organizar" (tableros, columnas, etiquetas)
@@ -131,7 +132,14 @@ habit-tracker/
 ├── project-overview.js    # Ficha de proyecto: tiempo por tarea, etiqueta y mes (solo lee)
 ├── costs.js               # Pestaña Costos (plan Maker): resumen, hoja de gastos, pegar/CSV, categorías
 ├── costs-recurring.js     # Costos: repartir un gasto entre proyectos y los gastos recurrentes
-├── finance.js             # Pestaña Finanzas: periodo, alta rápida, pegar el estado de cuenta, Organizar
+├── finance.js             # En la app: la pestaña Finanzas (enlace a /finance) y la casilla del módulo
+├── finance.html           # La página de Finanzas (/finance): misma sesión y API, otra página
+├── finance.css            # Sus estilos, con los tokens de styles.css
+├── finance-icons.js       # Iconos de línea (Lucide, ISC) para cuentas, categorías y la pantalla
+├── finance-app.js         # Finanzas: estado, carga, arriba, pestañas, anillo, lista, resumen, cuentas
+├── finance-entry.js       # Finanzas: la hoja del monto con su teclado calculadora, fecha y periodicidad
+├── finance-settings.js    # Finanzas: ajustes (periodo y sueldo, categorías, fijos), la hoja de una cuenta
+├── finance-import.js      # Finanzas: pegar el estado de cuenta o un CSV, con vista previa
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -491,7 +499,10 @@ Lo que no se ve en Swagger:
   `project-overview.js` la pinta en la ficha y en Costos (*Tus estimados*).
 - **Finanzas personales** (épica 37, `docs/specs/finanzas.md`; módulo `finance`, con acceso como
   `maker`): `/api/finance` (router `finance.py`, todo tras `finance_user`). No comparte tablas con
-  Costos. Una **cuenta** (`cash | debit | credit`, una moneda, solo `last4`) y movimientos de
+  Costos. Una **cuenta** (`cash | debit | credit`, una moneda, solo `last4`, icono y color de lista cerrada) tiene
+  **saldo**: el inicial (`opening_balance_cents`; negativo en crédito = lo que se debía) más sus
+  movimientos hasta hoy, calculado (`account_balances()`), nunca guardado; una de crédito lleva además
+  límite (y su disponible), día de corte y de pago, que se vacían si deja de serlo. Hay movimientos de
   tipo `expense | income | transfer`, con el monto siempre positivo. **La compra con crédito es
   el gasto y el pago de la tarjeta una transferencia**: el resumen (`summary()` en
   `backend/finance.py`) nunca cuenta una transferencia como gasto, y una transferencia solo va
@@ -510,20 +521,29 @@ Lo que no se ve en Swagger:
   lo anotado nunca se mueve, y quitarlo deja sus movimientos sin el 🔁. Las columnas de las fases
   3 y 4 (`external_id`, `linked_id`, `needs_review`) ya existen para no migrar después. El panel
   de administración solo cuenta movimientos (`COUNTED`), nunca montos ni conceptos.
-- **Pestaña Finanzas** (`finance.js`): la vista `'finance'`, entre Costos y Reportes, oculta
-  hasta que `applyFinanceModule()` la muestra; también la página *Configuración › Finanzas*
-  (el periodo y el sueldo). Tras "¿Cada cuándo cobras?" viene "¿Cuánto cobras?"
-  (`openFinanceSalary()`): monto, cuenta (o una de débito nueva), el próximo pago en el
-  calendario y, por quincena, el otro día; se guarda como el fijo de ingreso "Sueldo" (sin
-  tabla propia). *Dejar para después* no guarda nada: mientras no haya un ingreso fijo
-  (`financeSalaryFixed()`), una línea discreta lo ofrece. Pegar filas en *Movimientos* (o un CSV) abre la vista previa
-  (`rowsToFinance()`, con columnas Cargo/Abono o un solo Monto con signo): lo que ya existe en
-  esa cuenta (mismo día, monto y tipo, contando repeticiones) sale tachado y no entra salvo que
-  se pida, y un abono a una tarjeta de crédito se salta (es el pago: va como transferencia).
-  *Organizar* (cuentas, fijos y categorías) es un desglose con `createDrillDown()`.
-  En *＋ Agregar*, un gasto o ingreso nuevo puede llevar **Se repite** (mes, quincena o año): no se
-  crea el movimiento, sino el fijo con su fecha como primer cobro, y `generate_due()` lo anota (una
-  vez) si ya llegó. Editar un movimiento no lo ofrece.
+- **Página Finanzas** (`/finance`, rediseño de la épica 37): **otra página de la misma app**, no
+  una vista de `index.html`. `main.py` sirve `finance.html` y sus archivos (`FINANCE_FILES`, una ruta
+  por archivo registrada en un bucle con `_serve()`, sin parámetros: ninguno elige el archivo). Mismo
+  origen, así que **la misma sesión** (el token de `localStorage`): sin token o con el módulo apagado
+  regresa a `/`. En la app, `#tabFinance` es un **enlace** entre las pestañas, no una vista: no está en
+  `VIEWS` ni en el swipe, y la raya de la pestaña activa se reparte entre las pestañas visibles
+  (`syncTabIndicator()` en `projects.js`). La página: arriba ‹ (regresa a la app), "Todas las cuentas"
+  (saldos de las activas, por moneda) y el periodo; abajo cinco pestañas (Cuentas, Categorías,
+  Transacciones, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
+  es un anillo SVG con lo de cada categoría y alrededor sus círculos (`finRingSlot()`); tocar el anillo
+  cambia a las de ingresos. **Tocar un círculo abre la hoja del monto** (`finance-entry.js`): bandas
+  *De cuenta* / *A categoría* (al revés en un ingreso; elegir una cuenta como destino la vuelve
+  transferencia), *Notas…* (el concepto; vacío, el nombre de la categoría) y un teclado con
+  calculadora (`finEvaluate()`: + − × ÷ con precedencia, sin `eval`). Su 📅 abre la fecha (Ayer, Hoy o
+  el calendario) y la **periodicidad**: con una, no se crea el movimiento sino el fijo con esa fecha
+  como primer cobro (quincena: el día elegido y su pareja, `finOtherPayDay()`). Editar un movimiento
+  es la misma hoja, sin periodicidad. "¿Cada cuándo cobras?" y luego "¿Cuánto cobras?" (el fijo de
+  ingreso "Sueldo", `finSalaryFixed()`), con *Dejar para después* y una línea discreta mientras no
+  haya. Pegar el estado de cuenta (`finance-import.js`, `rowsToFinance()`): lo que ya existe en esa
+  cuenta sale tachado y un abono a una tarjeta de crédito se salta. Ajustes es un desglose con
+  `createDrillDown()`. Las hojas que suben desde abajo llevan su pila (`finSheets`) para el Escape.
+  Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
+  las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va
   siempre al final; el orden de `VIEWS` y el de las secciones del HTML deben coincidir), oculta en el HTML y
   mostrada por `applyCostsModule()` con el plan encendido. Si se recargó estando en ella,
@@ -593,11 +613,12 @@ Lo que no se ve en Swagger:
 
 ## Arquitectura del frontend
 
-Sin build step, sin módulos ES. `index.html` carga los dieciocho scripts en orden y **el
-orden importa**:
+Sin build step, sin módulos ES. `index.html` carga los diecinueve scripts en orden y **el
+orden importa** (`finance.html` carga los suyos: `core.js`, `drilldown.js`, `finance-icons.js` y los `finance-*.js`):
 
 ```html
-<script src="script.js"></script>   <!-- primero: define los hooks y apiFetch -->
+<script src="core.js"></script>     <!-- primero: token, apiFetch, modales, confirm, tema, dinero y tablas pegadas -->
+<script src="script.js"></script>   <!-- define los hooks, currentUser y el perfil -->
 <script src="feedback.js"></script> <!-- segundo: oye los errores desde el principio (Reportar un problema) -->
 <script src="drilldown.js"></script> <!-- createDrillDown(): solo una función, la usan los menús -->
 <script src="habits.js"></script>   <!-- sus hooks de datos van antes que los demás -->
@@ -613,7 +634,7 @@ orden importa**:
 <script src="saved-reports.js"></script> <!-- reportes guardados: usa los helpers de reports.js -->
 <script src="account.js"></script>      <!-- contraseña y borrar la cuenta: usa confirmDialog y handleLogout -->
 <script src="costs-recurring.js"></script> <!-- reparto y recurrentes: usa costsState y loadCostRows de costs.js -->
-<script src="finance.js"></script>     <!-- Finanzas: usa parseTable y parseMoneyCents de costs.js, createDrillDown -->
+<script src="finance.js"></script>     <!-- la pestaña Finanzas (enlace a /finance): usa syncTabIndicator de projects.js -->
 <script src="novedades.js"></script>    <!-- Novedades: usa el() de reports.js y la página news de Mi perfil -->
 ```
 
@@ -664,7 +685,7 @@ así que también vale para tareas de proyectos archivados).
 
 ### `apiFetch` y `ApiError`
 
-`apiFetch(path, options)` en `script.js` es el helper para **todo el código nuevo**:
+`apiFetch(path, options)` en `core.js` es el helper para **todo el código nuevo** (las dos páginas):
 
 ```js
 const data = await apiFetch('/api/projects', { method: 'POST', json: payload });
@@ -897,7 +918,8 @@ del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar 
 al cierre de sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
-el que se preguntó "¿Olvidaste anotar?"), `work_calendar_cache` (huso, país y festivos por año, para
+el que se preguntó "¿Olvidaste anotar?"), `finance_tab` (la pestaña abierta de la página de Finanzas, de este dispositivo),
+`work_calendar_cache` (huso, país y festivos por año, para
 no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
 `text_size` (`large` | `xlarge`, en **Configuración › Accesibilidad**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —
 los tamaños de texto nuevos van en `rem`, no en `px`—; el script inline del `<head>` lo

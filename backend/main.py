@@ -197,6 +197,31 @@ def finance_js():
     return frontend_file("finance.js")
 
 
+# La página de Finanzas: otra página de la misma app (misma sesión y API).
+# Sin el módulo, la propia página regresa a /: aquí no hay datos, solo archivos.
+@app.get("/finance")
+def finance_page():
+    """Serve finance.html"""
+    return frontend_file("finance.html")
+
+
+FINANCE_FILES = ("finance.css", "finance-icons.js", "finance-app.js", "finance-entry.js",
+                 "finance-settings.js", "finance-import.js")
+
+
+# Una ruta por archivo, como todo el frontend (una genérica "/{name}" taparía
+# las que vienen después)
+def _serve(filename: str):
+    # Sin parámetros: FastAPI no deja elegir el archivo desde la petición
+    def serve():
+        return frontend_file(filename)
+    return serve
+
+
+for _name in FINANCE_FILES:
+    app.add_api_route(f"/{_name}", _serve(_name), methods=["GET"], include_in_schema=False)
+
+
 @app.get("/novedades.js")
 def novedades_js():
     """Serve novedades.js"""

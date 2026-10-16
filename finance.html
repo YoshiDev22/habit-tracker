@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Finanzas · Habit Tracker</title>
+    <meta name="theme-color" id="themeColorMeta" content="#fafafa">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script>
+    // El tema y el tamaño de letra ANTES del primer paint, como en index.html
+    (function () {
+        var pref = 'system';
+        try { pref = localStorage.getItem('theme') || 'system'; } catch (e) {}
+        var dark = pref === 'dark' || (pref === 'system' &&
+            window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        root.setAttribute('data-theme-pref', pref);
+        try {
+            var size = localStorage.getItem('text_size');
+            if (size === 'large' || size === 'xlarge') root.setAttribute('data-text-size', size);
+        } catch (e) {}
+        // Sin sesión no hay nada que ver aquí: a la app, que pide entrar
+        try { if (!localStorage.getItem('access_token')) location.replace('/'); } catch (e) {}
+    })();
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="finance.css">
+</head>
+<body class="fin-body">
+    <!-- Arriba, siempre: regresar, el total de las cuentas y el periodo -->
+    <header class="fin-top">
+        <div class="fin-top-row">
+            <a class="fin-round-btn" id="finBack" href="/" aria-label="Regresar a Habit Tracker" title="Regresar"></a>
+            <div class="fin-total">
+                <span class="fin-total-label">Todas las cuentas</span>
+                <strong class="fin-total-amount" id="finTotal">—</strong>
+                <span class="fin-total-more" id="finTotalMore"></span>
+            </div>
+            <button type="button" class="fin-round-btn" id="finSettingsBtn" aria-label="Ajustes de Finanzas" title="Ajustes"></button>
+        </div>
+        <div class="fin-period">
+            <button type="button" class="fin-round-btn small" id="finPrev" aria-label="Periodo anterior"></button>
+            <span class="fin-period-pill" id="finPeriodLabel">—</span>
+            <button type="button" class="fin-round-btn small" id="finNext" aria-label="Periodo siguiente"></button>
+        </div>
+    </header>
+
+    <main class="fin-main" id="finMain">
+        <div id="finError" class="form-error hidden"></div>
+
+        <!-- La primera vez: cada cuándo cobra -->
+        <section class="fin-card fin-ask" id="finAsk" hidden>
+            <h2 class="fin-card-title">¿Cada cuándo cobras?</h2>
+            <p class="fin-hint">Así se miden tus gastos por periodo. Lo cambias cuando quieras en Ajustes.</p>
+            <div class="fin-ask-actions">
+                <button type="button" class="submit-btn" data-period="biweekly">Cada quincena</button>
+                <button type="button" class="submit-btn" data-period="month">Cada mes</button>
+            </div>
+        </section>
+        <p class="fin-salary-hint" id="finSalaryHint" hidden>¿Cuánto cobras?
+            <button type="button" class="link-btn" id="finSalaryOpen">Agregar tu sueldo</button></p>
+
+        <!-- Cuentas -->
+        <section class="fin-tab" data-tab="accounts" hidden>
+            <div class="fin-subtabs" role="tablist" id="finAccountTabs">
+                <button type="button" class="fin-subtab" data-sub="accounts" aria-selected="true">Cuentas</button>
+                <button type="button" class="fin-subtab" data-sub="cards" aria-selected="false">Tarjetas</button>
+                <button type="button" class="fin-subtab" data-sub="investments" aria-selected="false">Inversiones</button>
+                <button type="button" class="fin-subtab" data-sub="debts" aria-selected="false">Deudas</button>
+            </div>
+            <div id="finAccountsBody"></div>
+        </section>
+
+        <!-- Categorías: el anillo y los círculos; tocar uno abre el monto -->
+        <section class="fin-tab" data-tab="categories">
+            <div class="fin-ring-grid" id="finRingGrid"></div>
+        </section>
+
+        <!-- Transacciones del periodo, por día -->
+        <section class="fin-tab" data-tab="transactions" hidden>
+            <div class="fin-list-actions">
+                <button type="button" class="link-btn" id="finPasteBtn">Pegar estado de cuenta</button>
+                <input type="file" id="finCsvInput" accept=".csv,text/csv,text/plain" hidden>
+                <button type="button" class="link-btn" id="finCsvBtn">Elegir CSV</button>
+                <button type="button" class="submit-btn fin-add-btn" id="finAddBtn">＋ Agregar</button>
+            </div>
+            <div id="finTxList"></div>
+        </section>
+
+        <!-- Presupuesto: fase C -->
+        <section class="fin-tab" data-tab="budget" hidden>
+            <div class="fin-card fin-soon">
+                <h2 class="fin-card-title">Presupuesto</h2>
+                <p class="fin-hint">Próximamente: un límite por categoría, en monto o en porcentaje de tu
+                    ingreso, con referencias para empezar, y el flujo de cada mes.</p>
+            </div>
+        </section>
+
+        <!-- Resumen -->
+        <section class="fin-tab" data-tab="overview" hidden>
+            <div id="finOverview"></div>
+        </section>
+    </main>
+
+    <!-- Abajo: las cinco pestañas -->
+    <nav class="fin-nav" id="finNav" aria-label="Secciones de Finanzas">
+        <button type="button" class="fin-nav-btn" data-tab="accounts"><span class="fin-nav-icon" data-icon="wallet"></span>Cuentas</button>
+        <button type="button" class="fin-nav-btn" data-tab="categories"><span class="fin-nav-icon" data-icon="chart-pie"></span>Categorías</button>
+        <button type="button" class="fin-nav-btn" data-tab="transactions"><span class="fin-nav-icon" data-icon="receipt"></span>Transacciones</button>
+        <button type="button" class="fin-nav-btn" data-tab="budget"><span class="fin-nav-icon" data-icon="gauge"></span>Presupuesto</button>
+        <button type="button" class="fin-nav-btn" data-tab="overview"><span class="fin-nav-icon" data-icon="chart-column"></span>Resumen</button>
+    </nav>
+
+    <!-- La hoja del monto: de dónde, a dónde, el teclado y la fecha -->
+    <div class="fin-sheet hidden" id="finEntry" role="dialog" aria-modal="true" aria-labelledby="finEntryKind">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel fin-entry-panel">
+            <div class="fin-bands">
+                <button type="button" class="fin-band" id="finBandFrom">
+                    <span class="fin-band-label" id="finBandFromLabel">De cuenta</span>
+                    <span class="fin-band-name" id="finBandFromName"></span>
+                    <span class="fin-band-icon" id="finBandFromIcon"></span>
+                </button>
+                <button type="button" class="fin-band" id="finBandTo">
+                    <span class="fin-band-label" id="finBandToLabel">A categoría</span>
+                    <span class="fin-band-name" id="finBandToName"></span>
+                    <span class="fin-band-icon" id="finBandToIcon"></span>
+                </button>
+            </div>
+            <div class="fin-entry-amount">
+                <span class="fin-entry-kind" id="finEntryKind">Gasto</span>
+                <span class="fin-entry-expr" id="finEntryExpr">$ 0</span>
+                <span class="fin-entry-result" id="finEntryResult"></span>
+            </div>
+            <input type="text" class="fin-entry-notes" id="finEntryNotes" maxlength="200" placeholder="Notas…" autocomplete="off">
+            <div class="fin-entry-flags" id="finEntryFlags"></div>
+            <div id="finEntryError" class="form-error hidden"></div>
+            <div class="fin-keypad" id="finKeypad"></div>
+            <div class="fin-entry-foot">
+                <button type="button" class="link-btn danger" id="finEntryDelete" hidden>Borrar</button>
+                <button type="button" class="fin-entry-date" id="finEntryDate"></button>
+                <button type="button" class="link-btn" id="finEntryCancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Elegir cuenta o categoría (también para pasar a una transferencia) -->
+    <div class="fin-sheet hidden" id="finPicker" role="dialog" aria-modal="true" aria-labelledby="finPickerTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finPickerTitle">Elige</h2>
+            <div class="fin-picker-grid" id="finPickerGrid"></div>
+        </div>
+    </div>
+
+    <!-- Fecha y periodicidad -->
+    <div class="fin-sheet hidden" id="finDateSheet" role="dialog" aria-modal="true" aria-labelledby="finDateTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finDateTitle">Fecha</h2>
+            <div class="fin-date-grid">
+                <label class="fin-date-tile wide"><span class="fin-tile-icon" data-icon="calendar-days"></span>
+                    <span>Seleccione el día</span>
+                    <input type="date" id="finDateInput" class="fin-date-input">
+                </label>
+                <button type="button" class="fin-date-tile" data-day="-1"><span class="fin-tile-icon" data-icon="moon"></span>
+                    <span>Ayer</span><small id="finDateYesterday"></small></button>
+                <button type="button" class="fin-date-tile" data-day="0"><span class="fin-tile-icon" data-icon="sun"></span>
+                    <span>Hoy</span><small id="finDateToday"></small></button>
+                <label class="fin-date-tile wide" id="finRepeatTile"><span class="fin-tile-icon" data-icon="repeat"></span>
+                    <span>Periodicidad</span>
+                    <select id="finRepeatSelect">
+                        <option value="">Ninguna</option>
+                        <option value="monthly">Cada mes</option>
+                        <option value="semimonthly">Cada quincena</option>
+                        <option value="yearly">Cada año</option>
+                    </select>
+                    <small id="finRepeatHint"></small>
+                </label>
+            </div>
+            <button type="button" class="submit-btn fin-sheet-done" id="finDateDone">Listo</button>
+        </div>
+    </div>
+
+    <!-- Una cuenta: crear o editar -->
+    <div class="fin-sheet hidden" id="finAccountSheet" role="dialog" aria-modal="true" aria-labelledby="finAccountTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finAccountTitle">Cuenta</h2>
+            <form id="finAccountForm" class="fin-form" novalidate>
+                <label class="fin-field wide">Nombre
+                    <input type="text" id="finAccName" maxlength="40" required>
+                </label>
+                <label class="fin-field">Tipo
+                    <select id="finAccKind">
+                        <option value="cash">Efectivo</option>
+                        <option value="debit">Débito</option>
+                        <option value="credit">Crédito</option>
+                    </select>
+                </label>
+                <label class="fin-field">Moneda
+                    <select id="finAccCurrency"></select>
+                </label>
+                <label class="fin-field" id="finAccOpeningField"><span id="finAccOpeningLabel">Saldo al empezar</span>
+                    <input type="text" id="finAccOpening" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                </label>
+                <label class="fin-field">Últimos 4 dígitos
+                    <input type="text" id="finAccLast4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Opcional">
+                </label>
+                <label class="fin-field credit-only">Límite de crédito
+                    <input type="text" id="finAccLimit" inputmode="decimal" autocomplete="off" placeholder="Opcional">
+                </label>
+                <label class="fin-field credit-only">Día de corte
+                    <input type="number" id="finAccStatement" min="1" max="31" inputmode="numeric" placeholder="1–31">
+                </label>
+                <label class="fin-field credit-only">Día de pago
+                    <input type="number" id="finAccDue" min="1" max="31" inputmode="numeric" placeholder="1–31">
+                </label>
+                <p class="fin-hint wide" id="finAccHint"></p>
+                <div class="fin-field wide">Icono
+                    <div class="fin-icon-grid" id="finAccIcons"></div>
+                </div>
+                <div class="fin-field wide">Color
+                    <div class="fin-color-row" id="finAccColors"></div>
+                </div>
+                <div id="finAccError" class="form-error hidden wide"></div>
+                <div class="fin-form-actions wide">
+                    <button type="button" class="link-btn" id="finAccArchive" hidden>Archivar</button>
+                    <button type="button" class="link-btn" id="finAccCancel">Cancelar</button>
+                    <button type="submit" class="submit-btn" id="finAccSave">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ¿Cuánto cobras? Se guarda como el fijo "Sueldo" -->
+    <div class="fin-sheet hidden" id="finSalarySheet" role="dialog" aria-modal="true" aria-labelledby="finSalaryTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finSalaryTitle">¿Cuánto cobras?</h2>
+            <p class="fin-hint">Se anota solo en cada día de pago, como un fijo. Lo cambias en Ajustes › Fijos.</p>
+            <form id="finSalaryForm" class="fin-form" novalidate>
+                <label class="fin-field">Monto
+                    <input type="text" id="finSalaryAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                </label>
+                <label class="fin-field">Te llega a
+                    <select id="finSalaryAccount"></select>
+                </label>
+                <label class="fin-field wide" id="finSalaryNewAccountField" hidden>Nombre de la cuenta de débito
+                    <input type="text" id="finSalaryNewAccount" maxlength="40" placeholder="Nómina, banco…">
+                </label>
+                <label class="fin-field">Próximo pago
+                    <input type="date" id="finSalaryDate">
+                </label>
+                <label class="fin-field" id="finSalarySecondField">El otro pago, el día
+                    <input type="number" id="finSalarySecond" min="1" max="31" inputmode="numeric">
+                </label>
+                <p class="fin-hint wide" id="finSalaryDays"></p>
+                <div id="finSalaryError" class="form-error hidden wide"></div>
+                <div class="fin-form-actions wide">
+                    <button type="button" class="link-btn" id="finSalaryLater">Dejar para después</button>
+                    <button type="submit" class="submit-btn" id="finSalarySave">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ajustes: periodo, sueldo, categorías y fijos (menú de desglose) -->
+    <div id="finSettingsModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content fin-settings-modal" role="dialog" aria-modal="true" aria-labelledby="finSettingsTitle">
+            <button class="modal-close" type="button" id="finSettingsClose" aria-label="Cerrar">&times;</button>
+            <div class="settings-head">
+                <button type="button" class="settings-back" id="finSettingsBack" aria-label="Volver" hidden>‹</button>
+                <h2 class="modal-title" id="finSettingsTitle">Ajustes</h2>
+            </div>
+            <div id="finSettingsError" class="form-error hidden"></div>
+            <div class="settings-menu" id="finSettingsMenu">
+                <button type="button" class="settings-item" data-open="period">
+                    <span class="settings-item-text"><strong>Periodo y sueldo</strong><small>Cada cuándo cobras y cuánto</small></span>
+                    <span class="settings-item-go">›</span>
+                </button>
+                <button type="button" class="settings-item" data-open="categories">
+                    <span class="settings-item-text"><strong>Categorías</strong><small>Nombre, icono y color; agregar o borrar</small></span>
+                    <span class="settings-item-go">›</span>
+                </button>
+                <button type="button" class="settings-item" data-open="fixed">
+                    <span class="settings-item-text"><strong>Fijos</strong><small>Lo que se repite: renta, suscripciones, el sueldo</small></span>
+                    <span class="settings-item-go">›</span>
+                </button>
+                <button type="button" class="settings-item" data-open="archived">
+                    <span class="settings-item-text"><strong>Cuentas archivadas</strong><small>Las que ya no usas, con su historial</small></span>
+                    <span class="settings-item-go">›</span>
+                </button>
+            </div>
+
+            <section class="settings-page" data-section="period" data-title="Periodo y sueldo">
+                <div class="device-setting-row">
+                    <span id="finPeriodSettingLabel">Cobras</span>
+                    <div class="view-toggle" id="finPeriodToggle" role="group" aria-labelledby="finPeriodSettingLabel">
+                        <button type="button" class="view-toggle-btn" data-period="biweekly">Cada quincena</button>
+                        <button type="button" class="view-toggle-btn" data-period="month">Cada mes</button>
+                    </div>
+                </div>
+                <p class="fin-hint">La quincena va del 1 al 15 y del 16 al último día del mes. Cambiarlo no mueve
+                    ningún movimiento: solo cómo se agrupan.</p>
+                <div class="device-setting-row">
+                    <span>Tu sueldo</span>
+                    <span class="fin-setting-value" id="finSalarySetting"></span>
+                    <button type="button" class="link-btn" id="finSalarySettingAdd" hidden>Agregar</button>
+                </div>
+            </section>
+
+            <section class="settings-page" data-section="categories" data-title="Categorías">
+                <div class="fin-view-toggle view-toggle" id="finCatKindToggle" role="group" aria-label="Tipo">
+                    <button type="button" class="view-toggle-btn" data-kind="expense" aria-pressed="true">Gastos</button>
+                    <button type="button" class="view-toggle-btn" data-kind="income" aria-pressed="false">Ingresos</button>
+                </div>
+                <ul class="fin-config-list" id="finCatList"></ul>
+                <form id="finCatForm" class="fin-form fin-sub-form" novalidate>
+                    <p class="fin-form-title wide" id="finCatFormTitle">Nueva categoría</p>
+                    <label class="fin-field wide">Nombre
+                        <input type="text" id="finCatName" maxlength="40">
+                    </label>
+                    <div class="fin-field wide">Icono<div class="fin-icon-grid" id="finCatIcons"></div></div>
+                    <div class="fin-field wide">Color<div class="fin-color-row" id="finCatColors"></div></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" id="finCatCancel" hidden>Cancelar</button>
+                        <button type="submit" class="submit-btn" id="finCatSave">Agregar</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="settings-page" data-section="fixed" data-title="Fijos">
+                <p class="fin-hint">En su fecha se anotan solos (con 🔁). Cambiar uno afecta a los cobros siguientes,
+                    no a los que ya se anotaron; quitarlo deja lo anotado.</p>
+                <ul class="fin-config-list" id="finFixedList"></ul>
+                <form id="finFixedForm" class="fin-form fin-sub-form" novalidate hidden>
+                    <p class="fin-form-title wide" id="finFixedFormTitle">Editar</p>
+                    <label class="fin-field wide">Concepto
+                        <input type="text" id="finFixedConcept" maxlength="200">
+                    </label>
+                    <label class="fin-field">Monto
+                        <input type="text" id="finFixedAmount" inputmode="decimal" autocomplete="off">
+                    </label>
+                    <label class="fin-field">Cada
+                        <select id="finFixedFrequency">
+                            <option value="monthly">Mes</option>
+                            <option value="semimonthly">Quincena</option>
+                            <option value="yearly">Año</option>
+                        </select>
+                    </label>
+                    <label class="fin-field" id="finFixedDaysField" hidden>Los días
+                        <span class="fin-days-inputs">
+                            <input type="number" id="finFixedFirstDay" min="1" max="31" inputmode="numeric" aria-label="Primer día de pago">
+                            <span>y</span>
+                            <input type="number" id="finFixedSecondDay" min="1" max="31" inputmode="numeric" aria-label="Segundo día de pago">
+                        </span>
+                        <small>31 = el último día del mes</small>
+                    </label>
+                    <label class="fin-field">Cuenta
+                        <select id="finFixedAccount"></select>
+                    </label>
+                    <label class="fin-field">Categoría
+                        <select id="finFixedCategory"></select>
+                    </label>
+                    <label class="fin-field">Siguiente cobro
+                        <input type="date" id="finFixedNext">
+                    </label>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" id="finFixedCancel">Cancelar</button>
+                        <button type="submit" class="submit-btn" id="finFixedSave">Guardar</button>
+                    </div>
+                </form>
+                <p class="fin-hint">Para agregar uno: en la hoja del monto, 📅 › Periodicidad.</p>
+            </section>
+
+            <section class="settings-page" data-section="archived" data-title="Cuentas archivadas">
+                <ul class="fin-config-list" id="finArchivedList"></ul>
+            </section>
+        </div>
+    </div>
+
+    <!-- Pegar el estado de cuenta: vista previa -->
+    <div id="finImportModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content fin-import-modal" role="dialog" aria-modal="true" aria-labelledby="finImportTitle">
+            <button class="modal-close" type="button" id="finImportClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="finImportTitle">Agregar del estado de cuenta</h2>
+            <label class="fin-field">A la cuenta
+                <select id="finImportAccount"></select>
+            </label>
+            <textarea id="finImportText" class="fin-import-text" rows="4"
+                      placeholder="Pega aquí las filas copiadas de tu estado de cuenta o de una hoja"></textarea>
+            <p class="fin-hint" id="finImportSummary"></p>
+            <div class="fin-import-table-wrap">
+                <table class="fin-import-table">
+                    <thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Categoría</th></tr></thead>
+                    <tbody id="finImportRows"></tbody>
+                </table>
+            </div>
+            <label class="fin-check hidden" id="finImportDupesOption">
+                <input type="checkbox" id="finImportDupes">
+                <span id="finImportDupesLabel"></span>
+            </label>
+            <div id="finImportError" class="form-error hidden"></div>
+            <div class="fin-form-actions">
+                <button type="button" class="link-btn" id="finImportCancel">Cancelar</button>
+                <button type="button" class="submit-btn" id="finImportConfirm">Agregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- El confirm de core.js (mismos ids y clases que en la app) -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content setup-modal fin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+            <h2 class="modal-title" id="confirmModalTitle">¿Seguro?</h2>
+            <p id="confirmModalMessage" class="setup-subtitle"></p>
+            <div class="habit-action-options">
+                <button type="button" id="confirmModalConfirmBtn" class="submit-btn"></button>
+                <button type="button" id="confirmModalCancelBtn" class="submit-btn btn-neutral">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script src="drilldown.js"></script>
+    <script src="finance-icons.js"></script>
+    <script src="finance-app.js"></script>
+    <script src="finance-entry.js"></script>
+    <script src="finance-settings.js"></script>
+    <script src="finance-import.js"></script>
+</body>
+</html>

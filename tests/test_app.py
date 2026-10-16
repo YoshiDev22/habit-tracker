@@ -11,7 +11,9 @@ def test_public_routes(api):
 
 def test_frontend_files_are_served(client):
     for path in ["/", "/index.html", "/styles.css", "/script.js", "/habits.js", "/projects.js",
-                 "/board.js", "/pomodoro.js", "/reports.js", "/project-overview.js", "/costs.js", "/notifications.js", "/workdays.js", "/settings.js", "/saved-reports.js", "/account.js", "/drilldown.js", "/manifest.webmanifest",
+                 "/board.js", "/pomodoro.js", "/reports.js", "/project-overview.js", "/costs.js", "/notifications.js", "/workdays.js", "/settings.js", "/saved-reports.js", "/account.js", "/drilldown.js", "/core.js", "/manifest.webmanifest",
+                 "/finance", "/finance.css", "/finance-icons.js", "/finance-app.js", "/finance-entry.js",
+                 "/finance-settings.js", "/finance-import.js",
                  "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
                  "/favicon.ico"]:
         assert client.get(path).status_code == 200, path
@@ -33,10 +35,13 @@ def test_nothing_else_from_the_repo_is_served(client):
     # La app solo sirve lo que tiene ruta: ni el .env, ni la base, ni el código
     for path in ["/backend/.env", "/habits.db", "/.git/config", "/CLAUDE.md", "/backend/main.py",
                  "/requirements.txt", "/VERSION", "/icons/nope.png", "/icons/..%2Fbackend%2F.env",
-                 "/icons/%2e%2e%2fVERSION"]:
+                 "/icons/%2e%2e%2fVERSION", "/finance/../backend/.env", "/finance.html.bak"]:
         response = client.get(path)
         assert response.status_code == 404, path
         assert b"SECRET" not in response.content
+    # Los archivos de Finanzas se registran en un bucle: ningún parámetro elige el archivo
+    for path in ["/finance.css?_file=backend/.env", "/finance-app.js?filename=VERSION&_name=CLAUDE.md"]:
+        assert client.get(path).content == client.get(path.split("?")[0]).content, path
 
 
 def test_no_cors_for_other_sites(client):
