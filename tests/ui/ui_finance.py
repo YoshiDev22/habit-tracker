@@ -68,7 +68,7 @@ async def main():
 
     try:
         await b.viewport(390, 844, mobile=True)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)})")
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
@@ -144,6 +144,29 @@ async def main():
         txs = await wait_api("/api/finance/transactions",
                              lambda body: any(t["amount_cents"] == 25000 for t in body["transactions"]))
         check(any(t["concept"] == "Tacos" and t["amount_cents"] == 25000 for t in txs["transactions"]), "the edit is saved")
+
+        # Sin red: guardar avisa, el formulario se queda con lo escrito y nada se pierde
+        await b.js("document.getElementById('financeAddBtn').click()")
+        await b.wait_for("!document.getElementById('financeTxModal').classList.contains('hidden')")
+        await set_value("#financeTxAmount", "45")
+        await set_value("#financeTxConcept", "Café")
+        await b.js("window.__fetch = window.fetch; window.fetch = () => Promise.reject(new TypeError('Failed to fetch'))")
+        await b.js("document.getElementById('financeTxSave').click()")
+        await b.wait_for("!document.getElementById('financeTxError').classList.contains('hidden')")
+        st = await b.js("""({open: !document.getElementById('financeTxModal').classList.contains('hidden'),
+            amount: document.getElementById('financeTxAmount').value,
+            concept: document.getElementById('financeTxConcept').value,
+            save: !document.getElementById('financeTxSave').disabled})""")
+        check(st == {"open": True, "amount": "45", "concept": "Café", "save": True},
+              f"offline, saving warns and keeps what was typed ({st})")
+        await b.js("window.fetch = window.__fetch")
+        await b.js("document.getElementById('financeTxSave').click()")
+        await b.wait_for("document.getElementById('financeTxModal').classList.contains('hidden')")
+        cafe = [t for t in transactions() if t["concept"] == "Café"]
+        check(len(cafe) == 1 and cafe[0]["amount_cents"] == 4500, f"back online, it saves once ({len(cafe)})")
+        api.call("DELETE", f"/api/finance/transactions/{cafe[0]['id']}", expect=204)
+        await b.js("loadFinance()")
+        await b.wait_for("![...document.querySelectorAll('.finance-tx')].some(t => t.textContent.includes('Café'))")
 
         # Pegar un estado de cuenta: los tacos ya están, la farmacia no
         text = f"Fecha\tConcepto\tCargo\tAbono\n{TODAY}\tTacos\t250.00\t\n{TODAY}\tFarmacia\t120.50\t\n"
