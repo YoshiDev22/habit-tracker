@@ -158,6 +158,21 @@ python scripts/admin_dev.py --email tu-correo@ejemplo.com
 
 Abre el navegador con el panel; Ctrl+C lo cierra y borra la llave temporal.
 
+**En producción** el panel no pasa por Caddy ni abre puertos: se llega a él por un Cloudflare
+Tunnel protegido con Cloudflare Access.
+
+1. En Cloudflare Zero Trust, crea un **Tunnel** (`cloudflared` en el VPS) con un subdominio propio
+   que apunte a `http://127.0.0.1:8100`.
+2. Crea una **aplicación de Access** para ese subdominio, con una política que solo deje pasar tu
+   correo (y MFA). Copia su *Application Audience (AUD) Tag*.
+3. En `backend/.env` del VPS: `ADMIN_EMAILS` (el correo con el que entras a Access),
+   `ADMIN_ACCESS_TEAM` (el nombre de tu equipo, `<equipo>.cloudflareaccess.com`) y
+   `ADMIN_ACCESS_AUD`.
+4. Instala el servicio con la plantilla `deploy/habit-admin.service` (usuario, grupo y rutas
+   tuyos) y `sudo systemctl enable --now habit-admin.service`.
+5. Comprueba: en una ventana privada, el subdominio pide entrar con Access; ya dentro, el panel
+   dice tu correo arriba; y en el dominio público de la app, `/api/me` es 404.
+
 ### Avisos para todas las cuentas
 
 Un aviso de mantenimiento (o de una caída) llega a la campanita de todas las cuentas
@@ -169,7 +184,8 @@ mientras esté vigente. Desde la raíz del repo, con el servicio ya en la 1.26 o
 .venv/bin/python scripts/announce.py --end 1   # lo quita de todas las campanitas
 ```
 
-Sin `--hours`, sigue hasta `--end`.
+Sin `--hours`, sigue hasta `--end`. Como mucho 3 vigentes a la vez y 30 s entre dos publicaciones,
+las mismas reglas que el panel de administración (pestaña *Avisos*).
 
 ## Pruebas
 
@@ -180,6 +196,33 @@ pytest -m ui      # navegador (necesita Edge o Chrome)
 ```
 
 Usan una base temporal: no tocan la de desarrollo.
+
+> **Aviso: navegadores que quedaban abiertos (corregido el 2026-10-14).** Desde que las
+> pruebas de navegador entraron al repo (2026-09-24, v1.15.0) hasta esa fecha, en Windows
+> cada `pytest -m ui` dejaba procesos de Edge o Chrome vivos: entre 5 y 10 por prueba, que
+> no se cerraban hasta reiniciar. Unas cuantas corridas sumaban cientos y la máquina se
+> volvía lenta; también hacían fallar pruebas al azar. Se corrigió en `tests/ui/cdp.py`
+> (cierra el navegador con todos sus procesos) y `tests/ui/conftest.py` (al terminar cierra
+> lo que haya quedado de la corrida).
+>
+> Si corriste las pruebas de navegador antes de esa fecha y no has reiniciado, revisa si
+> quedan (PowerShell; solo cuenta los de las pruebas, que usan perfiles `habit-ui-*` en la
+> carpeta temporal):
+>
+> ```powershell
+> (Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" |
+>   Where-Object { $_.CommandLine -match 'habit-ui-' }).Count
+> ```
+>
+> y ciérralos (tus ventanas normales del navegador no se tocan):
+>
+> ```powershell
+> Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" |
+>   Where-Object { $_.CommandLine -match 'habit-ui-' } |
+>   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+> ```
+>
+> Reiniciar la computadora también los cierra.
 
 ## API
 

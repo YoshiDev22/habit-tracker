@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviso de privacidad · Habit Tracker</title>
+    <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
+    <!-- Plantilla: backend/privacy.py llena las llaves dobles con los datos de esta
+         instancia (backend/.env) y quita los bloques backups, proxy e ai que no apliquen.
+         El texto describe lo que hace el código; quién responde es de cada instancia. -->
+    <script>
+    // El mismo arranque de tema y tamaño de texto que index.html, antes de los estilos
+    (function () {
+        var pref = 'system';
+        try { pref = localStorage.getItem('theme') || 'system'; } catch (e) {}
+        var dark = pref === 'dark' || (pref === 'system' &&
+            window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        root.setAttribute('data-theme-pref', pref);
+        var size = null;
+        try { size = localStorage.getItem('text_size'); } catch (e) {}
+        if (size === 'large' || size === 'xlarge') root.setAttribute('data-text-size', size);
+    })();
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="privacy-body">
+<main class="privacy-page">
+    <p class="privacy-back"><a href="/">‹ Volver a Habit Tracker</a></p>
+    <h1>Aviso de privacidad</h1>
+    <p class="privacy-updated">Última actualización: {{UPDATED}}</p>
+    {{MISSING}}
+
+    <h2>Responsable</h2>
+    <p>Para conocer la identidad y domicilio del responsable del tratamiento, o para ejercer tus derechos
+        ARCO, escribe a {{EMAIL}}. Responderemos a la brevedad.</p>
+
+    <h2>Qué datos tratamos</h2>
+    <ul>
+        <li><strong>Tu cuenta:</strong> correo y contraseña (guardada cifrada: nadie puede leerla). Si quieres,
+            alias, nombre y apellido.</li>
+        <li><strong>Lo que anotas:</strong> hábitos y notas, tableros y tareas, el tiempo que registras (con su
+            hora), tus proyectos y sus costos (incluido el cliente, si lo escribes) y los reportes que se
+            generan.</li>
+        <li><strong>Tus ajustes:</strong> huso horario (se toma de tu navegador) y país.</li>
+        <li><strong>Para administrar y proteger la app:</strong> tu fecha de registro, tu última actividad y,
+            cuando algo falla o parece un abuso (una contraseña equivocada, demasiados intentos), la hora y la
+            dirección IP desde la que llegó. {{IP_LOGS}}</li>
+        <li><strong>Si reportas un problema:</strong> tu texto y, solo si dejas marcada la casilla, la versión,
+            la pantalla, tu navegador y los errores recientes de la app.</li>
+    </ul>
+    <p>La app no te pide datos sensibles (de salud, creencias, origen u otros). Si escribes alguno en tus notas
+        o tareas, se trata igual que el resto.</p>
+
+    <h2>Para qué los usamos</h2>
+    <p>Solo para que la app funcione para ti: guardar lo que anotas, calcular rachas, tiempos y reportes,
+        mantener tu cuenta segura y arreglar fallos. No los vendemos, no los compartimos para publicidad y no
+        hay analítica.</p>
+
+    <h2>Quién más los trata</h2>
+    <p>Nadie los usa para sí. Los tratan por nuestra cuenta: {{HOSTING}}, donde vive la app<!--backups-->;
+        {{BACKUPS}}, donde se guardan las copias de respaldo<!--/backups--><!--proxy-->;
+        {{PROXY}}, que la protege y ve tu IP<!--/proxy--><!--ai-->; y, solo si enciendes la IA para tus
+        reportes, {{AI}}, que recibe las cifras del reporte y los nombres de tus proyectos, hábitos, etiquetas,
+        tareas y gastos, tus notas y tu horario. Nunca recibe tu correo ni tu nombre<!--/ai-->.</p>
+
+    <h2>Cuánto tiempo</h2>
+    <p>Mientras tengas tu cuenta. Los eventos de seguridad, el registro del servidor y las copias de respaldo se
+        borran a los 30 días. Si borras tu cuenta, todo lo tuyo se borra al momento (o a los 30 días, si eliges
+        «Irme 30 días»); en las copias de respaldo desaparece a los 30 días. Solo queda la nota de los cambios
+        hechos a tu cuenta desde la administración, sin tu correo.</p>
+
+    <h2>Cómo limitar su uso</h2>
+    <ul>
+        <li>Apaga la IA (o cualquier módulo) en <em>Configuración › Módulos</em>.</li>
+        <li>Desmarca los detalles técnicos al reportar un problema.</li>
+        <li>Deja vacíos el alias, el nombre y el apellido.</li>
+    </ul>
+
+    <h2>Tus derechos (ARCO)</h2>
+    <ul>
+        <li><strong>Acceso:</strong> <em>Mi perfil › Descargar mis datos</em> te da todo lo que guardamos de ti.</li>
+        <li><strong>Cancelación:</strong> <em>Mi perfil › Borrar mi cuenta</em> lo borra todo.</li>
+        <li><strong>Rectificación y oposición:</strong> escribe a {{EMAIL}} desde el correo de tu cuenta y dinos
+            qué pides.</li>
+    </ul>
+    <p>Respondemos en un máximo de 20 días hábiles y, si procede, lo hacemos en los 15 siguientes. Es gratuito.
+        Si no respondemos o no estás de acuerdo, puedes acudir a la Secretaría Anticorrupción y Buen
+        Gobierno.</p>
+
+    <h2>Si este aviso cambia</h2>
+    <p>Cualquier cambio a este aviso se publicará aquí con su fecha y te lo avisaremos con antelación en la
+        campanita 📢 de la app. Cuando la ley lo pida, te pediremos tu consentimiento antes de aplicarlo.</p>
+
+    <p class="privacy-law">Ley Federal de Protección de Datos Personales en Posesión de los Particulares (DOF
+        20-03-2025).</p>
+
+    <aside class="privacy-disclaimer">
+        <h2>Proyecto en desarrollo</h2>
+        <p>Habit Tracker es un proyecto personal en desarrollo. Lo usas bajo tu propio riesgo: puede tener fallas,
+            cambiar o dejar de estar disponible. Te recomendamos descargar tus datos de vez en cuando desde
+            <em>Mi perfil › Descargar mis datos</em>.</p>
+    </aside>
+</main>
+</body>
+</html>

@@ -1,11 +1,11 @@
-from datetime import date as date_type, timedelta
+from datetime import date as date_type, datetime, timedelta, timezone
 from typing import Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import User, Project, Task, PomodoroSession
+from backend.models import User, Project, Task, PomodoroSession, utc_now_naive
 from backend.schemas import (
     PomodoroSessionCreate,
     PomodoroSessionUpdate,
@@ -17,6 +17,20 @@ from backend.auth import get_current_user
 from backend.dates import resolve_client_today
 
 router = APIRouter(tags=["pomodoro"])
+
+# Un minuto de margen: el reloj del dispositivo y el del servidor no siempre coinciden
+FUTURE_MARGIN = timedelta(minutes=1)
+FUTURE_HOURS_MESSAGE = "No puedes poner horas futuras: la hora de fin todavía no llega."
+
+
+def _refuse_future_hours(ended_at: datetime) -> None:
+    """400 si la hora de fin es posterior a ahora (más el margen). Las horas llegan en
+    UTC; con o sin zona, se comparan en UTC naive, como se guardan."""
+    if ended_at.tzinfo is not None:
+        ended_at = ended_at.astimezone(timezone.utc).replace(tzinfo=None)
+    if ended_at > utc_now_naive() + FUTURE_MARGIN:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=FUTURE_HOURS_MESSAGE)
+
 
 
 def _session_by_key(session: Session, user_id: int, key: str) -> Optional[PomodoroSession]:
@@ -85,6 +99,10 @@ def create_pomodoro_session(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se puede registrar trabajo en una fecha futura"
             )
+        # Y la hora: hoy, pero más tarde que ahora, tampoco. Solo lo que escribe el
+        # usuario: el timer manda su propia hora, y si el reloj del dispositivo va
+        # adelantado, rechazarla haría que la cola de reenvío no la guardara nunca
+        _refuse_future_hours(session_in.ended_at)
 
     if session_in.project_id is not None:
         project = session.exec(
@@ -319,6 +337,10 @@ def update_pomodoro_session(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No se puede registrar trabajo en una fecha futura"
         )
+    # Corregir las horas a algo que todavía no pasa, no (cambiar solo la nota o la
+    # tarea de un registro no mira la hora)
+    if {"duration_seconds", "started_at", "ended_at"} & update_data.keys():
+        _refuse_future_hours(pomodoro_session.ended_at)
 
     session.add(pomodoro_session)
     session.commit()

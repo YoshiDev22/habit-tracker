@@ -33,7 +33,7 @@ async def main():
     try:
         await b.send("Browser.setDownloadBehavior", behavior="allow", downloadPath=OUT)
         await b.viewport(1280, 900)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});")
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)

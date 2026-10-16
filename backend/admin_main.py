@@ -15,15 +15,16 @@ persona (tareas, hábitos, gastos, textos de reportes).
 """
 import os
 import sys
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-from backend import admin_api  # noqa: E402
-from backend.admin_auth import access_keys, admin_dependency, load_config  # noqa: E402
+from backend import admin_api, security_log  # noqa: E402
+from backend.admin_auth import access_keys, admin_dependency, client_ip as admin_client_ip, load_config  # noqa: E402
 from backend.database import check_pending_migrations, create_db_and_tables  # noqa: E402
 
 ADMIN_CONFIG = load_config()
@@ -36,6 +37,8 @@ if ADMIN_CONFIG.dev_keys_file:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Las únicas páginas del panel: no hay StaticFiles, como en la app pública
 PAGE_FILES = {"/": ("admin.html", "text/html"), "/admin.js": ("admin.js", "text/javascript"),
+              "/admin-charts.js": ("admin-charts.js", "text/javascript"),
+              "/admin-icon.svg": ("admin-icon.svg", "image/svg+xml"),
               "/admin.css": ("admin.css", "text/css")}
 
 create_db_and_tables()
@@ -56,8 +59,28 @@ SECURITY_HEADERS = {
 }
 
 
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def _same_origin(request: Request) -> bool:
+    """El Origin del navegador es el mismo host que el panel. Detrás de cloudflared
+    el esquema que ve uvicorn es http, así que se compara el host, no la URL entera."""
+    origin = request.headers.get("origin") or ""
+    return bool(origin) and urlparse(origin).netloc == request.headers.get("host")
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    # CSRF: Access manda su JWT también en las peticiones que otro sitio haga con la
+    # cookie de Access. Lo que cambia algo pide JSON y el Origin del propio panel
+    if request.method not in SAFE_METHODS:
+        content_type = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+        if content_type != "application/json" or not _same_origin(request):
+            security_log.record("admin_csrf", admin_client_ip(request))
+            response = JSONResponse({"detail": "Acceso denegado"}, status_code=403)
+            for name, value in SECURITY_HEADERS.items():
+                response.headers[name] = value
+            return response
     response = await call_next(request)
     for name, value in SECURITY_HEADERS.items():
         response.headers[name] = value

@@ -49,7 +49,7 @@ async def main():
         await b.js(CLOSE_WELCOME)
     try:
         await b.viewport(1280, 900)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)}); localStorage.removeItem('board_selected'); localStorage.removeItem('projects_view');")
         await b.goto(BASE + "/", wait=1.0)
         await settle()
@@ -81,6 +81,9 @@ async def main():
 
         # Empty name uses the placeholder
         login("nuevo2@test.com")
+        # Fuera de la app antes de cambiar de cuenta: recargarla con peticiones de los clics
+        # de arriba aún en camino las cancelaba, y escribían "Failed to fetch" (BACKLOG 38)
+        await b.goto(BASE + "/api/health")
         await b.js(f"localStorage.setItem('access_token', {json.dumps(api.TOKEN)}); localStorage.removeItem('board_selected');")
         await b.goto(BASE + "/", wait=1.0)
         await settle()

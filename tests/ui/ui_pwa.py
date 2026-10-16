@@ -44,7 +44,7 @@ async def main():
     await b.start()
     try:
         await b.viewport(412, 915, mobile=True)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});")
         await b.goto(BASE + "/", wait=3.0)
         errs = await b.send("Page.getInstallabilityErrors")

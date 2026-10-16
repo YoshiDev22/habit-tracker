@@ -7,6 +7,123 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.28.1] — 2026-10-15
+
+### Cambios
+- El servicio diario de los reportes escribe en el registro del servidor el **número de la cuenta**, ya no
+  su correo, y los cobros de los gastos recurrentes ya no incluyen el nombre del gasto. El registro se
+  guarda 30 días y el aviso de privacidad no menciona correos ni conceptos ahí. (El borrado de cuentas ya
+  escribía solo el número.) Para saber de quién es un número, el panel de administración, pestaña
+  *Cuentas*.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel. El
+servicio diario de los reportes toma el cambio en su siguiente corrida, sin cambiar su plantilla.
+
+## [1.28.0] — 2026-10-15
+
+Descarga tus datos, el aviso de privacidad de la app y un aviso cuando hay versión nueva; y en el
+panel de administración, gráficas.
+
+### Nuevo
+- **Descargar mis datos**, en *Mi perfil*: un archivo JSON con todo lo que la app guarda de tu cuenta
+  (tus datos personales, hábitos y notas, tableros y tareas, tiempo, costos, reportes, problemas
+  reportados y eventos de seguridad de tu cuenta). Sin la contraseña, que solo se guarda cifrada. Hasta
+  5 descargas al día.
+- **Aviso de privacidad** en `/privacidad`: qué datos se guardan y dónde, para qué, quién más los trata,
+  cuánto tiempo, cómo limitar su uso, cómo ejercer los derechos de acceso, rectificación, cancelación y
+  oposición (acceso con *Descargar mis datos*, cancelación con *Borrar mi cuenta*) y cómo se avisan los
+  cambios, con un descargo de proyecto en desarrollo. Se enlaza en el registro, antes de crear la cuenta,
+  en la pantalla de entrar y en *Mi perfil*.
+- **Aviso de versión nueva**: una pestaña que dejas abierta días, o la app instalada en el teléfono,
+  seguía con la versión con la que abrió. Ahora, al volver a ella (y cada 30 minutos), si hay una más
+  nueva, una franja ofrece *Actualizar*. Nunca recarga sola.
+- **Panel de administración**: gráficas. El Resumen suma cuentas nuevas por semana, la última actividad
+  por grupos, los módulos en uso y los últimos días de IA y de seguridad; IA y Seguridad tienen columnas
+  por día con su periodo; Problemas, chips con cuántos hay de cada estado.
+
+### Cambios
+- *Borrar mi cuenta* sugiere descargar antes todo con *Descargar mis datos*.
+- La nota interna de un problema reportado, en el panel, sale también en el *Descargar mis datos* de
+  quien lo reportó (es un dato sobre esa persona). El panel lo dice junto al campo.
+
+### Para quien desarrolla
+- **Navegadores que quedaban abiertos**: desde que las pruebas de navegador entraron al repo
+  (2026-09-24, v1.15.0), en Windows cada `pytest -m ui` dejaba procesos de Edge o Chrome vivos hasta
+  reiniciar. Corregido; el README dice cómo revisar y cerrar los que hayan quedado.
+- Las pruebas de navegador ya no fallan a veces por "Failed to fetch": cancelaban sus propias peticiones
+  al entrar dos veces seguidas a la app.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel. Antes,
+en `backend/.env`, los datos de tu instancia para el aviso de privacidad: `PRIVACY_EMAIL` (sin él, la
+página avisa que falta el contacto) y `PRIVACY_HOSTING`, y si aplican `PRIVACY_BACKUPS`, `PRIVACY_PROXY`
+y `PRIVACY_AI` (ver `backend/.env.example`). El aviso dice que los registros del servidor y las copias de
+respaldo se borran a los 30 días: configúralos así antes de publicarlo, o cambia esa frase.
+
+## [1.27.1] — 2026-10-13
+
+### Cambios
+- Al volver a la app después de un rato en otra pestaña (30 s o más), se vuelven a pedir los
+  tableros, la lista y Reportes: lo que se registró en otro dispositivo aparece sin recargar.
+  No pasa con una ventana abierta ni mientras escribes en un campo, para no perder lo que
+  llevas.
+- La pestaña **Costos** (plan Maker) aparece junto con las demás al entrar, en vez de unos
+  segundos después.
+
+### Correcciones
+- Poner a un **gasto recurrente** una fecha de fin anterior a cobros ya anotados dejaba esos
+  cobros sumando en la hoja, el resumen y los reportes. Ahora pregunta si se borran (con
+  todas sus partes, si iba repartido) o se conservan.
+- Al **registrar tiempo a mano** o corregir un registro se podía poner una hora de hoy que aún
+  no llegaba. El formulario lo avisa y el servidor lo rechaza; los registros del cronómetro
+  no cambian.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: basta con `git pull` y reiniciar el
+servicio.
+
+## [1.27.0] — 2026-10-10
+
+Reportar un problema desde la app, y el panel de administración (aún no se despliega):
+cuentas, uso de la IA, problemas, avisos, seguridad y una bitácora de cada cambio.
+
+### Nuevo
+- **Reportar un problema**, en *Mi perfil*: qué pasó (de 10 a 2000 caracteres) y, si quieres,
+  detalles técnicos que ves tal cual antes de enviarlos (versión, pestaña, pantalla, navegador
+  y los últimos errores de la sesión; nunca lo que escribes en la app). Hasta 5 al día.
+- **Avisos nuevos en la campanita**: 🛠️ cuando se cierra un problema que reportaste, y 💬 los
+  avisos para tu cuenta (más textos de IA por un día, acceso a un módulo).
+- **Panel de administración** (para quien administra la instancia): un proceso aparte de la app,
+  solo en `127.0.0.1`, que irá detrás de Cloudflare Access. Resumen y cuentas (correo
+  enmascarado, registro, última actividad y solo conteos, nunca contenido), uso de la IA por día,
+  problemas reportados con su estado, una nota interna y otra para la persona, avisos para todas
+  las cuentas o para una, eventos de seguridad (contraseñas equivocadas, bloqueos y tokens
+  rechazados por IP, con alertas) y una bitácora de cada cambio. Desde la ficha de una cuenta:
+  dar o quitar Maker e IA, textos de IA extra por hoy, desactivarla o reactivarla y cancelar su
+  borrado. `scripts/admin_dev.py` lo abre en tu máquina.
+
+### Cambios
+- Una **cuenta desactivada** sale al momento de todos sus dispositivos y, al entrar, ve que está
+  desactivada. Sus datos quedan intactos.
+- `scripts/announce.py` sigue las reglas del panel: como mucho 3 avisos vigentes y 30 s entre
+  dos publicaciones.
+- **Mi perfil › Novedades** dice la fecha de cada versión.
+
+### Para actualizar
+**Esta versión cambia la base de datos.** Correr `python3 scripts/migrate.py` **antes** de
+reiniciar el servicio: agrega a `users` la última actividad y la fecha de registro (las cuentas
+que ya existen quedan sin fecha). Sin la migración, la app no arranca y el log dice qué correr.
+Las tablas nuevas (reportes de problemas, avisos por cuenta, IA extra, bitácora, eventos de
+seguridad) se crean solas al reiniciar.
+
+Los eventos de seguridad guardan la IP completa durante 30 días; los borra el servicio diario de
+los reportes (`purge_accounts.py`), sin cambiar su plantilla. Para que esas IPs sean las de tus
+usuarios y no la del proxy, uvicorn tiene que confiar en Caddy (`--forwarded-allow-ips`); el panel
+avisa si no es así.
+
+El panel de administración **no se instala todavía**: necesita Cloudflare Tunnel y Access.
+
 ## [1.26.0] — 2026-10-09
 
 La campanita se vuelve un centro de avisos, y la app puede avisar de un mantenimiento a
@@ -763,6 +880,10 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.28.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.1
+[1.28.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.0
+[1.27.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.1
+[1.27.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.0
 [1.26.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.26.0
 [1.25.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.25.0
 [1.24.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.24.0

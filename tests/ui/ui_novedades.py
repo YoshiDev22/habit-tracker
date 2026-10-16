@@ -34,7 +34,7 @@ async def main():
             ? Promise.resolve(JSON.parse({json.dumps(json.dumps(DATA))})) : real(path, options); }})()"""
     try:
         await b.viewport(390, 844, mobile=True)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.clear(); localStorage.setItem('access_token', {json.dumps(token)})")
         await b.goto(BASE + "/", wait=2.5)
         await b.js("document.getElementById('habitsSetupModal').classList.add('hidden')")
@@ -80,8 +80,32 @@ async def main():
         await b.js("document.querySelector('#profileMenu [data-open=news]').click()")
         st = await b.js("({title: document.getElementById('profileTitle').textContent,"
                         " versions: [...document.querySelectorAll('#novedadesPage .novedades-version-title')].map(t => t.textContent)})")
-        check(st == {"title": "Novedades", "versions": ["Versión 9.2", "Versión 9.1"]}, f"Mi perfil › Novedades lists them all ({st})")
+        check(st == {"title": "Novedades", "versions": ["Versión 9.2 · 9 oct 2026", "Versión 9.1 · 1 oct 2026"]}, f"Mi perfil › Novedades lists them all ({st})")
         await b.shot("novedades_profile", full=False)
+        await b.js("document.getElementById('profileModal').querySelector('[data-close-modal]').click()")
+
+        # Versión nueva en el servidor: una franja ofrece recargar (nunca recarga sola)
+        await b.js("checkForUpdate(true)")
+        await asyncio.sleep(0.3)
+        check(await b.js("document.getElementById('updateBanner').hidden"), "same version on the server: no banner")
+        fake = """(() => { const real = window.apiFetch;
+            window.apiFetch = (path, options) => path === '/api/version'
+                ? Promise.resolve({version: '%s'}) : real(path, options); })()"""
+        await b.js(fake % "99.0.0")
+        await b.js("checkForUpdate(true)")
+        shown = await b.wait_for("!document.getElementById('updateBanner').hidden")
+        check(shown, "a newer version on the server shows the banner")
+        await b.shot("update_banner", full=False)
+        await b.js("document.getElementById('updateDismiss').click()")
+        await b.js("checkForUpdate(true)")
+        await asyncio.sleep(0.3)
+        check(await b.js("document.getElementById('updateBanner').hidden"), "closed, it doesn't come back for that version")
+        await b.js(fake % "99.1.0")
+        await b.js("checkForUpdate(true)")
+        check(await b.wait_for("!document.getElementById('updateBanner').hidden"), "but it does for a newer one")
+        await b.js("window.__beforeReload = 1; document.getElementById('updateReload').click()")
+        check(await b.wait_for("window.__beforeReload === undefined && !!document.getElementById('updateBanner')"),
+              "'Actualizar' reloads the page")
     finally:
         await b.close()
 

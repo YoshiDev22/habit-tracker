@@ -46,7 +46,7 @@ async def main():
     await b.start()
     try:
         await b.viewport(1280, 900)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});")
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
@@ -56,9 +56,10 @@ async def main():
             const card = [...document.querySelectorAll('.board-card')].find(c => c.dataset.taskId === '{timed["id"]}');
             return card ? card.textContent : null;
         }})()""")
-        h, m = divmod(timed["seconds"] // 60, 60)
-        expected = f"{h}h {m}m" if h else f"{m}m"
-        check(shown is not None and expected in shown, f"board card shows {expected} after archiving ({shown!r})")
+        # La tarjeta lo dice en corto (BACKLOG 41): lo que importa es que no sea 0m
+        expected = await b.js(f"compactHours({timed['seconds']})")
+        check(shown is not None and expected != "0m" and expected in shown,
+              f"board card shows {expected} after archiving ({shown!r})")
     finally:
         await b.close()
 

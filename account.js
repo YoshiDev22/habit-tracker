@@ -3,8 +3,8 @@
 // ============================================
 //
 // Mi perfil es un menú de desglose (createDrillDown, drilldown.js): Datos
-// personales (el formulario de script.js), Cambiar contraseña y Borrar mi
-// cuenta, cada una en su página.
+// personales (el formulario de script.js), Cambiar contraseña, Descargar mis
+// datos y Borrar mi cuenta, cada una en su página.
 //
 // BACKLOG 26, la parte que no necesita correo. "Irme 30 días" programa el
 // borrado (POST /api/auth/me/delete, mode=later) y cierra esta sesión; al
@@ -142,6 +142,31 @@ new MutationObserver(() => {
     if (!open && profileWasOpen) resetAccountSections();
     profileWasOpen = open;
 }).observe(profileModalEl, { attributes: true, attributeFilter: ['class'] });
+
+// ---------- Descargar mis datos ----------
+// Todo lo que la app guarda de la cuenta (backend/data_export.py), en un JSON
+// legible; downloadText() es el de los CSV de Reportes (reports.js)
+
+const exportBtn = document.getElementById('exportBtn');
+const exportError = document.getElementById('exportError');
+const exportStatus = document.getElementById('exportStatus');
+
+exportBtn.addEventListener('click', async () => {
+    exportError.classList.add('hidden');
+    exportStatus.textContent = 'Preparando el archivo…';
+    exportBtn.disabled = true;
+    try {
+        const data = await apiFetch('/api/auth/me/export');
+        downloadText(`habit-tracker-datos-${getDateKey(new Date())}.json`, JSON.stringify(data, null, 2),
+            'application/json');
+        exportStatus.textContent = 'Descargado ✓';
+    } catch (error) {
+        exportStatus.textContent = '';
+        showError(exportError, error.message);
+    } finally {
+        exportBtn.disabled = false;
+    }
+});
 
 // ---------- Al entrar con el borrado programado ----------
 

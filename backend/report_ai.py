@@ -23,7 +23,7 @@ from typing import Iterable, Optional, Set, Tuple
 from sqlmodel import Session, func, select
 
 from backend.ai import AiConfig, AiError, chat_completion
-from backend.models import AiCall, User
+from backend.models import AiCall, AiGrant, User
 from backend.report_kinds import AI_POOL, period_of, subject_of
 
 KIND_NAME = {"week": "semana", "month": "mes"}
@@ -318,10 +318,24 @@ def pool_limit(config: AiConfig, pool: str) -> int:
     return config.costs_daily_limit if pool == "costs" else config.daily_limit
 
 
+def extra_today(session: Session, user_id: int, pool: str) -> int:
+    """Los textos extra que el panel de administración dio hoy (día UTC) a esta cuenta."""
+    today = datetime.now(timezone.utc).date()
+    grant = session.exec(select(AiGrant).where(AiGrant.user_id == user_id, AiGrant.pool == pool,
+                                               AiGrant.day == today)).first()
+    return grant.extra if grant else 0
+
+
+def account_limit(session: Session, user_id: int, config: AiConfig, pool: str) -> int:
+    """El límite de hoy de esta cuenta: el de la instancia más lo extra de hoy. Lo usan
+    el aviso (ai_usage) y el bloqueo (write_with_ai), para que nunca se contradigan."""
+    return pool_limit(config, pool) + extra_today(session, user_id, pool)
+
+
 def ai_usage(session: Session, user_id: int, pool: str, config: Optional[AiConfig]) -> dict:
     """Lo que muestra "IA: te quedan N de M textos hoy", para cualquier contador."""
     used = calls_today(session, user_id, pool)
-    limit = pool_limit(config, pool) if config else None
+    limit = account_limit(session, user_id, config, pool) if config else None
     return {"pool": pool, "configured": config is not None, "limit": limit, "used_today": used,
             "remaining": max(0, limit - used) if config else None,
             "failed_today": calls_today(session, user_id, pool, ok=False)}
@@ -331,9 +345,11 @@ def write_with_ai(session: Session, user: User, kind: str, metrics: dict, config
     """(texto, modelo), o AiError. Cada intento cuenta para el límite del día de su contador."""
     subject = subject_of(kind)
     pool = AI_POOL[subject]
-    limit = pool_limit(config, pool)
+    limit = account_limit(session, user.id, config, pool)
     what = "reportes de costos" if pool == "costs" else "reportes de tiempo y hábitos"
     if calls_today(session, user.id, pool) >= limit:
+        from backend import security_log
+        security_log.record("ai_limit", None, user.id)
         raise AiError(f"Llegaste al límite de {limit} textos con IA por hoy para {what}")
     if calls_today(session, user.id, pool, ok=False) >= FAILED_DAILY_LIMIT:
         raise AiError(f"La IA falló {FAILED_DAILY_LIMIT} veces hoy en {what}; vuelve a intentarlo mañana")

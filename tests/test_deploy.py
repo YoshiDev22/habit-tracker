@@ -174,3 +174,32 @@ def test_costs_from_before_splits_and_recurring_get_their_columns():
     started = subprocess.run([sys.executable, "-c", "import backend.main"], cwd=ROOT, env=env,
                              capture_output=True, text=True, encoding="utf-8")
     assert started.returncode == 0, started.stderr
+
+
+def test_a_dev_base_with_the_first_feedback_table_gets_user_note():
+    """La tabla feedback salió en la 1.27 y después ganó user_note: una base que ya la tenía
+    (desarrollo) la recibe con migrate.py, y sus reportes quedan igual."""
+    db = TMP / "feedback_first.db"
+    load_sql_fixture(db, "db_v1_9")
+    assert run_migrate(db).returncode == 0
+    conn = sqlite3.connect(db)
+    # feedback tal como la creaba el primer commit de la 1.27
+    conn.execute("""CREATE TABLE feedback (
+        id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, created_at DATETIME NOT NULL, text VARCHAR NOT NULL,
+        details JSON, status VARCHAR NOT NULL, admin_note VARCHAR)""")
+    conn.execute("INSERT INTO feedback VALUES (1, 1, '2026-10-09 10:00:00', 'Algo falló', NULL, 'open', NULL)")
+    conn.commit()
+    conn.close()
+    env = {**os.environ, "DATABASE_URL": f"sqlite:///{db.as_posix()}", "PYTHONIOENCODING": "utf-8"}
+    started = subprocess.run([sys.executable, "-c", "import backend.main"], cwd=ROOT, env=env,
+                             capture_output=True, text=True, encoding="utf-8")
+    assert started.returncode != 0 and "feedback.user_note" in started.stderr
+
+    first = run_migrate(db)
+    assert first.returncode == 0 and "feedback.user_note" in first.stdout, first.stdout + first.stderr
+    conn = sqlite3.connect(db)
+    assert conn.execute("SELECT text, status, user_note FROM feedback").fetchall() == [("Algo falló", "open", None)]
+    conn.close()
+    started = subprocess.run([sys.executable, "-c", "import backend.main"], cwd=ROOT, env=env,
+                             capture_output=True, text=True, encoding="utf-8")
+    assert started.returncode == 0, started.stderr

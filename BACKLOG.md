@@ -12,25 +12,28 @@ código y no se reprodujeron todavía.
 
 Levantado el 2026-09-08 sobre v1.3.0. Revisado el 2026-09-22 sobre v1.10.0 (tableros), el
 2026-09-30 sobre v1.16.1 (entradas 5, 6 y 22 cerradas; 24, 25 y 26 nuevas) y el 2026-10-02
-sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas).
+sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) y el
+2026-10-13 sobre v1.27.0 (orden 1.28–1.30; 40 en la tabla; 38 cerrada el 2026-10-14 y 39 el 2026-10-15, en la 1.28).
 
 | # | Prioridad | Entrada | Estado |
 |---|---|---|---|
 | 14 | P4 | Pestañas añadidas por el usuario, a partir de plantillas | épica |
-| 17 | P2 | Metas con hábitos y avance medible | épica |
+| 17 | P2 | Metas con hábitos y avance medible | épica, para la 1.29 |
 | 21 | P4 | Tableros compartidos entre usuarios | épica |
 | 23 | P4 | Escudo especial que se gana con hitos de racha | épica |
 | 24 | P2 | Módulos por usuario y costeo de proyectos (freelance / maker) | épica |
 | 26 | P2 | Correo de confirmación al registrarse y recuperación de cuenta | parte sin correo hecha |
-| 27 | P3 | Reordenar las pestañas de secciones | pedido, para la 1.29 |
-| 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido, para la 1.29 |
-| 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | API hecha; selector para la 1.29 |
+| 27 | P3 | Reordenar las pestañas de secciones | pedido, para la 1.30 |
+| 28 | P3 | Modo ordenar en el Tablero: reordenar y cambiar el ancho de las columnas | pedido, para la 1.30 |
+| 29 | P3 | Periodo de la gráfica "Costos" en la pestaña Costos (mes, año o todo) | API hecha; selector para la 1.30 |
 | 30 | P2 | Reportes automáticos (semanal y mensual) con IA opcional | épica |
-| 31 | P3 | Límite diario de la IA ajustable por cuenta | se junta con la 32 (fase 2) |
-| 32 | P2 | Panel de administración y "Reportar un problema" | épica, para la 1.27 |
+| 31 | P3 | Límite diario de la IA ajustable por cuenta | en parte: IA extra por día desde el panel (1.27) |
+| 32 | P2 | Panel de administración y "Reportar un problema" | en producción (1.27); paso 7 (gráficas) hecho para la 1.28 |
 | 33 | P3 | Lugar donde se trabajó, y la duración de ciertos hábitos | tareas y tiempo: versión por decidir (no la 1.25); hábitos: tras la 17 |
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
 | 37 | P2 | Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo | épica, después de la 1.27; fase 1 hecha en `feat/finanzas` |
+| 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
+| 42 | P3 | Más espacio arriba: barra de usuario compacta y plegable | pedido |
 
 ---
 
@@ -580,3 +583,33 @@ publicar: va después de la 1.27.
 
 **Por decidir.** Los bancos del primer parser y lo demás que lista el spec (el periodo ya no:
 la app le pregunta a cada usuario si cobra por quincena o por mes).
+
+---
+
+## 40 · P3 · Recurrente con fecha de fin que no se ve terminado
+
+**Visto por usuario el 2026-10-08**, por observar: al editar un gasto recurrente y ponerle
+fecha de fin (primer cobro 17/07/26, fin 17/08/26), no lo vio marcado como terminado.
+
+**Reproducido el 2026-10-13 con la API**, sin el síntoma: tras poner el fin, `next_date` es
+`None` y la lista dice "Terminado". Lo que sí pasaba: el cobro del 17 sep, anotado antes de
+poner el fin, se quedaba y seguía sumando (se corrige en la 1.27.1, preguntando al guardar
+si se borran los cobros posteriores al fin).
+
+**Siguiente paso.** Volver a probarlo y anotar qué se ve en la lista ("Siguiente: …"
+o "Terminado") y en la hoja. Si no se repite, cerrar la entrada.
+
+---
+
+## 42 · P3 · Más espacio arriba: barra de usuario compacta y plegable
+
+**Pedido por Yoshio (2026-10-15).** Arriba se pierde mucho espacio, y en el teléfono más: la barra
+de usuario (tema, ⚙️, campanita, nombre, versión, Cerrar sesión) va en su propia franja, y debajo el
+título y el saludo.
+
+**Idea.** En computadora, una barra más chica a la altura del título, a la derecha. Que se pueda
+plegar en un menú (el nombre o un botón despliega el resto), para ganar espacio. En el teléfono,
+lo mismo con más razón: quizá título y saludo más chicos, o que se oculten al bajar.
+
+**Por decidir.** Qué queda siempre a la vista (la campanita, por los pendientes), si "Cerrar sesión"
+y la versión pasan a *Mi perfil*, y si el título se encoge al desplazar.

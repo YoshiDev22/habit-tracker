@@ -12,6 +12,10 @@
 
 const PROJECTS_VIEW_KEY = 'projects_view';   // 'board' | 'list'
 const SELECTED_BOARD_KEY = 'board_selected'; // id del último tablero abierto
+// Columnas ocultas, por tablero ({boardId: [columnId…]}), y los filtros plegados:
+// de este dispositivo (BACKLOG 41). Las ocultas se borran al cerrar sesión.
+const HIDDEN_COLUMNS_KEY = 'board_hidden_columns';
+const FILTERS_FOLDED_KEY = 'board_filters_folded';
 
 const boardState = {
     boards: [],             // BoardResponse[] con sus columnas
@@ -21,6 +25,7 @@ const boardState = {
     projects: [],           // ProjectResponse[], archivados incluidos, para las etiquetas
     filterProjects: new Set(),
     filterTags: new Set(),
+    hiddenColumns: new Set(),   // las del tablero actual; ver readHiddenColumns()
     mobileColumnId: null,   // la columna visible en pantallas angostas
     // Tarjetas que muestra cada columna (id -> cuántas): empiezan en BOARD_PAGE
     // y "Mostrar 10 más" las sube. Solo en esta sesión.
@@ -92,6 +97,7 @@ async function loadBoard() {
         }
 
         boardState.loaded = true;
+        boardState.hiddenColumns = readHiddenColumns(boardState.boardId);
         renderBoardSelect();
         renderBoard();
         refreshOpenCard();
@@ -150,8 +156,52 @@ function buildFilterChip(label, color, pressed, dataset) {
     return chip;
 }
 
-function renderFilters() {
+// ---------- Columnas ocultas y filtros plegados (BACKLOG 41) ----------
+
+function readHiddenAll() {
+    try {
+        const all = JSON.parse(readStored(HIDDEN_COLUMNS_KEY) || '{}');
+        return all && typeof all === 'object' ? all : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+// Solo las que siguen existiendo en ese tablero: una columna borrada no cuenta
+function readHiddenColumns(boardId) {
+    const board = boardState.boards.find(b => b.id === boardId);
+    if (!board) return new Set();
+    const ids = new Set(board.columns.map(c => c.id));
+    const hidden = new Set((readHiddenAll()[boardId] || []).filter(id => ids.has(id)));
+    // Nunca todas: si quedaron todas ocultas (p. ej. se borró la única visible), se ven
+    return hidden.size >= board.columns.length ? new Set() : hidden;
+}
+
+function saveHiddenColumns() {
+    const all = readHiddenAll();
+    if (boardState.hiddenColumns.size) all[boardState.boardId] = [...boardState.hiddenColumns];
+    else delete all[boardState.boardId];
+    writeStored(HIDDEN_COLUMNS_KEY, JSON.stringify(all));
+}
+
+function filtersFolded() {
+    return readStored(FILTERS_FOLDED_KEY) === '1';
+}
+
+function renderFilters(countByColumn) {
     boardFilters.innerHTML = '';
+    const board = currentBoard();
+    const active = boardState.filterProjects.size + boardState.filterTags.size + boardState.hiddenColumns.size;
+    const folded = filtersFolded();
+
+    // Plegados, solo el botón: cuántos filtros hay activos, para no olvidar que se filtra
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'filters-toggle';
+    toggle.setAttribute('aria-expanded', String(!folded));
+    toggle.textContent = `${folded ? '▸' : '▾'} Filtros${active ? ` · ${active} activo${active === 1 ? '' : 's'}` : ''}`;
+    boardFilters.appendChild(toggle);
+    if (folded) return;
 
     // Solo lo que aparece en este tablero: un filtro que no puede devolver
     // nada solo estorba.
@@ -183,6 +233,26 @@ function renderFilters() {
         t.name, t.color, boardState.filterTags.has(t.id), { filterTag: t.id }
     )));
 
+    // Columnas: al revés que las etiquetas, encendido = se ve. Siempre queda una.
+    const shownCount = board.columns.length - boardState.hiddenColumns.size;
+    const columnChips = board.columns.map(c => {
+        const visible = !boardState.hiddenColumns.has(c.id);
+        const chip = buildFilterChip(`${c.name} · ${countByColumn.get(c.id) || 0}`, c.color, visible, { filterColumn: c.id });
+        if (visible && shownCount === 1) {
+            chip.disabled = true;
+            chip.title = 'Siempre queda al menos una columna a la vista';
+        }
+        return chip;
+    });
+    addRow('Columnas', columnChips);
+    if (boardState.hiddenColumns.size) {
+        const showAll = document.createElement('button');
+        showAll.type = 'button';
+        showAll.className = 'filter-clear filter-show-columns';
+        showAll.textContent = '× Mostrar todas';
+        boardFilters.lastChild.appendChild(showAll);
+    }
+
     if (boardState.filterProjects.size || boardState.filterTags.size) {
         const clear = document.createElement('button');
         clear.type = 'button';
@@ -198,6 +268,22 @@ boardFilters.addEventListener('click', (event) => {
         const toggle = (set, id) => (set.has(id) ? set.delete(id) : set.add(id));
         if (chip.dataset.filterProject) toggle(boardState.filterProjects, Number(chip.dataset.filterProject));
         if (chip.dataset.filterTag) toggle(boardState.filterTags, Number(chip.dataset.filterTag));
+        if (chip.dataset.filterColumn) {
+            toggle(boardState.hiddenColumns, Number(chip.dataset.filterColumn));
+            saveHiddenColumns();
+        }
+        renderBoard();
+        return;
+    }
+    if (event.target.closest('.filters-toggle')) {
+        writeStored(FILTERS_FOLDED_KEY, filtersFolded() ? '0' : '1');
+        renderBoard();
+        return;
+    }
+    // Solo las columnas: los filtros de proyectos y etiquetas se quedan
+    if (event.target.closest('.filter-show-columns')) {
+        boardState.hiddenColumns.clear();
+        saveHiddenColumns();
         renderBoard();
         return;
     }
@@ -245,10 +331,11 @@ function buildCard(task, columns) {
     title.className = 'board-card-title';
     title.textContent = task.title;
 
-    // Mientras corre, el total cede su sitio al reloj en vivo
-    // Con estimado, "1h 30m de 3h"; pasado de él, en el color de alerta
+    // Mientras corre, el total cede su sitio al reloj en vivo. En corto y en la
+    // línea de las etiquetas (BACKLOG 41): al lado del título lo partía en varias
+    // líneas. Con estimado, "1.5h/3h"; pasado de él, en el color de alerta
     const time = document.createElement('span');
-    const label = taskTimeLabel(boardTaskSeconds(task), task.estimate_minutes);
+    const label = taskTimeCompact(boardTaskSeconds(task), task.estimate_minutes);
     time.className = 'board-card-time' + (label.over ? ' over-estimate' : '');
     time.innerHTML = '<span class="timer-idle"></span><span class="timer-live"></span>';
     time.firstChild.textContent = label.text;
@@ -266,12 +353,12 @@ function buildCard(task, columns) {
     play.innerHTML = '<span class="timer-idle">▶</span><span class="timer-on">■</span>';
 
     head.appendChild(title);
-    head.appendChild(time);
     head.appendChild(play);
     card.appendChild(head);
 
     const meta = document.createElement('div');
     meta.className = 'board-card-meta';
+    meta.appendChild(time);
 
     const project = projectById(task.project_id);
     if (project) {
@@ -325,7 +412,7 @@ function buildCard(task, columns) {
         if (column.id === task.column_id) return;
         const option = document.createElement('option');
         option.value = String(column.id);
-        option.textContent = column.name;
+        option.textContent = boardState.hiddenColumns.has(column.id) ? `${column.name} (oculta)` : column.name;
         move.appendChild(option);
     });
 
@@ -429,28 +516,31 @@ function renderBoard() {
         return;
     }
 
-    renderFilters();
-
-    const visible = filteredTasks();
+    const filteredAll = filteredTasks();
     const byColumn = new Map(board.columns.map(c => [c.id, []]));
-    visible.forEach(task => {
+    filteredAll.forEach(task => {
         if (byColumn.has(task.column_id)) byColumn.get(task.column_id).push(task);
     });
+    renderFilters(new Map([...byColumn].map(([id, tasks]) => [id, tasks.length])));
 
-    if (!byColumn.has(boardState.mobileColumnId)) {
+    // Las columnas ocultas no se pintan, ni sus pestañas, ni cuentan en el resumen
+    const shownColumns = board.columns.filter(c => !boardState.hiddenColumns.has(c.id));
+    const visible = filteredAll.filter(task => !boardState.hiddenColumns.has(task.column_id));
+
+    if (!shownColumns.some(c => c.id === boardState.mobileColumnId)) {
         // Por defecto, la primera columna "doing" con algo: es donde se trabaja
-        const doing = board.columns.find(c => c.category === 'doing' && byColumn.get(c.id).length > 0);
-        boardState.mobileColumnId = (doing || board.columns[0]).id;
+        const doing = shownColumns.find(c => c.category === 'doing' && byColumn.get(c.id).length > 0);
+        boardState.mobileColumnId = (doing || shownColumns[0]).id;
     }
 
     // Una tarea con dos etiquetas del filtro es una sola tarea: sumando por
     // tarjeta visible, su tiempo cuenta una vez.
     const totalSeconds = visible.reduce((sum, task) => sum + boardTaskSeconds(task), 0);
-    const filtered = boardState.filterProjects.size || boardState.filterTags.size;
+    const filtered = boardState.filterProjects.size || boardState.filterTags.size || boardState.hiddenColumns.size;
     const taskWord = visible.length === 1 ? 'tarea' : 'tareas';
     boardSummary.textContent = `${visible.length} ${taskWord} · ${formatDuration(totalSeconds)}${filtered ? ' (con filtro)' : ''}`;
 
-    board.columns.forEach(column => {
+    shownColumns.forEach(column => {
         const tasks = byColumn.get(column.id);
 
         const tab = document.createElement('button');
@@ -2405,6 +2495,7 @@ function resetBoard() {
     // una preferencia del dispositivo y se queda.
     try {
         localStorage.removeItem(SELECTED_BOARD_KEY);
+        localStorage.removeItem(HIDDEN_COLUMNS_KEY);
     } catch (error) {
         // Almacenamiento bloqueado: no había nada que borrar.
     }
@@ -2415,6 +2506,7 @@ function resetBoard() {
     boardState.projects = [];
     boardState.filterProjects.clear();
     boardState.filterTags.clear();
+    boardState.hiddenColumns = new Set();
     boardState.columnLimits.clear();
     boardState.mobileColumnId = null;
     boardState.loaded = false;

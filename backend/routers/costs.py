@@ -18,8 +18,8 @@ from backend.auth import get_current_user
 from backend.costing import cost_total_cents, costs_summary, estimates_for_tasks, line_total_cents
 from backend.database import get_session
 from backend.models import CostCategory, Project, ProjectCost, ProjectFinance, RecurringCost, User
-from backend.recurring_costs import (create_cost_rows, generate_due, last_charge, next_date, period_start, reshare,
-                                     rewrite_charges, skip_past)
+from backend.recurring_costs import (create_cost_rows, drop_after_end, generate_due, last_charge, next_date,
+                                     period_start, reshare, rewrite_charges, skip_past)
 from backend.routers.auth import require_module
 from backend.schemas import (
     CostCategoryCreate,
@@ -444,10 +444,12 @@ def update_recurring_cost(recurring_id: int, body: RecurringCostUpdate, session:
     cobros ya anotados, start_date es "el
     siguiente cobro": la serie vuelve a contar desde ahí (con la frecuencia que
     traiga), y tiene que ser después del último gasto anotado. Al reanudarlo,
-    los cobros del tiempo en pausa no se generan."""
+    los cobros del tiempo en pausa no se generan. Con drop_after_end, los cobros
+    anotados después de la fecha de fin se borran."""
     rc = _own_recurring(session, user.id, recurring_id)
     changes = body.model_dump(exclude_unset=True)
     apply_to = changes.pop("apply_to", "future")
+    drop = changes.pop("drop_after_end", False)
     reanchor = rc.generated and (("start_date" in changes and changes["start_date"] != rc.start_date)
                                  or ("frequency" in changes and changes["frequency"] != rc.frequency))
     if reanchor:
@@ -483,6 +485,8 @@ def update_recurring_cost(recurring_id: int, body: RecurringCostUpdate, session:
     # Los cobros ya anotados, si se pidió: todos, o del periodo actual en adelante
     if apply_to != "future":
         rewrite_charges(session, rc, None if apply_to == "all" else period_start(rc.frequency, _today(session, user)))
+    if drop:
+        drop_after_end(session, rc)
     session.commit()
     generate_due(session, user.id, _today(session, user))
     session.refresh(rc)

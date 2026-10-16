@@ -16,7 +16,8 @@ from backend.auth import (
     token_for,
 )
 from backend.accounts import purge_user, schedule_deletion
-from backend import ratelimit
+from backend.data_export import export_user
+from backend import ratelimit, security_log
 
 router = APIRouter(tags=["auth"])
 
@@ -83,7 +84,8 @@ def register(user: UserCreate, request: Request, session: Session = Depends(get_
         )
 
     ip = ratelimit.client_ip(request)
-    ratelimit.ensure_allowed(ratelimit.registrations, ip, "Se crearon demasiadas cuentas desde esta conexión.")
+    _ensure_allowed(ratelimit.registrations, ip, "Se crearon demasiadas cuentas desde esta conexión.",
+                    "register_blocked")
 
     # Verificar si el email ya existe
     db_user = session.exec(select(User).where(User.email == user.email)).first()
@@ -109,8 +111,21 @@ def register(user: UserCreate, request: Request, session: Session = Depends(get_
     session.refresh(new_user)
     # Solo cuentan las cuentas creadas: un email repetido no gasta intentos
     ratelimit.registrations.hit(ip)
+    security_log.record("register", ip, new_user.id)
     
     return user_response(session, new_user)
+
+
+INACTIVE_MESSAGE = "Tu cuenta está desactivada; escríbenos si crees que es un error."
+
+
+def _ensure_allowed(window, ip: str, message: str, blocked_kind: str) -> None:
+    """El límite de intentos, y si bloquea, el evento de seguridad (backend/security_log.py)."""
+    try:
+        ratelimit.ensure_allowed(window, ip, message)
+    except HTTPException:
+        security_log.record(blocked_kind, ip)
+        raise
 
 
 @router.post("/login", response_model=Token)
@@ -124,23 +139,26 @@ def login(
     """
     # Antes de tocar la base y bcrypt: una IP bloqueada no gasta ni CPU
     ip = ratelimit.client_ip(request)
-    ratelimit.ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.")
+    _ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.", "login_blocked")
 
     # Buscar usuario por email
     user = session.exec(select(User).where(User.email == form_data.username)).first()
     
     if not user or not verify_password(form_data.password, user.hashed_password):
         ratelimit.failed_logins.hit(ip)
+        # Con la cuenta si existe: ver que alguien prueba contraseñas contra una en concreto
+        security_log.record("login_failed", ip, user.id if user else None)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Solo con la contraseña correcta: si no, no se sabe si la cuenta existe
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Usuario inactivo"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=INACTIVE_MESSAGE
         )
     
     # Con el borrado programado sí entra: la app le ofrece conservar la cuenta
@@ -157,6 +175,26 @@ def read_current_user(
     página, donde solo conserva el token y no sabe a quién pertenece.
     """
     return user_response(session, current_user)
+
+
+@router.get("/me/export")
+def export_my_data(request: Request, response: Response, session: Session = Depends(get_session),
+                   current_user: User = Depends(get_current_user)):
+    """Descargar mis datos (Mi perfil): todo lo que la instancia guarda de la
+    cuenta, en JSON (backend/data_export.py). 5 al día por cuenta: 429 con
+    Retry-After y su evento de seguridad al pasarse."""
+    key = str(current_user.id)
+    wait = ratelimit.exports.retry_after(key)
+    if wait is not None:
+        security_log.record("export_limit", ratelimit.client_ip(request), current_user.id)
+        hours = max(1, (wait + 3599) // 3600)
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail=f"Ya descargaste tus datos {ratelimit.exports.limit} veces hoy. "
+                                   f"Podrás volver a hacerlo en {hours} h.",
+                            headers={"Retry-After": str(wait)})
+    ratelimit.exports.hit(key)
+    response.headers["Cache-Control"] = "no-store"
+    return export_user(session, current_user)
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -189,9 +227,10 @@ def _check_password(request: Request, user: User, password: str) -> None:
     """La contraseña actual, con el mismo límite de intentos que el login: sin
     él, una sesión robada probaría contraseñas aquí sin freno."""
     ip = ratelimit.client_ip(request)
-    ratelimit.ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.")
+    _ensure_allowed(ratelimit.failed_logins, ip, "Demasiados intentos fallidos.", "login_blocked")
     if not verify_password(password, user.hashed_password):
         ratelimit.failed_logins.hit(ip)
+        security_log.record("password_failed", ip, user.id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La contraseña no es correcta")
 
 

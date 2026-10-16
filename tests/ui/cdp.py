@@ -8,6 +8,7 @@ import itertools
 import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -46,7 +47,7 @@ def find_browser():
 
 
 class Browser:
-    def __init__(self, port=9333, fresh=True):
+    def __init__(self, port=None, fresh=True):
         self.port = port
         self.fresh = fresh
         self.proc = None
@@ -54,6 +55,7 @@ class Browser:
         self.ids = itertools.count(1)
         self.pending = {}
         self.console = []
+        self.requests = {}   # requestId -> "MÉTODO url", para decir qué petición falló
         self.reader = None
 
     async def start(self):
@@ -67,6 +69,12 @@ class Browser:
         if self.fresh or _last_profile is None:
             _last_profile = Path(tempfile.mkdtemp(prefix="profile-", dir=os.environ.get("HABIT_UI_TMP")))
         profile = _last_profile
+        # Un puerto libre en cada arranque: con uno fijo, el navegador de la prueba anterior
+        # aún cerrándose lo tenía ocupado y este no arrancaba ("the browser did not start")
+        if self.port is None:
+            with socket.socket() as probe:
+                probe.bind(("127.0.0.1", 0))
+                self.port = probe.getsockname()[1]
         self.proc = subprocess.Popen([
             find_browser(), "--headless=new", f"--remote-debugging-port={self.port}",
             f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
@@ -85,6 +93,7 @@ class Browser:
         self.reader = asyncio.create_task(self._read())
         await self.send("Page.enable")
         await self.send("Runtime.enable")
+        await self.send("Network.enable")
         # Una página headless nunca tiene el foco: sin esto no hay focus/blur
         await self.send("Emulation.setFocusEmulationEnabled", enabled=True)
 
@@ -93,9 +102,27 @@ class Browser:
             msg = json.loads(raw)
             if "id" in msg and msg["id"] in self.pending:
                 self.pending.pop(msg["id"]).set_result(msg)
+            elif msg.get("method") == "Page.frameStartedNavigating":
+                # Solo diagnóstico, como [network]: dice en qué orden llegan una navegación
+                # y los errores de una prueba que falla por un "Failed to fetch"
+                print(f"[nav] {time.monotonic():.3f} starts: {msg['params'].get('url', '')}", flush=True)
             elif msg.get("method") == "Runtime.consoleAPICalled":
                 args = " ".join(str(a.get("value", a.get("description", ""))) for a in msg["params"]["args"])
                 self.console.append(f"[{msg['params']['type']}] {args}")
+                if msg["params"]["type"] == "error":
+                    print(f"[nav] {time.monotonic():.3f} console.error: {args.splitlines()[0][:100]}", flush=True)
+            elif msg.get("method") == "Network.requestWillBeSent":
+                req = msg["params"]["request"]
+                self.requests[msg["params"]["requestId"]] = f"{req['method']} {req['url']}"
+            elif msg.get("method") == "Network.loadingFinished":
+                self.requests.pop(msg["params"]["requestId"], None)
+            elif msg.get("method") == "Network.loadingFailed":
+                # Solo diagnóstico: no hace fallar nada. Si una prueba falla por un
+                # "Failed to fetch", su salida dice por qué (reset, abortada, rechazada…)
+                params = msg["params"]
+                what = self.requests.pop(params["requestId"], "?")
+                print(f"[network] {time.monotonic():.3f} {params.get('errorText')}"
+                      f"{' (canceled)' if params.get('canceled') else ''}: {what}", flush=True)
             elif msg.get("method") == "Runtime.exceptionThrown":
                 d = msg["params"]["exceptionDetails"]
                 self.console.append(f"[exception] {d.get('exception', {}).get('description', d.get('text'))}")
@@ -134,6 +161,9 @@ class Browser:
     async def goto(self, url, wait=1.5):
         await self.send("Page.navigate", url=url)
         await asyncio.sleep(wait)
+        # Sin historial: un deslizamiento táctil desde el borde es "atrás" para el navegador,
+        # y volvía a /api/health (la página que solo sirve para guardar el token)
+        await self.send("Page.resetNavigationHistory")
 
     async def viewport(self, width, height, mobile=False):
         await self.send("Emulation.setDeviceMetricsOverride", width=width, height=height,
@@ -167,9 +197,42 @@ class Browser:
         time.sleep(1.0)
 
     async def close(self):
+        """Cierra el navegador entero. Matar solo self.proc no basta: en Windows Edge
+        abre procesos hijos (render, GPU, utilidades) que sobreviven al padre, y cada
+        prueba dejaba 5-10 vivos (cientos en una corrida, con la máquina a rastras).
+        Primero Browser.close, como quit(); si no responde, el árbol completo."""
         try:
+            await self.ws.send(json.dumps({"id": next(self.ids), "method": "Browser.close"}))
             await self.ws.close()
-        finally:
-            self.proc.kill()
-            self.proc.wait()
-            time.sleep(1.0)  # que suelte el perfil antes de volver a arrancar
+        except Exception:
+            pass
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            kill_tree(self.proc)
+        time.sleep(1.0)  # que suelte el perfil antes de volver a arrancar
+
+
+def kill_tree(proc):
+    """El proceso y todos sus hijos (en Windows, kill() solo mata al padre)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        proc.kill()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def kill_leftovers(profiles_dir):
+    """Red de seguridad al final de una corrida: cualquier navegador que siga con un
+    perfil de esa carpeta (solo los de las pruebas: los perfiles son temporales)."""
+    if os.name != "nt" or not profiles_dir:
+        return
+    script = ("Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | "
+              f"Where-Object {{ $_.CommandLine -like '*{profiles_dir}*' }} | "
+              "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+    subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)

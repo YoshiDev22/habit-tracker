@@ -19,11 +19,11 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from migrate import resolve_db_path  # noqa: E402
-
-MAX_TITLE = 80
-MAX_BODY = 500
+# Las mismas reglas que el panel (como mucho 3 vigentes, una espera entre dos); sin dependencias
+from backend.announcement_rules import MAX_BODY, MAX_TITLE, check  # noqa: E402
 
 
 def utc_now():
@@ -72,8 +72,14 @@ def main(argv=None) -> int:
         body = " ".join(args.body.split())
         if not title:
             parser.error("--title is required to publish")
-        if len(title) > MAX_TITLE or len(body) > MAX_BODY:
-            parser.error(f"title up to {MAX_TITLE} characters and body up to {MAX_BODY}")
+        stamp = now.isoformat(sep=" ")
+        current = connection.execute("SELECT COUNT(*) FROM announcements WHERE ends_at IS NULL OR ends_at > ?",
+                                     (stamp,)).fetchone()[0]
+        last = connection.execute("SELECT MAX(created_at) FROM announcements").fetchone()[0]
+        problem = check(title, body, current, datetime.fromisoformat(last) if last else None, now)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 1
         ends = (now + timedelta(hours=args.hours)).isoformat(sep=" ") if args.hours else None
         cursor = connection.execute("INSERT INTO announcements (title, body, created_at, ends_at) VALUES (?, ?, ?, ?)",
                                     (title, body, now.isoformat(sep=" "), ends))

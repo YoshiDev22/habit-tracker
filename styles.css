@@ -1628,6 +1628,109 @@ body.has-pomodoro-bar {
     width: 100%;
 }
 
+/* Aviso de privacidad (/privacidad, backend/privacy.py) y sus enlaces */
+.privacy-body { display: block; }
+
+.privacy-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 8px 0 48px;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.privacy-page h1 { font-size: 1.8rem; margin: 8px 0 4px; }
+.privacy-page h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+.privacy-page p, .privacy-page li { font-size: 1rem; }
+.privacy-page ul { padding-left: 1.2rem; display: grid; gap: 6px; margin: 8px 0 14px; }
+.privacy-page a { color: var(--accent); }
+.privacy-back { margin: 0; font-size: 0.9rem; }
+.privacy-updated, .privacy-law { color: var(--text-muted); font-size: 0.9rem; }
+
+.privacy-missing {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+}
+
+.privacy-disclaimer {
+    margin-top: 32px;
+    padding: 4px 18px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-surface);
+}
+
+.privacy-disclaimer h2 { margin-top: 14px; }
+
+.privacy-note {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.privacy-note a, .auth-privacy a { color: var(--accent); }
+
+/* Una fila de menú que es un enlace (Mi perfil › Aviso de privacidad) */
+a.settings-item { text-decoration: none; color: inherit; }
+
+.auth-privacy {
+    margin: 12px 0 0;
+    font-size: 0.8rem;
+}
+
+/* Versión nueva en el servidor (novedades.js): encima de la barra de usuario */
+.update-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 10px 44px 10px 16px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 0.95rem;
+    box-shadow: var(--shadow-md);
+}
+
+.update-banner[hidden] { display: none; }
+
+.update-banner-btn {
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--text-on-accent);
+    border: 0;
+    border-radius: 999px;
+    padding: 4px 14px;
+    cursor: pointer;
+}
+
+.update-banner-close {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--text-on-accent);
+    background: none;
+    border: 0;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.update-banner-btn:focus-visible, .update-banner-close:focus-visible {
+    outline: 2px solid var(--text-on-accent);
+    outline-offset: 2px;
+}
+
 /* User Bar */
 .user-bar {
     position: fixed;
@@ -2355,6 +2458,34 @@ body.has-pomodoro-bar {
     box-shadow: 0 0 0 1px var(--text-on-accent);
 }
 
+/* Plegar o desplegar los filtros del tablero (BACKLOG 41) */
+.filters-toggle {
+    align-self: flex-start;
+    border: none;
+    background: none;
+    padding: 2px 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.filters-toggle:focus-visible,
+.filter-chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.filter-chip:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+/* "× Mostrar todas" va dentro de la fila de Columnas */
+.filter-row .filter-clear {
+    align-self: center;
+}
+
 .filter-clear {
     align-self: flex-start;
     border: none;
@@ -2513,12 +2644,14 @@ body.has-pomodoro-bar {
     overflow-wrap: anywhere;
 }
 
+/* El tiempo va con las etiquetas (BACKLOG 41): el título se queda con todo el ancho */
 .board-card-time {
     flex-shrink: 0;
-    padding-top: 2px;
+    margin-right: 2px;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 /* Pasado de su estimado: solo el número cambia de color, sin avisos */

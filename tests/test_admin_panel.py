@@ -78,6 +78,11 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
     summary = get(admin, "/api/summary")
     assert summary["accounts"] == 2 and summary["new_7d"] == 2 and summary["active_7d"] == 2
     assert summary["feedback_open"] == 1 and summary["ai_today"] == {"ok": 1, "failed": 1}
+    # Las gráficas del Resumen (paso 7): solo conteos
+    weeks = summary["signups_by_week"]
+    assert len(weeks) == 12 and weeks[-1]["count"] == 2 and sum(w["count"] for w in weeks) == 2
+    assert summary["activity"] == {"day": 2, "week": 0, "month": 0, "older": 0, "never": 0}
+    assert summary["modules_in_use"]["habits"] == 2 and summary["modules_in_use"]["maker"] == 1
 
     accounts = {a["id"]: a for a in get(admin, "/api/accounts")["accounts"]}
     mine = accounts[me["id"]]
@@ -92,6 +97,16 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
     ai = get(admin, "/api/ai")
     assert {(d["purpose"], d["ok"], d["failed"]) for d in ai["days"]} == {("report", 1, 0), ("costs", 0, 1)}
     assert ai["errors"] == [{"error": "timeout", "count": 1}]
+
+    from backend.admin_api import record_action
+    with Session(engine) as session:
+        # Un administrador que no es ninguna de las cuentas: así un correo de cuenta en la
+        # bitácora sería una fuga, no el "quién lo hizo"
+        record_action(session, "admin@panel.test", "module", me["id"], {"maker": {"enabled": False, "allowed": False}},
+                      {"maker": {"enabled": False, "allowed": True}})
+        session.commit()
+    log = get(admin, "/api/actions")
+    assert [(a["account"], a["admin"]) for a in log["actions"]] == [("y•••@test.com", "admin@panel.test")]
 
     feedback = get(admin, "/api/feedback")["feedback"]
     assert [f["text"] for f in feedback] == [f"Falla {MARK}-FEEDBACK <script>alert(1)</script>"]
@@ -109,7 +124,7 @@ def test_it_counts_and_never_shows_what_people_write(admin, seeded):
 
     # Nada de lo escrito sale, ni el correo completo; del reporte de problema, solo su texto
     for path, body in [("/api/summary", summary), ("/api/accounts", accounts), ("/api/ai", ai),
-                       ("/api/feedback", feedback)]:
+                       ("/api/feedback", feedback), ("/api/actions", log)]:
         text = json.dumps(body, ensure_ascii=False, default=str)
         leaked = text.replace(f"{MARK}-FEEDBACK", "")
         assert MARK not in leaked, (path, leaked[leaked.index(MARK) - 60:leaked.index(MARK) + 40])
@@ -143,3 +158,21 @@ def test_accounts_from_before_have_no_signup_date(admin, api):
         session.commit()
     summary = get(admin, "/api/summary")
     assert summary["unknown_signup"] == 1 and summary["new_7d"] == 0
+
+
+def test_activity_groups_never_overlap(admin, api):
+    from datetime import timedelta
+    from sqlmodel import select
+    from backend.models import User, utc_now_naive
+    now = utc_now_naive()
+    ages = {"hoy@test.com": timedelta(hours=3), "semana@test.com": timedelta(days=3),
+            "mes@test.com": timedelta(days=20), "vieja@test.com": timedelta(days=90), "nunca@test.com": None}
+    for email in ages:
+        api.login(email)
+    with Session(engine) as session:
+        for email, age in ages.items():
+            user = session.exec(select(User).where(User.email == email)).one()
+            user.last_seen_at = None if age is None else now - age
+            session.add(user)
+        session.commit()
+    assert get(admin, "/api/summary")["activity"] == {"day": 1, "week": 1, "month": 1, "older": 1, "never": 1}

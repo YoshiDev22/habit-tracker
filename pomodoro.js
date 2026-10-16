@@ -1796,6 +1796,11 @@ async function submitLogTime(event) {
     }
 
     const startedEpochMs = localEpochMs(dateKey, parseClockValue(logTimeStartEl.value));
+    // Hoy, pero más tarde que ahora, tampoco (el servidor da un minuto de margen)
+    if (startedEpochMs + duration * 1000 > Date.now() + 60 * 1000) {
+        showError(logTimeErrorEl, 'No puedes poner horas futuras: la hora de fin todavía no llega.');
+        return;
+    }
     const taskId = logTimeTaskEl.value ? Number(logTimeTaskEl.value) : null;
     let note = logTimeNoteEl.value.trim();
     // Corregir un cronómetro que se cerró solo: la nota automática ya no es

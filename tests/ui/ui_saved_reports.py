@@ -37,7 +37,7 @@ async def main():
     await b.start()
     try:
         await b.viewport(390, 844, mobile=True)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)}); localStorage.removeItem('last_view');")
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)

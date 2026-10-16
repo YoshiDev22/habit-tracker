@@ -34,7 +34,7 @@ async def main():
     await b.start()
     try:
         await b.viewport(1280, 900)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});"
                    "localStorage.setItem('habit_colors', JSON.stringify({gym: '#e74c3c', lectura: '#3498db', borrado: '#000000'}));")
         await b.goto(BASE + "/", wait=3.0)
@@ -53,7 +53,7 @@ async def main():
     await b.start()
     try:
         await b.viewport(1280, 900)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)});")
         await b.goto(BASE + "/", wait=3.0)
         await b.js(CLOSE_WELCOME)

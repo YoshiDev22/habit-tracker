@@ -142,6 +142,22 @@ class Announcement(SQLModel, table=True):
     ends_at: Optional[datetime] = Field(default=None)   # UTC naive; después ya no se enseña
 
 
+class AccountMessage(SQLModel, table=True):
+    """
+    Un aviso del panel de administración para una sola cuenta (1.27, Fase 2,
+    paso 6): uno escrito a mano, o los automáticos al darle textos de IA extra o
+    acceso a un módulo. Sale en su campanita como `message`. Se va con la cuenta
+    (user_id). Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "account_messages"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+    title: str                                   # hasta 80
+    body: str = Field(default="")                # hasta 500
+
+
 class Notice(SQLModel, table=True):
     """
     Un aviso de la campanita (1.26), guardado por cuenta. Los pendientes
@@ -178,7 +194,66 @@ class Feedback(SQLModel, table=True):
     text: str                                              # 10 a 2000
     details: Optional[Dict] = Field(default=None, sa_type=JSON)
     status: str = Field(default="open")                    # open | reviewed | closed
-    admin_note: Optional[str] = Field(default=None)        # nota interna, solo en el panel
+    admin_note: Optional[str] = Field(default=None)        # nota interna: no sale en avisos; sí en su export
+    # Lo que lee quien lo reportó en su aviso al cerrarlo (1.27, Fase 2). Columna de una
+    # tabla de esta misma versión: en migrate.py con new_table (las bases de desarrollo)
+    user_note: Optional[str] = Field(default=None)
+
+
+class AiGrant(SQLModel, table=True):
+    """
+    Textos de IA extra para una cuenta, solo por un día (1.27, Fase 2 del panel):
+    se suman al límite del día (UTC) de su contador (`pool`: report | costs) y
+    al día siguiente vuelve el normal. Los da el panel de administración; dar
+    más el mismo día suma a la misma fila. Se borra con la cuenta (user_id).
+    Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "ai_grants"
+    __table_args__ = (UniqueConstraint("user_id", "pool", "day", name="uq_ai_grants_user_pool_day"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    pool: str
+    day: date_type
+    extra: int
+
+
+class SecurityEvent(SQLModel, table=True):
+    """
+    Eventos de seguridad, agrupados: una fila por hora, tipo, IP y cuenta, con su
+    contador (backend/security_log.py). Solo lo que falla o delata un abuso, nunca
+    lo que hace cada persona. IP completa, 30 días; con user_id se va con la
+    cuenta. Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "security_events"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    hour: datetime = Field(index=True)             # UTC naive, al inicio de la hora
+    kind: str
+    ip: str = Field(default="")                    # vacía si el evento no viene de una petición
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+    count: int = Field(default=0)
+    last_at: Optional[datetime] = Field(default=None)
+
+
+class AdminAction(SQLModel, table=True):
+    """
+    La bitácora del panel de administración (1.27, Fase 2): cada acción que
+    cambia algo, con quién la hizo (el correo de Access), qué, sobre qué cuenta
+    y cómo estaba antes y después. No se edita ni se borra desde el panel.
+    `account_id` y no `user_id` a propósito: purge_user() borra toda tabla con
+    user_id, y la bitácora debe sobrevivir al borrado de la cuenta (sin datos de
+    la persona: solo su id y el cambio). Tabla NUEVA: create_all(), sin migración.
+    """
+    __tablename__ = "admin_actions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive(), index=True)
+    admin_email: str
+    action: str                                   # module | ai_grant | account | feedback | announcement …
+    account_id: Optional[int] = Field(default=None, index=True)   # la cuenta afectada (o ninguna)
+    before: Optional[Dict] = Field(default=None, sa_type=JSON)
+    after: Optional[Dict] = Field(default=None, sa_type=JSON)
 
 
 class HabitNote(SQLModel, table=True):

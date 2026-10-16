@@ -35,7 +35,7 @@ async def main():
     await b.start()
     try:
         await b.viewport(1280, 900)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.clear(); localStorage.setItem('access_token', {json.dumps(token)});"
                    f" localStorage.setItem('board_selected', '{board['id']}')")
         await b.goto(BASE + "/", wait=2.5)

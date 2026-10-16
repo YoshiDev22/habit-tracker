@@ -147,6 +147,19 @@ def rewrite_charges(session: Session, rc: RecurringCost, since: Optional[date_ty
     return len(dates)
 
 
+def drop_after_end(session: Session, rc: RecurringCost) -> int:
+    """Borra los cobros anotados después de la fecha de fin (todas sus filas, si
+    iban repartidos). No hace commit. Devuelve cuántas filas borró."""
+    if rc.end_date is None:
+        return 0
+    rows = session.exec(select(ProjectCost).where(
+        ProjectCost.user_id == rc.user_id, ProjectCost.recurring_id == rc.id,
+        ProjectCost.cost_date > rc.end_date)).all()
+    for row in rows:
+        session.delete(row)
+    return len(rows)
+
+
 def last_charge(session: Session, rc: RecurringCost) -> Optional[date_type]:
     """La fecha del último gasto anotado por este recurrente (None si ninguno)."""
     return session.exec(select(func.max(ProjectCost.cost_date)).where(

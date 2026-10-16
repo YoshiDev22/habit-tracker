@@ -42,7 +42,7 @@ async def main():
 
     try:
         await b.viewport(390, 844, mobile=True)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.clear(); localStorage.setItem('access_token', {json.dumps(token)});")
         await b.goto(BASE + "/", wait=2.5)
         await b.wait_for("document.querySelectorAll('#habitLegend .legend-item').length", lambda n: n == 3)

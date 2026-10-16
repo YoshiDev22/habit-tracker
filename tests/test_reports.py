@@ -181,12 +181,16 @@ def test_timer_script(api, capsys):
 
     project, task = setup(api, "script@test.com")
     post(api, project, task, MON, 9, 60)
+    uid = api.call("GET", "/api/auth/me", expect=200)[1]["id"]
     assert generate_reports.main(["--email", "script@test.com", "--today", TODAY.isoformat(), "--dry-run"]) == 0
-    assert f"would generate script@test.com: week from {MON.isoformat()}" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    # Va al registro del servidor: el número de la cuenta, nunca su correo
+    assert f"would generate account {uid}: week from {MON.isoformat()}" in out and "@" not in out
     assert api.call("GET", "/api/reports", expect=200)[1]["reports"] == []
 
     assert generate_reports.main(["--email", "script@test.com", "--today", TODAY.isoformat()]) == 0
-    assert f"generated script@test.com: week from {MON.isoformat()}" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert f"generated account {uid}: week from {MON.isoformat()}" in out and "@" not in out
     _, lst = api.call("GET", "/api/reports", expect=200)
     assert any(r["kind"] == "week" and r["period_start"] == MON.isoformat() and r["trigger"] == "auto"
                for r in lst["reports"])

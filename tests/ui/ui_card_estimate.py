@@ -59,7 +59,7 @@ async def main():
 
     try:
         await b.viewport(1280, 900)
-        await b.goto(BASE + "/")
+        await b.goto(BASE + "/api/health")   # mismo origen, sin arrancar la app
         await b.js(f"localStorage.setItem('access_token', {json.dumps(token)}); localStorage.removeItem('projects_view'); localStorage.removeItem('board_selected');")
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
@@ -77,9 +77,12 @@ async def main():
               "1 h 30 min is saved as 90 minutes, without the maker plan")
         await b.shot("card_estimate_field", full=False)
         await close_card()
-        await b.wait_for(f"{card(KANBAN)}.querySelector('.board-card-time').textContent.includes(' de ')")
+        await b.wait_for(f"{card(KANBAN)}.querySelector('.board-card-time').textContent.includes('/')")
         st = await b.js(card_time(KANBAN))
-        check(st == {"text": "0m de 1h 30m", "over": False}, f"the card says how much of its estimate it took ({st})")
+        # En corto, solo horas (BACKLOG 41): lo exacto queda en el tooltip y en la Lista
+        tip = await b.js(f"{card(KANBAN)}.querySelector('.board-card-time').title")
+        check(st == {"text": "0m/1.5h", "over": False} and "de 1h 30m" in tip,
+              f"the card says how much of its estimate it took, in hours ({st}, {tip})")
 
         # Pasado de su estimado: el número en el color de alerta, sin más
         call("PATCH", f"/api/tasks/{by[POMODOROS]['id']}", {"estimate_minutes": 180}, expect=200)
@@ -88,8 +91,8 @@ async def main():
         await b.wait_for(f"!!{card(POMODOROS)}")
         st = await b.js(card_time(POMODOROS))
         color = await b.js(f"[getComputedStyle({card(POMODOROS)}.querySelector('.board-card-time')).color, getComputedStyle(document.documentElement).getPropertyValue('--danger-fg').trim()]")
-        check(st["text"].endswith(" de 3h") and st["over"], f"over its estimate, the time turns to the alert color ({st}, {color})")
-        check(await b.js(card_time(KANBAN)) == {"text": "0m de 1h 30m", "over": False}, "after reloading the estimate is still there")
+        check(st["text"].endswith("/3h") and st["over"], f"over its estimate, the time turns to the alert color ({st}, {color})")
+        check(await b.js(card_time(KANBAN)) == {"text": "0m/1.5h", "over": False}, "after reloading the estimate is still there")
         await b.shot("card_estimate_board", full=False)
 
         # Vaciar el campo lo quita
@@ -98,7 +101,7 @@ async def main():
         await set_estimate("", "")
         await wait_api("/api/tasks", lambda body: next(x for x in body["tasks"] if x["title"] == KANBAN)["estimate_minutes"] is None)
         await close_card()
-        await b.wait_for(f"!{card(KANBAN)}.querySelector('.board-card-time').textContent.includes(' de ')")
+        await b.wait_for(f"!{card(KANBAN)}.querySelector('.board-card-time').textContent.includes('/')")
         check(await b.js(card_time(KANBAN)) == {"text": "0m", "over": False}, "emptying the field removes the estimate")
 
         # La Lista dice lo mismo que el tablero
@@ -109,7 +112,8 @@ async def main():
         row = f"[...document.querySelectorAll('.task-row')].find(r => r.textContent.includes({json.dumps(POMODOROS)}))"
         await b.wait_for(f"!!{row}")
         lst = await b.js(f"({{text: {row}.querySelector('.task-time .timer-idle').textContent, over: {row}.querySelector('.task-time').classList.contains('over-estimate')}})")
-        check(lst == st, f"the List shows the same as the card ({lst})")
+        check(lst["over"] == st["over"] and lst["text"].endswith(" de 3h"),
+              f"the List keeps the long form, with the same alert ({lst} / card {st})")
 
         # Ficha sin el plan: el "de X" de cada tarea, pero no el desvío
         await b.js(f"{project}.querySelector('.project-main').click()")
