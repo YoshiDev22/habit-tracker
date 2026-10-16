@@ -787,7 +787,7 @@ class FinRecurring(SQLModel, table=True):
     """
     Un fijo: renta, teléfono, suscripciones, o el sueldo. Misma regla de serie
     que los recurrentes de Costos (backend/series.py), más la quincenal (el 15 y
-    el último día). generate_due() en backend/finance.py convierte los cobros
+    el último día, u otros dos días). generate_due() en backend/finance.py convierte los cobros
     que ya llegaron en movimientos con recurring_id; `generated` cuenta los
     hechos, así que uno borrado no vuelve.
     """
@@ -802,6 +802,10 @@ class FinRecurring(SQLModel, table=True):
     amount_cents: int
     note: Optional[str] = Field(default=None)
     frequency: str = Field(default="monthly")    # monthly | yearly | semimonthly
+    # Los dos días de pago de una quincenal (del 1 al 31; el que el mes no tiene
+    # cae en el último). NULL = el 15 y el último día. Solo con semimonthly.
+    first_day: Optional[int] = Field(default=None)
+    second_day: Optional[int] = Field(default=None)
     start_date: date_type                        # el primer cobro
     end_date: Optional[date_type] = Field(default=None)
     paused: bool = Field(default=False)

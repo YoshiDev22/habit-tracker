@@ -259,6 +259,8 @@ def test_personal_finance(api):
 
     rec = {"account_id": cash["id"], "category_id": cat["id"], "concept": "Renta", "amount_cents": 100,
            "start_date": "2030-01-01"}
-    for bad in ({"frequency": "weekly"}, {"kind": "transfer"}, {"concept": "x" * 201}, {"amount_cents": 0}):
+    for bad in ({"frequency": "weekly"}, {"kind": "transfer"}, {"concept": "x" * 201}, {"amount_cents": 0},
+                {"frequency": "semimonthly", "first_day": 32, "second_day": 15},
+                {"frequency": "semimonthly", "first_day": 0, "second_day": 15}):
         assert api.call("POST", "/api/finance/recurring", {**rec, **bad})[0] == 422, bad
     assert api.call("PUT", "/api/finance/settings", {"period": "x" * 5000})[0] == 422

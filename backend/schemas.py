@@ -745,6 +745,8 @@ class RecurringCostUpdate(SQLModel):
     unit_cost_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     note: Optional[str] = Field(default=None, max_length=500)
     frequency: Optional[str] = None
+    first_day: Optional[int] = Field(default=None, ge=1, le=31)
+    second_day: Optional[int] = Field(default=None, ge=1, le=31)
     start_date: Optional[date_type] = None
     end_date: Optional[date_type] = None
     paused: Optional[bool] = None
@@ -1617,6 +1619,9 @@ class FinRecurringFields(SQLModel):
     amount_cents: int = Field(gt=0, le=MAX_MONEY_CENTS)
     note: Optional[str] = Field(default=None, max_length=500)
     frequency: str = "monthly"
+    # Una quincenal en otros días que el 15 y el último (los dos, o ninguno)
+    first_day: Optional[int] = Field(default=None, ge=1, le=31)
+    second_day: Optional[int] = Field(default=None, ge=1, le=31)
     start_date: date_type
     end_date: Optional[date_type] = None
 
@@ -1639,6 +1644,8 @@ class FinRecurringUpdate(SQLModel):
     amount_cents: Optional[int] = Field(default=None, gt=0, le=MAX_MONEY_CENTS)
     note: Optional[str] = Field(default=None, max_length=500)
     frequency: Optional[str] = None
+    first_day: Optional[int] = Field(default=None, ge=1, le=31)
+    second_day: Optional[int] = Field(default=None, ge=1, le=31)
     start_date: Optional[date_type] = None
     end_date: Optional[date_type] = None
     paused: Optional[bool] = None
@@ -1659,6 +1666,8 @@ class FinRecurringResponse(SQLModel):
     currency: str
     note: Optional[str] = None
     frequency: str
+    first_day: Optional[int] = None
+    second_day: Optional[int] = None
     start_date: date_type
     end_date: Optional[date_type] = None
     paused: bool

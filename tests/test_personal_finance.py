@@ -252,6 +252,74 @@ def test_recurring_generates_what_is_due_once(api):
         assert session.get(FinRecurring, rc["id"]) is None
 
 
+
+def test_semimonthly_on_other_days():
+    # El 14 y el 29: en febrero, el 29 cae en el último día
+    days = [occurrence(date(2026, 1, 14), "semimonthly", n, (14, 29)) for n in range(5)]
+    assert days == [date(2026, 1, 14), date(2026, 1, 29), date(2026, 2, 14), date(2026, 2, 28), date(2026, 3, 14)]
+    assert occurrence(date(2026, 1, 20), "semimonthly", 0, (14, 29)) == date(2026, 1, 29)
+    assert occurrence(date(2026, 1, 30), "semimonthly", 0, (14, 29)) == date(2026, 2, 14)
+    # El orden en que llegan no importa, y el 31 es el último día
+    assert occurrence(date(2026, 4, 1), "semimonthly", 1, (31, 10)) == date(2026, 4, 30)
+
+
+def test_pay_days_of_a_fortnightly_fixed(api):
+    cash, debit, credit, cats = setup(api, "dias@test.com")
+    body = {"kind": "income", "account_id": debit["id"], "category_id": cats["Sueldo"]["id"], "concept": "Sueldo",
+            "amount_cents": 1000000, "frequency": "semimonthly", "start_date": (TODAY + timedelta(days=1)).isoformat()}
+    _, rc = api.call("POST", "/api/finance/recurring", {**body, "first_day": 29, "second_day": 14}, expect=201)
+    assert (rc["first_day"], rc["second_day"]) == (14, 29)
+    assert financial_day(rc["next_date"]) in (14, 29) or rc["next_date"].endswith("-28")
+    assert api.call("POST", "/api/finance/recurring", {**body, "first_day": 14})[0] == 422
+    assert api.call("POST", "/api/finance/recurring", {**body, "first_day": 14, "second_day": 14})[0] == 422
+    assert api.call("POST", "/api/finance/recurring", {**body, "first_day": 0, "second_day": 14})[0] == 422
+    # El 15 y el último son los de siempre; un mensual no guarda días
+    _, classic = api.call("POST", "/api/finance/recurring", {**body, "first_day": 15, "second_day": 31}, expect=201)
+    assert classic["first_day"] is None and classic["second_day"] is None
+    _, monthly = api.call("POST", "/api/finance/recurring",
+                          {**body, "frequency": "monthly", "first_day": 1, "second_day": 16}, expect=201)
+    assert monthly["first_day"] is None
+    # Volverlo mensual olvida los días
+    _, rc = api.call("PATCH", f"/api/finance/recurring/{rc['id']}", {"frequency": "monthly"}, expect=200)
+    assert rc["first_day"] is None and rc["frequency"] == "monthly"
+
+
+def financial_day(iso):
+    return int(iso[-2:])
+
+
+def test_changing_or_removing_the_salary_keeps_its_history(api):
+    cash, debit, credit, cats = setup(api, "historial@test.com")
+    start = TODAY - timedelta(days=75)
+    body = {"kind": "income", "account_id": debit["id"], "category_id": cats["Sueldo"]["id"], "concept": "Sueldo",
+            "amount_cents": 2000000, "frequency": "monthly", "start_date": start.isoformat()}
+    _, rc = api.call("POST", "/api/finance/recurring", body, expect=201)
+    url = f"/api/finance/recurring/{rc['id']}"
+    rows = lambda: sorted(api.call("GET", f"/api/finance/transactions?date_from={start.isoformat()}"
+                                          f"&date_to={TODAY.isoformat()}", expect=200)[1]["transactions"],
+                          key=lambda t: t["tx_date"])
+    before = [(t["id"], t["tx_date"], t["amount_cents"]) for t in rows()]
+    assert len(before) >= 2 and rc["last_charge"] == before[-1][1]
+
+    # De mensual a quincenal: lo anotado no se mueve; la serie sigue después del último cobro
+    assert api.call("PATCH", url, {"frequency": "semimonthly", "start_date": before[-1][1]})[0] == 409
+    _, rc = api.call("PATCH", url, {"frequency": "semimonthly", "amount_cents": 1000000,
+                                    "start_date": (TODAY + timedelta(days=1)).isoformat()}, expect=200)
+    assert [(t["id"], t["tx_date"], t["amount_cents"]) for t in rows()] == before
+    assert rc["frequency"] == "semimonthly" and rc["next_date"] > TODAY.isoformat()
+    with Session(engine) as session:
+        made = generate_due(session, user_id("historial@test.com"), TODAY + timedelta(days=40))
+        assert len(made) >= 2 and all(t.amount_cents == 1000000 for t in made)
+        assert all(t.tx_date.day == 15 or (t.tx_date + timedelta(days=1)).day == 1 for t in made)
+
+    # Quitarlo: lo anotado se queda, con su monto, y no anota más
+    api.call("DELETE", url, expect=204)
+    after = rows()
+    assert [(t["id"], t["tx_date"], t["amount_cents"]) for t in after] == before
+    assert all(t["recurring_id"] is None for t in after)
+    with Session(engine) as session:
+        assert generate_due(session, user_id("historial@test.com"), TODAY + timedelta(days=120)) == []
+
 def test_turning_it_off_keeps_everything(api):
     cash, debit, credit, cats = setup(api, "apagar@test.com")
     api.call("POST", "/api/finance/transactions", tx(cash, 100, "x", cats["Súper"]), expect=201)

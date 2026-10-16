@@ -7,7 +7,7 @@ el resumen. Lo que no es una ruta vive en backend/finance.py. Las rutas
 literales van antes que las /{id}.
 """
 from datetime import date as date_type
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
@@ -41,7 +41,7 @@ from backend.schemas import (
     FinTransactionResponse,
     FinTransactionUpdate,
 )
-from backend.series import next_date, period_bounds, skip_past
+from backend.series import SEMIMONTHLY_DAYS, next_date, period_bounds, skip_past
 
 router = APIRouter(tags=["finance"])
 
@@ -430,9 +430,23 @@ def _recurring_response(session: Session, rc: FinRecurring, currencies: Dict[int
     return FinRecurringResponse(
         id=rc.id, kind=rc.kind, account_id=rc.account_id, category_id=rc.category_id, concept=rc.concept,
         amount_cents=rc.amount_cents, currency=currencies.get(rc.account_id, "MXN"), note=rc.note,
-        frequency=rc.frequency, start_date=rc.start_date, end_date=rc.end_date, paused=rc.paused,
-        generated=rc.generated, next_date=None if rc.paused else next_date(rc), last_charge=last_charge(session, rc),
+        frequency=rc.frequency, first_day=rc.first_day, second_day=rc.second_day, start_date=rc.start_date,
+        end_date=rc.end_date, paused=rc.paused, generated=rc.generated,
+        next_date=None if rc.paused else next_date(rc), last_charge=last_charge(session, rc),
     )
+
+
+def _pay_days(frequency: str, first: Optional[int], second: Optional[int]) -> Tuple[Optional[int], Optional[int]]:
+    """Los dos días de una quincenal, el menor primero; (None, None) si es otra
+    frecuencia o son el 15 y el último (los de siempre)."""
+    if frequency != "semimonthly" or (first is None and second is None):
+        return None, None
+    if first is None or second is None:
+        raise _unprocessable("Una quincena lleva sus dos días de pago")
+    if first == second:
+        raise _unprocessable("Los dos días de pago de la quincena tienen que ser distintos")
+    days = tuple(sorted((first, second)))
+    return (None, None) if days == SEMIMONTHLY_DAYS else days
 
 
 def _check_recurring(session: Session, user_id: int, kind: str, account_id: int, category_id: int) -> None:
@@ -461,10 +475,11 @@ def create_recurring(body: FinRecurringFields, session: Session = Depends(get_se
     (hasta 36 de una vez)."""
     _check_recurring(session, user.id, body.kind, body.account_id, body.category_id)
     _check_dates(body.start_date, body.end_date)
+    first_day, second_day = _pay_days(body.frequency, body.first_day, body.second_day)
     rc = FinRecurring(user_id=user.id, account_id=body.account_id, category_id=body.category_id, kind=body.kind,
                       concept=_clean_concept(body.concept), amount_cents=body.amount_cents,
-                      note=_clean_note(body.note), frequency=body.frequency, start_date=body.start_date,
-                      end_date=body.end_date)
+                      note=_clean_note(body.note), frequency=body.frequency, first_day=first_day,
+                      second_day=second_day, start_date=body.start_date, end_date=body.end_date)
     session.add(rc)
     session.commit()
     generate_due(session, user.id, _today(session, user))
@@ -484,8 +499,14 @@ def update_recurring(recurring_id: int, body: FinRecurringUpdate, session: Sessi
     for field in ("account_id", "category_id", "concept", "amount_cents", "frequency", "start_date", "paused"):
         if field in changes and changes[field] is None:
             raise _unprocessable("Ese dato no puede quedar vacío")
+    frequency = changes.get("frequency", rc.frequency)
+    if "first_day" in changes or "second_day" in changes or "frequency" in changes:
+        days = _pay_days(frequency, changes.get("first_day", rc.first_day), changes.get("second_day", rc.second_day))
+        changes["first_day"], changes["second_day"] = days
     reanchor = rc.generated and (("start_date" in changes and changes["start_date"] != rc.start_date)
-                                 or ("frequency" in changes and changes["frequency"] != rc.frequency))
+                                 or frequency != rc.frequency
+                                 or changes.get("first_day", rc.first_day) != rc.first_day
+                                 or changes.get("second_day", rc.second_day) != rc.second_day)
     if reanchor:
         last = last_charge(session, rc)
         new_next = changes.get("start_date") or next_date(rc) or rc.start_date
