@@ -2,7 +2,8 @@
 // Constantes y Configuración
 // ============================================
 
-const API_BASE_URL = '';  // Usar URL relativa
+// API_BASE_URL, el token, apiFetch, los modales, el confirm, getDateKey, el
+// tema y el tamaño de letra viven en core.js, que se carga antes que este.
 
 // Hooks para que archivos cargados después de este (habits.js, projects.js,
 // pomodoro.js…) puedan engancharse al ciclo de vida de la app sin que este archivo los conozca.
@@ -58,86 +59,6 @@ const profileForm = document.getElementById('profileForm');
 const profileError = document.getElementById('profileError');
 const moduleError = document.getElementById('moduleError');
 const moduleStatus = document.getElementById('moduleStatus');
-const confirmModal = document.getElementById('confirmModal');
-const confirmModalTitle = document.getElementById('confirmModalTitle');
-const confirmModalMessage = document.getElementById('confirmModalMessage');
-const confirmModalConfirmBtn = document.getElementById('confirmModalConfirmBtn');
-const confirmModalCancelBtn = document.getElementById('confirmModalCancelBtn');
-
-// ============================================
-// Funciones de Autenticación - Token
-// ============================================
-
-function saveToken(token) {
-    localStorage.setItem('access_token', token);
-}
-
-function getToken() {
-    return localStorage.getItem('access_token');
-}
-
-// Error de API con el status HTTP adjunto, para que el caller pueda
-// distinguir p.ej. un 409 (conflicto) de un error genérico.
-class ApiError extends Error {
-    constructor(message, status) {
-        super(message);
-        this.name = 'ApiError';
-        this.status = status;
-    }
-}
-
-// Helper de fetch autenticado, para código NUEVO (projects.js, pomodoro.js).
-// No reemplaza los fetch existentes en este archivo — ver nota en handleSaveHabits.
-async function apiFetch(path, options = {}) {
-    const opts = { ...options, headers: { ...(options.headers || {}) } };
-
-    const token = getToken();
-    if (token) {
-        opts.headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    if (options.json !== undefined) {
-        opts.body = JSON.stringify(options.json);
-        opts.headers['Content-Type'] = 'application/json';
-        delete opts.json;
-    }
-
-    const response = await fetch(`${API_BASE_URL}${path}`, opts);
-
-    if (response.status === 401) {
-        handleLogout();
-        throw new ApiError('Sesión expirada', 401);
-    }
-
-    if (!response.ok) {
-        let detail = 'Error de red';
-        try {
-            const data = await response.json();
-            detail = data.detail || detail;
-            // Un 422 de validación trae una lista: mostrar el primer motivo
-            if (Array.isArray(detail)) {
-                detail = String(detail[0]?.msg || 'Datos no válidos').replace(/^Value error, /, '');
-            }
-        } catch (e) {
-            // Respuesta sin cuerpo JSON, usar el mensaje genérico
-        }
-        throw new ApiError(detail, response.status);
-    }
-
-    if (response.status === 204) {
-        return null;
-    }
-
-    return response.json();
-}
-
-function removeToken() {
-    localStorage.removeItem('access_token');
-}
-
-function isAuthenticated() {
-    return !!getToken();
-}
 
 // ============================================
 // Funciones de Autenticación - UI
@@ -155,66 +76,10 @@ function showMainApp() {
     userBar.classList.remove('hidden');
 }
 
-function showModal(modal) {
-    modal.classList.remove('hidden');
-}
-
-function hideModal(modal) {
-    modal.classList.add('hidden');
-    // Limpiar errores (todos: un modal puede tener más de uno, como el de hábitos)
-    modal.querySelectorAll('.form-error').forEach(errorDiv => {
-        errorDiv.classList.add('hidden');
-        errorDiv.textContent = '';
-    });
-    // Limpiar formularios
-    const form = modal.querySelector('form');
-    if (form) form.reset();
-}
-
 function hideAllModals() {
     hideModal(loginModal);
     hideModal(registerModal);
     hideModal(profileModal);
-}
-
-// Confirm genérico (sí/no) para código nuevo (perfil, pomodoro, y lo que
-// venga). No pasa por hideAllModals: ese helper no conoce confirmModal
-// y no debería — ver handleModalDismiss más abajo, que sí lo conoce.
-let confirmModalResolve = null;
-
-function confirmDialog(message, { title = '¿Seguro?', confirmLabel = 'Sí', cancelLabel = 'Cancelar', danger = false } = {}) {
-    // Solo un confirm a la vez: si ya había uno pendiente (doble click en
-    // el botón que lo abrió), se resuelve como cancelado antes de abrir el nuevo.
-    if (confirmModalResolve) {
-        confirmModalResolve(false);
-    }
-
-    confirmModalTitle.textContent = title;
-    confirmModalMessage.textContent = message;
-    confirmModalConfirmBtn.textContent = confirmLabel;
-    confirmModalConfirmBtn.classList.toggle('btn-danger', danger);
-    confirmModalCancelBtn.textContent = cancelLabel;
-    showModal(confirmModal);
-
-    return new Promise(resolve => {
-        confirmModalResolve = resolve;
-    });
-}
-
-function resolveConfirmDialog(result) {
-    confirmModal.classList.add('hidden');
-    if (confirmModalResolve) {
-        confirmModalResolve(result);
-        confirmModalResolve = null;
-    }
-}
-
-confirmModalConfirmBtn.addEventListener('click', () => resolveConfirmDialog(true));
-confirmModalCancelBtn.addEventListener('click', () => resolveConfirmDialog(false));
-
-function showError(errorDiv, message) {
-    errorDiv.textContent = message;
-    errorDiv.classList.remove('hidden');
 }
 
 // Cómo llamar al usuario en la UI. En cascada, para que las cuentas que ya
@@ -596,14 +461,7 @@ userEmail.addEventListener('click', showProfile);
 profileForm.addEventListener('submit', handleProfileSave);
 document.getElementById('moduleSettings').addEventListener('change', handleModuleToggle);
 
-// La fecha LOCAL del usuario como "AAAA-MM-DD". La usa toda la app: hábitos,
-// sesiones de tiempo, Reportes y el ?today= de la API.
-function getDateKey(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
+initConfirmDialog();
 
 // ============================================
 // Inicialización
@@ -640,50 +498,7 @@ async function initApp() {
 // Modo oscuro
 // ============================================
 
-const THEME_CYCLE = ['system', 'light', 'dark'];
-const THEME_ICONS = { system: '🖥️', light: '☀️', dark: '🌙' };
-const THEME_LABELS = { system: 'Sistema', light: 'Claro', dark: 'Oscuro' };
-
 const themeToggleBtn = document.getElementById('themeToggle');
-const themeColorMeta = document.getElementById('themeColorMeta');
-
-function getSystemPrefersDark() {
-    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-}
-
-function getThemePref() {
-    try {
-        return localStorage.getItem('theme') || 'system';
-    } catch (e) {
-        return 'system';
-    }
-}
-
-function setThemePref(pref) {
-    try {
-        localStorage.setItem('theme', pref);
-    } catch (e) {
-        // localStorage puede lanzar en navegación privada; el tema
-        // simplemente no persiste entre recargas en ese caso.
-    }
-}
-
-function applyTheme(pref) {
-    const dark = pref === 'dark' || (pref === 'system' && getSystemPrefersDark());
-    const root = document.documentElement;
-    root.setAttribute('data-theme', dark ? 'dark' : 'light');
-    root.setAttribute('data-theme-pref', pref);
-
-    if (themeColorMeta) {
-        themeColorMeta.setAttribute('content', dark ? '#14161a' : '#fafafa');
-    }
-    if (themeToggleBtn) {
-        themeToggleBtn.textContent = THEME_ICONS[pref];
-        const label = `Tema: ${THEME_LABELS[pref]}`;
-        themeToggleBtn.title = label;
-        themeToggleBtn.setAttribute('aria-label', label);
-    }
-}
 
 function cycleTheme() {
     const current = getThemePref();
@@ -701,20 +516,7 @@ function initTheme() {
         themeToggleBtn.addEventListener('click', cycleTheme);
     }
 
-    if (window.matchMedia) {
-        const mql = window.matchMedia('(prefers-color-scheme: dark)');
-        const onSystemChange = () => {
-            // Solo re-aplicar si el usuario sigue en modo "sistema"
-            if (getThemePref() === 'system') {
-                applyTheme('system');
-            }
-        };
-        if (typeof mql.addEventListener === 'function') {
-            mql.addEventListener('change', onSystemChange);
-        } else if (typeof mql.addListener === 'function') {
-            mql.addListener(onSystemChange); // Safari viejo
-        }
-    }
+    watchSystemTheme();
 }
 
 window.appInitHooks.push(initTheme);
@@ -722,28 +524,7 @@ window.appInitHooks.push(initTheme);
 // Tamaño del texto: preferencia de este dispositivo, como el tema. El script
 // inline del <head> la aplica antes del primer paint; esto la cambia y marca
 // el botón elegido. Sobrevive al cierre de sesión a propósito.
-const TEXT_SIZES = ['normal', 'large', 'xlarge'];
 const textSizeToggle = document.getElementById('textSizeToggle');
-
-function getTextSize() {
-    try {
-        const size = localStorage.getItem('text_size');
-        return TEXT_SIZES.includes(size) ? size : 'normal';
-    } catch (e) {
-        return 'normal';
-    }
-}
-
-function applyTextSize(size) {
-    if (size === 'normal') {
-        document.documentElement.removeAttribute('data-text-size');
-    } else {
-        document.documentElement.setAttribute('data-text-size', size);
-    }
-    textSizeToggle.querySelectorAll('[data-size]').forEach(btn => {
-        btn.setAttribute('aria-pressed', btn.dataset.size === size ? 'true' : 'false');
-    });
-}
 
 function initTextSize() {
     applyTextSize(getTextSize());

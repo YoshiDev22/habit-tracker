@@ -107,6 +107,12 @@ def styles_css():
     return frontend_file("styles.css")
 
 
+@app.get("/core.js")
+def core_js():
+    """Serve core.js (lo compartido por la app y Finanzas)"""
+    return frontend_file("core.js")
+
+
 @app.get("/script.js")
 def script_js():
     """Serve script.js"""
