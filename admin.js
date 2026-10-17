@@ -201,7 +201,7 @@ function renderSummary(s, ai, security) {
     document.getElementById('summaryCards').replaceChildren(
         card('Cuentas nuevas por semana', 'Últimas 12 semanas, de lunes a domingo (UTC). Las de antes de la 1.27 no tienen fecha.', signups),
         card('Última actividad', `Cuándo entró por última vez cada una de las ${number.format(s.accounts)} cuentas.`, activity),
-        card('Módulos en uso', 'Cuentas con el módulo encendido (Maker e IA, además, con acceso).', modules),
+        card('Módulos en uso', 'Cuentas con el módulo encendido (Maker, IA y Finanzas, además, con acceso).', modules),
         card('IA, últimos 14 días', 'Textos buenos y fallidos por día (UTC).', columnChart({ series: AI_SERIES, rows: aiDays, height: 110 }), 'ai'),
         card('Seguridad, últimos 7 días', 'Eventos por día (UTC).',
             columnChart({ series: sec.series, rows: sec.rows, height: 110, empty: 'Ningún evento.' }), 'security'),
@@ -324,7 +324,7 @@ function moduleNote(state) {
 
 function renderAccountModules(account) {
     const box = document.getElementById('accountModules');
-    box.replaceChildren(...['maker', 'ai'].map((name) => {
+    box.replaceChildren(...['maker', 'ai', 'finance'].map((name) => {
         const state = account.modules[name];
         const label = node('label', 'module-row');
         const input = node('input');

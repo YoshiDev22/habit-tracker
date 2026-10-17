@@ -97,6 +97,19 @@ def test_give_and_remove_a_module(admin, api):
     assert len(admin("/api/actions", jwt_token=token()).json()["actions"]) == 3
 
 
+def test_give_finance_access(admin, api):
+    api.login("finanzas@test.com")
+    me = api.call("GET", "/api/auth/me", expect=200)[1]
+    assert modules_of(api)["finance"]["allowed"] is False
+    api.call("GET", "/api/finance/accounts", expect=403)
+    r = put(admin, f"/api/accounts/{me['id']}/modules/finance", {"allowed": True})
+    assert r.status_code == 200 and r.json()["allowed"] is True
+    api.call("PUT", "/api/auth/me/modules/finance", {"enabled": True}, expect=200)
+    api.call("GET", "/api/finance/accounts", expect=200)
+    titles = [n["title"] for n in api.call("GET", "/api/notices", expect=200)[1]["notices"]]
+    assert "Ya tienes acceso a Finanzas" in titles
+
+
 def test_module_access_refuses_what_it_should(admin, api):
     api.login("modulos2@test.com")
     me = api.call("GET", "/api/auth/me", expect=200)[1]

@@ -44,7 +44,7 @@ def record_action(session: Session, admin: str, action: str, account_id: Optiona
 
 
 # "Ya tienes acceso …": con su contracción (al, a la)
-MODULE_ACCESS = {"maker": "al plan Maker", "ai": "a la IA de los reportes"}
+MODULE_ACCESS = {"maker": "al plan Maker", "ai": "a la IA de los reportes", "finance": "a Finanzas"}
 
 
 def send_message(session: Session, user_id: int, title: str, body: str = "") -> AccountMessage:
@@ -264,7 +264,7 @@ GRANTABLE = tuple(name for name, default in MODULES.items() if not default["allo
 @router.put("/accounts/{user_id}/modules/{module}")
 def set_module_access(user_id: int, module: str, body: ModuleAccess, request: Request,
                       session: Session = Depends(get_session)) -> dict:
-    """Dar o quitar el acceso a un módulo (Maker, IA). Quitarlo lo apaga sin olvidar
+    """Dar o quitar el acceso a un módulo (Maker, IA, Finanzas). Quitarlo lo apaga sin olvidar
     lo que el usuario había elegido, como scripts/grant_module.py (que se queda para
     emergencias)."""
     if module not in MODULES:
