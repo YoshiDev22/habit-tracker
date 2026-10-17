@@ -63,7 +63,9 @@
     <!-- Arriba, siempre: regresar, el total de las cuentas y el periodo -->
     <header class="fin-top">
         <div class="fin-top-row">
-            <a class="fin-round-btn" id="finBack" href="/" aria-label="Regresar a Habit Tracker" title="Regresar"></a>
+            <div class="fin-top-side">
+                <a class="fin-round-btn" id="finBack" href="/" aria-label="Regresar a Habit Tracker" title="Regresar"></a>
+            </div>
             <div class="fin-total">
                 <span class="fin-total-label">Todas las cuentas</span>
                 <span class="fin-total-line">
@@ -73,7 +75,12 @@
                 </span>
                 <span class="fin-total-more" id="finTotalMore"></span>
             </div>
-            <button type="button" class="fin-round-btn" id="finSettingsBtn" aria-label="Ajustes de Finanzas" title="Ajustes"></button>
+            <div class="fin-top-side end">
+                <!-- Solo en Categorías: ordenar los círculos -->
+                <button type="button" class="fin-round-btn" id="finRingEdit" aria-pressed="false" hidden
+                        aria-label="Ordenar categorías" title="Ordenar categorías"></button>
+                <button type="button" class="fin-round-btn" id="finSettingsBtn" aria-label="Ajustes de Finanzas" title="Ajustes"></button>
+            </div>
         </div>
         <div class="fin-period">
             <button type="button" class="fin-round-btn small" id="finPrev" aria-label="Periodo anterior"></button>
@@ -110,11 +117,8 @@
 
         <!-- Categorías: el anillo y los círculos; tocar uno abre el monto -->
         <section class="fin-tab" data-tab="categories">
-            <div class="fin-ring-tools">
-                <span class="fin-hint" id="finRingHint" hidden>Toca una categoría y luego otra para cambiarlas de lugar.</span>
-                <button type="button" class="fin-round-btn small" id="finRingEdit" aria-pressed="false"
-                        aria-label="Ordenar categorías" title="Ordenar categorías"></button>
-            </div>
+            <p class="fin-hint fin-ring-hint" id="finRingHint" hidden>Toca una categoría y luego otra para
+                cambiarlas de lugar. ✓ arriba para terminar.</p>
             <div class="fin-ring-grid" id="finRingGrid"></div>
         </section>
 
@@ -562,6 +566,22 @@
             <label class="fin-field">A la cuenta
                 <select id="finImportAccount"></select>
             </label>
+            <details class="fin-import-help">
+                <summary>¿Qué formato acepta?</summary>
+                <p>Filas copiadas de tu estado de cuenta o de una hoja de cálculo, o un archivo CSV. La primera fila
+                    puede llevar los nombres de las columnas:</p>
+                <ul>
+                    <li><strong>Fecha</strong>: 2026-10-01 o 01/10/2026 (día primero).</li>
+                    <li><strong>Concepto</strong> (o Descripción).</li>
+                    <li><strong>Cargo</strong> y <strong>Abono</strong> en dos columnas, o un solo <strong>Monto</strong>
+                        con signo (lo más común se toma como gasto). Con o sin $ y comas de miles.</li>
+                    <li><strong>Categoría</strong>, opcional: si se llama como una tuya, va ahí.</li>
+                </ul>
+                <p>Separado por comas, punto y coma o tabuladores. Sin nombres de columnas, el orden es fecha,
+                    concepto, monto y categoría. La cuenta se elige arriba; en una tarjeta de crédito los abonos se
+                    saltan (el pago va como transferencia desde tu débito).</p>
+                <button type="button" class="link-btn" id="finImportSample">Descargar un CSV de ejemplo</button>
+            </details>
             <textarea id="finImportText" class="fin-import-text" rows="4"
                       placeholder="Pega aquí las filas copiadas de tu estado de cuenta o de una hoja"></textarea>
             <p class="fin-hint" id="finImportSummary"></p>

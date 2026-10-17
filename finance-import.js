@@ -186,6 +186,35 @@ function renderFinImport(account, checked) {
     document.getElementById('finImportConfirm').disabled = valid === 0;
 }
 
+// Un CSV de ejemplo con las columnas que se reconocen, con fechas de este mes
+function finSampleCsv() {
+    const today = finToday();
+    const day = d => `${String(d).padStart(2, '0')}/${today.slice(5, 7)}/${today.slice(0, 4)}`;
+    const lines = [
+        'Fecha,Concepto,Cargo,Abono,Categoría',
+        `${day(1)},Súper de la semana,"1,250.50",,Súper`,
+        `${day(3)},Gasolina,800.00,,Transporte`,
+        `${day(5)},Streaming,219.00,,Suscripciones`,
+        `${day(10)},Comida con amigos,450.00,,Comer fuera`,
+        `${day(15)},Sueldo,,"15,000.00",Sueldo`,
+    ];
+    return lines.join('\r\n') + '\r\n';
+}
+
+function downloadFinSample() {
+    // Con BOM, para que Excel lea bien los acentos
+    const blob = new Blob(['\ufeff' + finSampleCsv()], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'finanzas-ejemplo.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+document.getElementById('finImportSample').addEventListener('click', downloadFinSample);
+
 function closeFinImport() {
     finPending = null;
     hideModal(finImportModal);

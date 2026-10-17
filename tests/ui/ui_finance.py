@@ -297,6 +297,13 @@ async def main():
         names = lambda: [c["name"] for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]
                          if c["kind"] == "expense"]
         first, second = names()[:2]
+        # El ✎ va arriba, junto a Ajustes, y solo en Categorías
+        st = await b.js("""({inTop: !!document.querySelector('.fin-top #finRingEdit'),
+            shown: !document.getElementById('finRingEdit').hidden})""")
+        check(st["inTop"] and st["shown"], f"the pencil sits in the top bar on Categorías ({st})")
+        await b.js("document.querySelector('#finNav [data-tab=\"transactions\"]').click()")
+        check(await b.js("document.getElementById('finRingEdit').hidden"), "and only there")
+        await b.js("document.querySelector('#finNav [data-tab=\"categories\"]').click()")
         await b.js("document.getElementById('finRingEdit').click()")
         check(not await b.js("document.getElementById('finRingHint').hidden"), "editing says how to reorder")
         await b.js("document.querySelectorAll('#finRingGrid .fin-cat[data-category-id]')[0].click()")
@@ -307,6 +314,12 @@ async def main():
               f"two taps swap two categories ({first}, {second})")
         await b.js("document.getElementById('finRingEdit').click()")
         check(await b.js("document.getElementById('finRingHint').hidden"), "the check ends reordering")
+
+        # El CSV de ejemplo se lee completo en la vista previa
+        rows = await b.js("""rowsToFinance(parseTable(finSampleCsv()))
+            .map(r => [r.kind, r.amount_cents, r.categoryName, r.problem])""")
+        check(len(rows) == 5 and all(r[3] is None for r in rows) and rows[0][:2] == ["expense", 125050]
+              and rows[4][:2] == ["income", 1500000], f"the sample CSV reads cleanly ({rows})")
 
         # Enter en las notas también guarda
         await open_category("Transporte")

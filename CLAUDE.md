@@ -559,7 +559,7 @@ Lo que no se ve en Swagger:
   hasta diez años y `all=true`, desde el primer movimiento); abajo cinco pestañas (Cuentas, Categorías,
   Movimientos, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
   es un anillo SVG con lo de cada categoría y alrededor sus círculos (`finRingSlot()`); tocar el anillo
-  cambia a las de ingresos; el ✎ de arriba las ordena (tocar una y luego otra las cambia de lugar,
+  cambia a las de ingresos; el ✎ de la barra de arriba (junto a Ajustes, solo en Categorías) las ordena (tocar una y luego otra las cambia de lugar,
   `finSwapCategories()`). **Tocar una cuenta abre su menú** (`finance-accounts.js`): su saldo (en
   crédito, la deuda o lo que queda a favor), Editar, Ajustar saldo (el real de hoy: mueve el saldo inicial,
   sin crear movimientos), Movimientos (la lista solo de esa cuenta, `accountFilter`), Ingreso / Gasto /
@@ -573,7 +573,8 @@ Lo que no se ve en Swagger:
   es la misma hoja, sin periodicidad. "¿Cada cuándo cobras?" y luego "¿Cuánto cobras?" (el fijo de
   ingreso "Sueldo", `finSalaryFixed()`), con *Dejar para después* y una línea discreta mientras no
   haya. Pegar el estado de cuenta (`finance-import.js`, `rowsToFinance()`): lo que ya existe en esa
-  cuenta sale tachado y un abono a una tarjeta de crédito se salta. Ajustes es un desglose con
+  cuenta sale tachado y un abono a una tarjeta de crédito se salta. *¿Qué formato acepta?* lo explica y
+  descarga un CSV de ejemplo (`finSampleCsv()`, armado en el navegador). Ajustes es un desglose con
   `createDrillDown()`. Las hojas que suben desde abajo llevan su pila (`finSheets`) para el Escape.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).

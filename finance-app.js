@@ -421,6 +421,12 @@ function finSetTab(tab, { save = true } = {}) {
     if (save) {
         try { localStorage.setItem('finance_tab', tab); } catch (e) { /* sin localStorage */ }
     }
+    // El ✎ de ordenar, arriba, solo en Categorías; al salir, termina de ordenar
+    document.getElementById('finRingEdit').hidden = tab !== 'categories';
+    if (tab !== 'categories') {
+        finState.ringEditing = false;
+        finState.ringPick = null;
+    }
     finRenderTab();
     window.scrollTo({ top: 0 });
 }

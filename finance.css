@@ -1674,17 +1674,47 @@
 
 /* --- Ordenar categorías --- */
 
-.fin-ring-tools {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 4px;
+.fin-ring-hint {
+    margin: 0 0 6px;
+    text-align: center;
 }
 
-.fin-ring-tools .fin-hint {
-    flex: 1;
-    margin: 0;
+/* Los lados de la barra de arriba, del mismo ancho: el total queda al centro
+   aunque a la derecha haya dos botones */
+.fin-top-side {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fin-top-side.end {
+    justify-content: flex-end;
+}
+
+.fin-top-side [hidden] {
+    display: none;
+}
+
+.fin-import-help {
+    margin: 4px 0 10px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.fin-import-help summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.fin-import-help ul {
+    margin: 6px 0;
+    padding-left: 20px;
+}
+
+.fin-import-help p {
+    margin: 6px 0;
 }
 
 .fin-cat.editing {
