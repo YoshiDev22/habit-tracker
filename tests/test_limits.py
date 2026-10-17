@@ -265,7 +265,7 @@ def test_personal_finance(api):
         assert api.call("POST", txs, {**ok, **bad})[0] == 422, bad
     api.call("POST", txs, {**ok, "amount_cents": 100_000_000_000, "note": "x" * 500}, expect=201)
     assert api.call("POST", f"{txs}/import", {"rows": []})[0] == 422
-    assert api.call("POST", f"{txs}/import", {"rows": [ok] * 501})[0] == 422
+    assert api.call("POST", f"{txs}/import", {"rows": [ok] * 5001})[0] == 422
 
     rec = {"account_id": cash["id"], "category_id": cat["id"], "concept": "Renta", "amount_cents": 100,
            "start_date": "2030-01-01"}

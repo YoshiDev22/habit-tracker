@@ -1710,10 +1710,14 @@ class FinTransactionUpdate(SQLModel):
         return _one_of(v, FIN_TX_KINDS, "kind")
 
 
+# Importar datos trae el historial de otra app de una vez (más que un estado de cuenta)
+FIN_MAX_IMPORT_ROWS = 5000
+
+
 class FinTransactionImport(SQLModel):
-    """Varios de una vez (el estado de cuenta pegado), ya revisados en la vista
-    previa. O entran todos o ninguno."""
-    rows: List[FinTransactionFields] = Field(min_length=1, max_length=MAX_IMPORT_ROWS)
+    """Varios de una vez (el estado de cuenta pegado, o el historial de Importar
+    datos), ya revisados en la vista previa. O entran todos o ninguno."""
+    rows: List[FinTransactionFields] = Field(min_length=1, max_length=FIN_MAX_IMPORT_ROWS)
 
 
 class FinTransactionResponse(SQLModel):

@@ -446,6 +446,70 @@ async def main():
         check(len(added) == 1 and added[0]["amount_cents"] == 13000 and added[0]["category_id"] == salud["id"],
               f"the row is added as corrected in the preview ({added})")
 
+        # El ⚙️ abre el panel lateral; Datos exporta e importa
+        await b.js("document.getElementById('finSettingsBtn').click()")
+        await b.wait_for("!document.getElementById('finDrawer').classList.contains('hidden')")
+        items = await b.js("[...document.querySelectorAll('#finDrawer .fin-drawer-item')].map(i => i.textContent.trim())")
+        check(items == ["Configuración", "Datos", "Aviso de privacidad", "Regresar a Habit Tracker"],
+              f"the gear opens a side menu ({items})")
+        await b.shot("finance_drawer", full=False)
+        await b.js("document.querySelector('#finDrawer [data-drawer=\"data\"]').click()")
+        await b.wait_for("!document.getElementById('finDataSheet').classList.contains('hidden')")
+        lines = await b.js("finExportLines(finState.transactions)")
+        check(lines[0] == "Fecha,Tipo,Cuenta,Hacia cuenta,Categoría,Monto,Moneda,Concepto,Nota,Parte de"
+              and any(",D" in line for line in lines[1:]),
+              f"the export has its header and marks split parts ({lines[:2]})")
+
+        # Importar el CSV de otra app: cuenta o categoría en una sola columna
+        await b.js("document.getElementById('finDataImportOpen').click()")
+        await b.wait_for("!document.getElementById('finDataImportModal').classList.contains('hidden')")
+        d = (TODAY - timedelta(days=3)).strftime("%d/%m/%Y")
+        other_app = ("FECHA,TIPO,DE CUENTA,A CUENTA/A CATEGORÍA,CANTIDAD,MONEDA,CANTIDAD 2,MONEDA 2,ETIQUETAS,NOTAS\n"
+                     f"{d},Gasto,Efectivo,Tienda,15,MXN,15,MXN,,Agua\n"
+                     f"{d},Gasto,Cartera nueva,Regalos,5,MXN,5,MXN,viaje,Cerillito\n"
+                     f"{d},Ingreso,Sueldo,Efectivo,1000,MXN,1000,MXN,,Quincena\n"
+                     f"{d},Transferencia,Efectivo,Cartera nueva,50,MXN,50,MXN,,Paso\n")
+        await set_value("#finDataText", other_app)
+        summary_text = await b.wait_for("document.getElementById('finDataSummary').textContent",
+                                        lambda v: v and v.startswith("4 de 4"))
+        st = await b.js("""({kind: (document.querySelector('#finDataNew [data-new-account]') || {}).value,
+            text: document.getElementById('finDataNew').textContent})""")
+        check(summary_text and st["kind"] == "cash" and "Cartera nueva" in st["text"] and "Tienda" in st["text"],
+              f"the other app's CSV reads, with the account and categories to create ({summary_text}, {st})")
+        await b.shot("finance_data_import", full=False)
+        await b.js("document.getElementById('finDataConfirm').click()")
+        await b.wait_for("document.getElementById('finDataImportModal').classList.contains('hidden')")
+        accs = accounts()
+        cats = {c["id"]: c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]}
+        by = {t["concept"]: t for t in transactions()}
+        check(accs.get("Cartera nueva", {}).get("kind") == "cash"
+              and cats[by["Agua"]["category_id"]]["name"] == "Tienda"
+              and by["Cerillito"]["account_id"] == accs["Cartera nueva"]["id"] and "viaje" in (by["Cerillito"]["note"] or "")
+              and by["Quincena"]["kind"] == "income" and by["Quincena"]["account_id"] == accs["Efectivo"]["id"]
+              and cats[by["Quincena"]["category_id"]]["name"] == "Sueldo"
+              and by["Paso"]["kind"] == "transfer" and by["Paso"]["to_account_id"] == accs["Cartera nueva"]["id"],
+              f"the import creates what was missing and lands each row where it goes ({sorted(by)})")
+        # Lo mismo otra vez: todo sale repetido y no entra
+        await b.js("document.getElementById('finSettingsBtn').click()")
+        await b.js("document.querySelector('#finDrawer [data-drawer=\"data\"]').click()")
+        await b.js("document.getElementById('finDataImportOpen').click()")
+        await set_value("#finDataText", other_app)
+        again = await b.wait_for("document.getElementById('finDataSummary').textContent",
+                                 lambda v: v and v.startswith("0 de 4"))
+        check(bool(again), f"importing the same file again skips every row ({again})")
+        # El formato propio, con un cargo dividido en dos filas
+        own = ("Fecha,Tipo,Cuenta,Hacia cuenta,Categoría,Monto,Moneda,Concepto,Nota,Parte de\n"
+               f"{TODAY.isoformat()},Gasto,Efectivo,,Súper,33.00,MXN,Compra mixta,,D9\n"
+               f"{TODAY.isoformat()},Gasto,Efectivo,,Personal,22.00,MXN,Compra mixta,,D9\n")
+        await set_value("#finDataText", own)
+        await b.wait_for("document.getElementById('finDataSummary').textContent",
+                         lambda v: v and v.startswith("1 de 1"))
+        await b.js("document.getElementById('finDataConfirm').click()")
+        await b.wait_for("document.getElementById('finDataImportModal').classList.contains('hidden')")
+        mixed = [t for t in transactions() if t["concept"] == "Compra mixta"]
+        check(len(mixed) == 1 and mixed[0]["amount_cents"] == 5500 and len(mixed[0]["splits"]) == 2,
+              f"rows with the same 'Parte de' become one split charge ({mixed})")
+
         # Resumen
         await b.js("document.querySelector('#finNav [data-tab=\"overview\"]').click()")
         await b.wait_for("document.querySelectorAll('.fin-catbar').length >= 2")
@@ -548,6 +612,8 @@ async def main():
 
         async def fits(label):
             await asyncio.sleep(0.4)
+            # Lo que entra deslizándose, ya en su lugar
+            await b.js("document.getAnimations().forEach(a => a.finish())")
             st = await b.js(outside)
             check(st["page"] <= 360 and not st["out"], f"{label}: fits 360px with the largest text ({st})")
 

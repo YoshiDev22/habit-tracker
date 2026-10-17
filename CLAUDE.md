@@ -141,6 +141,7 @@ habit-tracker/
 ├── finance-settings.js    # Finanzas: ajustes (periodo y sueldo, categorías, fijos), la hoja de una cuenta
 ├── finance-accounts.js    # Finanzas: el menú de una cuenta (acciones), ajustar saldo y los MSI de una deuda
 ├── finance-import.js      # Finanzas: pegar el estado de cuenta o un CSV, con vista previa
+├── finance-data.js        # Finanzas: el panel lateral del ⚙️ y Datos (exportar a CSV, importar varias cuentas)
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -579,8 +580,15 @@ Lo que no se ve en Swagger:
   cuenta sale tachado y un abono a una tarjeta de crédito se salta. *¿Qué formato acepta?* lo explica y
   descarga un CSV de ejemplo (`finSampleCsv()`, armado en el navegador). En la vista previa cada fila se
   corrige (fecha, concepto, monto, gasto o ingreso y categoría; la elegida a mano manda) y en un teléfono
-  cada fila es una tarjeta. Ajustes es un desglose con
-  `createDrillDown()`. Las hojas que suben desde abajo llevan su pila (`finSheets`) para el Escape.
+  cada fila es una tarjeta. El ⚙️ de arriba abre un **panel lateral**
+  (`#finDrawer`, `finance-data.js`: Configuración, Datos, Aviso de privacidad, Regresar); Configuración
+  es el desglose de siempre con `createDrillDown()`. **Datos** exporta los movimientos a CSV
+  (`finExportLines()`: todos o los del periodo; un dividido, una fila por parte con la misma marca en
+  *Parte de*; `finCsvCell()` antepone `'` a lo que empiece por `= + - @`) e **importa** un CSV con
+  varias cuentas (`rowsToFinanceData()`): el propio u otro con columnas parecidas, incluido el de una
+  columna *A cuenta/A categoría* (en un gasto, la categoría; en una transferencia o un ingreso, la
+  cuenta) y *Notas* como concepto si no hay concepto. Las cuentas y categorías que falten se crean al
+  confirmar y los movimientos entran de una vez (`FIN_MAX_IMPORT_ROWS`, 5000). Las hojas que suben desde abajo llevan su pila (`finSheets`) para el Escape.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va

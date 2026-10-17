@@ -440,6 +440,111 @@
     </div>
 
     <!-- Ajustes: periodo, sueldo, categorías y fijos (menú de desglose) -->
+    <!-- El ⚙️ de arriba: un panel lateral con lo que no es del día a día (finance-data.js) -->
+    <div class="fin-sheet fin-drawer hidden" id="finDrawer" role="dialog" aria-modal="true" aria-labelledby="finDrawerTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <nav class="fin-drawer-panel" aria-label="Menú de Finanzas">
+            <div class="fin-drawer-head">
+                <span class="fin-drawer-avatar" id="finDrawerAvatar" aria-hidden="true"></span>
+                <div class="fin-drawer-who">
+                    <strong id="finDrawerTitle">Finanzas</strong>
+                    <small id="finDrawerUser"></small>
+                </div>
+            </div>
+            <button type="button" class="fin-drawer-item" data-drawer="settings">
+                <span data-icon="settings"></span>Configuración</button>
+            <button type="button" class="fin-drawer-item" data-drawer="data">
+                <span data-icon="arrow-left-right"></span>Datos</button>
+            <a class="fin-drawer-item" href="/privacidad" target="_blank" rel="noopener">
+                <span data-icon="list"></span>Aviso de privacidad</a>
+            <a class="fin-drawer-item" href="/">
+                <span data-icon="chevron-left"></span>Regresar a Habit Tracker</a>
+        </nav>
+    </div>
+
+    <!-- Datos: exportar a CSV e importar (varias cuentas de una vez) -->
+    <div class="fin-sheet hidden" id="finDataSheet" role="dialog" aria-modal="true" aria-labelledby="finDataTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finDataTitle">Datos</h2>
+            <section class="fin-data-group">
+                <h3 class="fin-stat-label">Exportar a CSV</h3>
+                <p class="fin-hint">Tus movimientos, uno por fila, para Excel o Sheets o para importarlos después.</p>
+                <div class="fin-data-actions">
+                    <button type="button" class="submit-btn fin-add-btn" id="finExportAll">Todos</button>
+                    <button type="button" class="submit-btn fin-add-btn" id="finExportPeriod">Solo el periodo que ves</button>
+                </div>
+            </section>
+            <section class="fin-data-group">
+                <h3 class="fin-stat-label">Importar datos</h3>
+                <p class="fin-hint">Un CSV con varias cuentas (el que exporta esta app u otra): revisas todo antes de
+                    agregarlo, y las cuentas o categorías que falten se crean.</p>
+                <div class="fin-data-actions">
+                    <button type="button" class="submit-btn fin-add-btn" id="finDataImportOpen">Importar datos</button>
+                </div>
+                <p class="fin-hint">Para los movimientos de una sola cuenta, <em>Subir estado de cuenta</em> en
+                    Movimientos.</p>
+            </section>
+            <section class="fin-data-group">
+                <h3 class="fin-stat-label">Copias de seguridad</h3>
+                <p class="fin-hint">Tus datos se guardan en el servidor, no en este dispositivo: cambiar de teléfono o
+                    borrar el navegador no los pierde. Para tener tu propia copia, exporta a CSV; todo lo de tu cuenta
+                    sale en <em>Mi perfil › Descargar mis datos</em>.</p>
+            </section>
+            <div id="finDataError" class="form-error hidden"></div>
+            <div class="fin-form-actions">
+                <button type="button" class="link-btn" id="finDataClose">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Importar datos: varias cuentas, con vista previa (finance-data.js) -->
+    <div id="finDataImportModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content fin-import-modal" role="dialog" aria-modal="true" aria-labelledby="finDataImportTitle">
+            <button class="modal-close" type="button" id="finDataImportClose" aria-label="Cerrar">&times;</button>
+            <h2 class="modal-title" id="finDataImportTitle">Importar datos</h2>
+            <details class="fin-import-help">
+                <summary>¿Qué formato acepta?</summary>
+                <p>El CSV que exporta esta app, u otro con estas columnas (la primera fila con sus nombres):</p>
+                <ul>
+                    <li><strong>Fecha</strong>: 2026-10-01 o 01/10/2026 (día primero).</li>
+                    <li><strong>Tipo</strong>: Gasto, Ingreso o Transferencia. Sin esta columna, un monto negativo es
+                        gasto y uno positivo, ingreso.</li>
+                    <li><strong>Cuenta</strong>, y <strong>Hacia cuenta</strong> en una transferencia.</li>
+                    <li><strong>Categoría</strong>, <strong>Monto</strong>, <strong>Moneda</strong> (opcional),
+                        <strong>Concepto</strong> y <strong>Nota</strong>.</li>
+                    <li><strong>Parte de</strong>, opcional: las filas con la misma marca son un cargo dividido.</li>
+                </ul>
+                <button type="button" class="link-btn" id="finDataTemplate">Descargar una plantilla</button>
+            </details>
+            <div class="fin-import-source">
+                <input type="file" id="finDataFile" accept=".csv,text/csv,text/plain" hidden>
+                <button type="button" class="submit-btn fin-add-btn" id="finDataFileBtn">Elegir archivo CSV</button>
+                <span class="fin-hint">o pega abajo las filas</span>
+            </div>
+            <textarea id="finDataText" class="fin-import-text" rows="4"
+                      placeholder="Pega aquí las filas, con la de los nombres de las columnas primero"></textarea>
+            <p class="fin-hint" id="finDataSummary"></p>
+            <div id="finDataNew"></div>
+            <div class="fin-import-table-wrap">
+                <table class="fin-import-table fin-data-table">
+                    <thead><tr><th>Fecha</th><th>Cuenta</th><th>Categoría</th><th>Monto</th><th>Concepto</th></tr></thead>
+                    <tbody id="finDataRows"></tbody>
+                </table>
+            </div>
+            <label class="fin-check hidden" id="finDataDupesOption">
+                <input type="checkbox" id="finDataDupes">
+                <span id="finDataDupesLabel"></span>
+            </label>
+            <div id="finDataImportError" class="form-error hidden"></div>
+            <div class="fin-form-actions">
+                <button type="button" class="link-btn" id="finDataCancel">Cancelar</button>
+                <button type="button" class="submit-btn" id="finDataConfirm">Importar</button>
+            </div>
+        </div>
+    </div>
+
     <div id="finSettingsModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content fin-settings-modal" role="dialog" aria-modal="true" aria-labelledby="finSettingsTitle">
@@ -628,5 +733,6 @@
     <script src="finance-settings.js"></script>
     <script src="finance-accounts.js"></script>
     <script src="finance-import.js"></script>
+    <script src="finance-data.js"></script>
 </body>
 </html>

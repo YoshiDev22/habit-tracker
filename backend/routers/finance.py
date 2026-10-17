@@ -774,14 +774,14 @@ def import_transactions(body: FinTransactionImport, session: Session = Depends(g
     session.flush()
     for tx, splits in pairs:
         _save_splits(session, user.id, tx, splits)
-    session.commit()
-    new = [tx for tx, _ in pairs]
-    for tx in new:
-        session.refresh(tx)
+    # La respuesta antes del commit, con lo que ya está en memoria (con ids tras el
+    # flush): después del commit cada movimiento se volvería a leer, uno por uno
     currencies = account_currencies(session, user.id)
-    dates = [tx.tx_date for tx in new]
-    return FinTransactionListResponse(date_from=min(dates), date_to=max(dates),
-                                      transactions=[_tx_response(tx, currencies) for tx in new])
+    response = FinTransactionListResponse(
+        date_from=min(tx.tx_date for tx, _ in pairs), date_to=max(tx.tx_date for tx, _ in pairs),
+        transactions=[_tx_response(tx, currencies) for tx, _ in pairs])
+    session.commit()
+    return response
 
 
 @router.patch("/transactions/{tx_id}", response_model=FinTransactionResponse)

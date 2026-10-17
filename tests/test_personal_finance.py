@@ -375,6 +375,34 @@ def test_the_bank_amount_overrides_the_estimate(api):
     api.call("DELETE", f"/api/finance/accounts/{empty['id']}", expect=204)
 
 
+def test_import_a_whole_history(api):
+    """Importar datos trae el historial de otra app de una vez: más de los 500 de
+    un estado de cuenta, con transferencias y divididos, o todo o nada."""
+    import time
+    cash, debit, credit, cats = setup(api, "historial@test.com")
+    rows = []
+    for i in range(1500):
+        day = TODAY - timedelta(days=i % 300)
+        if i % 10 == 0:
+            rows.append(tx(debit, 1000 + i, f"Pago {i}", kind="transfer", to=credit, day=day))
+        elif i % 10 == 1:
+            rows.append({**tx(cash, 300, f"Dividido {i}", day=day), "category_id": None,
+                         "splits": [{"category_id": cats["Súper"]["id"], "amount_cents": 200},
+                                    {"category_id": cats["Personal"]["id"], "amount_cents": 100}]})
+        else:
+            rows.append(tx(credit, 100 + i, f"Compra {i}", cats["Súper"], day=day))
+    start = time.monotonic()
+    _, body = api.call("POST", "/api/finance/transactions/import", {"rows": rows}, expect=201)
+    assert len(body["transactions"]) == 1500 and time.monotonic() - start < 30
+    # Una fila mala y no entra ninguna
+    bad = rows[:10] + [tx(cash, 100, "x")]
+    assert api.call("POST", "/api/finance/transactions/import", {"rows": bad})[0] == 422
+    _, always = api.call("GET", "/api/finance/summary?all=true", expect=200)
+    listed = api.call("GET", f"/api/finance/transactions?date_from={always['date_from']}&date_to={TODAY}",
+                      expect=200)[1]["transactions"]
+    assert len(listed) == 1500
+
+
 def test_categories_reorder(api):
     cash, debit, credit, cats = setup(api, "orden@test.com")
     expense = [c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]

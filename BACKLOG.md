@@ -33,6 +33,7 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
 | 37 | P2 | Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo | épica, después de la 1.27; fase 1 hecha en `feat/finanzas` |
 | 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
+| 43 | P3 | Menús de la app más sencillos: un panel lateral como el de Finanzas | pedido |
 
 ---
 
@@ -597,4 +598,21 @@ si se borran los cobros posteriores al fin).
 
 **Siguiente paso.** Volver a probarlo y anotar qué se ve en la lista ("Siguiente: …"
 o "Terminado") y en la hoja. Si no se repite, cerrar la entrada.
+
+---
+
+## 43 · P3 · Menús de la app más sencillos: un panel lateral como el de Finanzas
+
+**Pedido el 2026-10-17.** Configuración (⚙️) y el menú de la inicial reparten lo de la cuenta en
+dos lugares, con modales de desglose largos. En la página de Finanzas el ⚙️ abre un panel lateral
+(`#finDrawer`, `finance-data.js`): la inicial y el nombre arriba, y una lista corta de entradas
+(Configuración, Datos, Aviso de privacidad, Regresar), cada una a su pantalla. Se probó primero ahí
+para no tocar la app.
+
+**Idea.** Que la inicial (o el ⚙️) de la app abra un panel así: Mi perfil, Configuración, Datos
+(*Descargar mis datos*, exportar), Novedades, Reportar un problema, Aviso de privacidad y Cerrar
+sesión, y que las páginas de Configuración y Mi perfil se queden como están detrás de cada entrada.
+
+**Por decidir.** Si la campanita y el tema siguen sueltos arriba; si el panel reemplaza el menú de
+la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es de Hábitos.
 

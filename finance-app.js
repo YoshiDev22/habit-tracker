@@ -1180,6 +1180,6 @@ document.getElementById('finBack').addEventListener('click', (event) => {
         history.back();
     }
 });
-document.getElementById('finSettingsBtn').addEventListener('click', () => openFinSettings());
+document.getElementById('finSettingsBtn').addEventListener('click', () => openFinDrawer());
 
 document.addEventListener('DOMContentLoaded', finStart);

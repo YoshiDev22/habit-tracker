@@ -1978,3 +1978,150 @@
 .fin-import-source .fin-hint {
     margin: 0;
 }
+
+/* --- El panel lateral del ⚙️ --- */
+
+.fin-drawer {
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.fin-drawer-panel {
+    position: relative;
+    width: min(320px, 84vw);
+    height: 100%;
+    overflow-y: auto;
+    padding: calc(20px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom));
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-xl);
+    border-radius: 0 22px 22px 0;
+    animation: fin-drawer-in 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+@keyframes fin-drawer-in {
+    from { transform: translateX(-24px); }
+    to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fin-drawer-panel { animation: none; }
+}
+
+.fin-drawer-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 8px 16px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fin-drawer-avatar {
+    width: 48px;
+    height: 48px;
+    flex: none;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.fin-drawer-who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.fin-drawer-who strong {
+    font-size: 1.15rem;
+}
+
+.fin-drawer-who small {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fin-drawer-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 10px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 1.05rem;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.fin-drawer-item:hover,
+.fin-drawer-item:focus-visible {
+    background: var(--bg-hover);
+}
+
+.fin-drawer-item [data-icon] {
+    display: inline-flex;
+    color: var(--text-secondary);
+}
+
+/* --- Datos --- */
+
+.fin-data-group {
+    padding: 4px 0 14px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 12px;
+}
+
+.fin-data-group .fin-hint {
+    margin: 4px 0 8px;
+}
+
+.fin-data-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fin-data-actions .fin-add-btn {
+    margin: 0;
+}
+
+.fin-data-new {
+    margin: 4px 0 8px;
+}
+
+.fin-data-new-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.fin-data-new-row select {
+    width: auto;
+}
+
+@media (max-width: 560px) {
+    .fin-data-table tr {
+        grid-template-areas: "date amount" "account category" "concept concept";
+    }
+
+    .fin-data-table td:nth-child(1) { grid-area: date; }
+    .fin-data-table td:nth-child(2) { grid-area: account; }
+    .fin-data-table td:nth-child(3) { grid-area: category; }
+    .fin-data-table td:nth-child(4) { grid-area: amount; text-align: right; }
+    .fin-data-table td:nth-child(5) { grid-area: concept; color: var(--text-secondary); }
+}
