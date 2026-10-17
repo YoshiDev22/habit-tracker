@@ -354,7 +354,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* --- Transacciones --- */
+/* --- Movimientos --- */
 
 .fin-list-actions {
     display: flex;
@@ -575,16 +575,16 @@
 
 /* --- Cuentas --- */
 
+/* Si no caben (letra grande), bajan a otra línea: deslizándolas, Deudas no se veía */
 .fin-subtabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     margin: 0 0 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
 }
 
 .fin-subtab {
-    flex: 1 0 auto;
+    flex: 1 1 auto;
     padding: 8px 12px;
     border: none;
     border-bottom: 2px solid transparent;
@@ -914,14 +914,19 @@
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    padding: 4px 2px;
+    padding: 4px 0;
     border: none;
     background: none;
     color: var(--text-secondary);
     font: inherit;
-    font-size: 0.72rem;
+    /* Con tope: con la letra más grande, cinco nombres no caben en un teléfono */
+    font-size: min(0.72rem, 11.5px);
     cursor: pointer;
     min-width: 0;
+}
+
+.fin-nav-label {
+    max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -974,6 +979,8 @@
     width: 100%;
     max-width: 560px;
     max-height: 92vh;
+    /* En el navegador del teléfono, vh incluye lo que tapa su barra; dvh no */
+    max-height: 92dvh;
     overflow-y: auto;
     background: var(--bg-surface);
     border-radius: 22px 22px 0 0;

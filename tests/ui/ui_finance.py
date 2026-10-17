@@ -280,7 +280,7 @@ async def main():
               f"yesterday, monthly: a fixed ({fixed})")
         check(len(noted) == 1 and fixed and noted[0]["recurring_id"] == fixed[0]["id"], f"and yesterday's charge, once ({noted})")
 
-        # Transacciones: por día; tocar una la edita
+        # Movimientos: por día; tocar uno lo edita
         await b.js("document.querySelector('#finNav [data-tab=\"transactions\"]').click()")
         await b.wait_for("document.querySelectorAll('.fin-tx').length >= 2")
         heads = await b.js("[...document.querySelectorAll('.fin-day-head')].map(h => h.textContent)")
@@ -292,7 +292,7 @@ async def main():
         await keys(["back", "back", "back", "2", "5", "0", "ok"])
         await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
         check([t["amount_cents"] for t in transactions() if t["concept"] == "Tacos"] == [25000], "the edit is saved")
-        await no_sideways("Transacciones")
+        await no_sideways("Movimientos")
 
         # Pegar el estado de cuenta: lo repetido sale tachado y no entra
         await b.js("document.getElementById('finPasteBtn').click()")
@@ -364,6 +364,62 @@ async def main():
         await asyncio.sleep(0.2)
         await b.shot("finance_categories_dark", full=False)
         await b.js("document.documentElement.setAttribute('data-theme', 'light')")
+
+        # El teléfono más angosto común (360px) con la letra más grande: nada se sale de
+        # lado en ninguna pestaña ni hoja
+        await b.viewport(360, 640, mobile=True)
+        await b.js("document.documentElement.setAttribute('data-text-size', 'xlarge')")
+        outside = """(() => {
+            const w = document.documentElement.clientWidth;
+            const out = [...document.querySelectorAll('body *')].filter(e => {
+                const r = e.getBoundingClientRect();
+                return r.width > 0 && r.height > 0 && (r.right > w + 1 || r.left < -1)
+                    && getComputedStyle(e).visibility !== 'hidden';
+            }).map(e => (e.id || e.className || e.tagName) + ':' + Math.round(e.getBoundingClientRect().right));
+            // Y que ningún nombre de la barra de abajo quede cortado
+            const cut = [...document.querySelectorAll('.fin-nav-label')]
+                .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
+            return {page: document.documentElement.scrollWidth, out: out.slice(0, 5).concat(cut)};
+        })()"""
+
+        async def fits(label):
+            await asyncio.sleep(0.4)
+            st = await b.js(outside)
+            check(st["page"] <= 360 and not st["out"], f"{label}: fits 360px with the largest text ({st})")
+
+        for tab in ("accounts", "categories", "transactions", "budget", "overview"):
+            await b.js(f"document.querySelector('#finNav [data-tab=\"{tab}\"]').click()")
+            await fits(tab)
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        await fits("accounts › cards")
+        await b.shot("finance_cards_xlarge", full=False)
+        await b.js("document.querySelector('#finNav [data-tab=\"categories\"]').click()")
+        await open_category("Comer fuera")
+        await fits("the entry sheet")
+        # En un teléfono bajo, el teclado y su ✓ se alcanzan (la hoja se desplaza si hace falta)
+        st = await b.js("""(() => {
+            const panel = document.querySelector('#finEntry .fin-sheet-panel');
+            const ok = [...document.querySelectorAll('#finKeypad [data-key]')].pop();
+            panel.scrollTop = panel.scrollHeight;
+            const r = ok.getBoundingClientRect();
+            return {bottom: Math.round(r.bottom), height: innerHeight, key: ok.dataset.key};
+        })()""")
+        check(st["bottom"] <= st["height"], f"on a short phone the keypad is reachable ({st})")
+        await b.shot("finance_entry_xlarge", full=False)
+        await b.js("document.getElementById('finEntryDate').click()")
+        await fits("the date sheet")
+        await b.goto(BASE + "/finance", wait=2.5)
+        await b.js("document.documentElement.setAttribute('data-text-size', 'xlarge')")
+        await b.js("document.getElementById('finPeriodLabel').click()")
+        await fits("the period sheet")
+        await b.shot("finance_range_xlarge", full=False)
+        await b.goto(BASE + "/finance", wait=2.5)
+        await b.js("document.documentElement.setAttribute('data-text-size', 'xlarge')")
+        await b.js("document.getElementById('finSettingsBtn').click()")
+        await fits("settings")
+        await b.js("document.documentElement.removeAttribute('data-text-size')")
+        await b.viewport(390, 844, mobile=True)
 
         # ‹ regresa a la app
         await b.js("document.getElementById('finBack').click()")

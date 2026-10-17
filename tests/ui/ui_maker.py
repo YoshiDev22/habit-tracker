@@ -116,7 +116,10 @@ async def main():
         await b.js(CLOSE_WELCOME)
         check(not await b.js("document.getElementById('planBadge').hidden"), "the badge is there after a reload")
         st = await b.js("""(() => {
-            const title = document.querySelector('.app-brand-title').getBoundingClientRect();
+            // El texto del título, no su caja (que lleva el margen para la barra)
+            const range = document.createRange();
+            range.selectNodeContents(document.querySelector('.app-brand-title'));
+            const title = range.getBoundingClientRect();
             const bar = document.getElementById('userBar').getBoundingClientRect();
             return {gap: Math.round(bar.left - title.right), menu: document.getElementById('userMenu').hidden};
         })()""")

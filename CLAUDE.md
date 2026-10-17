@@ -545,7 +545,7 @@ Lo que no se ve en Swagger:
   (saldos de las activas, por moneda) y el periodo, que al tocarlo abre la hoja *Periodo* (`openFinRange()`:
   el suyo, un día, la semana, el mes, el año, siempre o un rango; `GET /summary` acepta `date_from`/`date_to`
   hasta diez años y `all=true`, desde el primer movimiento); abajo cinco pestañas (Cuentas, Categorías,
-  Transacciones, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
+  Movimientos, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
   es un anillo SVG con lo de cada categoría y alrededor sus círculos (`finRingSlot()`); tocar el anillo
   cambia a las de ingresos. **Tocar un círculo abre la hoja del monto** (`finance-entry.js`): bandas
   *De cuenta* / *A categoría* (al revés en un ingreso; elegir una cuenta como destino la vuelve

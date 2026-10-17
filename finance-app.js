@@ -541,7 +541,7 @@ document.getElementById('finRingGrid').addEventListener('click', (event) => {
 });
 
 // ============================================
-// Transacciones: por día
+// Movimientos: por día
 // ============================================
 
 function finTxAmountText(tx) {

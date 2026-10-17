@@ -2354,9 +2354,10 @@ a.settings-item { text-decoration: none; color: inherit; }
         right: 10px;
     }
 
-    /* Que el título centrado no quede debajo de la campanita y la inicial */
-    .app-brand {
-        padding: 0 84px;
+    /* Que el título centrado no quede debajo de la campanita y la inicial (el
+       saludo va más abajo que ellas: ese usa todo el ancho) */
+    .app-brand-title {
+        padding: 0 80px;
     }
 }
 
