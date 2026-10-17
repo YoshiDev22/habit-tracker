@@ -139,6 +139,7 @@ habit-tracker/
 ├── finance-app.js         # Finanzas: estado, carga, arriba, pestañas, anillo, lista, resumen, cuentas
 ├── finance-entry.js       # Finanzas: la hoja del monto con su teclado calculadora, fecha y periodicidad
 ├── finance-settings.js    # Finanzas: ajustes (periodo y sueldo, categorías, fijos), la hoja de una cuenta
+├── finance-accounts.js    # Finanzas: el menú de una cuenta (acciones), ajustar saldo y los MSI de una deuda
 ├── finance-import.js      # Finanzas: pegar el estado de cuenta o un CSV, con vista previa
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
@@ -503,16 +504,26 @@ Lo que no se ve en Swagger:
   `fin_settings.consent_at` esté vacío; solo `GET`/`POST /consent` van con `finance_module_user`, y la
   página lo pide la primera vez (`finAskConsent()`). Aceptar otra vez conserva la primera fecha. Una **cuenta** (`cash | debit | credit`, una moneda, solo `last4`, icono y color de lista cerrada) tiene
   **saldo**: el inicial (`opening_balance_cents`; negativo en crédito = lo que se debía) más sus
-  movimientos hasta hoy, calculado (`account_balances()`), nunca guardado; una de crédito lleva además
+  movimientos hasta hoy, calculado (`account_balances()`), nunca guardado. El inicial es **a un día**
+  (`opening_date`, al empezar ese día; con saldo y sin día, hoy): solo cuentan los movimientos de ese día
+  en adelante, y los de antes (meses viejos cargados después) son historial, que sale en el resumen pero
+  no mueve el saldo (`history_before_opening()`, `before_*` en la respuesta). NULL = cuentan todos; mover
+  el día al inicio del historial hace que todo sume. `migrate.py` les puso a las cuentas con saldo de
+  antes el día de su alta (`anchor_opening_balances()`, solo al añadir la columna); una de crédito lleva además
   límite (y su disponible), día de corte y de pago, que se vacían si deja de serlo.
   `GET /accounts/{id}/statement` calcula su estado de cuenta (`card_statement()`): el último corte
   (`cut_on_or_before()`, el día que el mes no tiene cae en el último), la fecha límite
   (`due_after()`), y **para no generar intereses** = la deuda al corte − las mensualidades de MSI aún
   sin facturar − lo abonado desde el corte (transferencias que llegan e ingresos a la tarjeta).
+  Si el pago de ese corte ya venció, o la tarjeta se dio de alta después del corte (lo de entonces se
+  supone pagado), enseña el **próximo** corte (`upcoming`): su fecha y su pago, con lo acumulado hasta
+  hoy menos los MSI que vienen después.
   **MSI** (`fin_installments`, `/installments`): una compra a meses cuenta como gasto completa el día
   que se hace (regla de la fase 1); el plan solo dice cuánto pide cada corte (`installment_parts()`,
   los centavos que sobran a las primeras), desde el primer corte en o después de la compra. Una
-  compra, un plan (409); borrar la compra se lleva su plan. **Dividir un cargo** (`fin_splits`,
+  compra, un plan (409); borrar la compra se lleva su plan. Un plan **sin compra** son los meses que
+  le faltan a una deuda de antes (desde el menú de la tarjeta: mensualidad × meses que faltan, desde
+  hoy); puede tener 1 mes, una compra no. **Dividir un cargo** (`fin_splits`,
   `splits` en el movimiento): al menos dos partes, cada una con una categoría de su tipo sin repetir,
   que suman exacto el monto; el movimiento queda sin `category_id`, el resumen cuenta cada parte en su
   categoría y una categoría con partes no se borra. Editar el monto sin mandar las partes, si ya las
@@ -523,7 +534,8 @@ Lo que no se ve en Swagger:
   entre cuentas de la misma moneda (409). Un gasto o ingreso lleva categoría de su tipo; una
   transferencia, ninguna. "Efectivo" y las categorías de inicio se siembran perezosas
   (`ensure_finance_setup()`), cada una en su commit: la pantalla pide dos cosas a la vez y las
-  dos siembran. Con movimientos, una cuenta se archiva y una categoría no se borra (409). El
+  dos siembran. Con movimientos, una cuenta se archiva y una categoría no se borra (409).
+  `PUT /categories/order` (`{kind, ids}`, todas las de ese tipo una vez) guarda su orden. El
   **periodo** es la respuesta a "¿Cada cuándo cobras?" (`fin_settings.period`, NULL = no ha
   contestado y se mide por mes): `month` o `biweekly` (1–15 y 16–fin); las fechas las calcula
   `period_bounds()` en `backend/series.py` y `GET /summary?day=` las devuelve con un día del
@@ -547,11 +559,16 @@ Lo que no se ve en Swagger:
   hasta diez años y `all=true`, desde el primer movimiento); abajo cinco pestañas (Cuentas, Categorías,
   Movimientos, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
   es un anillo SVG con lo de cada categoría y alrededor sus círculos (`finRingSlot()`); tocar el anillo
-  cambia a las de ingresos. **Tocar un círculo abre la hoja del monto** (`finance-entry.js`): bandas
+  cambia a las de ingresos; el ✎ de arriba las ordena (tocar una y luego otra las cambia de lugar,
+  `finSwapCategories()`). **Tocar una cuenta abre su menú** (`finance-accounts.js`): su saldo (en
+  crédito, la deuda o lo que queda a favor), Editar, Ajustar saldo (el real de hoy: mueve el saldo inicial,
+  sin crear movimientos), Movimientos (la lista solo de esa cuenta, `accountFilter`), Ingreso / Gasto /
+  Transferencia desde ella y, en una tarjeta, Pagar y Meses sin intereses. El 👁 junto al total lo
+  oculta. **Tocar un círculo abre la hoja del monto** (`finance-entry.js`): bandas
   *De cuenta* / *A categoría* (al revés en un ingreso; elegir una cuenta como destino la vuelve
   transferencia), *Notas…* (el concepto; vacío, el nombre de la categoría) y un teclado con
   calculadora (`finEvaluate()`: + − × ÷ con precedencia, sin `eval`). Su 📅 abre la fecha (Ayer, Hoy o
-  el calendario) y la **periodicidad**: con una, no se crea el movimiento sino el fijo con esa fecha
+  el calendario) y la **periodicidad**; Enter guarda, también escribiendo la nota: con una, no se crea el movimiento sino el fijo con esa fecha
   como primer cobro (quincena: el día elegido y su pareja, `finOtherPayDay()`). Editar un movimiento
   es la misma hoja, sin periodicidad. "¿Cada cuándo cobras?" y luego "¿Cuánto cobras?" (el fijo de
   ingreso "Sueldo", `finSalaryFixed()`), con *Dejar para después* y una línea discreta mientras no
@@ -630,7 +647,8 @@ Lo que no se ve en Swagger:
 ## Arquitectura del frontend
 
 Sin build step, sin módulos ES. `index.html` carga los diecinueve scripts en orden y **el
-orden importa** (`finance.html` carga los suyos: `core.js`, `drilldown.js`, `finance-icons.js` y los `finance-*.js`):
+orden importa** (`finance.html` carga los suyos: `core.js`, `drilldown.js`, `finance-icons.js` y los `finance-*.js`, con `finance-accounts.js` después de
+`finance-settings.js`):
 
 ```html
 <script src="core.js"></script>     <!-- primero: token, apiFetch, modales, confirm, tema, dinero y tablas pegadas -->
@@ -935,7 +953,8 @@ al cierre de sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?"), `finance_tab` (la pestaña abierta de la página de Finanzas, de este dispositivo), `finance_range` (qué
-periodo ve: el suyo, semana, mes, año o siempre),
+periodo ve: el suyo, semana, mes, año o siempre), `finance_hide_total` (el total de Finanzas oculto con
+el 👁, de este dispositivo),
 `work_calendar_cache` (huso, país y festivos por año, para
 no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
 `text_size` (`large` | `xlarge`, en **Configuración › Accesibilidad**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —

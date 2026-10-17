@@ -146,10 +146,17 @@ document.getElementById('finKeypad').addEventListener('click', (event) => {
     else finPressKey(key);
 });
 
-// En computadora, el teclado de verdad también sirve (salvo escribiendo una nota)
+// En computadora, el teclado de verdad también sirve (salvo escribiendo una
+// nota, donde solo Enter cuenta: guarda)
 document.addEventListener('keydown', (event) => {
     if (finEntrySheet.classList.contains('hidden') || finSheets[finSheets.length - 1] !== finEntrySheet) return;
-    if (event.target.closest('input, select, textarea')) return;
+    if (event.target.closest('input, select, textarea')) {
+        if (event.key === 'Enter' && event.target.id === 'finEntryNotes' && !event.isComposing) {
+            event.preventDefault();
+            saveFinEntry();
+        }
+        return;
+    }
     const map = { Backspace: 'back', Enter: 'ok', ',': '.' };
     const key = map[event.key] || event.key;
     if (key === 'ok') {
@@ -168,10 +175,11 @@ document.addEventListener('keydown', (event) => {
 // { kind, categoryId } para uno nuevo desde un círculo; { tx } para editar;
 // { kind: 'transfer', toAccountId, amountCents } para pagar una tarjeta
 function openFinEntry({ kind = 'expense', categoryId = null, tx = null, toAccountId = null, amountCents = null,
-    payOptions = [] } = {}) {
+    payOptions = [], accountId = null } = {}) {
     const accounts = finActiveAccounts();
-    // Para pagar una tarjeta, de entrada la primera cuenta que no sea de crédito
-    const defaultAccount = kind === 'transfer'
+    // Desde el menú de una cuenta, esa; para pagar una tarjeta, de entrada la
+    // primera cuenta que no sea de crédito
+    const defaultAccount = accountId ? finAccount(accountId) : kind === 'transfer'
         ? accounts.find(a => a.kind !== 'credit' && a.id !== toAccountId) || accounts.find(a => a.id !== toAccountId)
         : accounts.find(a => a.is_default) || accounts[0];
     const s = finState.summary;

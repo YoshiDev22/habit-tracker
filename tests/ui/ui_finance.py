@@ -205,11 +205,118 @@ async def main():
         expr = await b.js("document.getElementById('finEntryExpr').textContent")
         check(expr == "$ 400", f"typing replaces the proposed amount ({expr})")
         await keys(["ok"])
+        # "Pagado" con el corte en curso; "Nada por ahora" si ya enseña el próximo
+        # (la tarjeta se dio de alta hoy: depende del día del mes)
         paid = await b.wait_for("(document.querySelector('.fin-statement-pay strong') || {}).textContent",
-                                lambda v: v == "Pagado")
-        check(paid == "Pagado", f"after paying, the card says it is paid ({paid})")
+                                lambda v: v in ("Pagado", "Nada por ahora"))
+        check(paid in ("Pagado", "Nada por ahora"), f"after paying, the card owes nothing for now ({paid})")
         paid_tx = [t for t in transactions() if t["kind"] == "transfer" and t["amount_cents"] == 40000]
         check(len(paid_tx) == 1, f"the payment saved the typed amount, 400 ({len(paid_tx)})")
+
+        # Tocar una cuenta abre su menú: saldo y acciones (no el formulario de alta)
+        async def open_menu(name):
+            await b.js(f"""[...document.querySelectorAll('#finAccountsBody .fin-account')]
+                .find(r => r.querySelector('strong').textContent === {json.dumps(name)}).click()""")
+            await b.wait_for("!document.getElementById('finAccountMenu').classList.contains('hidden')")
+
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        await open_menu("Tarjeta")
+        st = await b.js("""({acts: [...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct),
+            label: document.getElementById('finMenuLabel').textContent,
+            form: document.getElementById('finAccountSheet').classList.contains('hidden')})""")
+        check(st["acts"] == ["edit", "adjust", "movements", "pay", "expense", "msi"] and st["label"] == "A favor" and st["form"],
+              f"a card opens its menu, with what it has in favor after paying more ({st})")
+        await b.shot("finance_card_menu", full=False)
+        # Meses sin intereses que ya traía la deuda: 3 de $100
+        await b.js("document.querySelector('[data-menu-act=\"msi\"]').click()")
+        await set_value("#finMsiConcept", "Celular")
+        await set_value("#finMsiMonthly", "100")
+        await set_value("#finMsiMonths", "3")
+        await b.js("document.querySelector('#finMsiForm [type=\"submit\"]').click()")
+        await b.wait_for("document.getElementById('finMsiList').textContent.includes('Celular')")
+        plans = [p for p in api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
+                 if p["concept"] == "Celular"]
+        check(len(plans) == 1 and plans[0]["transaction_id"] is None and plans[0]["months"] == 3
+              and plans[0]["total_cents"] == 30000, f"the debt's months-without-interest are saved ({plans})")
+        await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
+
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
+        await open_menu("Efectivo")
+        acts = await b.js("[...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct)")
+        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer"], f"cash offers income and more ({acts})")
+        await b.shot("finance_account_menu", full=False)
+        # Ingreso directo a Efectivo
+        await b.js("document.querySelector('[data-menu-act=\"income\"]').click()")
+        await b.wait_for("!document.getElementById('finEntry').classList.contains('hidden')")
+        st = await b.js("""({kind: document.getElementById('finEntryKind').textContent,
+            to: document.getElementById('finBandToName').textContent})""")
+        check(st["kind"] == "Ingreso" and st["to"] == "Efectivo", f"Ingreso opens an income into that account ({st})")
+        await keys(["1", "0", "0", "0", "ok"])
+        await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
+        income = [t for t in transactions() if t["kind"] == "income" and t["amount_cents"] == 100000]
+        cash_id = accounts()["Efectivo"]["id"]
+        check(len(income) == 1 and income[0]["account_id"] == cash_id, f"the income went into Efectivo ({income})")
+        # Ajustar el saldo al real: cuadra sin crear movimientos (antes, un gasto en
+        # otra cuenta, para que el filtro de Movimientos tenga qué dejar fuera)
+        cats = {c["name"]: c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]}
+        api.call("POST", "/api/finance/transactions", {
+            "kind": "expense", "account_id": accounts()["Tarjeta"]["id"], "amount_cents": 7000,
+            "tx_date": TODAY.isoformat(), "category_id": cats["Transporte"]["id"], "concept": "Gasolina"}, expect=201)
+        before = len(transactions())
+        await open_menu("Efectivo")
+        await b.js("document.querySelector('[data-menu-act=\"adjust\"]').click()")
+        await set_value("#finAdjustAmount", "5000")
+        await b.js("document.querySelector('#finAdjustForm [type=\"submit\"]').click()")
+        await b.wait_for("document.getElementById('finAccountMenu').classList.contains('hidden')")
+        cash = accounts()["Efectivo"]
+        check(cash["balance_cents"] == 500000 and len(transactions()) == before,
+              f"adjusting sets the real balance without a movement ({cash['balance_cents']})")
+        # Sus movimientos, solos
+        await open_menu("Efectivo")
+        await b.js("document.querySelector('[data-menu-act=\"movements\"]').click()")
+        await b.wait_for("!document.getElementById('finTxFilter').hidden")
+        st = await b.js("""({label: document.getElementById('finTxFilterLabel').textContent,
+            rows: document.querySelectorAll('#finTxList [data-tx-id]').length})""")
+        mine = [t for t in transactions() if t["account_id"] == cash_id or t["to_account_id"] == cash_id]
+        check(st["label"] == "Solo Efectivo" and st["rows"] == len(mine) and st["rows"] < len(transactions()),
+              f"Movimientos shows only that account ({st}, {len(mine)})")
+        await b.js("document.getElementById('finTxFilterClear').click()")
+        rows = await b.js("document.querySelectorAll('#finTxList [data-tx-id]').length")
+        check(rows == len(transactions()), f"the x shows every account again ({rows})")
+
+        # El ojo oculta el total, y se recuerda
+        await b.js("document.getElementById('finEyeBtn').click()")
+        st = await b.js("""({total: document.getElementById('finTotal').textContent,
+            saved: localStorage.getItem('finance_hide_total')})""")
+        check(st["total"] == "•••••" and st["saved"] == "1", f"the eye hides the total ({st})")
+        await b.js("document.getElementById('finEyeBtn').click()")
+        check("$" in await b.js("document.getElementById('finTotal').textContent"), "and shows it again")
+
+        # Ordenar categorías: ✎, tocar una y luego otra las cambia de lugar
+        await b.js("document.querySelector('#finNav [data-tab=\"categories\"]').click()")
+        names = lambda: [c["name"] for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]
+                         if c["kind"] == "expense"]
+        first, second = names()[:2]
+        await b.js("document.getElementById('finRingEdit').click()")
+        check(not await b.js("document.getElementById('finRingHint').hidden"), "editing says how to reorder")
+        await b.js("document.querySelectorAll('#finRingGrid .fin-cat[data-category-id]')[0].click()")
+        await b.js("document.querySelectorAll('#finRingGrid .fin-cat[data-category-id]')[1].click()")
+        order = await wait_api("/api/finance/categories",
+                               lambda body: [c["name"] for c in body["categories"] if c["kind"] == "expense"][:2] == [second, first])
+        check([c["name"] for c in order["categories"] if c["kind"] == "expense"][:2] == [second, first],
+              f"two taps swap two categories ({first}, {second})")
+        await b.js("document.getElementById('finRingEdit').click()")
+        check(await b.js("document.getElementById('finRingHint').hidden"), "the check ends reordering")
+
+        # Enter en las notas también guarda
+        await open_category("Transporte")
+        await keys(["5", "0"])
+        await set_value("#finEntryNotes", "Camión")
+        await b.js("""document.getElementById('finEntryNotes').dispatchEvent(
+            new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}))""")
+        await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
+        check(any(t["concept"] == "Camión" and t["amount_cents"] == 5000 for t in transactions()),
+              "Enter in the notes saves the movement")
 
         # Una compra a meses con la tarjeta
         await b.js("document.querySelector('#finNav [data-tab=\"categories\"]').click()")
@@ -228,7 +335,8 @@ async def main():
         await set_value("#finEntryNotes", "Laptop")
         await keys(["ok"])
         await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
-        plans = api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
+        plans = [p for p in api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
+                 if p["transaction_id"]]
         check(len(plans) == 1 and plans[0]["months"] == 12 and plans[0]["concept"] == "Laptop"
               and plans[0]["monthly_cents"] == 10000, f"the purchase is planned in 12 months ({plans})")
 

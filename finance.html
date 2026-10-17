@@ -66,7 +66,11 @@
             <a class="fin-round-btn" id="finBack" href="/" aria-label="Regresar a Habit Tracker" title="Regresar"></a>
             <div class="fin-total">
                 <span class="fin-total-label">Todas las cuentas</span>
-                <strong class="fin-total-amount" id="finTotal">—</strong>
+                <span class="fin-total-line">
+                    <strong class="fin-total-amount" id="finTotal">—</strong>
+                    <button type="button" class="fin-eye-btn" id="finEyeBtn" aria-pressed="false"
+                            aria-label="Ocultar el total" title="Ocultar el total"></button>
+                </span>
                 <span class="fin-total-more" id="finTotalMore"></span>
             </div>
             <button type="button" class="fin-round-btn" id="finSettingsBtn" aria-label="Ajustes de Finanzas" title="Ajustes"></button>
@@ -106,6 +110,11 @@
 
         <!-- Categorías: el anillo y los círculos; tocar uno abre el monto -->
         <section class="fin-tab" data-tab="categories">
+            <div class="fin-ring-tools">
+                <span class="fin-hint" id="finRingHint" hidden>Toca una categoría y luego otra para cambiarlas de lugar.</span>
+                <button type="button" class="fin-round-btn small" id="finRingEdit" aria-pressed="false"
+                        aria-label="Ordenar categorías" title="Ordenar categorías"></button>
+            </div>
             <div class="fin-ring-grid" id="finRingGrid"></div>
         </section>
 
@@ -116,6 +125,10 @@
                 <input type="file" id="finCsvInput" accept=".csv,text/csv,text/plain" hidden>
                 <button type="button" class="link-btn" id="finCsvBtn">Elegir CSV</button>
                 <button type="button" class="submit-btn fin-add-btn" id="finAddBtn">＋ Agregar</button>
+            </div>
+            <div class="fin-filter" id="finTxFilter" hidden>
+                <span id="finTxFilterLabel"></span>
+                <button type="button" class="fin-row-btn" id="finTxFilterClear" aria-label="Ver todas las cuentas"></button>
             </div>
             <div id="finTxList"></div>
         </section>
@@ -308,6 +321,9 @@
                 <label class="fin-field" id="finAccOpeningField"><span id="finAccOpeningLabel">Saldo al empezar</span>
                     <input type="text" id="finAccOpening" inputmode="decimal" autocomplete="off" placeholder="0.00">
                 </label>
+                <label class="fin-field">Al día
+                    <input type="date" id="finAccOpeningDate">
+                </label>
                 <label class="fin-field">Últimos 4 dígitos
                     <input type="text" id="finAccLast4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Opcional">
                 </label>
@@ -334,6 +350,58 @@
                     <button type="submit" class="submit-btn" id="finAccSave">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Tocar una cuenta: su saldo y lo que se hace con ella (finance-accounts.js) -->
+    <div class="fin-sheet hidden" id="finAccountMenu" role="dialog" aria-modal="true" aria-labelledby="finMenuName">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel fin-menu-panel">
+            <div class="fin-menu-head" id="finMenuHead">
+                <span class="fin-menu-icon" id="finMenuIcon"></span>
+                <h2 class="fin-menu-name" id="finMenuName">Cuenta</h2>
+                <span class="fin-menu-label" id="finMenuLabel">Saldo</span>
+                <strong class="fin-menu-balance" id="finMenuBalance">—</strong>
+                <span class="fin-menu-more" id="finMenuMore"></span>
+            </div>
+            <p class="fin-hint fin-menu-history" id="finMenuHistory" hidden></p>
+            <div class="fin-menu-actions" id="finMenuActions"></div>
+
+            <!-- Ajustar el saldo: el real de hoy; cuadra moviendo el saldo inicial -->
+            <form class="fin-menu-page" id="finAdjustForm" hidden novalidate>
+                <label class="fin-field wide"><span id="finAdjustLabel">Saldo real hoy</span>
+                    <input type="text" id="finAdjustAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                </label>
+                <p class="fin-hint">Cuadra la cuenta sin crear movimientos: cambia el saldo inicial por la diferencia.</p>
+                <div id="finAdjustError" class="form-error hidden"></div>
+                <div class="fin-form-actions">
+                    <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                    <button type="submit" class="submit-btn">Ajustar</button>
+                </div>
+            </form>
+
+            <!-- Meses sin intereses que ya traía la deuda (sin compra anotada) -->
+            <div class="fin-menu-page" id="finMsiPage" hidden>
+                <p class="fin-hint">Lo que de tu deuda ya estaba a meses: el estado de cuenta solo pide la mensualidad
+                    de cada corte, no todo.</p>
+                <ul class="fin-msi-list" id="finMsiList"></ul>
+                <form class="fin-form" id="finMsiForm" novalidate>
+                    <label class="fin-field wide">Concepto
+                        <input type="text" id="finMsiConcept" maxlength="200" autocomplete="off" placeholder="Celular">
+                    </label>
+                    <label class="fin-field">Mensualidad
+                        <input type="text" id="finMsiMonthly" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                    </label>
+                    <label class="fin-field">Meses que faltan
+                        <input type="number" id="finMsiMonths" min="1" max="48" inputmode="numeric" placeholder="1–48">
+                    </label>
+                    <div id="finMsiError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                        <button type="submit" class="submit-btn">Agregar</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -534,6 +602,7 @@
     <script src="finance-app.js"></script>
     <script src="finance-entry.js"></script>
     <script src="finance-settings.js"></script>
+    <script src="finance-accounts.js"></script>
     <script src="finance-import.js"></script>
 </body>
 </html>

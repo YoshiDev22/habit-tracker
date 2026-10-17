@@ -561,10 +561,13 @@ function finSyncAccountKind() {
     const kind = document.getElementById('finAccKind').value;
     const credit = kind === 'credit';
     finAccountSheet.querySelectorAll('.credit-only').forEach(field => { field.hidden = !credit; });
-    document.getElementById('finAccOpeningLabel').textContent = credit ? 'Lo que debías al empezar' : 'Saldo al empezar';
+    document.getElementById('finAccOpeningLabel').textContent = credit ? 'Deuda total' : 'Saldo';
     document.getElementById('finAccHint').textContent = credit
-        ? 'La compra con la tarjeta es el gasto; el pago de la tarjeta, una transferencia desde tu débito.'
-        : 'El saldo es este más lo que entra y sale de la cuenta.';
+        ? 'La deuda de ese día, completa. Si parte está a meses sin intereses, agrégala después en la tarjeta › '
+          + 'Meses sin intereses: el pago solo pedirá la mensualidad. Los movimientos de antes de ese día son '
+          + 'historial: salen en el resumen, pero no cambian la deuda.'
+        : 'El saldo es el de ese día más lo que entra y sale desde entonces. Los movimientos de antes son '
+          + 'historial: salen en el resumen, pero no cambian el saldo.';
 }
 
 function finRenderAccountPickers() {
@@ -590,6 +593,9 @@ function openFinAccount(account, kind = 'debit') {
     // En una de crédito se escribe lo que se debía (positivo); se guarda negativo
     const opening = account ? account.opening_balance_cents : 0;
     document.getElementById('finAccOpening').value = opening ? (Math.abs(opening) / 100).toFixed(2) : '';
+    // El día de ese saldo: el guardado, o hoy en una nueva
+    document.getElementById('finAccOpeningDate').value = account ? (account.opening_date || '') : finToday();
+    document.getElementById('finAccOpeningDate').max = finToday();
     document.getElementById('finAccLast4').value = account && account.last4 ? account.last4 : '';
     document.getElementById('finAccLimit').value = account && account.credit_limit_cents != null
         ? (account.credit_limit_cents / 100).toFixed(2) : '';
@@ -657,7 +663,9 @@ document.getElementById('finAccountForm').addEventListener('submit', async (even
     const statement = credit ? finOptionalDay('finAccStatement') : null;
     const due = credit ? finOptionalDay('finAccDue') : null;
     const last4 = document.getElementById('finAccLast4').value.trim();
+    const openingDate = document.getElementById('finAccOpeningDate').value || null;
     if (!name) return showError(errorEl, 'Escribe el nombre de la cuenta.');
+    if (openingDate && openingDate > finToday()) return showError(errorEl, 'El día del saldo no puede ser futuro.');
     if (Number.isNaN(opening) || Number.isNaN(limit)) return showError(errorEl, 'Revisa los montos: solo números.');
     if (Number.isNaN(statement) || Number.isNaN(due)) return showError(errorEl, 'Los días van del 1 al 31.');
     if (last4 && !/^\d{4}$/.test(last4)) return showError(errorEl, 'Los últimos 4 dígitos: exactamente 4 números.');
@@ -665,6 +673,8 @@ document.getElementById('finAccountForm').addEventListener('submit', async (even
         name, kind, currency: document.getElementById('finAccCurrency').value,
         icon: finAccountForm.icon, color: finAccountForm.color, last4: last4 || null,
         opening_balance_cents: credit ? -(opening || 0) : (opening || 0),
+        // Sin día y con saldo, hoy; vacío en una que ya existe: cuentan todos sus movimientos
+        opening_date: openingDate || (!finAccountForm.account && opening ? finToday() : null),
         credit_limit_cents: limit, statement_day: statement, due_day: due,
     };
     const save = document.getElementById('finAccSave');

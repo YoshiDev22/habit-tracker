@@ -1644,3 +1644,194 @@
     padding-left: 28px;
     padding-right: 28px;
 }
+
+/* --- El ojo del total --- */
+
+.fin-total-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    /* El mismo ancho que el ojo a la izquierda: el monto sigue centrado */
+    padding-left: 30px;
+}
+
+.fin-eye-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.fin-eye-btn:hover {
+    background: var(--bg-hover);
+}
+
+/* --- Ordenar categorías --- */
+
+.fin-ring-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.fin-ring-tools .fin-hint {
+    flex: 1;
+    margin: 0;
+}
+
+.fin-cat.editing {
+    outline: 1px dashed var(--border-color);
+    outline-offset: -2px;
+}
+
+.fin-cat.picked {
+    outline: 2px solid var(--accent);
+    background: var(--accent-soft);
+}
+
+/* --- Movimientos de una sola cuenta --- */
+
+.fin-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 8px;
+    padding: 4px 4px 4px 14px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    font-weight: 600;
+}
+
+.fin-filter[hidden] {
+    display: none;
+}
+
+/* --- El menú de una cuenta --- */
+
+.fin-menu-panel {
+    padding-top: 0;
+    overflow-x: hidden;
+}
+
+.fin-menu-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 12px;
+    margin: 0 -16px 14px;
+    padding: 20px 20px 18px;
+    border-radius: 22px 22px 0 0;
+    background: var(--band, var(--accent));
+    color: #fff;
+    text-align: center;
+}
+
+.fin-menu-icon {
+    display: inline-flex;
+}
+
+.fin-menu-name {
+    margin: 0;
+    font-size: 1.25rem;
+    text-align: left;
+    color: inherit;
+}
+
+.fin-menu-label,
+.fin-menu-balance,
+.fin-menu-more {
+    grid-column: 1 / -1;
+}
+
+.fin-menu-label {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.fin-menu-balance {
+    font-size: 1.6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-menu-more {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+.fin-menu-history {
+    margin: 0 0 12px;
+}
+
+.fin-menu-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px 8px;
+    padding-bottom: 6px;
+}
+
+.fin-menu-actions[hidden] {
+    display: none;
+}
+
+.fin-menu-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+    text-align: center;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.fin-menu-action-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--tint) 22%, var(--bg-surface));
+    color: color-mix(in srgb, var(--tint) 75%, var(--text-primary));
+}
+
+.fin-menu-action:hover .fin-menu-action-icon,
+.fin-menu-action:focus-visible .fin-menu-action-icon {
+    background: color-mix(in srgb, var(--tint) 34%, var(--bg-surface));
+}
+
+.fin-menu-page[hidden] {
+    display: none;
+}
+
+.fin-menu-page .fin-form-actions {
+    margin-top: 8px;
+}
+
+.fin-msi:has(.fin-msi-text) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.fin-msi-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}

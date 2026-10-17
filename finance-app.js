@@ -25,6 +25,10 @@ const finState = {
     tab: 'categories',
     accountsSub: 'accounts',
     ringKind: 'expense',    // qué categorías rodean el anillo
+    ringEditing: false,     // ✎: tocar dos categorías las cambia de lugar
+    ringPick: null,         // la primera que se tocó
+    accountFilter: null,    // Movimientos de una sola cuenta (desde su menú)
+    hideTotal: false,       // 👁: el total de arriba, oculto (finance_hide_total)
 };
 
 const FIN_TABS = ['accounts', 'categories', 'transactions', 'budget', 'overview'];
@@ -166,6 +170,7 @@ async function finStart() {
     let saved = null;
     try {
         saved = localStorage.getItem('finance_tab');
+        finState.hideTotal = localStorage.getItem('finance_hide_total') === '1';
         const mode = localStorage.getItem('finance_range');
         if (['period', 'week', 'month', 'year', 'all'].includes(mode)) finState.range.mode = mode;
     } catch (e) { /* sin localStorage */ }
@@ -272,11 +277,18 @@ function finRenderTop() {
     const main = finMainCurrency();
     const total = byCurrency.get(main) || 0;
     const totalEl = document.getElementById('finTotal');
-    totalEl.textContent = finMoney(total, main);
-    totalEl.classList.toggle('negative', total < 0);
+    const hide = finState.hideTotal;
+    totalEl.textContent = hide ? '•••••' : finMoney(total, main);
+    totalEl.classList.toggle('negative', total < 0 && !hide);
     // Otras monedas, aparte: nunca se suman ni se convierten
     document.getElementById('finTotalMore').textContent = [...byCurrency.entries()]
-        .filter(([currency]) => currency !== main).map(([currency, cents]) => finMoney(cents, currency)).join(' · ');
+        .filter(([currency]) => currency !== main)
+        .map(([currency, cents]) => (hide ? `${currency} •••` : finMoney(cents, currency))).join(' · ');
+    const eye = document.getElementById('finEyeBtn');
+    eye.replaceChildren(financeIcon(hide ? 'eye-off' : 'eye', 18));
+    eye.setAttribute('aria-pressed', String(hide));
+    eye.setAttribute('aria-label', hide ? 'Mostrar el total' : 'Ocultar el total');
+    eye.title = eye.getAttribute('aria-label');
 
     const s = finState.summary;
     document.getElementById('finPeriodLabel').textContent = finRangeLabel(s.date_from, s.date_to, finState.range.mode, s.period);
@@ -456,7 +468,8 @@ function finRenderRing() {
     const totals = finCategoryTotals();
     const cells = categories.map((category, index) => {
         const cents = totals.get(category.id) || 0;
-        const button = el('button', 'fin-cat');
+        const button = el('button', `fin-cat${finState.ringEditing ? ' editing' : ''}`
+            + `${finState.ringPick === category.id ? ' picked' : ''}`);
         button.type = 'button';
         button.dataset.categoryId = String(category.id);
         const [row, col] = finRingSlot(index);
@@ -480,8 +493,37 @@ function finRenderRing() {
     add.append(el('span', 'fin-cat-name', 'Nueva'), finBadge('plus', FIN_NEUTRAL, { size: 'lg', faded: true }),
         el('span', 'fin-cat-amount zero', ' '));
     add.setAttribute('aria-label', 'Nueva categoría');
-    grid.replaceChildren(finRingCenter(categories, totals), ...cells, add);
+    grid.replaceChildren(finRingCenter(categories, totals), ...cells, ...(finState.ringEditing ? [] : [add]));
+    const edit = document.getElementById('finRingEdit');
+    edit.replaceChildren(financeIcon(finState.ringEditing ? 'check' : 'pencil', 18));
+    edit.setAttribute('aria-pressed', String(finState.ringEditing));
+    edit.setAttribute('aria-label', finState.ringEditing ? 'Listo' : 'Ordenar categorías');
+    edit.title = edit.getAttribute('aria-label');
+    document.getElementById('finRingHint').hidden = !finState.ringEditing;
 }
+
+// Ordenar: la segunda categoría tocada cambia de lugar con la primera
+async function finSwapCategories(firstId, secondId) {
+    const kind = finState.ringKind;
+    const ids = finKindCategories(kind).map(c => c.id);
+    const a = ids.indexOf(firstId);
+    const b = ids.indexOf(secondId);
+    if (a < 0 || b < 0) return;
+    [ids[a], ids[b]] = [ids[b], ids[a]];
+    try {
+        const body = await apiFetch('/api/finance/categories/order', { method: 'PUT', json: { kind, ids } });
+        finState.categories = body.categories;
+    } catch (error) {
+        finShowError(error.message);
+    }
+    finRenderRing();
+}
+
+document.getElementById('finRingEdit').addEventListener('click', () => {
+    finState.ringEditing = !finState.ringEditing;
+    finState.ringPick = null;
+    finRenderRing();
+});
 
 // El anillo: lo de cada categoría como un arco de su color; en medio, el total
 function finRingCenter(categories, totals) {
@@ -529,7 +571,22 @@ function finRingCenter(categories, totals) {
 document.getElementById('finRingGrid').addEventListener('click', (event) => {
     if (event.target.closest('.fin-ring')) {
         finState.ringKind = finState.ringKind === 'expense' ? 'income' : 'expense';
+        finState.ringPick = null;
         finRenderRing();
+        return;
+    }
+    if (finState.ringEditing) {
+        const picked = event.target.closest('[data-category-id]');
+        if (!picked) return;
+        const id = Number(picked.dataset.categoryId);
+        if (finState.ringPick === null || finState.ringPick === id) {
+            finState.ringPick = finState.ringPick === id ? null : id;
+            finRenderRing();
+            return;
+        }
+        const first = finState.ringPick;
+        finState.ringPick = null;
+        finSwapCategories(first, id);
         return;
     }
     if (event.target.closest('.fin-cat-add')) {
@@ -583,9 +640,18 @@ function finTxRow(tx) {
 
 function finRenderList() {
     const list = document.getElementById('finTxList');
-    const txs = finState.transactions;
+    const only = finState.accountFilter ? finAccount(finState.accountFilter) : null;
+    if (!only) finState.accountFilter = null;
+    document.getElementById('finTxFilter').hidden = !only;
+    if (only) {
+        document.getElementById('finTxFilterLabel').textContent = `Solo ${only.name}`;
+        document.getElementById('finTxFilterClear').replaceChildren(financeIcon('x', 18));
+    }
+    const txs = only ? finState.transactions.filter(t => t.account_id === only.id || t.to_account_id === only.id)
+        : finState.transactions;
     if (!txs.length) {
-        list.replaceChildren(el('p', 'fin-empty', 'Sin movimientos en este periodo. Toca una categoría o ＋ Agregar.'));
+        list.replaceChildren(el('p', 'fin-empty', only ? `Sin movimientos de ${only.name} en este periodo.`
+            : 'Sin movimientos en este periodo. Toca una categoría o ＋ Agregar.'));
         return;
     }
     const byDay = new Map();
@@ -605,6 +671,20 @@ function finRenderList() {
     });
     list.replaceChildren(...groups);
 }
+
+document.getElementById('finTxFilterClear').addEventListener('click', () => {
+    finState.accountFilter = null;
+    finRenderList();
+});
+
+document.getElementById('finEyeBtn').addEventListener('click', () => {
+    finState.hideTotal = !finState.hideTotal;
+    try {
+        if (finState.hideTotal) localStorage.setItem('finance_hide_total', '1');
+        else localStorage.removeItem('finance_hide_total');
+    } catch (e) { /* sin localStorage: solo esta vez */ }
+    finRenderTop();
+});
 
 document.getElementById('finTxList').addEventListener('click', (event) => {
     const row = event.target.closest('[data-tx-id]');
@@ -866,8 +946,12 @@ function finStatementView(card, st, plans) {
     const lines = [];
     const main = el('div', 'fin-statement-main');
     const pay = el('div', 'fin-statement-pay');
-    pay.append(el('span', 'fin-stat-label', `Para no generar intereses, antes del ${finShortDate(st.due_date)}`),
-        el('strong', st.remaining_cents ? '' : 'paid', st.remaining_cents ? money(st.remaining_cents) : 'Pagado'));
+    const label = st.upcoming
+        ? `Próximo corte, el ${finShortDate(st.last_cut)}: pagar antes del ${finShortDate(st.due_date)}`
+        : `Para no generar intereses, antes del ${finShortDate(st.due_date)}`;
+    pay.append(el('span', 'fin-stat-label', label),
+        el('strong', st.remaining_cents ? '' : 'paid',
+            st.remaining_cents ? money(st.remaining_cents) : (st.upcoming ? 'Nada por ahora' : 'Pagado')));
     main.appendChild(pay);
     if (st.remaining_cents) {
         const button = el('button', 'submit-btn fin-pay-btn', 'Pagar');
@@ -878,9 +962,16 @@ function finStatementView(card, st, plans) {
         main.appendChild(button);
     }
     lines.push(main);
-    const facts = [`Corte del ${finShortDate(st.last_cut)}: ${money(st.pay_no_interest_cents)}`];
-    if (st.paid_since_cut_cents) facts.push(`ya pagaste ${money(st.paid_since_cut_cents)}`);
-    if (st.cycle_charges_cents) facts.push(`desde el corte, ${money(st.cycle_charges_cents)} (van al del ${finShortDate(st.next_cut)})`);
+    const facts = [];
+    if (st.upcoming) {
+        // Aún no corta: lo que lleva acumulado hasta hoy
+        facts.push(`Llevas ${money(st.pay_no_interest_cents)} para ese corte`);
+        if (st.msi_pending_cents) facts.push(`sin contar ${money(st.msi_pending_cents)} de meses que vienen después`);
+    } else {
+        facts.push(`Corte del ${finShortDate(st.last_cut)}: ${money(st.pay_no_interest_cents)}`);
+        if (st.paid_since_cut_cents) facts.push(`ya pagaste ${money(st.paid_since_cut_cents)}`);
+        if (st.cycle_charges_cents) facts.push(`desde el corte, ${money(st.cycle_charges_cents)} (van al del ${finShortDate(st.next_cut)})`);
+    }
     lines.push(el('p', 'fin-statement-facts', facts.join(' · ')));
     if (plans.length) {
         const list = el('ul', 'fin-msi-list');
@@ -926,7 +1017,7 @@ document.getElementById('finAccountsBody').addEventListener('click', (event) => 
         return;
     }
     const row = event.target.closest('[data-account-id]');
-    if (row) openFinAccount(finAccount(Number(row.dataset.accountId)));
+    if (row) openFinAccountMenu(finAccount(Number(row.dataset.accountId)));
 });
 
 // ============================================
