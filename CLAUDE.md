@@ -575,7 +575,7 @@ Lo que no se ve en Swagger:
   como primer cobro (quincena: el día elegido y su pareja, `finOtherPayDay()`). Editar un movimiento
   es la misma hoja, sin periodicidad. "¿Cada cuándo cobras?" y luego "¿Cuánto cobras?" (el fijo de
   ingreso "Sueldo", `finSalaryFixed()`), con *Dejar para después* y una línea discreta mientras no
-  haya. Pegar el estado de cuenta (`finance-import.js`, `rowsToFinance()`): lo que ya existe en esa
+  haya. *Subir estado de cuenta* (`finance-import.js`, `rowsToFinance()`; un archivo CSV o filas pegadas, en la misma ventana): lo que ya existe en esa
   cuenta sale tachado y un abono a una tarjeta de crédito se salta. *¿Qué formato acepta?* lo explica y
   descarga un CSV de ejemplo (`finSampleCsv()`, armado en el navegador). En la vista previa cada fila se
   corrige (fecha, concepto, monto, gasto o ingreso y categoría; la elegida a mano manda) y en un teléfono

@@ -125,9 +125,7 @@
         <!-- Movimientos del periodo, por día -->
         <section class="fin-tab" data-tab="transactions" hidden>
             <div class="fin-list-actions">
-                <button type="button" class="link-btn" id="finPasteBtn">Pegar estado de cuenta</button>
-                <input type="file" id="finCsvInput" accept=".csv,text/csv,text/plain" hidden>
-                <button type="button" class="link-btn" id="finCsvBtn">Elegir CSV</button>
+                <button type="button" class="link-btn" id="finImportBtn">Subir estado de cuenta</button>
                 <button type="button" class="submit-btn fin-add-btn" id="finAddBtn">＋ Agregar</button>
             </div>
             <div class="fin-filter" id="finTxFilter" hidden>
@@ -557,12 +555,12 @@
         </div>
     </div>
 
-    <!-- Pegar el estado de cuenta: vista previa -->
+    <!-- Subir el estado de cuenta (archivo o filas pegadas): vista previa -->
     <div id="finImportModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content fin-import-modal" role="dialog" aria-modal="true" aria-labelledby="finImportTitle">
             <button class="modal-close" type="button" id="finImportClose" aria-label="Cerrar">&times;</button>
-            <h2 class="modal-title" id="finImportTitle">Agregar del estado de cuenta</h2>
+            <h2 class="modal-title" id="finImportTitle">Subir estado de cuenta</h2>
             <label class="fin-field">A la cuenta
                 <select id="finImportAccount"></select>
             </label>
@@ -582,6 +580,12 @@
                     saltan (el pago va como transferencia desde tu débito).</p>
                 <button type="button" class="link-btn" id="finImportSample">Descargar un CSV de ejemplo</button>
             </details>
+            <!-- Dos formas de traer las filas: un archivo, o pegarlas en el cuadro -->
+            <div class="fin-import-source">
+                <input type="file" id="finCsvInput" accept=".csv,text/csv,text/plain" hidden>
+                <button type="button" class="submit-btn fin-add-btn" id="finCsvBtn">Elegir archivo CSV</button>
+                <span class="fin-hint">o pega abajo las filas copiadas de tu banco o de una hoja</span>
+            </div>
             <textarea id="finImportText" class="fin-import-text" rows="4"
                       placeholder="Pega aquí las filas copiadas de tu estado de cuenta o de una hoja"></textarea>
             <p class="fin-hint" id="finImportSummary"></p>

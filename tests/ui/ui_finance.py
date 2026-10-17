@@ -417,7 +417,7 @@ async def main():
         await b.shot("finance_transactions", full=False)
 
         # Pegar el estado de cuenta: lo repetido sale tachado y no entra
-        await b.js("document.getElementById('finPasteBtn').click()")
+        await b.js("document.getElementById('finImportBtn').click()")
         await b.wait_for("!document.getElementById('finImportModal').classList.contains('hidden')")
         await set_value("#finImportAccount", str(accounts()["Efectivo"]["id"]))
         text = f"Fecha\tConcepto\tMonto\n{TODAY.isoformat()}\tTacos\t-250\n{TODAY.isoformat()}\tFarmacia\t-120.50\n"

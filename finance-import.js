@@ -174,7 +174,7 @@ function renderFinImport(account, checked) {
     const includeDupes = document.getElementById('finImportDupes').checked;
     const valid = rows.filter(r => !r.skip && (!r.duplicate || includeDupes)).length;
     document.getElementById('finImportSummary').textContent = !rows.length
-        ? 'Pega las filas (fecha, concepto y monto, o columnas Cargo y Abono) o elige un CSV.'
+        ? 'Elige un archivo CSV o pega las filas (fecha, concepto y monto, o columnas Cargo y Abono).'
         : `${valid} de ${rows.length} ${rows.length === 1 ? 'fila' : 'filas'} se agregarán a "${account ? account.name : ''}".`
             + (rows.some(r => r.skip) ? ' Las marcadas en rojo se saltan.' : '')
             + (checked ? '' : ' No pude revisar si ya existían.');
@@ -309,17 +309,20 @@ document.getElementById('finImportText').addEventListener('input', () => {
     clearTimeout(finImportTimer);
     finImportTimer = setTimeout(finParseImport, 250);
 });
-document.getElementById('finPasteBtn').addEventListener('click', () => openFinImport());
+document.getElementById('finImportBtn').addEventListener('click', () => openFinImport());
 document.getElementById('finCsvBtn').addEventListener('click', () => document.getElementById('finCsvInput').click());
+// El archivo llena el cuadro de la ventana ya abierta (la cuenta elegida se queda)
 document.getElementById('finCsvInput').addEventListener('change', async (event) => {
     const file = event.target.files[0];
     event.target.value = '';
     if (!file) return;
     if (file.size > 1024 * 1024) {
-        finShowError('El archivo pesa más de 1 MB.');
+        showError(document.getElementById('finImportError'), 'El archivo pesa más de 1 MB.');
         return;
     }
-    openFinImport(await file.text());
+    document.getElementById('finImportError').classList.add('hidden');
+    document.getElementById('finImportText').value = await file.text();
+    finParseImport();
 });
 // Pegar varias celdas sobre la lista también abre la vista previa
 document.getElementById('finTxList').addEventListener('paste', (event) => {

@@ -1961,3 +1961,20 @@
     .fin-import-table td:nth-child(3) { grid-area: amount; }
     .fin-import-table td:nth-child(4) { grid-area: category; }
 }
+
+/* Subir estado de cuenta: el archivo o pegar */
+.fin-import-source {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 10px;
+}
+
+.fin-import-source .fin-add-btn {
+    margin: 0;
+}
+
+.fin-import-source .fin-hint {
+    margin: 0;
+}
