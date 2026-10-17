@@ -19,11 +19,11 @@ from backend.finance import (account_balances, account_currencies, first_transac
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
 from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
-                            FinTransaction, User)
+                            FinTransaction, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
     FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
-    FinStatementResponse,
+    FinStatementResponse, FinConsentResponse,
     FinAccountCreate,
     FinAccountListResponse,
     FinAccountResponse,
@@ -54,13 +54,25 @@ router = APIRouter(tags=["finance"])
 MAX_SUMMARY_DAYS = 3660
 
 
-def finance_user(
+CONSENT_MISSING = "Antes de usar Finanzas, acepta cómo se tratan tus datos."
+
+
+def finance_module_user(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> User:
     """El usuario del token, si tiene Finanzas encendido (si no, 403)"""
     require_module(session, current_user, "finance")
     return current_user
+
+
+def finance_user(session: Session = Depends(get_session), user: User = Depends(finance_module_user)) -> User:
+    """Además, que haya dado su consentimiento: son datos financieros, y sin él
+    no se guarda ni se enseña nada (403)"""
+    row = settings_row(session, user.id)
+    if row is None or row.consent_at is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=CONSENT_MISSING)
+    return user
 
 
 def _today(session: Session, user: User) -> date_type:
@@ -255,6 +267,26 @@ def _range(session: Session, user: User, day: Optional[date_type], date_from: Op
             raise _unprocessable(f"Pide como mucho {max_days} días")
         return date_from, date_to
     return period_bounds(user_period(session, user.id), day or _today(session, user))
+
+
+# ==================== Consentimiento ====================
+
+@router.get("/consent", response_model=FinConsentResponse)
+def get_finance_consent(session: Session = Depends(get_session), user: User = Depends(finance_module_user)):
+    """Si ya aceptó (y cuándo): la página lo pregunta antes de pedir nada más."""
+    row = settings_row(session, user.id)
+    return FinConsentResponse(consent_at=row.consent_at if row else None)
+
+
+@router.post("/consent", response_model=FinConsentResponse)
+def give_finance_consent(session: Session = Depends(get_session), user: User = Depends(finance_module_user)):
+    """Acepta. Volver a aceptar conserva la primera fecha."""
+    row = settings_row(session, user.id) or FinSettings(user_id=user.id)
+    if row.consent_at is None:
+        row.consent_at = utc_now_naive()
+        session.add(row)
+        session.commit()
+    return FinConsentResponse(consent_at=row.consent_at)
 
 
 # ==================== Periodo ====================

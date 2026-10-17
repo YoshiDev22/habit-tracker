@@ -162,6 +162,7 @@ async function finStart() {
         location.replace('/');   // apagado o sin acceso: aquí no hay nada
         return;
     }
+    if (!(await finAskConsent())) return;
     let saved = null;
     try {
         saved = localStorage.getItem('finance_tab');
@@ -170,6 +171,37 @@ async function finStart() {
     } catch (e) { /* sin localStorage */ }
     finSetTab(FIN_TABS.includes(saved) ? saved : 'categories', { save: false });
     await finLoad();
+}
+
+// El consentimiento expreso, la primera vez: hasta aceptarlo no se pide nada
+// más (la API tampoco lo daría). Devuelve si se puede seguir.
+async function finAskConsent() {
+    try {
+        const { consent_at } = await apiFetch('/api/finance/consent');
+        if (consent_at) return true;
+    } catch (error) {
+        if (error.status !== 401) finShowError(error.message || 'No se pudo cargar Finanzas.');
+        return false;
+    }
+    const screen = document.getElementById('finConsent');
+    const accept = document.getElementById('finConsentAccept');
+    screen.hidden = false;
+    accept.focus();
+    return new Promise((resolve) => {
+        accept.addEventListener('click', async function onAccept() {
+            accept.disabled = true;
+            try {
+                await apiFetch('/api/finance/consent', { method: 'POST' });
+                accept.removeEventListener('click', onAccept);
+                screen.hidden = true;
+                resolve(true);
+            } catch (error) {
+                showError(document.getElementById('finConsentError'), error.message || 'No se pudo guardar. Intenta otra vez.');
+            } finally {
+                accept.disabled = false;
+            }
+        });
+    });
 }
 
 // Las fechas del rango que se ve (salvo el periodo y "Siempre", que da el servidor)

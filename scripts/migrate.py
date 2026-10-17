@@ -95,6 +95,8 @@ MIGRATIONS = [
     {"table": "fin_accounts", "column": "statement_day", "type": "INTEGER", "new_table": True},
     {"table": "fin_accounts", "column": "due_day", "type": "INTEGER", "new_table": True},
     {"table": "fin_categories", "column": "icon", "type": "VARCHAR", "new_table": True},
+    # El consentimiento expreso para los datos de Finanzas, con su fecha
+    {"table": "fin_settings", "column": "consent_at", "type": "DATETIME", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

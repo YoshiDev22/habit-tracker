@@ -105,6 +105,7 @@ def test_give_finance_access(admin, api):
     r = put(admin, f"/api/accounts/{me['id']}/modules/finance", {"allowed": True})
     assert r.status_code == 200 and r.json()["allowed"] is True
     api.call("PUT", "/api/auth/me/modules/finance", {"enabled": True}, expect=200)
+    api.call("POST", "/api/finance/consent", expect=200)
     api.call("GET", "/api/finance/accounts", expect=200)
     titles = [n["title"] for n in api.call("GET", "/api/notices", expect=200)[1]["notices"]]
     assert "Ya tienes acceso a Finanzas" in titles

@@ -1864,6 +1864,11 @@ class FinSettingsResponse(SQLModel):
     period: Optional[str] = None
 
 
+class FinConsentResponse(SQLModel):
+    # None mientras no acepte cómo se tratan sus datos de Finanzas
+    consent_at: Optional[datetime] = None
+
+
 class FinSettingsUpdate(SQLModel):
     period: str
 

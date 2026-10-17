@@ -1579,3 +1579,61 @@
         padding-top: 20px;
     }
 }
+
+/* --- El consentimiento (la primera vez) --- */
+
+.fin-consent {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    overflow-y: auto;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    background: var(--bg-app);
+}
+
+.fin-consent[hidden] {
+    display: none;
+}
+
+.fin-consent-card {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 20px;
+    border-radius: 16px;
+    background: var(--bg-surface);
+    line-height: 1.5;
+}
+
+.fin-consent-title {
+    margin-bottom: 8px;
+    font-size: 1.35rem;
+    color: var(--accent);
+}
+
+.fin-consent-card ul {
+    margin: 12px 0;
+    padding-left: 20px;
+}
+
+.fin-consent-card li + li {
+    margin-top: 8px;
+}
+
+.fin-consent-card a {
+    color: var(--accent);
+}
+
+.fin-consent-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.fin-consent-accept {
+    margin-top: 0;
+    width: auto;
+    padding-left: 28px;
+    padding-right: 28px;
+}

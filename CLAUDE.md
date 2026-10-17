@@ -499,7 +499,9 @@ Lo que no se ve en Swagger:
   `project-overview.js` la pinta en la ficha y en Costos (*Tus estimados*).
 - **Finanzas personales** (épica 37, `docs/specs/finanzas.md`; módulo `finance`, con acceso como
   `maker`): `/api/finance` (router `finance.py`, todo tras `finance_user`). No comparte tablas con
-  Costos. Una **cuenta** (`cash | debit | credit`, una moneda, solo `last4`, icono y color de lista cerrada) tiene
+  Costos. **Consentimiento expreso** (son datos financieros): `finance_user` da 403 mientras
+  `fin_settings.consent_at` esté vacío; solo `GET`/`POST /consent` van con `finance_module_user`, y la
+  página lo pide la primera vez (`finAskConsent()`). Aceptar otra vez conserva la primera fecha. Una **cuenta** (`cash | debit | credit`, una moneda, solo `last4`, icono y color de lista cerrada) tiene
   **saldo**: el inicial (`opening_balance_cents`; negativo en crédito = lo que se debía) más sus
   movimientos hasta hoy, calculado (`account_balances()`), nunca guardado; una de crédito lleva además
   límite (y su disponible), día de corte y de pago, que se vacían si deja de serlo.

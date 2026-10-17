@@ -33,6 +33,33 @@
     <link rel="stylesheet" href="finance.css">
 </head>
 <body class="fin-body">
+    <!-- La primera vez: el consentimiento expreso para los datos financieros.
+         Sin él, la API de Finanzas no guarda ni enseña nada -->
+    <section class="fin-consent" id="finConsent" hidden aria-labelledby="finConsentTitle">
+        <div class="fin-consent-card">
+            <h1 class="fin-consent-title" id="finConsentTitle">Antes de empezar</h1>
+            <p>Finanzas guarda datos financieros, así que necesitamos tu permiso expreso.</p>
+            <ul>
+                <li><strong>Qué se guarda:</strong> tus cuentas (nombre, tipo, moneda, saldo inicial y, si los
+                    escribes, los últimos 4 dígitos, el límite y los días de corte y de pago de una tarjeta), tus
+                    movimientos (monto, fecha, concepto, categoría y nota), tus compras a meses, tus fijos y cada
+                    cuándo cobras.</li>
+                <li><strong>Para qué:</strong> solo para enseñarte lo que gastas y recibes y anotar tus fijos.
+                    No se envían a la IA ni a nadie más; la administración de la app solo ve cuántos movimientos
+                    tienes, nunca montos, conceptos ni nombres.</li>
+                <li><strong>Cómo dejar de usarla:</strong> apagar Finanzas la oculta, pero no borra tus datos:
+                    bórralos aquí o borra tu cuenta. En <em>Mi perfil</em> puedes descargar todo.</li>
+            </ul>
+            <p class="fin-hint">El detalle está en el <a href="/privacidad" target="_blank" rel="noopener">aviso de
+                privacidad</a>. Guardamos la fecha en que aceptas.</p>
+            <div class="fin-consent-actions">
+                <a class="fin-consent-later" href="/">Ahora no</a>
+                <button type="button" class="submit-btn fin-consent-accept" id="finConsentAccept">Acepto</button>
+            </div>
+            <div id="finConsentError" class="form-error hidden"></div>
+        </div>
+    </section>
+
     <!-- Arriba, siempre: regresar, el total de las cuentas y el periodo -->
     <header class="fin-top">
         <div class="fin-top-row">

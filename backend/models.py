@@ -915,3 +915,6 @@ class FinSettings(SQLModel, table=True):
     expected_income_cents: Optional[int] = Field(default=None)
     currency: Optional[str] = Field(default=None)
     day_notice_hour: Optional[int] = Field(default=None)
+    # Cuándo aceptó cómo se tratan sus datos financieros (UTC naive). Sin él, la
+    # API de Finanzas no guarda ni enseña nada (finance_user)
+    consent_at: Optional[datetime] = Field(default=None)

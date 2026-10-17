@@ -97,7 +97,15 @@ async def main():
         check(st["width"] == "25%", f"the tab line counts the link as one of four tabs ({st['width']})")
         await b.js("document.getElementById('tabFinance').click()")
         await b.wait_for("location.pathname === '/finance'")
+        # La primera vez, el consentimiento: hasta aceptarlo, la API no da nada
+        await b.wait_for("!!document.getElementById('finConsent') && !document.getElementById('finConsent').hidden")
+        check(api.call("GET", "/api/finance/accounts")[0] == 403, "without consent the API gives nothing")
+        check(await b.js("document.getElementById('finAsk').hidden"), "nothing else shows before consent")
+        await b.shot("finance_consent", full=False)
+        await b.js("document.getElementById('finConsentAccept').click()")
+        await wait_api("/api/finance/consent", lambda body: body["consent_at"] is not None)
         await b.wait_for("!!document.getElementById('finAsk') && !document.getElementById('finAsk').hidden")
+        check(await b.js("document.getElementById('finConsent').hidden"), "accepting hides the consent screen")
         check(await b.js("location.pathname") == "/finance", "tapping it opens /finance with the same session")
         await b.shot("finance_page_ask", full=False)
 

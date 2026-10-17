@@ -16,10 +16,12 @@ TODAY = date.today()
 
 
 def finance_on(api, email):
-    """Cuenta con Finanzas: acceso dado por el script y módulo encendido."""
+    """Cuenta con Finanzas: acceso dado por el script, módulo encendido y el
+    consentimiento dado."""
     api.login(email)
     assert grant("--email", email, "--module", "finance").returncode == 0
     api.call("PUT", "/api/auth/me/modules/finance", {"enabled": True}, expect=200)
+    api.call("POST", "/api/finance/consent", expect=200)
 
 
 def setup(api, email="dinero@test.com"):
@@ -52,6 +54,17 @@ def test_needs_the_module(api):
     status, body = api.call("GET", "/api/finance/accounts")
     assert status == 403 and "Enciende" in body["detail"], "allowed but still off"
     api.call("PUT", "/api/auth/me/modules/finance", {"enabled": True}, expect=200)
+    # Encendido, pero sin consentimiento no se guarda ni se enseña nada
+    assert api.call("GET", "/api/finance/consent", expect=200)[1] == {"consent_at": None}
+    for method, path, body in (("GET", "/api/finance/accounts", None), ("GET", "/api/finance/summary", None),
+                               ("POST", "/api/finance/accounts", {"name": "Débito", "kind": "debit"})):
+        status, answer = api.call(method, path, body)
+        assert status == 403 and "acepta" in answer["detail"], (path, status)
+    first = api.call("POST", "/api/finance/consent", expect=200)[1]["consent_at"]
+    assert first is not None
+    # Aceptar otra vez conserva la primera fecha
+    assert api.call("POST", "/api/finance/consent", expect=200)[1]["consent_at"] == first
+    assert api.call("GET", "/api/finance/consent", expect=200)[1]["consent_at"] == first
     api.call("GET", "/api/finance/accounts", expect=200)
 
 
