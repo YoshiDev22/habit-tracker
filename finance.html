@@ -65,6 +65,8 @@
         <div class="fin-top-row">
             <div class="fin-top-side">
                 <a class="fin-round-btn" id="finBack" href="/" aria-label="Regresar a Habit Tracker" title="Regresar"></a>
+                <!-- La inicial de la cuenta: abre el panel lateral, que sale de este lado -->
+                <button type="button" class="fin-round-btn fin-menu-btn" id="finMenuBtn" aria-label="Menú de Finanzas" title="Menú"></button>
             </div>
             <div class="fin-total">
                 <span class="fin-total-label">Todas las cuentas</span>
@@ -79,7 +81,6 @@
                 <!-- Solo en Categorías: ordenar los círculos -->
                 <button type="button" class="fin-round-btn" id="finRingEdit" aria-pressed="false" hidden
                         aria-label="Ordenar categorías" title="Ordenar categorías"></button>
-                <button type="button" class="fin-round-btn" id="finSettingsBtn" aria-label="Ajustes de Finanzas" title="Ajustes"></button>
             </div>
         </div>
         <div class="fin-period">
@@ -440,7 +441,7 @@
     </div>
 
     <!-- Ajustes: periodo, sueldo, categorías y fijos (menú de desglose) -->
-    <!-- El ⚙️ de arriba: un panel lateral con lo que no es del día a día (finance-data.js) -->
+    <!-- La inicial de arriba: un panel lateral con lo que no es del día a día (finance-data.js) -->
     <div class="fin-sheet fin-drawer hidden" id="finDrawer" role="dialog" aria-modal="true" aria-labelledby="finDrawerTitle">
         <div class="fin-sheet-overlay" data-close-sheet></div>
         <nav class="fin-drawer-panel" aria-label="Menú de Finanzas">

@@ -1,5 +1,5 @@
 // ============================================
-// Finanzas: el panel lateral del ⚙️ (Configuración, Datos, aviso, regresar) y
+// Finanzas: el panel lateral de la inicial (Configuración, Datos, aviso, regresar) y
 // Datos: exportar los movimientos a CSV e importarlos de un CSV con varias
 // cuentas (el que exporta esta app u otro con columnas parecidas), con vista
 // previa. Las cuentas y categorías que falten se crean al confirmar; los
@@ -13,11 +13,18 @@ let finDataPending = null;
 
 // ---------- El panel lateral ----------
 
-function openFinDrawer() {
+function finUserName() {
     const me = finState.me || {};
-    const name = me.display_name || me.first_name || (me.email || '').split('@')[0] || 'Tú';
-    document.getElementById('finDrawerAvatar').textContent = (Array.from(name)[0] || '?').toUpperCase();
-    document.getElementById('finDrawerUser').textContent = name;
+    return me.display_name || me.first_name || (me.email || '').split('@')[0] || 'Tú';
+}
+
+function finInitial() {
+    return (Array.from(finUserName())[0] || '?').toUpperCase();
+}
+
+function openFinDrawer() {
+    document.getElementById('finDrawerAvatar').textContent = finInitial();
+    document.getElementById('finDrawerUser').textContent = finUserName();
     openFinSheet(finDrawer);
 }
 

@@ -447,7 +447,7 @@ async def main():
               f"the row is added as corrected in the preview ({added})")
 
         # El ⚙️ abre el panel lateral; Datos exporta e importa
-        await b.js("document.getElementById('finSettingsBtn').click()")
+        await b.js("document.getElementById('finMenuBtn').click()")
         await b.wait_for("!document.getElementById('finDrawer').classList.contains('hidden')")
         items = await b.js("[...document.querySelectorAll('#finDrawer .fin-drawer-item')].map(i => i.textContent.trim())")
         check(items == ["Configuración", "Datos", "Aviso de privacidad", "Regresar a Habit Tracker"],
@@ -490,7 +490,7 @@ async def main():
               and by["Paso"]["kind"] == "transfer" and by["Paso"]["to_account_id"] == accs["Cartera nueva"]["id"],
               f"the import creates what was missing and lands each row where it goes ({sorted(by)})")
         # Lo mismo otra vez: todo sale repetido y no entra
-        await b.js("document.getElementById('finSettingsBtn').click()")
+        await b.js("document.getElementById('finMenuBtn').click()")
         await b.js("document.querySelector('#finDrawer [data-drawer=\"data\"]').click()")
         await b.js("document.getElementById('finDataImportOpen').click()")
         await set_value("#finDataText", other_app)
@@ -541,7 +541,7 @@ async def main():
         await b.wait_for("document.getElementById('finPeriodLabel').textContent !== 'Siempre'")
 
         # Ajustes: una categoría nueva con su icono; el periodo a mes
-        await b.js("document.getElementById('finSettingsBtn').click()")
+        await b.js("document.getElementById('finMenuBtn').click()")
         await b.js("document.querySelector('#finSettingsMenu [data-open=\"categories\"]').click()")
         await b.wait_for("document.getElementById('finSettingsTitle').textContent === 'Categorías'")
         await set_value("#finCatName", "Moto")
@@ -646,7 +646,7 @@ async def main():
         await b.shot("finance_range_xlarge", full=False)
         await b.goto(BASE + "/finance", wait=2.5)
         await b.js("document.documentElement.setAttribute('data-text-size', 'xlarge')")
-        await b.js("document.getElementById('finSettingsBtn').click()")
+        await b.js("document.getElementById('finMenuBtn').click()")
         await fits("settings")
         await b.js("document.documentElement.removeAttribute('data-text-size')")
         await b.viewport(390, 844, mobile=True)

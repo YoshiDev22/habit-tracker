@@ -141,7 +141,7 @@ habit-tracker/
 ├── finance-settings.js    # Finanzas: ajustes (periodo y sueldo, categorías, fijos), la hoja de una cuenta
 ├── finance-accounts.js    # Finanzas: el menú de una cuenta (acciones), ajustar saldo y los MSI de una deuda
 ├── finance-import.js      # Finanzas: pegar el estado de cuenta o un CSV, con vista previa
-├── finance-data.js        # Finanzas: el panel lateral del ⚙️ y Datos (exportar a CSV, importar varias cuentas)
+├── finance-data.js        # Finanzas: el panel lateral (la inicial, arriba a la izquierda) y Datos (exportar a CSV, importar varias cuentas)
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -563,7 +563,7 @@ Lo que no se ve en Swagger:
   hasta diez años y `all=true`, desde el primer movimiento); abajo cinco pestañas (Cuentas, Categorías,
   Movimientos, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
   es un anillo SVG con lo de cada categoría y alrededor sus círculos (`finRingSlot()`); tocar el anillo
-  cambia a las de ingresos; el ✎ de la barra de arriba (junto a Ajustes, solo en Categorías) las ordena (tocar una y luego otra las cambia de lugar,
+  cambia a las de ingresos; el ✎ de la barra de arriba (a la derecha, solo en Categorías) las ordena (tocar una y luego otra las cambia de lugar,
   `finSwapCategories()`). **Tocar una cuenta abre su menú** (`finance-accounts.js`): su saldo (en
   crédito, la deuda o lo que queda a favor), Editar, Ajustar saldo (el real de hoy: mueve el saldo inicial,
   sin crear movimientos), Movimientos (la lista solo de esa cuenta, `accountFilter`), Ingreso / Gasto /
@@ -580,7 +580,7 @@ Lo que no se ve en Swagger:
   cuenta sale tachado y un abono a una tarjeta de crédito se salta. *¿Qué formato acepta?* lo explica y
   descarga un CSV de ejemplo (`finSampleCsv()`, armado en el navegador). En la vista previa cada fila se
   corrige (fecha, concepto, monto, gasto o ingreso y categoría; la elegida a mano manda) y en un teléfono
-  cada fila es una tarjeta. El ⚙️ de arriba abre un **panel lateral**
+  cada fila es una tarjeta. La inicial de la cuenta, arriba a la izquierda junto a ‹, abre un **panel lateral**
   (`#finDrawer`, `finance-data.js`: Configuración, Datos, Aviso de privacidad, Regresar); Configuración
   es el desglose de siempre con `createDrillDown()`. **Datos** exporta los movimientos a CSV
   (`finExportLines()`: todos o los del periodo; un dividido, una fila por parte con la misma marca en

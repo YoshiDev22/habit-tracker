@@ -604,7 +604,7 @@ o "Terminado") y en la hoja. Si no se repite, cerrar la entrada.
 ## 43 · P3 · Menús de la app más sencillos: un panel lateral como el de Finanzas
 
 **Pedido el 2026-10-17.** Configuración (⚙️) y el menú de la inicial reparten lo de la cuenta en
-dos lugares, con modales de desglose largos. En la página de Finanzas el ⚙️ abre un panel lateral
+dos lugares, con modales de desglose largos. En la página de Finanzas la inicial de la cuenta abre un panel lateral
 (`#finDrawer`, `finance-data.js`): la inicial y el nombre arriba, y una lista corta de entradas
 (Configuración, Datos, Aviso de privacidad, Regresar), cada una a su pantalla. Se probó primero ahí
 para no tocar la app.

@@ -1979,7 +1979,22 @@
     margin: 0;
 }
 
-/* --- El panel lateral del ⚙️ --- */
+/* --- La inicial de arriba y su panel lateral --- */
+
+.fin-menu-btn {
+    width: 34px;
+    height: 34px;
+    margin-left: 2px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.fin-menu-btn:hover {
+    background: var(--accent);
+    filter: brightness(1.08);
+}
 
 .fin-drawer {
     align-items: stretch;

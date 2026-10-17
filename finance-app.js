@@ -161,6 +161,7 @@ async function finStart() {
         if (error.status !== 401) finShowError(error.message || 'No se pudo cargar Finanzas.');
         return;
     }
+    document.getElementById('finMenuBtn').textContent = finInitial();
     const module = finState.me.modules && finState.me.modules.finance;
     if (!module || !module.enabled) {
         location.replace('/');   // apagado o sin acceso: aquí no hay nada
@@ -1155,7 +1156,6 @@ document.querySelector('#confirmModal .modal-overlay').addEventListener('click',
 // Los iconos fijos del HTML (flechas, pestañas, ajustes)
 function finPaintStaticIcons() {
     document.getElementById('finBack').appendChild(financeIcon('chevron-left', 22));
-    document.getElementById('finSettingsBtn').appendChild(financeIcon('settings', 20));
     document.getElementById('finPrev').appendChild(financeIcon('chevron-left', 18));
     document.getElementById('finNext').appendChild(financeIcon('chevron-right', 18));
     document.querySelectorAll('[data-icon]').forEach(span => span.appendChild(financeIcon(span.dataset.icon, 22)));
@@ -1180,6 +1180,6 @@ document.getElementById('finBack').addEventListener('click', (event) => {
         history.back();
     }
 });
-document.getElementById('finSettingsBtn').addEventListener('click', () => openFinDrawer());
+document.getElementById('finMenuBtn').addEventListener('click', () => openFinDrawer());
 
 document.addEventListener('DOMContentLoaded', finStart);
