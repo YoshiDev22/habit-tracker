@@ -44,6 +44,8 @@ const authScreen = document.getElementById('authScreen');
 const mainApp = document.getElementById('mainApp');
 const userBar = document.getElementById('userBar');
 const userEmail = document.getElementById('userEmail');
+const userMenuBtn = document.getElementById('userMenuBtn');
+const userMenu = document.getElementById('userMenu');
 const brandGreeting = document.getElementById('brandGreeting');
 const loginModal = document.getElementById('loginModal');
 const registerModal = document.getElementById('registerModal');
@@ -68,6 +70,7 @@ function showAuthScreen() {
     authScreen.classList.remove('hidden');
     mainApp.classList.add('hidden');
     userBar.classList.add('hidden');
+    setUserMenu(false);
 }
 
 function showMainApp() {
@@ -97,9 +100,22 @@ function updateUserBar() {
         userEmail.textContent = label;
         userEmail.title = currentUser.email || '';
         brandGreeting.textContent = `Sigamos adelante, ${label}`;
+        // La inicial: Array.from para no partir un emoji a la mitad
+        userMenuBtn.textContent = (Array.from(label)[0] || '?').toUpperCase();
+        userMenuBtn.setAttribute('aria-label', `Tu cuenta: ${label}`);
     }
-    // La etiqueta MKR, pegada al nombre, mientras el plan Maker esté encendido
-    document.getElementById('planBadge').hidden = !(currentUser && moduleEnabled('maker'));
+    // La etiqueta MKR, pegada al nombre, mientras el plan Maker esté encendido;
+    // con el menú plegado, el contorno de la inicial lo dice
+    const maker = Boolean(currentUser && moduleEnabled('maker'));
+    document.getElementById('planBadge').hidden = !maker;
+    userMenuBtn.classList.toggle('plan', maker);
+}
+
+// El menú de la inicial: se pliega al elegir algo (salvo el tema, que se
+// prueba varias veces), al tocar fuera y con Escape
+function setUserMenu(open) {
+    userMenu.hidden = !open;
+    userMenuBtn.setAttribute('aria-expanded', String(open));
 }
 
 // Qué cambió al tocar un módulo, dicho donde se tocó: encender no recarga
@@ -458,6 +474,20 @@ logoutBtn.addEventListener('click', handleLogout);
 
 // Perfil, desde el nombre en la barra de usuario
 userEmail.addEventListener('click', showProfile);
+
+userMenuBtn.addEventListener('click', () => setUserMenu(userMenu.hidden));
+for (const id of ['userEmail', 'settingsBtn', 'logoutBtn']) {
+    document.getElementById(id).addEventListener('click', () => setUserMenu(false));
+}
+document.addEventListener('click', (event) => {
+    if (!userMenu.hidden && !userBar.contains(event.target)) setUserMenu(false);
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !userMenu.hidden) {
+        setUserMenu(false);
+        userMenuBtn.focus();
+    }
+});
 profileForm.addEventListener('submit', handleProfileSave);
 document.getElementById('moduleSettings').addEventListener('change', handleModuleToggle);
 

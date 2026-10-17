@@ -33,7 +33,6 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 36 | P3 | Página de inicio pública: qué es la app, video de uso, entrar y registrarse | idea |
 | 37 | P2 | Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo | épica, después de la 1.27; fase 1 hecha en `feat/finanzas` |
 | 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
-| 42 | P3 | Más espacio arriba: barra de usuario compacta y plegable | pedido |
 
 ---
 
@@ -599,17 +598,3 @@ si se borran los cobros posteriores al fin).
 **Siguiente paso.** Volver a probarlo y anotar qué se ve en la lista ("Siguiente: …"
 o "Terminado") y en la hoja. Si no se repite, cerrar la entrada.
 
----
-
-## 42 · P3 · Más espacio arriba: barra de usuario compacta y plegable
-
-**Pedido el 2026-10-15.** Arriba se pierde mucho espacio, y en el teléfono más: la barra
-de usuario (tema, ⚙️, campanita, nombre, versión, Cerrar sesión) va en su propia franja, y debajo el
-título y el saludo.
-
-**Idea.** En computadora, una barra más chica a la altura del título, a la derecha. Que se pueda
-plegar en un menú (el nombre o un botón despliega el resto), para ganar espacio. En el teléfono,
-lo mismo con más razón: quizá título y saludo más chicos, o que se oculten al bajar.
-
-**Por decidir.** Qué queda siempre a la vista (la campanita, por los pendientes), si "Cerrar sesión"
-y la versión pasan a *Mi perfil*, y si el título se encoge al desplazar.

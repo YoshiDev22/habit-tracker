@@ -400,21 +400,30 @@
     </div>
 
     <!-- Usuario logueado - mostrar logout -->
+    <!-- A la altura del título: la campanita y la inicial, que despliega lo demás -->
     <div id="userBar" class="user-bar hidden">
-        <button id="themeToggle" class="settings-btn" type="button" title="Tema: Sistema" aria-label="Tema: Sistema">🖥️</button>
-        <button id="settingsBtn" class="settings-btn">⚙️</button>
         <!-- Avisos (notifications.js): siempre a la vista; el número, solo con pendientes -->
         <button id="bellBtn" class="settings-btn bell-btn" type="button" title="Avisos" aria-label="Avisos">
             🔔<span id="bellCount" class="bell-count" hidden>0</span>
         </button>
-        <!-- El nombre y, pegada como subíndice, la etiqueta del plan (MKR con
-             el plan Maker encendido) -->
-        <span class="user-name-wrap">
-            <button type="button" id="userEmail" class="user-label-btn" title="Editar perfil"></button>
-            <span id="planBadge" class="plan-badge" title="Plan Maker" hidden>MKR</span>
-        </span>
-        <span class="app-version" id="mainVersion"></span>
-        <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
+        <button id="userMenuBtn" class="user-avatar" type="button" aria-haspopup="true"
+                aria-expanded="false" aria-controls="userMenu" title="Tu cuenta"></button>
+        <div id="userMenu" class="user-menu" hidden>
+            <!-- El nombre y, pegada como subíndice, la etiqueta del plan (MKR con
+                 el plan Maker encendido) -->
+            <span class="user-name-wrap">
+                <button type="button" id="userEmail" class="user-label-btn" title="Editar perfil"></button>
+                <span id="planBadge" class="plan-badge" title="Plan Maker" hidden>MKR</span>
+            </span>
+            <div class="user-menu-icons">
+                <button id="themeToggle" class="settings-btn" type="button" title="Tema: Sistema" aria-label="Tema: Sistema">🖥️</button>
+                <button id="settingsBtn" class="settings-btn" type="button" title="Configuración" aria-label="Configuración">⚙️</button>
+            </div>
+            <div class="user-menu-foot">
+                <span class="app-version" id="mainVersion"></span>
+                <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
+            </div>
+        </div>
     </div>
 
     <!-- Hijo directo de <body>, NUNCA de una vista dentro del track de swipe:

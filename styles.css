@@ -146,7 +146,6 @@ body {
     width: 100%;
     max-width: 600px;
     position: relative;
-    margin-top: 60px; /* despeja la user-bar fija */
 }
 
 /* Nombre de la app: la franja bajo la user-bar quedaba vacia */
@@ -1741,19 +1740,76 @@ a.settings-item { text-decoration: none; color: inherit; }
     outline-offset: 2px;
 }
 
-/* User Bar */
+/* User Bar: a la altura del título, a la derecha. Solo la campanita y la
+   inicial; lo demás se despliega al tocar la inicial (#userMenu). */
 .user-bar {
-    position: fixed;
-    top: 0;
-    right: 0;
-    background: var(--bg-surface);
-    padding: 12px 20px;
+    position: absolute;
+    top: 16px;
+    right: 16px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    box-shadow: var(--shadow-md);
+    gap: 6px;
     z-index: 100;
-    border-radius: 0 0 0 16px;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* Con el plan Maker, el contorno con su degradado */
+.user-avatar.plan {
+    background:
+        linear-gradient(var(--accent), var(--accent)) padding-box,
+        linear-gradient(120deg, var(--plan-from), var(--plan-to)) border-box;
+}
+
+.user-avatar:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.user-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--bg-surface);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+}
+
+.user-menu[hidden] {
+    display: none;
+}
+
+.user-menu-icons {
+    display: flex;
+    gap: 4px;
+}
+
+.user-menu-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.user-menu .app-version {
+    margin: 0;
 }
 
 .user-bar.hidden {
@@ -2294,8 +2350,13 @@ a.settings-item { text-decoration: none; color: inherit; }
     }
 
     .user-bar {
-        padding: 8px 12px;
-        gap: 8px;
+        top: 10px;
+        right: 10px;
+    }
+
+    /* Que el título centrado no quede debajo de la campanita y la inicial */
+    .app-brand {
+        padding: 0 84px;
     }
 }
 

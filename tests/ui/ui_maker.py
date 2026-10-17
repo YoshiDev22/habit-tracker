@@ -82,6 +82,19 @@ async def main():
         await b.js("document.getElementById('settingsClose').click()")
         await asyncio.sleep(0.3)
 
+        # Plegada, la barra es la campanita y la inicial (con el contorno del plan);
+        # el resto sale al tocar la inicial
+        st = await b.js("""(() => {
+            const avatar = document.getElementById('userMenuBtn');
+            const title = document.querySelector('.app-brand-title').getBoundingClientRect();
+            const bar = document.getElementById('userBar').getBoundingClientRect();
+            return {folded: document.getElementById('userMenu').hidden, initial: avatar.textContent,
+                    plan: avatar.classList.contains('plan'),
+                    level: bar.top < title.bottom && bar.bottom > title.top};
+        })()""")
+        check(st["folded"] and len(st["initial"]) == 1 and st["plan"] and st["level"],
+              f"the user bar is folded into an initial, level with the title ({st})")
+        await b.js("document.getElementById('userMenuBtn').click()")
         # La etiqueta MKR, pegada al nombre y un poco abajo (subíndice)
         st = await b.js("""(() => {
             const badge = document.getElementById('planBadge');
@@ -102,6 +115,15 @@ async def main():
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
         check(not await b.js("document.getElementById('planBadge').hidden"), "the badge is there after a reload")
+        st = await b.js("""(() => {
+            const title = document.querySelector('.app-brand-title').getBoundingClientRect();
+            const bar = document.getElementById('userBar').getBoundingClientRect();
+            return {gap: Math.round(bar.left - title.right), menu: document.getElementById('userMenu').hidden};
+        })()""")
+        check(st["menu"] and st["gap"] >= 0, f"on a phone the title does not run under the bar ({st})")
+        await b.js("document.getElementById('userMenuBtn').click()")
+        await b.js("document.querySelector('.app-brand-title').click()")
+        check(await b.js("document.getElementById('userMenu').hidden"), "touching outside folds the menu")
 
         await open_overview()
         check(await b.js("!!document.querySelector('.costing-card')"), "the overview now has Costeo")
