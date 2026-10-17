@@ -95,6 +95,8 @@ MIGRATIONS = [
     {"table": "fin_accounts", "column": "statement_day", "type": "INTEGER", "new_table": True},
     {"table": "fin_accounts", "column": "due_day", "type": "INTEGER", "new_table": True},
     {"table": "fin_categories", "column": "icon", "type": "VARCHAR", "new_table": True},
+    # El día del saldo inicial de una cuenta (1.30): los movimientos de antes son historial
+    {"table": "fin_accounts", "column": "opening_date", "type": "DATE", "new_table": True},
     # El consentimiento expreso para los datos de Finanzas, con su fecha
     {"table": "fin_settings", "column": "consent_at", "type": "DATETIME", "new_table": True},
 ]
@@ -184,6 +186,16 @@ def mark_sessions_to_review(connection):
     cursor = connection.execute(
         "UPDATE pomodoro_sessions SET needs_review = 1 WHERE note = ? AND duration_seconds = ?",
         (AUTOCLOSE_NOTE, STOPWATCH_CAP_SECONDS),
+    )
+    return cursor.rowcount
+
+
+def anchor_opening_balances(connection):
+    """Las cuentas que ya tenían saldo inicial lo toman como del día en que se
+    dieron de alta. Corre solo la vez que se añade la columna."""
+    cursor = connection.execute(
+        "UPDATE fin_accounts SET opening_date = date(created_at) "
+        "WHERE opening_date IS NULL AND opening_balance_cents != 0"
     )
     return cursor.rowcount
 
@@ -292,6 +304,8 @@ def main():
         relabeled = normalize_habit_labels(connection)
         to_review = (mark_sessions_to_review(connection)
                      if "pomodoro_sessions.needs_review" in applied else 0)
+        anchored = (anchor_opening_balances(connection)
+                    if "fin_accounts.opening_date" in applied else 0)
 
         connection.commit()
     finally:
@@ -300,6 +314,8 @@ def main():
     print("Added: " + (", ".join(applied) if applied else "nothing, already up to date"))
     if to_review:
         print(f"Sessions to review (closed at 8 h, never corrected): {to_review}")
+    if anchored:
+        print(f"Finance accounts whose opening balance now dates from their creation: {anchored}")
 
     if relabeled:
         print(f"Habit labels normalized ({len(relabeled)}):")

@@ -1496,6 +1496,8 @@ class FinAccountCreate(SQLModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     opening_balance_cents: int = Field(default=0, ge=-MAX_MONEY_CENTS, le=MAX_MONEY_CENTS)
+    # El día de ese saldo; sin él, con saldo, hoy
+    opening_date: Optional[date_type] = None
     # Solo crédito (en otra cuenta se ignoran)
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
@@ -1540,6 +1542,7 @@ class FinAccountUpdate(SQLModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     opening_balance_cents: Optional[int] = Field(default=None, ge=-MAX_MONEY_CENTS, le=MAX_MONEY_CENTS)
+    opening_date: Optional[date_type] = None   # null: cuentan todos los movimientos
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
@@ -1583,9 +1586,14 @@ class FinAccountResponse(SQLModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     opening_balance_cents: int = 0
+    opening_date: Optional[date_type] = None
     credit_limit_cents: Optional[int] = None
     statement_day: Optional[int] = None
     due_day: Optional[int] = None
+    # Los movimientos de antes de opening_date: historial que no mueve el saldo
+    before_count: int = 0
+    before_in_cents: int = 0      # ingresos, pagos y transferencias que llegaron
+    before_out_cents: int = 0     # gastos, cargos y transferencias que salieron
     # El saldo a hoy (saldo inicial más movimientos hasta hoy); en crédito,
     # negativo es deuda. Disponible: límite + saldo, solo con límite.
     balance_cents: int = 0
@@ -1652,6 +1660,8 @@ class FinCategoryListResponse(SQLModel):
 
 FIN_MAX_SPLITS = 20
 FIN_MAX_INSTALLMENT_MONTHS = 48
+# Un tope para la lista del orden de categorías (nadie tiene tantas)
+FIN_MAX_CATEGORIES = 200
 
 
 class FinSplitFields(SQLModel):
@@ -1731,7 +1741,9 @@ class FinInstallmentCreate(SQLModel):
     transaction_id: Optional[int] = None
     concept: Optional[str] = Field(default=None, min_length=1, max_length=200)
     total_cents: Optional[int] = Field(default=None, gt=0, le=MAX_MONEY_CENTS)
-    months: int = Field(ge=2, le=FIN_MAX_INSTALLMENT_MONTHS)
+    # Una compra va de 2 meses en adelante; un plan sin compra (los meses que le
+    # faltan a una deuda de antes de usar la app) puede tener 1
+    months: int = Field(ge=1, le=FIN_MAX_INSTALLMENT_MONTHS)
     purchase_date: Optional[date_type] = None
     first_statement: Optional[date_type] = None   # sin él, el primer corte desde la compra
 
@@ -1782,6 +1794,21 @@ class FinStatementResponse(SQLModel):
     remaining_cents: int          # lo que falta para no generar intereses
     cycle_charges_cents: int      # compras desde el corte (van al siguiente)
     installments: List[FinStatementInstallment] = []
+    # True: el pago del último corte ya venció (o la cuenta se dio de alta
+    # después de él) y esto es el PRÓXIMO corte: last_cut es ese corte futuro,
+    # y la deuda, lo que lleva acumulado hasta hoy
+    upcoming: bool = False
+
+
+class FinCategoryOrder(SQLModel):
+    """El orden de las categorías de un tipo: sus ids, todas, en el orden nuevo."""
+    kind: str
+    ids: List[int] = Field(min_length=1, max_length=FIN_MAX_CATEGORIES)
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_CATEGORY_KINDS, "kind")
 
 
 class FinTransactionListResponse(SQLModel):

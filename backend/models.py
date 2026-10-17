@@ -771,6 +771,10 @@ class FinAccount(SQLModel, table=True):
     # El saldo es este más sus movimientos (no se guarda). En una de crédito,
     # negativo es lo que ya se debía al empezar a usar la app.
     opening_balance_cents: int = Field(default=0)
+    # El día de ese saldo (al empezar el día): cuentan los movimientos de ese día
+    # en adelante; los de antes (meses viejos cargados después) son historial.
+    # NULL = cuentan todos.
+    opening_date: Optional[date_type] = Field(default=None)
     # Solo crédito: el límite, el día de corte y el día de pago (1 a 31; el que
     # el mes no tiene cae en el último)
     credit_limit_cents: Optional[int] = Field(default=None)

@@ -249,6 +249,10 @@ def test_personal_finance(api):
     assert api.call("POST", cats, {"name": "y", "color": "rojo"})[0] == 422
     assert api.call("POST", cats, {"name": "y", "kind": "transfer"})[0] == 422
     assert api.call("POST", cats, {"name": "y", "icon": "skull"})[0] == 422
+    assert api.call("PUT", f"{cats}/order", {"kind": "expense", "ids": []})[0] == 422
+    assert api.call("PUT", f"{cats}/order", {"kind": "expense", "ids": list(range(1, 202))})[0] == 422
+    assert api.call("PUT", f"{cats}/order", {"kind": "transfer", "ids": [cat["id"]]})[0] == 422
+    assert api.call("PATCH", f"{acc}/{cash['id']}", {"opening_date": "ayer"})[0] == 422
 
     txs = "/api/finance/transactions"
     ok = tx(cash, 100, "ok", cat)
@@ -270,6 +274,6 @@ def test_personal_finance(api):
     part = {"category_id": cat["id"], "amount_cents": 1}
     assert api.call("POST", txs, {**ok, "category_id": None, "amount_cents": 21, "splits": [part] * 21})[0] == 422
     assert api.call("POST", txs, {**ok, "category_id": None, "splits": [{**part, "amount_cents": 0}] * 2})[0] == 422
-    for bad in ({"months": 1}, {"months": 49}, {"months": 3, "concept": "x" * 201}, {"months": 3, "total_cents": 0}):
+    for bad in ({"months": 0}, {"months": 49}, {"months": 3, "concept": "x" * 201}, {"months": 3, "total_cents": 0}):
         assert api.call("POST", "/api/finance/installments", {"account_id": cash["id"], "purchase_date": "2030-01-01",
                                                                "concept": "x", "total_cents": 100, **bad})[0] == 422, bad

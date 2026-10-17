@@ -231,6 +231,131 @@ def test_card_statement_and_installments(api):
     assert api.call("GET", "/api/finance/installments", expect=200)[1]["installments"] == []
 
 
+def test_opening_balance_has_a_date(api):
+    """El saldo inicial es a un día: los movimientos de antes (meses viejos que
+    se cargan después) son historial y no mueven el saldo; los de después sí."""
+    cash, debit, credit, cats = setup(api, "saldo-fecha@test.com")
+    _, card = api.call("POST", "/api/finance/accounts", {"name": "TDC", "kind": "credit",
+                                                         "opening_balance_cents": -1_000_000}, expect=201)
+    assert card["opening_date"] == TODAY.isoformat(), "a balance with no day is today's"
+    old = TODAY - timedelta(days=40)
+    api.call("POST", "/api/finance/transactions", tx(card, 50_000, "Viejo", cats["Súper"], day=old), expect=201)
+    api.call("POST", "/api/finance/transactions", tx(debit, 20_000, "Pago viejo", kind="transfer", to=card, day=old),
+             expect=201)
+    accounts = {a["name"]: a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"]}
+    tdc = accounts["TDC"]
+    assert tdc["balance_cents"] == -1_000_000, "history before the day leaves the balance alone"
+    assert (tdc["before_count"], tdc["before_in_cents"], tdc["before_out_cents"]) == (2, 20_000, 50_000)
+    # La de débito no tiene día: su transferencia de entonces sí cuenta
+    assert accounts["Débito"]["balance_cents"] == -20_000 and accounts["Débito"]["opening_date"] is None
+    # Lo de hoy en adelante sí mueve el saldo, y el historial sigue en el resumen
+    api.call("POST", "/api/finance/transactions", tx(card, 10_000, "Hoy", cats["Súper"], day=TODAY), expect=201)
+    tdc = {a["name"]: a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"]}["TDC"]
+    assert tdc["balance_cents"] == -1_010_000
+    _, always = api.call("GET", "/api/finance/summary?all=true", expect=200)
+    assert always["totals"][0]["expense_cents"] == 60_000
+    # Mover el día al principio del historial: todo suma
+    api.call("PATCH", f"/api/finance/accounts/{card['id']}", {"opening_date": old.isoformat()}, expect=200)
+    tdc = {a["name"]: a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"]}["TDC"]
+    assert tdc["balance_cents"] == -1_000_000 - 50_000 + 20_000 - 10_000 and tdc["before_count"] == 0
+    # Sin día, también; un día futuro, no
+    api.call("PATCH", f"/api/finance/accounts/{card['id']}", {"opening_date": None}, expect=200)
+    status, err = api.call("PATCH", f"/api/finance/accounts/{card['id']}",
+                           {"opening_date": (TODAY + timedelta(days=3)).isoformat()})
+    assert status == 422 and "futuro" in err["detail"]
+    assert api.call("POST", "/api/finance/accounts", {"name": "Futura", "opening_balance_cents": 100,
+                                                      "opening_date": (TODAY + timedelta(days=3)).isoformat()})[0] == 422
+
+
+def test_migrate_dates_existing_opening_balances(api):
+    """migrate.py, al añadir opening_date: las cuentas con saldo inicial lo toman
+    del día en que se dieron de alta; las de saldo 0 se quedan sin día."""
+    import sqlite3
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import migrate
+    from conftest import DB_PATH
+
+    finance_on(api, "migra-saldo@test.com")
+    _, card = api.call("POST", "/api/finance/accounts", {"name": "TDC", "kind": "credit",
+                                                         "opening_balance_cents": -500}, expect=201)
+    _, zero = api.call("POST", "/api/finance/accounts", {"name": "Cero", "kind": "debit"}, expect=201)
+    connection = sqlite3.connect(DB_PATH)
+    try:
+        connection.execute("UPDATE fin_accounts SET opening_date = NULL, created_at = '2026-01-05 10:00:00'")
+        assert migrate.anchor_opening_balances(connection) == 1
+        rows = dict(connection.execute("SELECT id, opening_date FROM fin_accounts").fetchall())
+        connection.commit()
+    finally:
+        connection.close()
+    assert rows[card["id"]] == "2026-01-05" and rows[zero["id"]] is None
+
+
+def _days_for(cut_ago, due_after_cut):
+    """Día de corte y de pago con el último corte hace `cut_ago` días y el pago
+    `due_after_cut` días después de él (evita los días 29-31, que se recortan)."""
+    cut = TODAY - timedelta(days=cut_ago)
+    while cut.day > 28:
+        cut -= timedelta(days=1)
+    due = cut + timedelta(days=due_after_cut)
+    while due.day > 28:
+        due += timedelta(days=1)
+    return cut, due
+
+
+def test_card_shows_the_next_cut_when_the_payment_passed(api):
+    """El caso de una tarjeta dada de alta hoy con su deuda, con el corte y el
+    pago del mes ya pasados: enseña el PRÓXIMO corte y su pago, no uno vencido.
+    Lo que está a meses en esa deuda no se pide de golpe."""
+    cash, debit, credit, cats = setup(api, "tdc-alta@test.com")
+    cut, due = _days_for(20, 12)            # cortó hace 20 días; el pago fue hace 8
+    _, card = api.call("POST", "/api/finance/accounts", {
+        "name": "TDC 1", "kind": "credit", "opening_balance_cents": -1_000_000,
+        "statement_day": cut.day, "due_day": due.day}, expect=201)
+    _, st = api.call("GET", f"/api/finance/accounts/{card['id']}/statement", expect=200)
+    assert st["upcoming"] is True
+    assert st["last_cut"] > TODAY.isoformat() and st["due_date"] > st["last_cut"]
+    assert st["prev_cut"] == cut.isoformat()
+    assert st["debt_at_cut_cents"] == 1_000_000 and st["remaining_cents"] == 1_000_000
+    # De esos 10 000, 3 000 son meses que faltan (3 de 1 000): el próximo corte pide solo uno
+    _, plan = api.call("POST", "/api/finance/installments", {
+        "account_id": card["id"], "concept": "Celular", "total_cents": 300_000, "months": 3,
+        "purchase_date": TODAY.isoformat()}, expect=201)
+    assert plan["first_statement"] == st["last_cut"] and plan["monthly_cents"] == 100_000
+    _, st = api.call("GET", f"/api/finance/accounts/{card['id']}/statement", expect=200)
+    assert st["msi_pending_cents"] == 200_000 and st["remaining_cents"] == 800_000
+    assert [(i["concept"], i["part"]) for i in st["installments"]] == [("Celular", 1)]
+    # Un plan sin compra puede tener un mes; una compra a meses, no
+    api.call("POST", "/api/finance/installments", {"account_id": card["id"], "concept": "Última", "total_cents": 500,
+                                                   "months": 1, "purchase_date": TODAY.isoformat()}, expect=201)
+    _, bought = api.call("POST", "/api/finance/transactions", tx(card, 900, "Tenis", cats["Personal"]), expect=201)
+    assert api.call("POST", "/api/finance/installments", {"transaction_id": bought["id"], "months": 1})[0] == 422
+
+    # Dada de alta después del corte, con el pago aún por venir: tampoco se
+    # conoce lo de ese corte, así que también va al próximo
+    cut2, due2 = _days_for(3, 20)
+    _, card2 = api.call("POST", "/api/finance/accounts", {
+        "name": "TDC 2", "kind": "credit", "opening_balance_cents": -50_000,
+        "statement_day": cut2.day, "due_day": due2.day}, expect=201)
+    _, st2 = api.call("GET", f"/api/finance/accounts/{card2['id']}/statement", expect=200)
+    assert st2["upcoming"] is True and st2["last_cut"] > TODAY.isoformat()
+
+
+def test_categories_reorder(api):
+    cash, debit, credit, cats = setup(api, "orden@test.com")
+    expense = [c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]
+               if c["kind"] == "expense"]
+    ids = [c["id"] for c in expense][::-1]
+    _, body = api.call("PUT", "/api/finance/categories/order", {"kind": "expense", "ids": ids}, expect=200)
+    assert [c["id"] for c in body["categories"] if c["kind"] == "expense"] == ids
+    # Todas, una vez cada una
+    assert api.call("PUT", "/api/finance/categories/order", {"kind": "expense", "ids": ids[1:]})[0] == 422
+    assert api.call("PUT", "/api/finance/categories/order", {"kind": "expense", "ids": ids + ids[:1]})[0] == 422
+    income = [c["id"] for c in body["categories"] if c["kind"] == "income"]
+    assert api.call("PUT", "/api/finance/categories/order", {"kind": "expense", "ids": ids[1:] + income[:1]})[0] == 404
+
+
 def test_summary_of_any_range(api):
     cash, debit, credit, cats = setup(api, "rangos@test.com")
     old = TODAY - timedelta(days=500)

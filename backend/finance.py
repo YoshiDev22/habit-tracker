@@ -78,24 +78,58 @@ def user_period(session: Session, user_id: int) -> str:
     return row.period if row and row.period else "month"
 
 
+def _after_opening():
+    """Que el movimiento cuente en el saldo de la cuenta unida: es del día de su
+    saldo inicial o después (el saldo es al empezar ese día), o la cuenta no
+    tiene ese día."""
+    return or_(FinAccount.opening_date == None, FinTransaction.tx_date >= FinAccount.opening_date)  # noqa: E711
+
+
 def account_balances(session: Session, user_id: int, today: date_type) -> Dict[int, int]:
     """El saldo de cada cuenta a hoy (o al día que se pida): su saldo inicial,
     más ingresos y transferencias que llegan, menos gastos y transferencias que
-    salen. En una de crédito, negativo es lo que se debe. Lo de después no cuenta."""
+    salen. En una de crédito, negativo es lo que se debe. Lo de después no cuenta,
+    ni lo de antes del día del saldo inicial (es historial)."""
     balances = dict(session.exec(select(FinAccount.id, FinAccount.opening_balance_cents)
                                  .where(FinAccount.user_id == user_id)).all())
-    rows = session.exec(select(FinTransaction.kind, FinTransaction.account_id, FinTransaction.to_account_id,
-                               func.sum(FinTransaction.amount_cents))
-                        .where(FinTransaction.user_id == user_id, FinTransaction.tx_date <= today)
-                        .group_by(FinTransaction.kind, FinTransaction.account_id, FinTransaction.to_account_id)).all()
-    for kind, account_id, to_account_id, cents in rows:
-        if kind == "income":
-            balances[account_id] = balances.get(account_id, 0) + cents
-        else:
-            balances[account_id] = balances.get(account_id, 0) - cents
-            if kind == "transfer" and to_account_id is not None:
-                balances[to_account_id] = balances.get(to_account_id, 0) + cents
+    # Lo que sale o entra por la cuenta del movimiento, con el día de esa cuenta
+    rows = session.exec(select(FinTransaction.kind, FinTransaction.account_id, func.sum(FinTransaction.amount_cents))
+                        .join(FinAccount, FinAccount.id == FinTransaction.account_id)
+                        .where(FinTransaction.user_id == user_id, FinTransaction.tx_date <= today, _after_opening())
+                        .group_by(FinTransaction.kind, FinTransaction.account_id)).all()
+    for kind, account_id, cents in rows:
+        balances[account_id] = balances.get(account_id, 0) + (cents if kind == "income" else -cents)
+    # Lo que llega por transferencia, con el día de la cuenta que recibe
+    arrivals = session.exec(select(FinTransaction.to_account_id, func.sum(FinTransaction.amount_cents))
+                            .join(FinAccount, FinAccount.id == FinTransaction.to_account_id)
+                            .where(FinTransaction.user_id == user_id, FinTransaction.kind == "transfer",
+                                   FinTransaction.tx_date <= today, _after_opening())
+                            .group_by(FinTransaction.to_account_id)).all()
+    for account_id, cents in arrivals:
+        balances[account_id] = balances.get(account_id, 0) + cents
     return balances
+
+
+def history_before_opening(session: Session, user_id: int) -> Dict[int, tuple]:
+    """Por cuenta con día de saldo inicial: (cuántos, lo que entró, lo que salió)
+    antes de ese día. Son historial: no mueven el saldo."""
+    accounts = {a.id: a.opening_date for a in session.exec(select(FinAccount).where(
+        FinAccount.user_id == user_id, FinAccount.opening_date != None)).all()}  # noqa: E711
+    if not accounts:
+        return {}
+    out: Dict[int, list] = {}
+    for tx in session.exec(select(FinTransaction).where(
+            FinTransaction.user_id == user_id,
+            or_(FinTransaction.account_id.in_(accounts), FinTransaction.to_account_id.in_(accounts)))).all():
+        if tx.account_id in accounts and tx.tx_date < accounts[tx.account_id]:
+            row = out.setdefault(tx.account_id, [0, 0, 0])
+            row[0] += 1
+            row[1 if tx.kind == "income" else 2] += tx.amount_cents
+        if tx.kind == "transfer" and tx.to_account_id in accounts and tx.tx_date < accounts[tx.to_account_id]:
+            row = out.setdefault(tx.to_account_id, [0, 0, 0])
+            row[0] += 1
+            row[1] += tx.amount_cents
+    return {k: tuple(v) for k, v in out.items()}
 
 
 # ==================== Tarjetas de crédito: cortes y MSI ====================
@@ -146,43 +180,76 @@ def _balance_until(session: Session, account: FinAccount, until: date_type) -> i
     return account_balances(session, account.user_id, until).get(account.id, account.opening_balance_cents)
 
 
-def card_statement(session: Session, account: FinAccount, today: date_type) -> FinStatementResponse:
-    """El estado de cuenta calculado de una tarjeta con día de corte y de pago.
-    Pagar para no generar intereses = lo que se debía al último corte, menos las
-    mensualidades de MSI que aún no se facturan (la compra entró completa), menos
-    lo que ya se abonó desde el corte."""
-    last_cut = cut_on_or_before(account.statement_day, today)
-    prev_cut = cut_on_or_before(account.statement_day, last_cut - timedelta(days=1))
-    next_cut = cut_on_or_after(account.statement_day, last_cut + timedelta(days=1))
-    debt = max(0, -_balance_until(session, account, last_cut))
+def _msi_at(session: Session, account: FinAccount, cut: date_type, known_by: date_type) -> tuple:
+    """(lo que de los planes de meses aún no se factura después de `cut`, las
+    mensualidades que factura `cut`). Solo los planes con compra hasta `known_by`."""
     pending = 0
-    billed_now: List[FinStatementInstallment] = []
+    billed: List[FinStatementInstallment] = []
     for inst in session.exec(select(FinInstallment).where(
             FinInstallment.user_id == account.user_id, FinInstallment.account_id == account.id)).all():
-        for k, (cut, cents) in enumerate(installment_bills(inst, account.statement_day)):
-            if inst.purchase_date <= last_cut < cut:
+        if inst.purchase_date > known_by:
+            continue
+        for k, (bill, cents) in enumerate(installment_bills(inst, account.statement_day)):
+            if bill > cut:
                 pending += cents
-            if cut == last_cut:
-                billed_now.append(FinStatementInstallment(id=inst.id, concept=inst.concept, part=k + 1,
-                                                          months=inst.months, amount_cents=cents))
-    after_cut = select(FinTransaction).where(FinTransaction.user_id == account.user_id,
-                                             FinTransaction.tx_date > last_cut, FinTransaction.tx_date <= today)
+            elif bill == cut:
+                billed.append(FinStatementInstallment(id=inst.id, concept=inst.concept, part=k + 1,
+                                                      months=inst.months, amount_cents=cents))
+    return pending, sorted(billed, key=lambda i: i.concept)
+
+
+def _movements_between(session: Session, account: FinAccount, after: date_type, until: date_type) -> tuple:
+    """(abonos, cargos) de la tarjeta después de `after` y hasta `until`."""
     paid = charges = 0
-    for tx in session.exec(after_cut.where(or_(FinTransaction.account_id == account.id,
-                                               FinTransaction.to_account_id == account.id))).all():
+    for tx in session.exec(select(FinTransaction).where(
+            FinTransaction.user_id == account.user_id, FinTransaction.tx_date > after, FinTransaction.tx_date <= until,
+            or_(FinTransaction.account_id == account.id, FinTransaction.to_account_id == account.id))).all():
         if tx.kind == "transfer" and tx.to_account_id == account.id:
             paid += tx.amount_cents
         elif tx.kind == "income" and tx.account_id == account.id:
             paid += tx.amount_cents
         elif tx.kind in ("expense", "transfer") and tx.account_id == account.id:
             charges += tx.amount_cents
+    return paid, charges
+
+
+def card_statement(session: Session, account: FinAccount, today: date_type) -> FinStatementResponse:
+    """El estado de cuenta calculado de una tarjeta con día de corte y de pago.
+    Pagar para no generar intereses = lo que se debía al último corte, menos las
+    mensualidades de MSI que aún no se facturan (la compra entró completa), menos
+    lo que ya se abonó desde el corte.
+
+    Si el pago de ese corte ya venció, o la tarjeta se dio de alta después del
+    corte (su deuda de entonces no se conoce: se supone pagada), enseña el
+    PRÓXIMO corte con lo que lleva acumulado hasta hoy (`upcoming`)."""
+    day, opening = account.statement_day, account.opening_date
+    last_cut = cut_on_or_before(day, today)
+    due = due_after(last_cut, account.due_day)
+    if today > due or (opening is not None and last_cut < opening):
+        cut = cut_on_or_after(day, today + timedelta(days=1))
+        debt = max(0, -_balance_until(session, account, today))
+        pending, billed = _msi_at(session, account, cut, today)
+        since = last_cut if opening is None else max(last_cut, opening - timedelta(days=1))
+        _, charges = _movements_between(session, account, since, today)
+        pay = max(0, debt - pending)
+        return FinStatementResponse(
+            account_id=account.id, currency=account.currency, statement_day=day, due_day=account.due_day,
+            last_cut=cut, prev_cut=last_cut, due_date=due_after(cut, account.due_day),
+            next_cut=cut_on_or_after(day, cut + timedelta(days=1)), debt_at_cut_cents=debt,
+            msi_pending_cents=pending, pay_no_interest_cents=pay, paid_since_cut_cents=0, remaining_cents=pay,
+            cycle_charges_cents=charges, installments=billed, upcoming=True,
+        )
+    prev_cut = cut_on_or_before(day, last_cut - timedelta(days=1))
+    next_cut = cut_on_or_after(day, last_cut + timedelta(days=1))
+    debt = max(0, -_balance_until(session, account, last_cut))
+    pending, billed = _msi_at(session, account, last_cut, last_cut)
+    paid, charges = _movements_between(session, account, last_cut, today)
     pay = max(0, debt - pending)
     return FinStatementResponse(
-        account_id=account.id, currency=account.currency, statement_day=account.statement_day,
-        due_day=account.due_day, last_cut=last_cut, prev_cut=prev_cut, due_date=due_after(last_cut, account.due_day),
-        next_cut=next_cut, debt_at_cut_cents=debt, msi_pending_cents=pending, pay_no_interest_cents=pay,
-        paid_since_cut_cents=paid, remaining_cents=max(0, pay - paid), cycle_charges_cents=charges,
-        installments=sorted(billed_now, key=lambda i: i.concept),
+        account_id=account.id, currency=account.currency, statement_day=day, due_day=account.due_day,
+        last_cut=last_cut, prev_cut=prev_cut, due_date=due, next_cut=next_cut, debt_at_cut_cents=debt,
+        msi_pending_cents=pending, pay_no_interest_cents=pay, paid_since_cut_cents=paid,
+        remaining_cents=max(0, pay - paid), cycle_charges_cents=charges, installments=billed,
     )
 
 

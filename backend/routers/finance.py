@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from backend.auth import get_current_user
 from backend.database import get_session
-from backend.finance import (account_balances, account_currencies, first_transaction_date, card_statement, cut_on_or_after,
+from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, cut_on_or_after,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
 from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
@@ -23,7 +23,7 @@ from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurrin
 from backend.routers.auth import require_module
 from backend.schemas import (
     FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
-    FinStatementResponse, FinConsentResponse,
+    FinStatementResponse, FinConsentResponse, FinCategoryOrder,
     FinAccountCreate,
     FinAccountListResponse,
     FinAccountResponse,
@@ -341,10 +341,14 @@ def _account_counts(session: Session, user_id: int) -> Dict[int, int]:
     return counts
 
 
-def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dict[int, int]) -> FinAccountResponse:
+def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dict[int, int],
+                      before: Optional[Dict[int, tuple]] = None) -> FinAccountResponse:
     balance = balances.get(account.id, account.opening_balance_cents)
     credit = account.kind == "credit"
+    before_count, before_in, before_out = (before or {}).get(account.id, (0, 0, 0))
     return FinAccountResponse(
+        opening_date=account.opening_date, before_count=before_count, before_in_cents=before_in,
+        before_out_cents=before_out,
         id=account.id, name=account.name, kind=account.kind, currency=account.currency, last4=account.last4,
         is_default=account.is_default, is_active=account.is_active, order=account.order,
         tx_count=counts.get(account.id, 0), icon=account.icon, color=account.color,
@@ -352,6 +356,13 @@ def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dic
         statement_day=account.statement_day, due_day=account.due_day, balance_cents=balance,
         available_cents=account.credit_limit_cents + balance if credit and account.credit_limit_cents is not None else None,
     )
+
+
+def _opening_date(value: Optional[date_type], today: date_type) -> Optional[date_type]:
+    """El día de un saldo inicial: no puede ser futuro."""
+    if value is not None and value > today:
+        raise _unprocessable("El día del saldo no puede ser futuro")
+    return value
 
 
 def _credit_only(account: FinAccount) -> None:
@@ -376,7 +387,8 @@ def list_accounts(session: Session = Depends(get_session), user: User = Depends(
                             .order_by(FinAccount.order, FinAccount.id)).all()
     counts = _account_counts(session, user.id)
     balances = account_balances(session, user.id, _today(session, user))
-    return FinAccountListResponse(accounts=[_account_response(a, counts, balances) for a in accounts])
+    before = history_before_opening(session, user.id)
+    return FinAccountListResponse(accounts=[_account_response(a, counts, balances, before) for a in accounts])
 
 
 @router.post("/accounts", response_model=FinAccountResponse, status_code=status.HTTP_201_CREATED)
@@ -385,9 +397,14 @@ def create_account(body: FinAccountCreate, session: Session = Depends(get_sessio
     name = _clean_name(body.name)
     _unique_name(session, FinAccount, user.id, name, None, "cuenta")
     last = session.exec(select(func.max(FinAccount.order)).where(FinAccount.user_id == user.id)).one()
+    today = _today(session, user)
+    opening_date = _opening_date(body.opening_date, today)
+    if opening_date is None and body.opening_balance_cents:
+        opening_date = today   # un saldo es "a hoy" si no dice otra cosa
     account = FinAccount(user_id=user.id, name=name, kind=body.kind, currency=body.currency, last4=body.last4,
                          order=(last or 0) + 1, icon=body.icon, color=body.color,
-                         opening_balance_cents=body.opening_balance_cents, credit_limit_cents=body.credit_limit_cents,
+                         opening_balance_cents=body.opening_balance_cents, opening_date=opening_date,
+                         credit_limit_cents=body.credit_limit_cents,
                          statement_day=body.statement_day, due_day=body.due_day)
     _credit_only(account)
     if body.is_default:
@@ -427,13 +444,16 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
         raise _conflict("Una cuenta archivada no puede ser la de por defecto")
     if changes.pop("is_default", None):
         _make_default(session, user.id, account)
+    if "opening_date" in changes:
+        _opening_date(changes["opening_date"], _today(session, user))
     for field, value in changes.items():
         setattr(account, field, value)
     _credit_only(account)
     session.add(account)
     session.commit()
     session.refresh(account)
-    return _account_response(account, counts, account_balances(session, user.id, _today(session, user)))
+    return _account_response(account, counts, account_balances(session, user.id, _today(session, user)),
+                             history_before_opening(session, user.id))
 
 
 @router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -510,6 +530,24 @@ def create_category(body: FinCategoryCreate, session: Session = Depends(get_sess
     session.commit()
     session.refresh(category)
     return _category_response(category, {})
+
+
+@router.put("/categories/order", response_model=FinCategoryListResponse)
+def order_categories(body: FinCategoryOrder, session: Session = Depends(get_session),
+                     user: User = Depends(finance_user)):
+    """El orden nuevo de las categorías de un tipo: todas sus ids, sin repetir
+    (si falta o sobra alguna, 422; una de otra cuenta, 404)."""
+    mine = {c.id: c for c in session.exec(select(FinCategory).where(FinCategory.user_id == user.id,
+                                                                    FinCategory.kind == body.kind)).all()}
+    if any(i not in mine for i in body.ids):
+        raise _not_found("Categoría")
+    if len(set(body.ids)) != len(body.ids) or set(body.ids) != set(mine):
+        raise _unprocessable("Manda todas las categorías de ese tipo, una vez cada una")
+    for order, category_id in enumerate(body.ids):
+        mine[category_id].order = order
+        session.add(mine[category_id])
+    session.commit()
+    return list_categories(session=session, user=user)
 
 
 @router.patch("/categories/{category_id}", response_model=FinCategoryResponse)
@@ -862,6 +900,8 @@ def create_installment(body: FinInstallmentCreate, session: Session = Depends(ge
                                                         FinInstallment.transaction_id == tx.id)).first():
             raise _conflict("Esa compra ya está a meses")
         concept, total, purchase = tx.concept, tx.amount_cents, tx.tx_date
+        if body.months < 2:
+            raise _unprocessable("Una compra a meses va de 2 meses en adelante")
     else:
         if body.account_id is None or body.total_cents is None or body.purchase_date is None or not body.concept:
             raise _unprocessable("Sin la compra anotada, pide cuenta, concepto, total y fecha de compra")
