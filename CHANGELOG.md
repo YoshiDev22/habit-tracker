@@ -7,6 +7,46 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.30.0] — 2026-10-17
+
+Finanzas a partir de su primera prueba real: saldos desde un día, tarjetas que pasan al siguiente
+corte, un menú por cuenta, exportar e importar tus datos y un panel lateral.
+
+### Nuevo
+- **Finanzas: menú de cada cuenta.** Tocar una cuenta abre su menú: Editar, Ajustar saldo (el real de
+  hoy, sin crear movimientos), Movimientos (solo los de esa cuenta), Ingreso, Gasto y Transferencia
+  desde ella y, en una tarjeta, Pagar y Meses sin intereses.
+- **Finanzas: meses sin intereses que ya traías.** Desde el menú de la tarjeta se anotan los que le
+  quedan a una deuda de antes (mensualidad y meses que faltan), y el estado de cuenta los pide en sus
+  cortes.
+- **Finanzas: el monto del banco.** En el corte en curso puedes escribir lo que pide tu estado de
+  cuenta para no generar intereses; manda sobre el cálculo hasta el siguiente corte.
+- **Finanzas: Datos.** Exporta tus movimientos a CSV (todos o los del periodo, listo para Excel) e
+  importa un CSV con varias cuentas a la vez, el que exporta la app u otro con columnas parecidas. Las
+  cuentas y categorías que falten se crean al confirmar, y lo que ya existe no se duplica. Hasta 5 000
+  movimientos de una vez.
+- **Finanzas: panel lateral.** La inicial de tu cuenta, arriba a la izquierda, abre Configuración,
+  Datos, el aviso de privacidad y el regreso a la app.
+- **Finanzas: ocultar el total** con el 👁 junto a él (se recuerda en el dispositivo).
+
+### Cambios
+- **Saldo inicial a un día.** El saldo con el que empieza una cuenta es el de un día (por defecto, el
+  de su alta): solo los movimientos de ese día en adelante lo mueven. Los meses viejos que cargues
+  después salen en el resumen como historial, sin cambiar el saldo.
+- **Tarjetas: el siguiente corte.** Cuando ya pasó la fecha límite del último corte (o la tarjeta se
+  dio de alta después de él), el estado de cuenta enseña el próximo corte y lo que llevas para él.
+- **Subir estado de cuenta**: un solo botón; dentro eliges el archivo CSV o pegas las filas. Explica
+  qué formato acepta, con un CSV de ejemplo para descargar, y en la vista previa se corrige cada fila
+  (fecha, concepto, monto, tipo y categoría).
+- **Categorías**: el ✎ de la barra de arriba las ordena (tocar una y luego otra las cambia de lugar).
+- **Enter guarda** también mientras escribes la nota de un movimiento.
+- El botón *Agregar* de Movimientos es más discreto.
+
+### Para actualizar
+`python3 scripts/migrate.py` antes de reiniciar: agrega `fin_accounts.opening_date` y, solo al
+agregarla, pone a las cuentas con saldo inicial el día de su alta (los movimientos anteriores pasan a
+ser historial; se cambia en *Editar cuenta*). La tabla `fin_statements` la crea la app al arrancar.
+
 ## [1.29.0] — 2026-10-17
 
 Finanzas personales en prueba, por invitación, una barra de arriba más compacta y columnas que se
@@ -932,6 +972,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.30.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.0
 [1.29.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.29.0
 [1.28.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.1
 [1.28.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.0
