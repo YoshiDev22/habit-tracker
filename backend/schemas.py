@@ -1798,6 +1798,16 @@ class FinStatementResponse(SQLModel):
     # después de él) y esto es el PRÓXIMO corte: last_cut es ese corte futuro,
     # y la deuda, lo que lleva acumulado hasta hoy
     upcoming: bool = False
+    # True: pay_no_interest_cents es el del estado de cuenta del banco (lo
+    # escribió el usuario); estimated_cents, el que calculó la app
+    from_bank: bool = False
+    estimated_cents: int = 0
+
+
+class FinStatementOverride(SQLModel):
+    """El pago para no generar intereses que dice el banco, para el corte en curso."""
+    cut_date: date_type
+    pay_no_interest_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)
 
 
 class FinCategoryOrder(SQLModel):

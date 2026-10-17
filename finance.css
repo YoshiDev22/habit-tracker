@@ -364,8 +364,20 @@
     margin: 0 4px 12px;
 }
 
+/* Agregar, en Movimientos: a la vista, pero chico (un contorno, no un bloque) */
 .fin-add-btn {
-    margin-left: auto;
+    margin: 0 0 0 auto;
+    padding: 5px 14px;
+    border: 1.5px solid var(--accent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--accent);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.fin-add-btn:hover {
+    background: var(--accent-soft);
 }
 
 .fin-day {
@@ -1563,8 +1575,46 @@
 }
 
 .fin-import-amount {
+    display: flex;
+    gap: 4px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+}
+
+/* Las celdas de la vista previa son campos: se corrigen ahí mismo */
+.fin-import-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 5px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: inherit;
+    font: inherit;
+}
+
+.fin-import-table td:nth-child(1) { min-width: 128px; }
+.fin-import-table td:nth-child(2) { min-width: 150px; }
+.fin-import-table td:nth-child(3) { min-width: 130px; }
+.fin-import-table td:nth-child(4) { min-width: 130px; }
+
+.fin-import-amount select.fin-import-input {
+    width: auto;
+    flex: none;
+}
+
+.fin-import-amount.income input.fin-import-input {
+    color: var(--income-fg);
+}
+
+.fin-import-table tr.invalid .fin-import-input {
+    border-color: var(--danger-fg);
+}
+
+.fin-import-table tr.duplicate .fin-import-input {
+    color: var(--text-muted);
+    text-decoration: line-through;
 }
 
 .fin-import-amount.income {
@@ -1864,4 +1914,50 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+}
+
+/* --- Corregir el pago con lo que dice el banco --- */
+
+.fin-bank-edit {
+    margin: 2px 2px 0;
+    font-size: 0.85rem;
+}
+
+.fin-bank-form {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* La vista previa en un teléfono: cada fila, una tarjeta (fecha y monto arriba,
+   concepto y categoría a todo lo ancho), sin deslizar de lado */
+@media (max-width: 560px) {
+    .fin-import-table thead {
+        display: none;
+    }
+
+    .fin-import-table,
+    .fin-import-table tbody {
+        display: block;
+    }
+
+    .fin-import-table tr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: "date amount" "concept concept" "category category";
+        gap: 6px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .fin-import-table td {
+        padding: 0;
+        border: none;
+        min-width: 0 !important;
+    }
+
+    .fin-import-table td:nth-child(1) { grid-area: date; }
+    .fin-import-table td:nth-child(2) { grid-area: concept; }
+    .fin-import-table td:nth-child(3) { grid-area: amount; }
+    .fin-import-table td:nth-child(4) { grid-area: category; }
 }

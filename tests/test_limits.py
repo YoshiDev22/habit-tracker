@@ -253,6 +253,9 @@ def test_personal_finance(api):
     assert api.call("PUT", f"{cats}/order", {"kind": "expense", "ids": list(range(1, 202))})[0] == 422
     assert api.call("PUT", f"{cats}/order", {"kind": "transfer", "ids": [cat["id"]]})[0] == 422
     assert api.call("PATCH", f"{acc}/{cash['id']}", {"opening_date": "ayer"})[0] == 422
+    for bad in ({"cut_date": "2026-01-05", "pay_no_interest_cents": -1},
+                {"cut_date": "2026-01-05", "pay_no_interest_cents": 100_000_000_001}, {"pay_no_interest_cents": 5}):
+        assert api.call("PUT", f"{acc}/{cash['id']}/statement", bad)[0] == 422, bad
 
     txs = "/api/finance/transactions"
     ok = tx(cash, 100, "ok", cat)

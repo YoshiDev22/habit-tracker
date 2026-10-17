@@ -209,7 +209,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
 `ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`, las de Finanzas (`FinAccount`, `FinCategory`,
-`FinTransaction`, `FinRecurring`, `FinSettings`),
+`FinTransaction`, `FinRecurring`, `FinSettings`, `FinSplit`, `FinInstallment`, `FinStatement`),
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -517,7 +517,10 @@ Lo que no se ve en Swagger:
   sin facturar − lo abonado desde el corte (transferencias que llegan e ingresos a la tarjeta).
   Si el pago de ese corte ya venció, o la tarjeta se dio de alta después del corte (lo de entonces se
   supone pagado), enseña el **próximo** corte (`upcoming`): su fecha y su pago, con lo acumulado hasta
-  hoy menos los MSI que vienen después.
+  hoy menos los MSI que vienen después. En el corte en curso (no en el próximo) el usuario puede
+  escribir lo que pide **el banco** (`PUT`/`DELETE /accounts/{id}/statement`, tabla `fin_statements`,
+  una fila por tarjeta y corte): manda sobre el cálculo (`from_bank`, con `estimated_cents`) hasta el
+  siguiente corte, que vuelve a calcular. Borrar la tarjeta se lleva sus filas.
   **MSI** (`fin_installments`, `/installments`): una compra a meses cuenta como gasto completa el día
   que se hace (regla de la fase 1); el plan solo dice cuánto pide cada corte (`installment_parts()`,
   los centavos que sobran a las primeras), desde el primer corte en o después de la compra. Una
@@ -574,7 +577,9 @@ Lo que no se ve en Swagger:
   ingreso "Sueldo", `finSalaryFixed()`), con *Dejar para después* y una línea discreta mientras no
   haya. Pegar el estado de cuenta (`finance-import.js`, `rowsToFinance()`): lo que ya existe en esa
   cuenta sale tachado y un abono a una tarjeta de crédito se salta. *¿Qué formato acepta?* lo explica y
-  descarga un CSV de ejemplo (`finSampleCsv()`, armado en el navegador). Ajustes es un desglose con
+  descarga un CSV de ejemplo (`finSampleCsv()`, armado en el navegador). En la vista previa cada fila se
+  corrige (fecha, concepto, monto, gasto o ingreso y categoría; la elegida a mano manda) y en un teléfono
+  cada fila es una tarjeta. Ajustes es un desglose con
   `createDrillDown()`. Las hojas que suben desde abajo llevan su pila (`finSheets`) para el Escape.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).

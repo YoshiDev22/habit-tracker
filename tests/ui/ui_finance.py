@@ -414,6 +414,7 @@ async def main():
         await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
         check([t["amount_cents"] for t in transactions() if t["concept"] == "Tacos"] == [25000], "the edit is saved")
         await no_sideways("Movimientos")
+        await b.shot("finance_transactions", full=False)
 
         # Pegar el estado de cuenta: lo repetido sale tachado y no entra
         await b.js("document.getElementById('finPasteBtn').click()")
@@ -424,9 +425,26 @@ async def main():
         await b.wait_for("document.querySelectorAll('#finImportRows tr.duplicate').length === 1")
         summary_text = await b.js("document.getElementById('finImportSummary').textContent")
         check(summary_text.startswith("1 de 2"), f"the repeated row is skipped ({summary_text})")
+        # La vista previa se corrige antes de agregar: concepto, monto y categoría
+        salud = [c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"] if c["name"] == "Salud"][0]
+
+        async def edit_cell(field, value):
+            await b.js(f"""(() => {{
+                const input = document.querySelector('#finImportRows [data-row="1"][data-field="{field}"]');
+                input.value = {json.dumps(value)};
+                input.dispatchEvent(new Event('change', {{bubbles: true}}));
+            }})()""")
+            await asyncio.sleep(0.3)
+
+        await edit_cell("concept", "Farmacia del barrio")
+        await edit_cell("amount_cents", "130")
+        await edit_cell("category", str(salud["id"]))
+        await b.shot("finance_import_edit", full=False)
         await b.js("document.getElementById('finImportConfirm').click()")
         await b.wait_for("document.getElementById('finImportModal').classList.contains('hidden')")
-        check(any(t["concept"] == "Farmacia" and t["amount_cents"] == 12050 for t in transactions()), "the new row is added")
+        added = [t for t in transactions() if t["concept"] == "Farmacia del barrio"]
+        check(len(added) == 1 and added[0]["amount_cents"] == 13000 and added[0]["category_id"] == salud["id"],
+              f"the row is added as corrected in the preview ({added})")
 
         # Resumen
         await b.js("document.querySelector('#finNav [data-tab=\"overview\"]').click()")
@@ -485,6 +503,31 @@ async def main():
         await asyncio.sleep(0.2)
         await b.shot("finance_categories_dark", full=False)
         await b.js("document.documentElement.setAttribute('data-theme', 'light')")
+
+        # Corregir el pago con lo que dice el banco (una tarjeta con su corte en curso)
+        cut = TODAY - timedelta(days=5)
+        while cut.day > 28:
+            cut -= timedelta(days=1)
+        due = cut + timedelta(days=15)
+        while due.day > 28:
+            due += timedelta(days=1)
+        _, bank_card = api.call("POST", "/api/finance/accounts", {
+            "name": "Banco", "kind": "credit", "opening_balance_cents": -200_000,
+            "opening_date": (cut - timedelta(days=30)).isoformat(), "statement_day": cut.day, "due_day": due.day},
+            expect=201)
+        await b.goto(BASE + "/finance", wait=2.5)
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        await b.wait_for(f"!!document.querySelector('[data-bank-edit=\"{bank_card['id']}\"]')")
+        await b.js(f"document.querySelector('[data-bank-edit=\"{bank_card['id']}\"]').click()")
+        await b.js("""(() => { const input = document.querySelector('.fin-bank-form input');
+            input.value = '1500'; document.querySelector('.fin-bank-form [type="submit"]').click(); })()""")
+        st = await wait_api(f"/api/finance/accounts/{bank_card['id']}/statement", lambda body: body["from_bank"])
+        check(st["from_bank"] and st["pay_no_interest_cents"] == 150_000 and st["estimated_cents"] == 200_000,
+              f"the bank's amount replaces the estimate for this cut ({st['pay_no_interest_cents']})")
+        facts = await b.wait_for(f"""(document.querySelector('[data-statement-for="{bank_card['id']}"] .fin-statement-facts')
+            || {{}}).textContent""", lambda v: v and "según tu estado de cuenta" in v)
+        check("según tu estado de cuenta" in (facts or ""), f"the card says where the amount comes from ({facts})")
 
         # El teléfono más angosto común (360px) con la letra más grande: nada se sale de
         # lado en ninguna pestaña ni hoja

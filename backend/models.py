@@ -882,6 +882,24 @@ class FinSplit(SQLModel, table=True):
     order: int = Field(default=0)
 
 
+class FinStatement(SQLModel, table=True):
+    """
+    Lo que pide el estado de cuenta del banco para no generar intereses en un
+    corte de una tarjeta, cuando el usuario lo corrige: manda sobre el cálculo
+    de la app para ese corte (`card_statement()`). Uno por tarjeta y corte; el
+    siguiente corte vuelve al cálculo.
+    """
+    __tablename__ = "fin_statements"
+    __table_args__ = (UniqueConstraint("account_id", "cut_date", name="uq_fin_statements_cut"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    cut_date: date_type
+    pay_no_interest_cents: int
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
 class FinInstallment(SQLModel, table=True):
     """
     Una compra a meses sin intereses en una tarjeta de crédito. La compra cuenta

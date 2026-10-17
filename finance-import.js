@@ -7,7 +7,8 @@
 // existe en esa cuenta (mismo día, monto y tipo, contando repeticiones) sale
 // tachado y no entra salvo que se pida, y un abono a una tarjeta de crédito se
 // salta: es el pago, y va como transferencia. Nada se guarda hasta "Agregar"
-// (POST /transactions/import: o todos o ninguno).
+// (POST /transactions/import: o todos o ninguno). En la vista previa cada fila
+// se corrige: fecha, concepto, monto, gasto o ingreso y categoría.
 
 const finImportModal = document.getElementById('finImportModal');
 let finPending = null;
@@ -78,12 +79,16 @@ function rowsToFinance(table) {
             kind,
             amount_cents: cents,
         };
-        row.problem = !row.concept ? 'sin concepto'
-            : row.tx_date == null ? `fecha "${dateText}" no válida`
-                : !row.amount_cents ? 'sin monto'
-                    : null;
+        row.problem = finRowProblem(row, dateText);
         return row;
     });
+}
+
+function finRowProblem(row, dateText = '') {
+    return !row.concept ? 'sin concepto'
+        : row.tx_date == null ? (dateText ? `fecha "${dateText}" no válida` : 'sin fecha')
+            : !row.amount_cents ? 'sin monto'
+                : null;
 }
 
 // La categoría de cada fila: la escrita si existe y es de su tipo; si no, la
@@ -153,7 +158,9 @@ async function refreshFinImport() {
             row.duplicate = true;
             counts.set(key, counts.get(key) - 1);
         }
-        const category = finRowCategory(row);
+        // La que se eligió a mano en la vista previa manda, si es del tipo de la fila
+        const chosen = row.manualCategory && finKindCategories(row.kind).find(c => c.id === row.manualCategory);
+        const category = chosen || finRowCategory(row);
         row.category_id = category ? category.id : null;
         row.categoryLabel = category ? category.name : '—';
     });
@@ -171,11 +178,47 @@ function renderFinImport(account, checked) {
         : `${valid} de ${rows.length} ${rows.length === 1 ? 'fila' : 'filas'} se agregarán a "${account ? account.name : ''}".`
             + (rows.some(r => r.skip) ? ' Las marcadas en rojo se saltan.' : '')
             + (checked ? '' : ' No pude revisar si ya existían.');
-    document.getElementById('finImportRows').replaceChildren(...rows.map(r => {
+    // Cada fila se corrige en su sitio; al cambiar algo se vuelve a revisar
+    document.getElementById('finImportRows').replaceChildren(...rows.map((r, i) => {
         const tr = el('tr', r.skip ? 'invalid' : (r.duplicate && !includeDupes ? 'duplicate' : ''));
-        const amount = r.amount_cents ? `${r.kind === 'income' ? '+' : '−'}${formatMoney(r.amount_cents, currency)}` : '—';
-        [r.tx_date ? finShortDate(r.tx_date) : '—', r.concept || '—', amount, r.skip ? '' : r.categoryLabel]
-            .forEach((text, i) => tr.appendChild(el('td', i === 2 ? `fin-import-amount ${r.kind}` : '', text)));
+        const field = (tag, name, attrs = {}) => {
+            const input = el(tag, 'fin-import-input');
+            input.dataset.row = String(i);
+            input.dataset.field = name;
+            Object.assign(input, attrs);
+            return input;
+        };
+        const date = field('input', 'tx_date', { type: 'date', value: r.tx_date || '' });
+        date.setAttribute('aria-label', 'Fecha');
+        const concept = field('input', 'concept', { type: 'text', value: r.concept, maxLength: 200 });
+        concept.setAttribute('aria-label', 'Concepto');
+        const kind = field('select', 'kind');
+        kind.setAttribute('aria-label', 'Tipo');
+        [['expense', '−'], ['income', '+']].forEach(([value, text]) => {
+            const option = el('option', '', text);
+            option.value = value;
+            kind.appendChild(option);
+        });
+        kind.value = r.kind;
+        const amount = field('input', 'amount_cents', {
+            type: 'text', inputMode: 'decimal', value: r.amount_cents ? (r.amount_cents / 100).toFixed(2) : '' });
+        amount.setAttribute('aria-label', `Monto en ${currency}`);
+        const money = el('span', `fin-import-amount ${r.kind}`);
+        money.append(kind, amount);
+        const category = field('select', 'category');
+        category.setAttribute('aria-label', 'Categoría');
+        finKindCategories(r.kind).forEach(c => {
+            const option = el('option', '', c.name);
+            option.value = String(c.id);
+            category.appendChild(option);
+        });
+        if (r.category_id) category.value = String(r.category_id);
+        category.disabled = Boolean(r.skip);
+        [date, concept, money, category].forEach(cell => {
+            const td = el('td');
+            td.appendChild(cell);
+            tr.appendChild(td);
+        });
         if (r.skip) tr.title = r.skip;
         else if (r.duplicate) tr.title = 'Ya hay uno igual (mismo día, monto y cuenta)';
         return tr;
@@ -239,6 +282,27 @@ async function confirmFinImport() {
         button.disabled = false;
     }
 }
+
+document.getElementById('finImportRows').addEventListener('change', (event) => {
+    const input = event.target.closest('[data-field]');
+    if (!input || !finPending) return;
+    const row = finPending.rows[Number(input.dataset.row)];
+    if (!row) return;
+    const value = input.value.trim();
+    if (input.dataset.field === 'tx_date') row.tx_date = value || null;
+    else if (input.dataset.field === 'concept') row.concept = value.slice(0, 200);
+    else if (input.dataset.field === 'amount_cents') {
+        const cents = parseMoneyCents(value);
+        row.amount_cents = cents ? Math.abs(cents) : null;
+    } else if (input.dataset.field === 'kind') {
+        row.kind = value;
+        row.manualCategory = null;
+    } else if (input.dataset.field === 'category') {
+        row.manualCategory = Number(value);
+    }
+    row.problem = finRowProblem(row);
+    refreshFinImport();
+});
 
 let finImportTimer = null;
 document.getElementById('finImportText').addEventListener('input', () => {

@@ -15,15 +15,15 @@ from sqlmodel import Session, select
 
 from backend.auth import get_current_user
 from backend.database import get_session
-from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, cut_on_or_after,
+from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, bank_statement, cut_on_or_after,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
 from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
-                            FinTransaction, User, utc_now_naive)
+                            FinStatement, FinTransaction, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
     FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
-    FinStatementResponse, FinConsentResponse, FinCategoryOrder,
+    FinStatementResponse, FinConsentResponse, FinCategoryOrder, FinStatementOverride,
     FinAccountCreate,
     FinAccountListResponse,
     FinAccountResponse,
@@ -471,6 +471,9 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
         raise _conflict(f"'{account.name}' tiene compras a meses: archívala en vez de borrarla")
     if account.is_default:
         raise _conflict(f"'{account.name}' es tu cuenta por defecto: elige otra antes de borrarla")
+    for row in session.exec(select(FinStatement).where(FinStatement.user_id == user.id,
+                                                       FinStatement.account_id == account.id)).all():
+        session.delete(row)
     session.delete(account)
     session.commit()
 
@@ -854,6 +857,44 @@ def account_statement(account_id: int, session: Session = Depends(get_session), 
     if not account.statement_day or not account.due_day:
         raise _conflict(f"Pon el día de corte y el de pago de '{account.name}' para calcular su pago")
     generate_due(session, user.id, _today(session, user))
+    return card_statement(session, account, _today(session, user))
+
+
+def _current_cut(session: Session, user: User, account_id: int, cut_date: date_type) -> FinAccount:
+    """La tarjeta, si `cut_date` es el corte que su estado de cuenta enseña ahora
+    (uno que ya pasó; el próximo aún no tiene estado de cuenta del banco)."""
+    account = _credit_card(session, user.id, account_id)
+    if not account.statement_day or not account.due_day:
+        raise _conflict(f"Pon el día de corte y el de pago de '{account.name}' primero")
+    st = card_statement(session, account, _today(session, user))
+    if st.upcoming or st.last_cut != cut_date:
+        raise _conflict("Solo se corrige el corte en curso, el que ya llegó y aún no vence")
+    return account
+
+
+@router.put("/accounts/{account_id}/statement", response_model=FinStatementResponse)
+def set_bank_statement(account_id: int, body: FinStatementOverride, session: Session = Depends(get_session),
+                       user: User = Depends(finance_user)):
+    """El pago para no generar intereses que dice el banco, para el corte en
+    curso: manda sobre el cálculo de la app hasta el siguiente corte."""
+    account = _current_cut(session, user, account_id, body.cut_date)
+    row = bank_statement(session, account, body.cut_date) or FinStatement(
+        user_id=user.id, account_id=account.id, cut_date=body.cut_date, pay_no_interest_cents=0)
+    row.pay_no_interest_cents = body.pay_no_interest_cents
+    session.add(row)
+    session.commit()
+    return card_statement(session, account, _today(session, user))
+
+
+@router.delete("/accounts/{account_id}/statement", response_model=FinStatementResponse)
+def clear_bank_statement(account_id: int, cut_date: date_type, session: Session = Depends(get_session),
+                         user: User = Depends(finance_user)):
+    """Vuelve al cálculo de la app en ese corte."""
+    account = _current_cut(session, user, account_id, cut_date)
+    row = bank_statement(session, account, cut_date)
+    if row:
+        session.delete(row)
+        session.commit()
     return card_statement(session, account, _today(session, user))
 
 

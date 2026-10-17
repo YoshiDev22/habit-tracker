@@ -21,7 +21,8 @@ from sqlmodel import Session, select
 
 import calendar
 
-from backend.models import FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit, FinTransaction
+from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
+                            FinStatement, FinTransaction)
 from backend.schemas import (FinAccountTotal, FinCategoryTotal, FinCurrencyTotal, FinStatementInstallment,
                              FinStatementResponse, FinSummaryResponse)
 from backend.series import adjacent_period, next_date, period_bounds
@@ -237,20 +238,31 @@ def card_statement(session: Session, account: FinAccount, today: date_type) -> F
             last_cut=cut, prev_cut=last_cut, due_date=due_after(cut, account.due_day),
             next_cut=cut_on_or_after(day, cut + timedelta(days=1)), debt_at_cut_cents=debt,
             msi_pending_cents=pending, pay_no_interest_cents=pay, paid_since_cut_cents=0, remaining_cents=pay,
-            cycle_charges_cents=charges, installments=billed, upcoming=True,
+            cycle_charges_cents=charges, installments=billed, upcoming=True, estimated_cents=pay,
         )
     prev_cut = cut_on_or_before(day, last_cut - timedelta(days=1))
     next_cut = cut_on_or_after(day, last_cut + timedelta(days=1))
     debt = max(0, -_balance_until(session, account, last_cut))
     pending, billed = _msi_at(session, account, last_cut, last_cut)
     paid, charges = _movements_between(session, account, last_cut, today)
-    pay = max(0, debt - pending)
+    estimated = max(0, debt - pending)
+    # Si el usuario escribió lo que pide su estado de cuenta, eso manda en este corte
+    bank = bank_statement(session, account, last_cut)
+    pay = bank.pay_no_interest_cents if bank else estimated
     return FinStatementResponse(
         account_id=account.id, currency=account.currency, statement_day=day, due_day=account.due_day,
         last_cut=last_cut, prev_cut=prev_cut, due_date=due, next_cut=next_cut, debt_at_cut_cents=debt,
         msi_pending_cents=pending, pay_no_interest_cents=pay, paid_since_cut_cents=paid,
         remaining_cents=max(0, pay - paid), cycle_charges_cents=charges, installments=billed,
+        from_bank=bank is not None, estimated_cents=estimated,
     )
+
+
+def bank_statement(session: Session, account: FinAccount, cut: date_type) -> Optional[FinStatement]:
+    """Lo que el usuario escribió del estado de cuenta de ese corte, si lo hizo."""
+    return session.exec(select(FinStatement).where(FinStatement.user_id == account.user_id,
+                                                   FinStatement.account_id == account.id,
+                                                   FinStatement.cut_date == cut)).first()
 
 
 def splits_by_transaction(session: Session, user_id: int, tx_ids: List[int]) -> Dict[int, List[FinSplit]]:

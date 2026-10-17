@@ -974,11 +974,25 @@ function finStatementView(card, st, plans) {
         facts.push(`Llevas ${money(st.pay_no_interest_cents)} para ese corte`);
         if (st.msi_pending_cents) facts.push(`sin contar ${money(st.msi_pending_cents)} de meses que vienen después`);
     } else {
-        facts.push(`Corte del ${finShortDate(st.last_cut)}: ${money(st.pay_no_interest_cents)}`);
+        facts.push(st.from_bank
+            ? `Corte del ${finShortDate(st.last_cut)}: ${money(st.pay_no_interest_cents)}, según tu estado de cuenta `
+              + `(la app calculaba ${money(st.estimated_cents)})`
+            : `Corte del ${finShortDate(st.last_cut)}: ${money(st.pay_no_interest_cents)}`);
         if (st.paid_since_cut_cents) facts.push(`ya pagaste ${money(st.paid_since_cut_cents)}`);
         if (st.cycle_charges_cents) facts.push(`desde el corte, ${money(st.cycle_charges_cents)} (van al del ${finShortDate(st.next_cut)})`);
     }
     lines.push(el('p', 'fin-statement-facts', facts.join(' · ')));
+    // El corte en curso se corrige con lo que dice el banco
+    if (!st.upcoming) {
+        const fix = el('button', 'link-btn fin-bank-edit', st.from_bank ? 'Cambiar el monto del banco'
+            : 'Corregir con tu estado de cuenta');
+        fix.type = 'button';
+        fix.dataset.bankEdit = String(card.id);
+        fix.dataset.cut = st.last_cut;
+        fix.dataset.amount = String(st.pay_no_interest_cents);
+        fix.dataset.fromBank = st.from_bank ? '1' : '';
+        lines.push(fix);
+    }
     if (plans.length) {
         const list = el('ul', 'fin-msi-list');
         plans.forEach(p => {
@@ -1002,7 +1016,74 @@ document.getElementById('finAccountTabs').addEventListener('click', (event) => {
     finState.accountsSub = button.dataset.sub;
     finRenderAccounts();
 });
+// El formulario de "lo que dice el banco", en lugar del enlace
+function finBankForm(button) {
+    const form = el('form', 'fin-bank-form');
+    form.dataset.bankCard = button.dataset.bankEdit;
+    form.dataset.cut = button.dataset.cut;
+    const label = el('label', 'fin-field wide', 'Pago para no generar intereses, según tu estado de cuenta');
+    const input = el('input');
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    input.autocomplete = 'off';
+    input.value = (Number(button.dataset.amount) / 100).toFixed(2);
+    label.appendChild(input);
+    const actions = el('div', 'fin-form-actions wide');
+    if (button.dataset.fromBank) {
+        const reset = el('button', 'link-btn', 'Usar el cálculo de la app');
+        reset.type = 'button';
+        reset.dataset.bankReset = '1';
+        actions.appendChild(reset);
+    }
+    const cancel = el('button', 'link-btn', 'Cancelar');
+    cancel.type = 'button';
+    cancel.dataset.bankCancel = '1';
+    const save = el('button', 'submit-btn', 'Guardar');
+    save.type = 'submit';
+    actions.append(cancel, save);
+    form.append(label, actions, el('div', 'form-error hidden'));
+    button.replaceWith(form);
+    input.select();
+}
+
+async function finSaveBank(form, reset) {
+    const errorEl = form.querySelector('.form-error');
+    const url = `/api/finance/accounts/${form.dataset.bankCard}/statement`;
+    try {
+        if (reset) {
+            await apiFetch(`${url}?cut_date=${form.dataset.cut}`, { method: 'DELETE' });
+        } else {
+            const cents = parseMoneyCents(form.querySelector('input').value.trim());
+            if (cents == null || cents < 0) return showError(errorEl, 'Escribe el monto: solo números.');
+            await apiFetch(url, { method: 'PUT', json: { cut_date: form.dataset.cut, pay_no_interest_cents: cents } });
+        }
+        finRenderAccounts();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+}
+
+document.getElementById('finAccountsBody').addEventListener('submit', (event) => {
+    const form = event.target.closest('.fin-bank-form');
+    if (!form) return;
+    event.preventDefault();
+    finSaveBank(form, false);
+});
+
 document.getElementById('finAccountsBody').addEventListener('click', (event) => {
+    const bankEdit = event.target.closest('[data-bank-edit]');
+    if (bankEdit) {
+        finBankForm(bankEdit);
+        return;
+    }
+    if (event.target.closest('[data-bank-cancel]')) {
+        finRenderAccounts();
+        return;
+    }
+    if (event.target.closest('[data-bank-reset]')) {
+        finSaveBank(event.target.closest('.fin-bank-form'), true);
+        return;
+    }
     const pay = event.target.closest('[data-pay-card]');
     if (pay) {
         const options = [{ label: 'Sin intereses', cents: Number(pay.dataset.payAmount) }];

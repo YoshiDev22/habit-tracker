@@ -341,6 +341,40 @@ def test_card_shows_the_next_cut_when_the_payment_passed(api):
     assert st2["upcoming"] is True and st2["last_cut"] > TODAY.isoformat()
 
 
+def test_the_bank_amount_overrides_the_estimate(api):
+    """Lo que pide el estado de cuenta del banco, escrito por el usuario, manda
+    sobre el cálculo en el corte en curso; quitarlo vuelve al cálculo."""
+    cash, debit, credit, cats = setup(api, "banco@test.com")
+    cut, due = _days_for(5, 15)             # cortó hace 5 días; el pago, en 10
+    _, card = api.call("POST", "/api/finance/accounts", {
+        "name": "TDC", "kind": "credit", "opening_balance_cents": -400_000,
+        "opening_date": (cut - timedelta(days=30)).isoformat(),
+        "statement_day": cut.day, "due_day": due.day}, expect=201)
+    api.call("POST", "/api/finance/transactions", tx(debit, 50_000, "Abono", kind="transfer", to=card), expect=201)
+    url = f"/api/finance/accounts/{card['id']}/statement"
+    _, st = api.call("GET", url, expect=200)
+    assert not st["upcoming"] and not st["from_bank"] and st["pay_no_interest_cents"] == 400_000
+    assert st["last_cut"] == cut.isoformat() and st["remaining_cents"] == 350_000
+    _, st = api.call("PUT", url, {"cut_date": cut.isoformat(), "pay_no_interest_cents": 320_000}, expect=200)
+    assert st["from_bank"] and st["pay_no_interest_cents"] == 320_000 and st["estimated_cents"] == 400_000
+    assert st["remaining_cents"] == 270_000
+    # Corregirlo otra vez reemplaza; otro corte, no
+    _, st = api.call("PUT", url, {"cut_date": cut.isoformat(), "pay_no_interest_cents": 300_000}, expect=200)
+    assert st["remaining_cents"] == 250_000
+    assert api.call("PUT", url, {"cut_date": (cut - timedelta(days=30)).isoformat(),
+                                 "pay_no_interest_cents": 1})[0] == 409
+    _, st = api.call("DELETE", f"{url}?cut_date={cut.isoformat()}", expect=200)
+    assert not st["from_bank"] and st["pay_no_interest_cents"] == 400_000
+    # Borrar la tarjeta (sin movimientos) se lleva lo escrito
+    _, empty = api.call("POST", "/api/finance/accounts", {
+        "name": "Vacía", "kind": "credit", "opening_balance_cents": -1000,
+        "opening_date": (cut - timedelta(days=30)).isoformat(), "statement_day": cut.day, "due_day": due.day},
+        expect=201)
+    api.call("PUT", f"/api/finance/accounts/{empty['id']}/statement",
+             {"cut_date": cut.isoformat(), "pay_no_interest_cents": 500}, expect=200)
+    api.call("DELETE", f"/api/finance/accounts/{empty['id']}", expect=204)
+
+
 def test_categories_reorder(api):
     cash, debit, credit, cats = setup(api, "orden@test.com")
     expense = [c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]
