@@ -275,13 +275,12 @@ def test_migrate_dates_existing_opening_balances(api):
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
     import migrate
-    from conftest import DB_PATH
 
     finance_on(api, "migra-saldo@test.com")
     _, card = api.call("POST", "/api/finance/accounts", {"name": "TDC", "kind": "credit",
                                                          "opening_balance_cents": -500}, expect=201)
     _, zero = api.call("POST", "/api/finance/accounts", {"name": "Cero", "kind": "debit"}, expect=201)
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(engine.url.database)
     try:
         connection.execute("UPDATE fin_accounts SET opening_date = NULL, created_at = '2026-01-05 10:00:00'")
         assert migrate.anchor_opening_balances(connection) == 1
