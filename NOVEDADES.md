@@ -4,6 +4,19 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.29.0 — 2026-10-17
+### Nuevas funciones
+- **Finanzas (en prueba)**: tus cuentas, tarjetas y gastos en una página aparte, con el saldo de
+  cada cuenta y cuánto pagar de tu tarjeta para no generar intereses. Por ahora el acceso es solo
+  por invitación.
+### Cambios
+- **Más espacio arriba**: tu nombre, el tema, ⚙️ y Cerrar sesión se abren al tocar el círculo con
+  tu inicial, a la derecha del título. La campanita sigue a la vista.
+- **Ocultar columnas del tablero**: en **▾ Filtros**, la fila **Columnas** esconde las que no quieres
+  ver; los filtros se pueden plegar. El tiempo de cada tarjeta va ahora en corto (1.5h/3h).
+- **Aviso de privacidad**: ahora dice qué guarda Finanzas y que solo lo hace con tu permiso expreso
+  (en **Mi perfil › Aviso de privacidad**).
+
 ## 1.28.1 — 2026-10-15
 ### Cambios
 - **Más privacidad en el servidor**: los registros técnicos de la app ya no guardan tu correo ni los

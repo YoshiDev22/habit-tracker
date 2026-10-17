@@ -7,6 +7,58 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.29.0] — 2026-10-17
+
+Finanzas personales en prueba, por invitación, una barra de arriba más compacta y columnas que se
+ocultan en el tablero.
+
+### Nuevo
+- **Finanzas** (en prueba; el acceso se da por cuenta, desde el panel de administración o con
+  `grant_module.py --module finance`). Una página aparte, `/finance`, con la misma sesión que la app y
+  la pestaña *Finanzas* como enlace:
+  - **Cuentas** de efectivo, débito y crédito, con su saldo (el inicial más sus movimientos). Las
+    tarjetas llevan límite y disponible, día de corte y de pago, y su **estado de cuenta**: el último
+    corte, la fecha límite y cuánto pagar para no generar intereses.
+  - **Pagar la tarjeta** propone ese monto o toda la deuda, y acepta otro (pagar de más).
+  - **Compras a meses sin intereses**: la compra cuenta completa el día que se hace, y el estado de
+    cuenta pide cada mensualidad en su corte.
+  - **Dividir un cargo** en varias categorías.
+  - **Categorías** en un anillo; tocar una abre el monto con un teclado calculadora, la cuenta, la
+    fecha y, si se repite, su periodicidad (mensual, quincenal en dos días cualquiera, anual).
+  - **Fijos**: el sueldo y los gastos que se repiten se anotan solos en su fecha.
+  - **Periodo**: el tuyo (mes o quincena), un día, la semana, el mes, el año, siempre o un rango. El
+    resumen tiene la gráfica de gasto por día (o por mes) con su eje.
+  - **Pegar un estado de cuenta** o un CSV, con vista previa y sin duplicar lo que ya está.
+  - La primera vez pide el **consentimiento expreso** para guardar datos financieros y guarda su fecha;
+    sin él, la API de Finanzas no guarda ni enseña nada.
+- **Panel de administración**: da y quita el acceso a Finanzas en *Gestionar*, como Maker e IA. El
+  panel solo cuenta movimientos, nunca montos ni conceptos.
+- **Tablero: ocultar columnas.** Los filtros tienen una fila *Columnas*: apagar un chip oculta esa
+  columna (siempre queda una, y *Mover a…* la ofrece como "(oculta)"). Se recuerda en el dispositivo, por
+  tablero. *▾ Filtros* pliega las filas y, plegado, dice cuántos filtros hay activos.
+- **Panel de administración**: su propio icono en la pestaña del navegador.
+
+### Cambios
+- **Barra de arriba**: ya no ocupa una franja propia. A la altura del título quedan la campanita y un
+  círculo con tu inicial (con el contorno del plan Maker si lo tienes); al tocarlo se despliegan tu
+  nombre, el tema, ⚙️, la versión y Cerrar sesión.
+- **Tiempo en las tarjetas**: en corto y en la línea de las etiquetas ("1.5h/3h"); al lado del título lo
+  partía en varias líneas. Lo exacto, al pasar el cursor.
+- **Aviso de privacidad**: qué guarda Finanzas, para qué, que no va a la IA ni a nadie más, que el
+  consentimiento es expreso y cómo dejar de usarla. *Descargar mis datos* y *Borrar mi cuenta* ya
+  incluyen tus datos de Finanzas.
+
+### Para quien desarrolla
+- `core.js` reúne lo que comparten la app y la página de Finanzas (token, `apiFetch`, modales,
+  confirmación, tema, dinero y tablas pegadas). La regla de las series de cobros vive en
+  `backend/series.py`, para Costos y Finanzas.
+
+### Para actualizar
+`python3 scripts/migrate.py` antes de reiniciar: las tablas de Finanzas son nuevas y las crea la app al
+arrancar; migrate.py solo completa columnas en bases que ya las tenían. Luego reiniciar la app y el
+panel, y dar el acceso a Finanzas a quien la vaya a probar. El aviso de privacidad cambió: avisarlo con
+un 📢 (panel de administración o `scripts/announce.py`).
+
 ## [1.28.1] — 2026-10-15
 
 ### Cambios
@@ -880,6 +932,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.29.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.29.0
 [1.28.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.1
 [1.28.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.0
 [1.27.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.27.1
