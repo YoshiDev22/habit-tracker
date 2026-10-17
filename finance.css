@@ -510,9 +510,22 @@
     display: block;
 }
 
+.fin-columns {
+    max-height: 260px;
+}
+
 .fin-columns-label {
     font-size: 9px;
     fill: var(--text-muted);
+}
+
+.fin-columns-grid {
+    stroke: var(--border-color);
+    stroke-dasharray: 3 3;
+}
+
+.fin-columns-base {
+    stroke: var(--border-strong);
 }
 
 .fin-catbar {
@@ -816,6 +829,67 @@
 
 #finSplitSheet {
     z-index: 1010;
+}
+
+/* --- El periodo --- */
+
+#finRangeSheet {
+    z-index: 1010;
+}
+
+.fin-tile-text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 26px;
+    padding: 0 4px;
+    border: 2px solid currentColor;
+    border-radius: 7px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.fin-range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.fin-range-inputs input {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.95rem;
+}
+
+.fin-date-tile[hidden] {
+    display: none;
+}
+
+/* El monto que propuso la app: se ve elegido y se reemplaza al teclear */
+.fin-entry-expr.prefilled {
+    background: var(--accent-soft);
+    border-radius: 10px;
+    padding: 0 10px;
+}
+
+.fin-entry-flags {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.fin-pay-hint {
+    flex-basis: 100%;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-bottom: 8px;
 }
 
 /* --- Abajo: las pestañas --- */

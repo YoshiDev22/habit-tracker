@@ -124,7 +124,7 @@ function finRenderPeriodPage() {
 async function finSavePeriod(period, errorEl) {
     try {
         await apiFetch('/api/finance/settings', { method: 'PUT', json: { period } });
-        finState.day = null;   // el periodo de hoy, con la nueva medida
+        finState.range = { mode: 'period', anchor: null, from: null, to: null };   // el de hoy, con la nueva medida
         await finLoad();
         return true;
     } catch (error) {

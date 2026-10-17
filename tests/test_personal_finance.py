@@ -217,6 +217,25 @@ def test_card_statement_and_installments(api):
     api.call("DELETE", f"/api/finance/transactions/{laptop['id']}", expect=204)
     assert api.call("GET", "/api/finance/installments", expect=200)[1]["installments"] == []
 
+
+def test_summary_of_any_range(api):
+    cash, debit, credit, cats = setup(api, "rangos@test.com")
+    old = TODAY - timedelta(days=500)
+    api.call("POST", "/api/finance/transactions", tx(cash, 1_000, "Viejo", cats["Otros"], day=old), expect=201)
+    api.call("POST", "/api/finance/transactions", tx(cash, 2_000, "Hoy", cats["Otros"]), expect=201)
+    # Un día, un rango y "Siempre" (desde el primer movimiento hasta hoy)
+    _, day = api.call("GET", f"/api/finance/summary?date_from={TODAY}&date_to={TODAY}", expect=200)
+    assert day["date_from"] == day["date_to"] == TODAY.isoformat() and day["totals"][0]["expense_cents"] == 2_000
+    _, always = api.call("GET", "/api/finance/summary?all=true", expect=200)
+    assert always["date_from"] == old.isoformat() and always["date_to"] == TODAY.isoformat()
+    assert always["totals"][0]["expense_cents"] == 3_000
+    # La lista acepta el mismo rango (más de un año)
+    listed = api.call("GET", f"/api/finance/transactions?date_from={old}&date_to={TODAY}", expect=200)[1]["transactions"]
+    assert sorted(t["concept"] for t in listed) == ["Hoy", "Viejo"]
+    assert api.call("GET", f"/api/finance/summary?date_from={TODAY}")[0] == 422
+    too_long = TODAY - timedelta(days=3661)
+    assert api.call("GET", f"/api/finance/summary?date_from={too_long}&date_to={TODAY}")[0] == 422
+
 def test_transaction_rules(api):
     cash, debit, credit, cats = setup(api, "reglas@test.com")
     _, usd = api.call("POST", "/api/finance/accounts", {"name": "Dólares", "kind": "debit", "currency": "USD"},
@@ -319,7 +338,7 @@ def test_period_is_asked_and_measures_the_list(api):
              expect=201)
     _, listed = api.call("GET", f"/api/finance/transactions?day={day.isoformat()}", expect=200)
     assert [t["concept"] for t in listed["transactions"]] == ["en la quincena"]
-    assert api.call("GET", "/api/finance/transactions?date_from=2026-01-01&date_to=2027-01-02")[0] == 422
+    assert api.call("GET", "/api/finance/transactions?date_from=2016-01-01&date_to=2027-01-02")[0] == 422   # más de diez años
 
 
 def test_periods_and_semimonthly_charges():

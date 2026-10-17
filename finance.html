@@ -162,6 +162,44 @@
         </div>
     </div>
 
+    <!-- Qué periodo se ve: el tuyo, un día, la semana, el mes, el año, siempre o un rango -->
+    <div class="fin-sheet hidden" id="finRangeSheet" role="dialog" aria-modal="true" aria-labelledby="finRangeTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finRangeTitle">Periodo</h2>
+            <div class="fin-date-grid" id="finRangeGrid">
+                <div class="fin-date-tile wide fin-range-custom">
+                    <span class="fin-tile-icon" data-icon="calendar-days"></span>
+                    <span>Seleccionar rango</span>
+                    <span class="fin-range-inputs">
+                        <input type="date" id="finRangeFrom" aria-label="Desde">
+                        <span>–</span>
+                        <input type="date" id="finRangeTo" aria-label="Hasta">
+                    </span>
+                    <button type="button" class="link-btn" id="finRangeApply">Ver ese rango</button>
+                </div>
+                <button type="button" class="fin-date-tile" data-range="all"><span class="fin-tile-icon fin-tile-text">∞</span>
+                    <span>Siempre</span></button>
+                <label class="fin-date-tile">
+                    <span class="fin-tile-icon" data-icon="calendar"></span>
+                    <span>Seleccione el día</span>
+                    <input type="date" id="finRangeDay" class="fin-date-input" aria-label="Un día">
+                </label>
+                <button type="button" class="fin-date-tile" data-range="week"><span class="fin-tile-icon fin-tile-text">7</span>
+                    <span>Semana</span><small id="finRangeWeek"></small></button>
+                <button type="button" class="fin-date-tile" data-range="day"><span class="fin-tile-icon fin-tile-text">1</span>
+                    <span>Hoy</span><small id="finRangeToday"></small></button>
+                <button type="button" class="fin-date-tile" data-range="year"><span class="fin-tile-icon fin-tile-text">365</span>
+                    <span>Año</span><small id="finRangeYear"></small></button>
+                <button type="button" class="fin-date-tile" data-range="month"><span class="fin-tile-icon fin-tile-text">31</span>
+                    <span>Mes</span><small id="finRangeMonth"></small></button>
+                <button type="button" class="fin-date-tile wide" data-range="period" id="finRangePeriod">
+                    <span class="fin-tile-icon fin-tile-text">15</span>
+                    <span>Quincena</span><small id="finRangePeriodLabel"></small></button>
+            </div>
+        </div>
+    </div>
+
     <!-- Fecha y periodicidad -->
     <div class="fin-sheet hidden" id="finDateSheet" role="dialog" aria-modal="true" aria-labelledby="finDateTitle">
         <div class="fin-sheet-overlay" data-close-sheet></div>

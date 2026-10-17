@@ -187,10 +187,21 @@ async def main():
             to: document.getElementById('finBandToName').textContent})""")
         check(st["kind"] == "Transferencia" and "300" in st["expr"] and st["to"] == "Tarjeta",
               f"Pagar opens a transfer to the card for what is left ({st})")
+        chips = await b.js("[...document.querySelectorAll('.fin-pay-option')].map(c => c.textContent)")
+        # "Toda la deuda" solo si es más que lo de sin intereses (aquí son iguales: 300)
+        debt = -accounts()["Tarjeta"]["balance_cents"]
+        check(chips[0].startswith("Sin intereses") and len(chips) == (2 if debt > 30000 else 1),
+              f"it offers the no-interest amount, and the whole debt when it is more ({chips}, debt {debt})")
+        # Pagar de más: teclear reemplaza el monto propuesto
+        await keys(["4", "0", "0"])
+        expr = await b.js("document.getElementById('finEntryExpr').textContent")
+        check(expr == "$ 400", f"typing replaces the proposed amount ({expr})")
         await keys(["ok"])
         paid = await b.wait_for("(document.querySelector('.fin-statement-pay strong') || {}).textContent",
                                 lambda v: v == "Pagado")
         check(paid == "Pagado", f"after paying, the card says it is paid ({paid})")
+        paid_tx = [t for t in transactions() if t["kind"] == "transfer" and t["amount_cents"] == 40000]
+        check(len(paid_tx) == 1, f"the payment saved the typed amount, 400 ({len(paid_tx)})")
 
         # Una compra a meses con la tarjeta
         await b.js("document.querySelector('#finNav [data-tab=\"categories\"]').click()")
@@ -296,6 +307,27 @@ async def main():
         check(st["columns"] >= 1 and any("Comer fuera" in r for r in st["bars"]), f"the overview draws days and categories ({st})")
         await b.shot("finance_overview")
         await no_sideways("Resumen")
+        check(await b.js("document.querySelectorAll('.fin-columns-grid').length") == 2, "the chart has its amount axis")
+
+        # El periodo: la semana, siempre y de vuelta al tuyo
+        await b.js("document.getElementById('finPeriodLabel').click()")
+        await b.wait_for("!document.getElementById('finRangeSheet').classList.contains('hidden')")
+        await b.shot("finance_range", full=False)
+        await b.js("document.querySelector('#finRangeSheet [data-range=\"week\"]').click()")
+        monday = TODAY - timedelta(days=TODAY.weekday())
+        summary_week = await wait_api(f"/api/finance/summary?date_from={monday}&date_to={monday + timedelta(days=6)}",
+                                      lambda body: True)
+        label = await b.wait_for("document.getElementById('finPeriodLabel').textContent",
+                                 lambda v: v and v.startswith(str(monday.day)))
+        check(label.startswith(str(monday.day)), f"Semana shows this week ({label})")
+        await b.js("document.getElementById('finPeriodLabel').click()")
+        await b.js("document.querySelector('#finRangeSheet [data-range=\"all\"]').click()")
+        label = await b.wait_for("document.getElementById('finPeriodLabel').textContent", lambda v: v == "Siempre")
+        prev = await b.js("document.getElementById('finPrev').disabled")
+        check(label == "Siempre" and prev, f"Siempre has no arrows ({label}, {prev})")
+        await b.js("document.getElementById('finPeriodLabel').click()")
+        await b.js("document.querySelector('#finRangeSheet [data-range=\"period\"]').click()")
+        await b.wait_for("document.getElementById('finPeriodLabel').textContent !== 'Siempre'")
 
         # Ajustes: una categoría nueva con su icono; el periodo a mes
         await b.js("document.getElementById('finSettingsBtn').click()")

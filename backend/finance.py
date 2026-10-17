@@ -201,11 +201,17 @@ def account_currencies(session: Session, user_id: int) -> Dict[int, str]:
     return dict(session.exec(select(FinAccount.id, FinAccount.currency).where(FinAccount.user_id == user_id)).all())
 
 
-def summary(session: Session, user_id: int, day: date_type) -> FinSummaryResponse:
-    """El resumen del periodo que contiene `day`."""
+def first_transaction_date(session: Session, user_id: int) -> Optional[date_type]:
+    return session.exec(select(func.min(FinTransaction.tx_date)).where(FinTransaction.user_id == user_id)).one()
+
+
+def summary(session: Session, user_id: int, day: date_type,
+            bounds: Optional[tuple] = None) -> FinSummaryResponse:
+    """El resumen del periodo que contiene `day`, o de las fechas `bounds`
+    (desde, hasta) que pidió la pantalla: un día, una semana, un año, un rango."""
     row = settings_row(session, user_id)
     period = row.period if row and row.period else "month"
-    date_from, date_to = period_bounds(period, day)
+    date_from, date_to = bounds or period_bounds(period, day)
     accounts = session.exec(select(FinAccount).where(FinAccount.user_id == user_id)
                             .order_by(FinAccount.order, FinAccount.id)).all()
     categories = {c.id: c for c in session.exec(select(FinCategory).where(FinCategory.user_id == user_id)).all()}

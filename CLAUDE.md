@@ -540,7 +540,9 @@ Lo que no se ve en Swagger:
   regresa a `/`. En la app, `#tabFinance` es un **enlace** entre las pestañas, no una vista: no está en
   `VIEWS` ni en el swipe, y la raya de la pestaña activa se reparte entre las pestañas visibles
   (`syncTabIndicator()` en `projects.js`). La página: arriba ‹ (regresa a la app), "Todas las cuentas"
-  (saldos de las activas, por moneda) y el periodo; abajo cinco pestañas (Cuentas, Categorías,
+  (saldos de las activas, por moneda) y el periodo, que al tocarlo abre la hoja *Periodo* (`openFinRange()`:
+  el suyo, un día, la semana, el mes, el año, siempre o un rango; `GET /summary` acepta `date_from`/`date_to`
+  hasta diez años y `all=true`, desde el primer movimiento); abajo cinco pestañas (Cuentas, Categorías,
   Transacciones, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
   es un anillo SVG con lo de cada categoría y alrededor sus círculos (`finRingSlot()`); tocar el anillo
   cambia a las de ingresos. **Tocar un círculo abre la hoja del monto** (`finance-entry.js`): bandas
@@ -930,7 +932,8 @@ del dispositivo), `board_selected` (último tablero abierto; se borra al cerrar 
 al cierre de sesión),
 `last_view` (id de la última pestaña: `projects.js` la aplica al cargar, antes del primer
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
-el que se preguntó "¿Olvidaste anotar?"), `finance_tab` (la pestaña abierta de la página de Finanzas, de este dispositivo),
+el que se preguntó "¿Olvidaste anotar?"), `finance_tab` (la pestaña abierta de la página de Finanzas, de este dispositivo), `finance_range` (qué
+periodo ve: el suyo, semana, mes, año o siempre),
 `work_calendar_cache` (huso, país y festivos por año, para
 no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
 `text_size` (`large` | `xlarge`, en **Configuración › Accesibilidad**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —

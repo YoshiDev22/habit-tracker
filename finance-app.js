@@ -14,7 +14,9 @@
 
 const finState = {
     me: null,
-    day: null,              // un día del periodo que se ve (null = hoy)
+    // Qué se ve: 'period' (mes o quincena, lo que contestó), 'day', 'week',
+    // 'month', 'year', 'all' o 'custom'; anchor es un día dentro (null = hoy)
+    range: { mode: 'period', anchor: null, from: null, to: null },
     summary: null,
     transactions: [],
     accounts: [],
@@ -161,23 +163,49 @@ async function finStart() {
         return;
     }
     let saved = null;
-    try { saved = localStorage.getItem('finance_tab'); } catch (e) { /* sin localStorage */ }
+    try {
+        saved = localStorage.getItem('finance_tab');
+        const mode = localStorage.getItem('finance_range');
+        if (['period', 'week', 'month', 'year', 'all'].includes(mode)) finState.range.mode = mode;
+    } catch (e) { /* sin localStorage */ }
     finSetTab(FIN_TABS.includes(saved) ? saved : 'categories', { save: false });
     await finLoad();
 }
 
+// Las fechas del rango que se ve (salvo el periodo y "Siempre", que da el servidor)
+function finRangeBounds() {
+    const { mode, anchor, from, to } = finState.range;
+    const day = anchor || finToday();
+    const d = finDate(day);
+    if (mode === 'day') return [day, day];
+    if (mode === 'week') {
+        const monday = finAddDays(day, -((d.getDay() + 6) % 7));
+        return [monday, finAddDays(monday, 6)];
+    }
+    if (mode === 'month') {
+        return [getDateKey(new Date(d.getFullYear(), d.getMonth(), 1)), getDateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0))];
+    }
+    if (mode === 'year') return [`${d.getFullYear()}-01-01`, `${d.getFullYear()}-12-31`];
+    if (mode === 'custom') return [from, to];
+    return null;
+}
+
 async function finLoad() {
     document.getElementById('finError').classList.add('hidden');
-    const day = finState.day ? `?day=${finState.day}` : '';
+    const { mode, anchor } = finState.range;
+    const bounds = finRangeBounds();
+    const query = bounds ? `?date_from=${bounds[0]}&date_to=${bounds[1]}`
+        : mode === 'all' ? '?all=true' : (anchor ? `?day=${anchor}` : '');
     try {
         // Los fijos primero: generan lo que ya llegó, y el resumen ya lo cuenta
         const recurring = await apiFetch('/api/finance/recurring');
-        const [summary, list, accounts, categories] = await Promise.all([
-            apiFetch(`/api/finance/summary${day}`),
-            apiFetch(`/api/finance/transactions${day}`),
+        const [summary, accounts, categories] = await Promise.all([
+            apiFetch(`/api/finance/summary${query}`),
             apiFetch('/api/finance/accounts'),
             apiFetch('/api/finance/categories'),
         ]);
+        // La lista, con las fechas que dio el resumen (así "Siempre" sabe desde cuándo)
+        const list = await apiFetch(`/api/finance/transactions?date_from=${summary.date_from}&date_to=${summary.date_to}`);
         Object.assign(finState, {
             summary, transactions: list.transactions, accounts: accounts.accounts,
             categories: categories.categories, recurring: recurring.recurring,
@@ -219,24 +247,117 @@ function finRenderTop() {
         .filter(([currency]) => currency !== main).map(([currency, cents]) => finMoney(cents, currency)).join(' · ');
 
     const s = finState.summary;
-    const from = finDate(s.date_from);
-    const to = finDate(s.date_to);
-    let label;
-    if (s.period === 'month') {
-        const month = FIN_MONTHS[from.getMonth()];
-        label = `${month[0].toUpperCase()}${month.slice(1)} ${from.getFullYear()}`;
-    } else {
-        label = `${from.getDate()}–${to.getDate()} ${FIN_MONTHS_SHORT[to.getMonth()]} ${to.getFullYear()}`;
+    document.getElementById('finPeriodLabel').textContent = finRangeLabel(s.date_from, s.date_to, finState.range.mode, s.period);
+    // Siempre y un rango elegido no se recorren; nada en el futuro
+    const fixed = ['all', 'custom'].includes(finState.range.mode);
+    document.getElementById('finPrev').disabled = fixed;
+    document.getElementById('finNext').disabled = fixed || finStep(1) > finToday();
+}
+
+function finMonthName(d) {
+    const month = FIN_MONTHS[d.getMonth()];
+    return `${month[0].toUpperCase()}${month.slice(1)}`;
+}
+
+function finRangeLabel(fromIso, toIso, mode, period) {
+    const from = finDate(fromIso);
+    const to = finDate(toIso);
+    const today = finToday();
+    if (mode === 'all') return 'Siempre';
+    if (mode === 'year') return `Año ${from.getFullYear()}`;
+    if (mode === 'day') {
+        if (fromIso === today) return 'Hoy';
+        if (fromIso === finAddDays(today, -1)) return 'Ayer';
+        return finShortDate(fromIso);
     }
-    document.getElementById('finPeriodLabel').textContent = label;
-    // No hay movimientos en el futuro: el siguiente periodo empieza después de hoy
-    document.getElementById('finNext').disabled = s.next_day > finToday();
+    if (mode === 'month' || (mode === 'period' && period === 'month')) return `${finMonthName(from)} ${from.getFullYear()}`;
+    if (mode === 'custom' || from.getMonth() !== to.getMonth()) {
+        return from.getFullYear() === to.getFullYear() && mode !== 'custom'
+            ? `${from.getDate()} ${FIN_MONTHS_SHORT[from.getMonth()]} – ${to.getDate()} ${FIN_MONTHS_SHORT[to.getMonth()]}`
+            : `${finShortDate(fromIso)} – ${finShortDate(toIso)}`;
+    }
+    return `${from.getDate()}–${to.getDate()} ${FIN_MONTHS_SHORT[to.getMonth()]} ${to.getFullYear()}`;
+}
+
+// Un día del rango anterior (step = -1) o del siguiente (1)
+function finStep(step) {
+    const s = finState.summary;
+    const { mode } = finState.range;
+    if (mode === 'period') return step < 0 ? s.prev_day : s.next_day;
+    const d = finDate(s.date_from);
+    if (mode === 'day') return finAddDays(s.date_from, step);
+    if (mode === 'week') return finAddDays(s.date_from, 7 * step);
+    if (mode === 'month') return getDateKey(new Date(d.getFullYear(), d.getMonth() + step, 1));
+    if (mode === 'year') return `${d.getFullYear() + step}-01-01`;
+    return s.date_from;
+}
+
+function finSetRange(range) {
+    finState.range = { mode: 'period', anchor: null, from: null, to: null, ...range };
+    try {
+        if (['period', 'week', 'month', 'year', 'all'].includes(finState.range.mode)) {
+            localStorage.setItem('finance_range', finState.range.mode);
+        }
+    } catch (e) { /* sin localStorage */ }
+    finLoad();
 }
 
 function finGoToPeriod(day) {
-    finState.day = day;
+    finState.range.anchor = day;
     finLoad();
 }
+
+// ============================================
+// La hoja del periodo
+// ============================================
+
+const finRangeSheet = document.getElementById('finRangeSheet');
+
+function openFinRange() {
+    const today = finToday();
+    const t = finDate(today);
+    const monday = finAddDays(today, -((t.getDay() + 6) % 7));
+    const s = finState.summary;
+    document.getElementById('finRangeWeek').textContent = finRangeLabel(monday, finAddDays(monday, 6), 'week', 'month');
+    document.getElementById('finRangeToday').textContent = finShortDate(today);
+    document.getElementById('finRangeYear').textContent = `Año ${t.getFullYear()}`;
+    document.getElementById('finRangeMonth').textContent = `${finMonthName(t)} ${t.getFullYear()}`;
+    // La quincena, solo si cobra por quincena (si no, su periodo es el mes)
+    const biweekly = s && s.period === 'biweekly';
+    document.getElementById('finRangePeriod').hidden = !biweekly;
+    document.getElementById('finRangePeriodLabel').textContent = biweekly ? 'Tu periodo' : '';
+    document.getElementById('finRangeFrom').value = s ? s.date_from : today;
+    document.getElementById('finRangeTo').value = s ? s.date_to : today;
+    document.getElementById('finRangeDay').value = finState.range.mode === 'day' && s ? s.date_from : '';
+    const active = finState.range.mode === 'period' && !biweekly ? 'month' : finState.range.mode;
+    finRangeSheet.querySelectorAll('[data-range]').forEach(tile => {
+        tile.classList.toggle('active', tile.dataset.range === active && (active !== 'day' || s.date_from === today));
+    });
+    openFinSheet(finRangeSheet);
+}
+
+finRangeSheet.querySelectorAll('[data-range]').forEach(tile => {
+    tile.addEventListener('click', () => {
+        const mode = tile.dataset.range;
+        const biweekly = finState.summary && finState.summary.period === 'biweekly';
+        closeFinSheet(finRangeSheet);
+        // Si cobra por mes, "Mes" es su periodo (con su ‹ › de siempre)
+        finSetRange({ mode: mode === 'month' && !biweekly ? 'period' : mode });
+    });
+});
+document.getElementById('finRangeDay').addEventListener('change', (event) => {
+    if (!event.target.value) return;
+    closeFinSheet(finRangeSheet);
+    finSetRange({ mode: 'day', anchor: event.target.value });
+});
+document.getElementById('finRangeApply').addEventListener('click', () => {
+    let from = document.getElementById('finRangeFrom').value;
+    let to = document.getElementById('finRangeTo').value;
+    if (!from || !to) return;
+    if (to < from) [from, to] = [to, from];
+    closeFinSheet(finRangeSheet);
+    finSetRange({ mode: 'custom', from, to });
+});
 
 // ============================================
 // Pestañas
@@ -488,7 +609,9 @@ function finRenderOverview() {
 
     // Columnas por día, apiladas por categoría
     const chart = el('section', 'fin-card');
-    chart.append(el('h2', 'fin-card-title', 'Gasto por día'), finDayColumns(s.date_from, s.date_to, expenses));
+    const byMonth = (finDate(s.date_to) - finDate(s.date_from)) / 86400000 > 62;
+    chart.append(el('h2', 'fin-card-title', byMonth ? 'Gasto por mes' : 'Gasto por día'),
+        finDayColumns(s.date_from, s.date_to, expenses, byMonth));
     const last = s.date_to < today ? s.date_to : today;
     const days = Math.max(1, Math.round((finDate(last) - finDate(s.date_from)) / 86400000) + 1);
     const weekStart = (() => {
@@ -498,11 +621,22 @@ function finRenderOverview() {
     })();
     const sumWhere = test => expenses.filter(tx => test(tx.tx_date)).reduce((acc, tx) => acc + tx.amount_cents, 0);
     const stats = el('div', 'fin-tiles three');
-    stats.append(
-        finStat('Promedio por día', finMoney(Math.round(t.expense_cents / days), main)),
-        finStat('Hoy', finMoney(sumWhere(d => d === today), main)),
-        finStat('Esta semana', finMoney(sumWhere(d => d >= weekStart && d <= today), main)),
-    );
+    if (s.date_from <= today && today <= s.date_to) {
+        stats.append(
+            finStat('Promedio por día', finMoney(Math.round(t.expense_cents / days), main)),
+            finStat('Hoy', finMoney(sumWhere(d => d === today), main)),
+            finStat('Esta semana', finMoney(sumWhere(d => d >= weekStart && d <= today), main)),
+        );
+    } else {
+        // Un rango que ya pasó: hoy y esta semana no dicen nada
+        const perDay = new Map();
+        expenses.forEach(tx => perDay.set(tx.tx_date, (perDay.get(tx.tx_date) || 0) + tx.amount_cents));
+        stats.append(
+            finStat('Promedio por día', finMoney(Math.round(t.expense_cents / days), main)),
+            finStat('El día más alto', finMoney(Math.max(0, ...perDay.values()), main)),
+            finStat('Compras', String(expenses.length)),
+        );
+    }
     chart.appendChild(stats);
 
     // Por categoría, con su porcentaje
@@ -530,49 +664,76 @@ function finRenderOverview() {
     document.getElementById('finOverview').replaceChildren(balance, chart, byCategory);
 }
 
-function finDayColumns(from, to, expenses) {
-    const days = [];
-    for (let d = from; d <= to; d = finAddDays(d, 1)) days.push(d);
-    const perDay = new Map(days.map(d => [d, []]));
+// Monto corto para el eje: $850, $3.2k, $12k
+function finShortMoney(cents) {
+    const value = cents / 100;
+    if (value >= 10000) return `$${Math.round(value / 1000)}k`;
+    if (value >= 1000) return `$${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+    return `$${Math.round(value)}`;
+}
+
+// Columnas apiladas por categoría (un movimiento dividido, cada parte con su
+// color): una por día, o una por mes si el rango pasa de dos meses
+function finDayColumns(from, to, expenses, byMonth = false) {
+    const keyOf = iso => (byMonth ? iso.slice(0, 7) : iso);
+    const keys = [];
+    for (let d = from; d <= to; d = finAddDays(d, 1)) {
+        const key = keyOf(d);
+        if (keys[keys.length - 1] !== key) keys.push(key);
+    }
+    const parts = new Map(keys.map(k => [k, new Map()]));
     expenses.forEach(tx => {
-        if (perDay.has(tx.tx_date)) perDay.get(tx.tx_date).push(tx);
+        const bucket = parts.get(keyOf(tx.tx_date));
+        if (!bucket) return;
+        const pieces = tx.splits && tx.splits.length ? tx.splits : [{ category_id: tx.category_id, amount_cents: tx.amount_cents }];
+        pieces.forEach(p => bucket.set(p.category_id, (bucket.get(p.category_id) || 0) + p.amount_cents));
     });
-    const totals = days.map(d => perDay.get(d).reduce((acc, tx) => acc + tx.amount_cents, 0));
+    const totals = keys.map(k => [...parts.get(k).values()].reduce((acc, c) => acc + c, 0));
     const max = Math.max(1, ...totals);
+    const left = 34;
     const width = 320;
     const height = 140;
-    const colWidth = width / days.length;
+    const top = 8;
+    const plot = width - left;
+    const colWidth = plot / keys.length;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const node = (tag, attrs, text) => {
+        const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+        Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+        if (text !== undefined) n.textContent = text;
+        return n;
+    };
     svg.setAttribute('viewBox', `0 0 ${width} ${height + 18}`);
     svg.setAttribute('class', 'fin-columns');
     svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', 'Gasto de cada día del periodo');
-    days.forEach((day, i) => {
+    svg.setAttribute('aria-label', byMonth ? 'Gasto de cada mes del rango' : 'Gasto de cada día del rango');
+    // El eje: el más alto y la mitad, con su línea
+    [1, 0.5].forEach(f => {
+        const y = top + (height - top) * (1 - f);
+        svg.append(node('line', { x1: left, x2: width, y1: y, y2: y, class: 'fin-columns-grid' }),
+            node('text', { x: left - 4, y: y + 3, class: 'fin-columns-label', 'text-anchor': 'end' }, finShortMoney(max * f)));
+    });
+    svg.appendChild(node('line', { x1: left, x2: width, y1: height, y2: height, class: 'fin-columns-base' }));
+    keys.forEach((key, i) => {
         let y = height;
-        // Cada categoría, un pedazo de su color
-        const byCat = new Map();
-        perDay.get(day).forEach(tx => byCat.set(tx.category_id, (byCat.get(tx.category_id) || 0) + tx.amount_cents));
-        byCat.forEach((cents, categoryId) => {
-            const h = (cents / max) * (height - 6);
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        parts.get(key).forEach((cents, categoryId) => {
+            const h = (cents / max) * (height - top);
             const category = finCategory(categoryId);
-            Object.entries({
-                x: i * colWidth + colWidth * 0.18, y: y - h, width: Math.max(1, colWidth * 0.64), height: h,
+            const rect = node('rect', {
+                x: left + i * colWidth + colWidth * 0.18, y: y - h, width: Math.max(1.5, colWidth * 0.64), height: h,
                 rx: 1.5, fill: category ? finCategoryColor(category) : FIN_NEUTRAL,
-            }).forEach(([k, v]) => rect.setAttribute(k, v));
-            const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-            title.textContent = `${finShortDate(day)}: ${finMoney(totals[i])}`;
-            rect.appendChild(title);
+            });
+            const label = byMonth ? `${finMonthName(finDate(`${key}-01`))} ${key.slice(0, 4)}` : finShortDate(key);
+            rect.appendChild(node('title', {}, `${label}: ${finMoney(totals[i])}${category ? ` (${category.name}: ${finMoney(cents)})` : ''}`));
             svg.appendChild(rect);
             y -= h;
         });
-        // Etiquetas: el primer día, cada semana y el último
-        if (i === 0 || i === days.length - 1 || (i % 7 === 0 && days.length - 1 - i > 3)) {
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            Object.entries({ x: i * colWidth + colWidth / 2, y: height + 14, class: 'fin-columns-label', 'text-anchor': 'middle' })
-                .forEach(([k, v]) => label.setAttribute(k, v));
-            label.textContent = String(finDate(day).getDate());
-            svg.appendChild(label);
+        // Etiquetas: la primera, la última y unas en medio
+        const every = byMonth ? Math.max(1, Math.ceil(keys.length / 6)) : 7;
+        if (i === 0 || i === keys.length - 1 || (i % every === 0 && keys.length - 1 - i > every / 2)) {
+            const text = byMonth ? FIN_MONTHS_SHORT[Number(key.slice(5, 7)) - 1] : String(finDate(key).getDate());
+            svg.appendChild(node('text', { x: left + i * colWidth + colWidth / 2, y: height + 14,
+                class: 'fin-columns-label', 'text-anchor': 'middle' }, text));
         }
     });
     return svg;
@@ -681,6 +842,7 @@ function finStatementView(card, st, plans) {
         button.type = 'button';
         button.dataset.payCard = String(card.id);
         button.dataset.payAmount = String(st.remaining_cents);
+        button.dataset.payDebt = String(Math.max(0, -card.balance_cents));
         main.appendChild(button);
     }
     lines.push(main);
@@ -714,7 +876,11 @@ document.getElementById('finAccountTabs').addEventListener('click', (event) => {
 document.getElementById('finAccountsBody').addEventListener('click', (event) => {
     const pay = event.target.closest('[data-pay-card]');
     if (pay) {
-        openFinEntry({ kind: 'transfer', toAccountId: Number(pay.dataset.payCard), amountCents: Number(pay.dataset.payAmount) });
+        const options = [{ label: 'Sin intereses', cents: Number(pay.dataset.payAmount) }];
+        const debt = Number(pay.dataset.payDebt);
+        if (debt > options[0].cents) options.push({ label: 'Toda la deuda', cents: debt });
+        openFinEntry({ kind: 'transfer', toAccountId: Number(pay.dataset.payCard), amountCents: options[0].cents,
+            payOptions: options });
         return;
     }
     const setup = event.target.closest('[data-edit-account]');
@@ -790,12 +956,12 @@ document.getElementById('finNav').addEventListener('click', (event) => {
     if (button) finSetTab(button.dataset.tab);
 });
 document.getElementById('finPrev').addEventListener('click', () => {
-    if (finState.summary) finGoToPeriod(finState.summary.prev_day);
+    if (finState.summary) finGoToPeriod(finStep(-1));
 });
 document.getElementById('finNext').addEventListener('click', () => {
-    if (finState.summary) finGoToPeriod(finState.summary.next_day);
+    if (finState.summary) finGoToPeriod(finStep(1));
 });
-document.getElementById('finPeriodLabel').addEventListener('click', () => finGoToPeriod(null));
+document.getElementById('finPeriodLabel').addEventListener('click', openFinRange);
 // ‹ regresa a la pestaña de la app de donde se vino (projects.js lee last_view)
 document.getElementById('finBack').addEventListener('click', (event) => {
     if (history.length > 1 && document.referrer && new URL(document.referrer).origin === location.origin

@@ -22,6 +22,8 @@ const finEntry = {
     date: null,
     frequency: '',      // '' = no se repite
     msi: '',            // '' o los meses sin intereses (compra con tarjeta de crédito)
+    prefilled: false,   // el monto lo propuso la app (Pagar): el primer número lo reemplaza
+    payOptions: [],     // al pagar una tarjeta: [{label, cents}] para elegir de un toque
     splits: null,       // null, o las partes: [{category_id, amount_cents}]
     picking: null,      // qué banda abrió el selector: 'from' | 'to'
 };
@@ -61,6 +63,11 @@ function finEvaluate(expr) {
 }
 
 function finPressKey(key) {
+    // Un monto propuesto (Pagar) se reemplaza con el primer número; un operador
+    // lo conserva para sumarle ("300 + 200": pagar de más)
+    if (finEntry.prefilled && key !== 'back' && !'+-*/'.includes(key)) finEntry.expr = '';
+    if (finEntry.prefilled && key === 'back') finEntry.expr = '';
+    finEntry.prefilled = false;
     let expr = finEntry.expr;
     const lastNumber = expr.split(/[+\-*/]/).pop();
     if (key === 'back') {
@@ -87,7 +94,9 @@ function finPressKey(key) {
 function finRenderAmount() {
     const expr = finEntry.expr;
     const pretty = expr.replace(/[+\-*/]/g, op => ` ${FIN_OPS[op]} `);
-    document.getElementById('finEntryExpr').textContent = `$ ${pretty || '0'}`;
+    const exprEl = document.getElementById('finEntryExpr');
+    exprEl.textContent = `$ ${pretty || '0'}`;
+    exprEl.classList.toggle('prefilled', finEntry.prefilled);
     const hasOp = /[+\-*/]\d/.test(expr);
     const cents = finEvaluate(expr);
     document.getElementById('finEntryResult').textContent = hasOp && cents != null ? `= ${formatMoney(cents, finEntryCurrency())}` : '';
@@ -158,7 +167,8 @@ document.addEventListener('keydown', (event) => {
 
 // { kind, categoryId } para uno nuevo desde un círculo; { tx } para editar;
 // { kind: 'transfer', toAccountId, amountCents } para pagar una tarjeta
-function openFinEntry({ kind = 'expense', categoryId = null, tx = null, toAccountId = null, amountCents = null } = {}) {
+function openFinEntry({ kind = 'expense', categoryId = null, tx = null, toAccountId = null, amountCents = null,
+    payOptions = [] } = {}) {
     const accounts = finActiveAccounts();
     // Para pagar una tarjeta, de entrada la primera cuenta que no sea de crédito
     const defaultAccount = kind === 'transfer'
@@ -177,6 +187,8 @@ function openFinEntry({ kind = 'expense', categoryId = null, tx = null, toAccoun
         date: tx ? tx.tx_date : (!s || (s.date_from <= today && today <= s.date_to) ? today : s.date_from),
         frequency: '',
         msi: '',
+        prefilled: Boolean(amountCents) && !tx,
+        payOptions,
         splits: tx && tx.splits && tx.splits.length ? tx.splits.map(p => ({ ...p })) : null,
         picking: null,
     });
@@ -255,6 +267,14 @@ function finRenderEntry() {
         flag.append(financeIcon('repeat', 14), document.createTextNode(` ${finRepeatText(finEntry.frequency, d)}`));
         flags.appendChild(flag);
     }
+    // Pagar una tarjeta: lo que se propone, de un toque; teclear pone otro monto
+    finEntry.payOptions.forEach(option => {
+        const chip = el('button', 'fin-chip fin-pay-option', `${option.label}: ${formatMoney(option.cents, finEntryCurrency())}`);
+        chip.type = 'button';
+        chip.dataset.cents = String(option.cents);
+        flags.appendChild(chip);
+    });
+    if (finEntry.payOptions.length) flags.appendChild(el('small', 'fin-pay-hint', 'O escribe otro monto: puedes pagar de más.'));
     if (finEntry.msi || (finEntry.tx && finEntry.tx.installment_id)) {
         const flag = el('span', 'fin-flag');
         flag.append(financeIcon('credit-card', 14),
@@ -559,6 +579,13 @@ document.getElementById('finEntryDelete').addEventListener('click', async () => 
     }
 });
 document.getElementById('finEntryCancel').addEventListener('click', () => closeFinSheet(finEntrySheet));
+document.getElementById('finEntryFlags').addEventListener('click', (event) => {
+    const chip = event.target.closest('.fin-pay-option');
+    if (!chip) return;
+    finEntry.expr = String(Number(chip.dataset.cents) / 100);
+    finEntry.prefilled = true;
+    finRenderAmount();
+});
 document.getElementById('finEntryDate').addEventListener('click', openFinDateSheet);
 
 // ============================================

@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from backend.auth import get_current_user
 from backend.database import get_session
-from backend.finance import (account_balances, account_currencies, card_statement, cut_on_or_after,
+from backend.finance import (account_balances, account_currencies, first_transaction_date, card_statement, cut_on_or_after,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
 from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
@@ -50,7 +50,8 @@ from backend.series import SEMIMONTHLY_DAYS, next_date, period_bounds, skip_past
 router = APIRouter(tags=["finance"])
 
 # Un listado por fechas abarca como mucho un año (la vista previa de pegar)
-MAX_RANGE_DAYS = 366
+# Un rango de la pantalla ("Siempre", un año, uno elegido): hasta diez años
+MAX_SUMMARY_DAYS = 3660
 
 
 def finance_user(
@@ -243,15 +244,15 @@ def _one_response(session: Session, user_id: int, tx: FinTransaction) -> FinTran
 
 
 def _range(session: Session, user: User, day: Optional[date_type], date_from: Optional[date_type],
-           date_to: Optional[date_type]):
+           date_to: Optional[date_type], max_days: int = MAX_SUMMARY_DAYS):
     """Las fechas de un listado: las pedidas, o el periodo que contiene `day` (hoy si no viene)."""
     if date_from is not None or date_to is not None:
         if date_from is None or date_to is None:
             raise _unprocessable("Pide date_from y date_to juntos")
         if date_to < date_from:
             raise _unprocessable("date_to no puede ser anterior a date_from")
-        if (date_to - date_from).days >= MAX_RANGE_DAYS:
-            raise _unprocessable(f"Pide como mucho {MAX_RANGE_DAYS} días")
+        if (date_to - date_from).days >= max_days:
+            raise _unprocessable(f"Pide como mucho {max_days} días")
         return date_from, date_to
     return period_bounds(user_period(session, user.id), day or _today(session, user))
 
@@ -278,14 +279,23 @@ def put_finance_settings(body: FinSettingsUpdate, session: Session = Depends(get
 # ==================== Resumen ====================
 
 @router.get("/summary", response_model=FinSummaryResponse)
-def get_finance_summary(day: Optional[date_type] = None, session: Session = Depends(get_session),
-                        user: User = Depends(finance_user)):
+def get_finance_summary(day: Optional[date_type] = None, date_from: Optional[date_type] = None,
+                        date_to: Optional[date_type] = None, all: bool = False,
+                        session: Session = Depends(get_session), user: User = Depends(finance_user)):
     """El periodo que contiene `day` (hoy, si no viene): gasto e ingreso por
     categoría, lo que se movió en cada cuenta y los totales por moneda, más
-    un día del periodo anterior y del siguiente para moverse con ‹ ›."""
+    un día del periodo anterior y del siguiente para moverse con ‹ ›. Con
+    date_from y date_to, esas fechas (hasta diez años); con all, desde el
+    primer movimiento hasta hoy ("Siempre")."""
     ensure_finance_setup(session, user.id)
-    generate_due(session, user.id, _today(session, user))
-    return summary(session, user.id, day or _today(session, user))
+    today = _today(session, user)
+    generate_due(session, user.id, today)
+    bounds = None
+    if all:
+        bounds = (min(first_transaction_date(session, user.id) or today, today), today)
+    elif date_from is not None or date_to is not None:
+        bounds = _range(session, user, None, date_from, date_to, MAX_SUMMARY_DAYS)
+    return summary(session, user.id, day or today, bounds)
 
 
 # ==================== Cuentas ====================
