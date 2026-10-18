@@ -29,6 +29,7 @@ const finState = {
     ringPick: null,         // la primera que se tocó
     accountFilter: null,    // Movimientos de una sola cuenta (desde su menú)
     hideTotal: false,       // 👁: el total de arriba, oculto (finance_hide_total)
+    openStatements: new Set(),  // tarjetas con el detalle del estado de cuenta abierto (en la sesión)
 };
 
 const FIN_TABS = ['accounts', 'categories', 'transactions', 'budget', 'overview'];
@@ -1071,7 +1072,18 @@ function finStatementView(card, st, plans) {
         });
         lines.push(el('p', 'fin-stat-label', 'Meses sin intereses'), list);
     }
-    return lines;
+    // A la vista, solo cuánto pagar; el corte, corregirlo y los MSI, tras la flecha
+    const [first, ...rest] = lines;
+    const more = el('details', 'fin-statement-more');
+    more.open = finState.openStatements.has(card.id);
+    const summary = el('summary', '', 'Detalle');
+    summary.appendChild(financeIcon('chevron-down', 16));
+    more.append(summary, ...rest);
+    more.addEventListener('toggle', () => {
+        if (more.open) finState.openStatements.add(card.id);
+        else finState.openStatements.delete(card.id);
+    });
+    return [first, more];
 }
 
 document.getElementById('finAccountTabs').addEventListener('click', (event) => {

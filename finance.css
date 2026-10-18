@@ -771,9 +771,38 @@
     font-size: 0.8rem;
 }
 
-.fin-statement > .fin-stat-label {
+.fin-statement > .fin-stat-label,
+.fin-statement-more > .fin-stat-label {
     display: block;
     margin: 10px 2px 0;
+}
+
+/* El detalle del estado de cuenta, plegado tras una flecha */
+.fin-statement-more > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 2px 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    list-style: none;
+}
+
+.fin-statement-more > summary::-webkit-details-marker {
+    display: none;
+}
+
+.fin-statement-more > summary svg {
+    transition: transform 0.15s ease;
+}
+
+.fin-statement-more[open] > summary svg {
+    transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fin-statement-more > summary svg { transition: none; }
 }
 
 /* --- Dividir en categorías --- */

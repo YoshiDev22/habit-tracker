@@ -623,6 +623,15 @@ async def main():
         await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
         await b.wait_for(f"!!document.querySelector('[data-bank-edit=\"{bank_card['id']}\"]')")
+        box = f"document.querySelector('[data-statement-for=\"{bank_card['id']}\"]')"
+        st = await b.js(f"""({{open: {box}.querySelector('.fin-statement-more').open,
+            seen: {box}.querySelector('[data-bank-edit]').checkVisibility(),
+            pay: {box}.querySelector('.fin-statement-pay').checkVisibility()}})""")
+        check(not st["open"] and not st["seen"] and st["pay"],
+              f"only what to pay shows; the detail waits behind its arrow ({st})")
+        await b.js(f"{box}.querySelector('.fin-statement-more > summary').click()")
+        seen = await b.js(f"{box}.querySelector('[data-bank-edit]').checkVisibility()")
+        check(seen, "the arrow opens the detail")
         await b.js(f"document.querySelector('[data-bank-edit=\"{bank_card['id']}\"]').click()")
         await b.js("""(() => { const input = document.querySelector('.fin-bank-form input');
             input.value = '1500'; document.querySelector('.fin-bank-form [type="submit"]').click(); })()""")
