@@ -407,6 +407,10 @@
     color: var(--income-fg);
 }
 
+.fin-day-total.expense {
+    color: var(--danger-fg);
+}
+
 .fin-tx {
     display: flex;
     align-items: center;
@@ -458,8 +462,13 @@
     white-space: nowrap;
 }
 
+/* Lo que entra en verde, lo que sale en rojo; entre tus cuentas, neutro */
 .fin-tx.income .fin-tx-amount {
     color: var(--income-fg);
+}
+
+.fin-tx.expense .fin-tx-amount {
+    color: var(--danger-fg);
 }
 
 .fin-tx.transfer .fin-tx-amount,
@@ -1609,6 +1618,10 @@
     color: var(--income-fg);
 }
 
+.fin-import-amount.expense input.fin-import-input {
+    color: var(--danger-fg);
+}
+
 .fin-import-table tr.invalid .fin-import-input {
     border-color: var(--danger-fg);
 }
@@ -1620,6 +1633,10 @@
 
 .fin-import-amount.income {
     color: var(--income-fg);
+}
+
+.fin-import-amount.expense {
+    color: var(--danger-fg);
 }
 
 /* El confirm de core.js, encima de las hojas */

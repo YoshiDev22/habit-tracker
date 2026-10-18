@@ -694,7 +694,7 @@ function finRenderList() {
             .reduce((acc, t) => acc + (t.kind === 'income' ? t.amount_cents : -t.amount_cents), 0);
         const group = el('section', 'fin-day');
         const head = el('div', 'fin-day-head');
-        head.append(el('span', '', finDayTitle(day)), el('span', `fin-day-total${net < 0 ? '' : ' income'}`, rows.length ? finMoney(net, main) : ''));
+        head.append(el('span', '', finDayTitle(day)), el('span', `fin-day-total${net < 0 ? ' expense' : net > 0 ? ' income' : ''}`, rows.length ? finMoney(net, main) : ''));
         // El saldo inicial va al empezar el día: abajo, porque la lista va del más reciente
         group.append(head, ...rows.map(finTxRow),
             ...openings.filter(a => a.opening_date === day).map(finOpeningRow));
