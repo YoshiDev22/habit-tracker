@@ -462,7 +462,8 @@
     color: var(--income-fg);
 }
 
-.fin-tx.transfer .fin-tx-amount {
+.fin-tx.transfer .fin-tx-amount,
+.fin-tx.opening .fin-tx-amount {
     color: var(--text-secondary);
 }
 

@@ -645,6 +645,26 @@ function finTxRow(tx) {
     return row;
 }
 
+// El saldo con el que empezó una cuenta, en su día: solo se enseña (no es un
+// movimiento ni un ingreso, así que no suma al día ni al resumen)
+function finOpeningRow(account) {
+    const row = el('button', 'fin-tx opening');
+    row.type = 'button';
+    row.dataset.openingAccount = String(account.id);
+    const debt = account.kind === 'credit' && account.opening_balance_cents < 0;
+    const text = el('span', 'fin-tx-text');
+    text.append(el('strong', '', debt ? 'Deuda inicial' : 'Saldo inicial'), el('small', '', account.name));
+    row.append(finBadge(finAccountIcon(account), finAccountColor(account), { square: true }), text,
+        el('span', 'fin-tx-amount', formatMoney(account.opening_balance_cents, account.currency)));
+    return row;
+}
+
+function finOpeningsInPeriod(only) {
+    const s = finState.summary;
+    return finState.accounts.filter(a => a.opening_date && a.opening_balance_cents
+        && (!only || a.id === only.id) && (!s || (a.opening_date >= s.date_from && a.opening_date <= s.date_to)));
+}
+
 function finRenderList() {
     const list = document.getElementById('finTxList');
     const only = finState.accountFilter ? finAccount(finState.accountFilter) : null;
@@ -656,7 +676,8 @@ function finRenderList() {
     }
     const txs = only ? finState.transactions.filter(t => t.account_id === only.id || t.to_account_id === only.id)
         : finState.transactions;
-    if (!txs.length) {
+    const openings = finOpeningsInPeriod(only);
+    if (!txs.length && !openings.length) {
         list.replaceChildren(el('p', 'fin-empty', only ? `Sin movimientos de ${only.name} en este periodo.`
             : 'Sin movimientos en este periodo. Toca una categoría o ＋ Agregar.'));
         return;
@@ -666,14 +687,17 @@ function finRenderList() {
         if (!byDay.has(tx.tx_date)) byDay.set(tx.tx_date, []);
         byDay.get(tx.tx_date).push(tx);
     });
+    openings.forEach(account => { if (!byDay.has(account.opening_date)) byDay.set(account.opening_date, []); });
     const main = finMainCurrency();
     const groups = [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([day, rows]) => {
         const net = rows.filter(t => t.currency === main && t.kind !== 'transfer')
             .reduce((acc, t) => acc + (t.kind === 'income' ? t.amount_cents : -t.amount_cents), 0);
         const group = el('section', 'fin-day');
         const head = el('div', 'fin-day-head');
-        head.append(el('span', '', finDayTitle(day)), el('span', `fin-day-total${net < 0 ? '' : ' income'}`, finMoney(net, main)));
-        group.append(head, ...rows.map(finTxRow));
+        head.append(el('span', '', finDayTitle(day)), el('span', `fin-day-total${net < 0 ? '' : ' income'}`, rows.length ? finMoney(net, main) : ''));
+        // El saldo inicial va al empezar el día: abajo, porque la lista va del más reciente
+        group.append(head, ...rows.map(finTxRow),
+            ...openings.filter(a => a.opening_date === day).map(finOpeningRow));
         return group;
     });
     list.replaceChildren(...groups);
@@ -694,6 +718,12 @@ document.getElementById('finEyeBtn').addEventListener('click', () => {
 });
 
 document.getElementById('finTxList').addEventListener('click', (event) => {
+    const opening = event.target.closest('[data-opening-account]');
+    if (opening) {
+        const account = finAccount(Number(opening.dataset.openingAccount));
+        if (account) openFinAccountMenu(account);
+        return;
+    }
     const row = event.target.closest('[data-tx-id]');
     if (!row) return;
     const tx = finState.transactions.find(t => t.id === Number(row.dataset.txId));

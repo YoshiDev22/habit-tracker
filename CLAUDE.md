@@ -566,7 +566,7 @@ Lo que no se ve en Swagger:
   cambia a las de ingresos; el ✎ de la barra de arriba (a la derecha, solo en Categorías) las ordena (tocar una y luego otra las cambia de lugar,
   `finSwapCategories()`). **Tocar una cuenta abre su menú** (`finance-accounts.js`): su saldo (en
   crédito, la deuda o lo que queda a favor), Editar, Ajustar saldo (el real de hoy: mueve el saldo inicial,
-  sin crear movimientos), Movimientos (la lista solo de esa cuenta, `accountFilter`), Ingreso / Gasto /
+  sin crear movimientos), Movimientos (la lista solo de esa cuenta, `accountFilter`) —la lista enseña también el saldo inicial de cada cuenta en su día (`finOpeningRow()`), sin sumarlo al día ni al resumen—, Ingreso / Gasto /
   Transferencia desde ella y, en una tarjeta, Pagar y Meses sin intereses. El 👁 junto al total lo
   oculta. **Tocar un círculo abre la hoja del monto** (`finance-entry.js`): bandas
   *De cuenta* / *A categoría* (al revés en un ingreso; elegir una cuenta como destino la vuelve

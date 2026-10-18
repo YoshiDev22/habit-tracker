@@ -283,6 +283,18 @@ async def main():
         await b.js("document.getElementById('finTxFilterClear').click()")
         rows = await b.js("document.querySelectorAll('#finTxList [data-tx-id]').length")
         check(rows == len(transactions()), f"the x shows every account again ({rows})")
+        # El saldo con el que empieza una cuenta sale en su día, sin contar como ingreso
+        api.call("POST", "/api/finance/accounts", {"name": "Nómina", "kind": "debit", "currency": "MXN",
+                                                   "opening_balance_cents": 250000,
+                                                   "opening_date": TODAY.isoformat()}, expect=201)
+        await b.js("finLoad()")
+        st = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finTxList [data-opening-account]')]
+            .find(x => x.textContent.includes('Nómina')); return r ? r.textContent : null; })()""", lambda v: v)
+        check(st and "Saldo inicial" in st and "2,500.00" in st, f"an account's opening balance shows on its day ({st})")
+        await b.js("""[...document.querySelectorAll('#finTxList [data-opening-account]')]
+            .find(x => x.textContent.includes('Nómina')).click()""")
+        await b.wait_for("!document.getElementById('finAccountMenu').classList.contains('hidden')")
+        await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
 
         # El ojo oculta el total, y se recuerda
         await b.js("document.getElementById('finEyeBtn').click()")
