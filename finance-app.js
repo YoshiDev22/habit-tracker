@@ -1063,7 +1063,7 @@ function finStatementView(card, st, plans) {
         plans.forEach(p => {
             const item = el('li', 'fin-msi');
             const done = p.billed >= p.months;
-            const progress = p.billed ? `${p.billed} de ${p.months} facturadas`
+            const progress = p.billed ? `${p.billed} de ${p.months} pagos`
                 : `la primera, en el corte del ${finShortDate(p.next_statement)}`;
             item.append(el('span', '', p.concept),
                 el('small', '', done ? `Liquidada (${p.months} meses)`
