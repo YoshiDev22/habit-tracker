@@ -7,6 +7,31 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.30.1] — 2026-10-18
+
+Correcciones de Finanzas tras probarla con datos reales: las tarjetas enseñan el pago correcto, cada
+una tiene su estado de cuenta desglosado, el saldo inicial se ve en Movimientos y la importación ya
+no salta filas por la moneda.
+
+### Nuevo
+- **Estado de cuenta de cada tarjeta**: en el menú de una tarjeta con corte y pago, *Estado de cuenta*
+  dice cuánto pagar y antes de cuándo; al tocarlo se desglosa (deuda al corte, meses sin intereses de
+  cortes después, lo ya pagado y lo que falta). Ahí mismo se escribe lo que pide el banco, se anotan
+  los meses sin intereses y se paga.
+
+### Correcciones
+- **Una tarjeta dada de alta después de su corte**, con el pago aún por venir, enseñaba el corte
+  siguiente (y su pago un mes después). Ahora enseña el pago de ese corte, con la deuda con la que se
+  dio de alta, y se puede corregir con la cifra del banco.
+- **El saldo inicial de cada cuenta** (o la deuda inicial de una tarjeta) se ve en Movimientos, en su
+  día. Solo se enseña: no cuenta como ingreso ni en el total del día ni en el Resumen.
+- **Importar datos**: un archivo que dice USD en cuentas que son en pesos (otra app puede llamar USD a
+  cualquier "$") saltaba esas filas. La vista previa tiene *Moneda del archivo* para tomarla como la
+  tuya; una moneda que no usa ninguna de tus cuentas empieza como tu moneda principal.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel.
+
 ## [1.30.0] — 2026-10-17
 
 Finanzas a partir de su primera prueba real: saldos desde un día, tarjetas que pasan al siguiente
@@ -972,6 +997,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.30.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.1
 [1.30.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.0
 [1.29.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.29.0
 [1.28.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.28.1

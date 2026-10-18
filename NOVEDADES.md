@@ -4,6 +4,15 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.30.1 — 2026-10-18
+### Nuevas funciones
+- **Finanzas: estado de cuenta de cada tarjeta**: toca la tarjeta y luego *Estado de cuenta* para ver
+  de dónde sale lo que hay que pagar, anotar tus meses sin intereses y escribir la cifra de tu banco.
+### Cambios
+- **Finanzas: el pago correcto**: una tarjeta que diste de alta después de su corte ya enseña el pago
+  de ese corte, no el del mes siguiente.
+- **Finanzas: tu saldo inicial en Movimientos**: sale en su día, sin contar como ingreso.
+
 ## 1.30.0 — 2026-10-17
 ### Nuevas funciones
 - **Finanzas (en prueba): menú de cada cuenta**: tócala para editarla, ajustar su saldo, ver solo sus
