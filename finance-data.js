@@ -262,22 +262,37 @@ async function finRefreshDataImport() {
     const newAccounts = finDataPending.newAccounts;     // nombre normalizado → {name, kind, currency}
     const newCategories = new Map();                    // nombre normalizado → {name, kind}
     const seenAccounts = new Set();
+    // La moneda que dice el archivo puede ser solo la etiqueta de "$" de la otra app:
+    // una que ninguna de tus cuentas usa se toma, de entrada, como tu moneda principal
+    const currencyMap = finDataPending.currencyMap;     // la del archivo → la que se usa
+    const used = new Set(finState.accounts.map(a => a.currency));
+    rows.forEach(row => {
+        if (row.currency && !currencyMap.has(row.currency)) {
+            currencyMap.set(row.currency, used.has(row.currency) ? row.currency : main);
+        }
+    });
+    [...currencyMap.keys()].forEach(code => { if (!rows.some(r => r.currency === code)) currencyMap.delete(code); });
+    newAccounts.forEach(account => {
+        account.currency = account.fileCurrency ? currencyMap.get(account.fileCurrency) || account.fileCurrency : main;
+    });
     rows.forEach(row => {
         row.skip = row.problem;
         if (row.skip) return;
+        const currency = row.currency ? currencyMap.get(row.currency) || row.currency : '';
         [row.accountName, row.toAccountName].filter(Boolean).forEach(name => {
             const key = normalize(name);
             seenAccounts.add(key);
             if (!accounts.has(key) && !newAccounts.has(key)) {
-                newAccounts.set(key, { name: name.slice(0, 40), kind: finGuessKind(name), currency: row.currency || main });
+                newAccounts.set(key, { name: name.slice(0, 40), kind: finGuessKind(name),
+                    fileCurrency: row.currency, currency: currency || main });
             }
         });
         const currencyOf = name => {
             const key = normalize(name);
             return (accounts.get(key) || newAccounts.get(key)).currency;
         };
-        if (row.currency && row.currency !== currencyOf(row.accountName)) {
-            row.skip = `moneda ${row.currency}, la cuenta es en ${currencyOf(row.accountName)}`;
+        if (currency && currency !== currencyOf(row.accountName)) {
+            row.skip = `moneda ${currency}, la cuenta es en ${currencyOf(row.accountName)}`;
             return;
         }
         if (row.kind === 'transfer' && currencyOf(row.toAccountName) !== currencyOf(row.accountName)) {
@@ -347,6 +362,27 @@ function finRenderDataImport(checked) {
     // Lo que se va a crear: las cuentas, con su tipo para elegir
     const box = document.getElementById('finDataNew');
     const parts = [];
+    const main = finMainCurrency();
+    const fileCurrencies = [...finDataPending.currencyMap.entries()].filter(([code, to]) => code !== main || to !== main);
+    if (fileCurrencies.length) {
+        const list = el('div', 'fin-data-new');
+        list.appendChild(el('p', 'fin-stat-label', 'Moneda del archivo'));
+        fileCurrencies.forEach(([code, to]) => {
+            const row = el('label', 'fin-data-new-row');
+            const select = el('select', 'fin-import-input');
+            select.dataset.currencyMap = code;
+            [...new Set([main, code])].forEach(value => {
+                const option = el('option', '', value === code ? `${code}, tal cual` : `${value}, tu moneda`);
+                option.value = value;
+                select.appendChild(option);
+            });
+            select.value = to;
+            row.append(el('span', '', `El archivo dice ${code}`), select);
+            list.appendChild(row);
+        });
+        list.appendChild(el('p', 'fin-hint', 'Si tu otra app ponía "$" como USD pero tus cuentas son en pesos, elige tu moneda.'));
+        parts.push(list);
+    }
     if (newAccounts.size) {
         const list = el('div', 'fin-data-new');
         list.appendChild(el('p', 'fin-stat-label', 'Cuentas nuevas'));
@@ -393,7 +429,9 @@ function finRenderDataImport(checked) {
 function finParseDataImport() {
     const text = document.getElementById('finDataText').value;
     const keep = finDataPending ? finDataPending.newAccounts : new Map();
-    finDataPending = { rows: text.trim() ? rowsToFinanceData(parseTable(text)) : [], newAccounts: keep, newCategories: new Map() };
+    const currencyMap = finDataPending ? finDataPending.currencyMap : new Map();
+    finDataPending = { rows: text.trim() ? rowsToFinanceData(parseTable(text)) : [], newAccounts: keep,
+        newCategories: new Map(), currencyMap };
     finRefreshDataImport();
 }
 
@@ -505,8 +543,15 @@ document.getElementById('finDataText').addEventListener('input', () => {
     finDataTimer = setTimeout(finParseDataImport, 300);
 });
 document.getElementById('finDataNew').addEventListener('change', (event) => {
+    if (!finDataPending) return;
+    const currency = event.target.closest('[data-currency-map]');
+    if (currency) {
+        finDataPending.currencyMap.set(currency.dataset.currencyMap, currency.value);
+        finRefreshDataImport();
+        return;
+    }
     const select = event.target.closest('[data-new-account]');
-    if (!select || !finDataPending) return;
+    if (!select) return;
     const account = finDataPending.newAccounts.get(select.dataset.newAccount);
     if (account) account.kind = select.value;
 });

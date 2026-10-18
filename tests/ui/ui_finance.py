@@ -460,29 +460,41 @@ async def main():
               and any(",D" in line for line in lines[1:]),
               f"the export has its header and marks split parts ({lines[:2]})")
 
-        # Importar el CSV de otra app: cuenta o categoría en una sola columna
+        # Importar el CSV de otra app: cuenta o categoría en una sola columna, y "$" como USD
+        # aunque las cuentas sean en pesos
         await b.js("document.getElementById('finDataImportOpen').click()")
         await b.wait_for("!document.getElementById('finDataImportModal').classList.contains('hidden')")
         d = (TODAY - timedelta(days=3)).strftime("%d/%m/%Y")
         other_app = ("FECHA,TIPO,DE CUENTA,A CUENTA/A CATEGORÍA,CANTIDAD,MONEDA,CANTIDAD 2,MONEDA 2,ETIQUETAS,NOTAS\n"
-                     f"{d},Gasto,Efectivo,Tienda,15,MXN,15,MXN,,Agua\n"
-                     f"{d},Gasto,Cartera nueva,Regalos,5,MXN,5,MXN,viaje,Cerillito\n"
-                     f"{d},Ingreso,Sueldo,Efectivo,1000,MXN,1000,MXN,,Quincena\n"
-                     f"{d},Transferencia,Efectivo,Cartera nueva,50,MXN,50,MXN,,Paso\n")
+                     f"{d},Gasto,Efectivo,Tienda,15,USD,15,USD,,Agua\n"
+                     f"{d},Gasto,Cartera nueva,Regalos,5,USD,5,USD,viaje,Cerillito\n"
+                     f"{d},Ingreso,Sueldo,Efectivo,1000,USD,1000,USD,,Quincena\n"
+                     f"{d},Transferencia,Efectivo,Cartera nueva,50,USD,50,USD,,Paso\n")
         await set_value("#finDataText", other_app)
         summary_text = await b.wait_for("document.getElementById('finDataSummary').textContent",
                                         lambda v: v and v.startswith("4 de 4"))
         st = await b.js("""({kind: (document.querySelector('#finDataNew [data-new-account]') || {}).value,
+            currency: (document.querySelector('#finDataNew [data-currency-map="USD"]') || {}).value,
             text: document.getElementById('finDataNew').textContent})""")
-        check(summary_text and st["kind"] == "cash" and "Cartera nueva" in st["text"] and "Tienda" in st["text"],
+        check(summary_text and st["kind"] == "cash" and "Cartera nueva (MXN)" in st["text"] and "Tienda" in st["text"],
               f"the other app's CSV reads, with the account and categories to create ({summary_text}, {st})")
+        check(st["currency"] == "MXN", f"USD that no account uses is taken as the main currency ({st['currency']})")
+        # Tal cual: las filas de Efectivo (en pesos) se saltan
+        await b.js("""(() => { const s = document.querySelector('#finDataNew [data-currency-map="USD"]');
+            s.value = 'USD'; s.dispatchEvent(new Event('change', {bubbles: true})); })()""")
+        as_is = await b.wait_for("document.getElementById('finDataSummary').textContent",
+                                 lambda v: v and v.startswith("1 de 4"))
+        check(bool(as_is), f"keeping USD skips the rows of a peso account ({as_is})")
+        await b.js("""(() => { const s = document.querySelector('#finDataNew [data-currency-map="USD"]');
+            s.value = 'MXN'; s.dispatchEvent(new Event('change', {bubbles: true})); })()""")
+        await b.wait_for("document.getElementById('finDataSummary').textContent", lambda v: v and v.startswith("4 de 4"))
         await b.shot("finance_data_import", full=False)
         await b.js("document.getElementById('finDataConfirm').click()")
         await b.wait_for("document.getElementById('finDataImportModal').classList.contains('hidden')")
         accs = accounts()
         cats = {c["id"]: c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]}
         by = {t["concept"]: t for t in transactions()}
-        check(accs.get("Cartera nueva", {}).get("kind") == "cash"
+        check(accs.get("Cartera nueva", {}).get("kind") == "cash" and accs["Cartera nueva"]["currency"] == "MXN"
               and cats[by["Agua"]["category_id"]]["name"] == "Tienda"
               and by["Cerillito"]["account_id"] == accs["Cartera nueva"]["id"] and "viaje" in (by["Cerillito"]["note"] or "")
               and by["Quincena"]["kind"] == "income" and by["Quincena"]["account_id"] == accs["Efectivo"]["id"]

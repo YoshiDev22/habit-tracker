@@ -587,7 +587,9 @@ Lo que no se ve en Swagger:
   *Parte de*; `finCsvCell()` antepone `'` a lo que empiece por `= + - @`) e **importa** un CSV con
   varias cuentas (`rowsToFinanceData()`): el propio u otro con columnas parecidas, incluido el de una
   columna *A cuenta/A categoría* (en un gasto, la categoría; en una transferencia o un ingreso, la
-  cuenta) y *Notas* como concepto si no hay concepto. Las cuentas y categorías que falten se crean al
+  cuenta) y *Notas* como concepto si no hay concepto. La moneda del archivo se puede tomar como otra
+  (*Moneda del archivo*: una que ninguna cuenta usa empieza como la principal, porque otra app puede llamar USD a
+  cualquier "$"). Las cuentas y categorías que falten se crean al
   confirmar y los movimientos entran de una vez (`FIN_MAX_IMPORT_ROWS`, 5000). Las hojas que suben desde abajo llevan su pila (`finSheets`) para el Escape.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).
