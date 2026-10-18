@@ -182,7 +182,7 @@ def test_card_dates():
     assert cut_on_or_after(5, date(2026, 12, 6)) == date(2027, 1, 5)
     assert due_after(date(2026, 1, 31), 20) == date(2026, 2, 20)
     assert due_after(date(2026, 3, 5), 25) == date(2026, 3, 25)
-    assert installment_parts(1000, 3) == [334, 333, 333] and sum(installment_parts(99_999, 7)) == 99_999
+    assert installment_parts(1000, 3) == [333, 333, 334] and sum(installment_parts(99_999, 7)) == 99_999
 
 
 def test_card_statement_and_installments(api):
@@ -347,6 +347,41 @@ def test_card_shows_the_next_cut_when_the_payment_passed(api):
     assert st2["msi_pending_cents"] == 30_000 and st2["remaining_cents"] == 20_000
     _, st2 = api.call("PUT", url2, {"cut_date": cut2.isoformat(), "pay_no_interest_cents": 25_000}, expect=200)
     assert st2["from_bank"] and st2["remaining_cents"] == 25_000
+
+
+def test_months_without_interest_copied_from_the_bank_statement(api):
+    """Un plan copiado del estado de cuenta: monto original, meses y qué pago pide
+    ese corte ("11 de 12"). El plan se arma hacia atrás desde ahí, el corte pide esa
+    mensualidad y lo que queda se resta del pago para no generar intereses. El
+    pago requerido y el saldo pendiente se comprueban."""
+    cash, debit, credit, cats = setup(api, "msi-banco@test.com")
+    cut, due = _days_for(5, 15)
+    _, card = api.call("POST", "/api/finance/accounts", {
+        "name": "TDC", "kind": "credit", "opening_balance_cents": -500_000,
+        "opening_date": (cut - timedelta(days=60)).isoformat(),
+        "statement_day": cut.day, "due_day": due.day}, expect=201)
+    plan = {"account_id": card["id"], "concept": "Compu", "total_cents": 1_200_000, "months": 12,
+            "bank_cut": cut.isoformat(), "bank_part": 11}
+    # Lo que dice el banco tiene que cuadrar
+    status, body = api.call("POST", "/api/finance/installments", {**plan, "bank_monthly_cents": 90_000})
+    assert status == 422 and "No cuadra" in str(body)
+    assert api.call("POST", "/api/finance/installments", {**plan, "bank_pending_cents": 300_000})[0] == 422
+    assert api.call("POST", "/api/finance/installments", {**plan, "bank_part": 13})[0] == 422
+    _, made = api.call("POST", "/api/finance/installments",
+                       {**plan, "bank_monthly_cents": 100_000, "bank_pending_cents": 100_000}, expect=201)
+    assert len(made["bills"]) == 12 and made["bills"][10] == {"cut": cut.isoformat(), "part": 11, "amount_cents": 100_000}
+    assert made["first_statement"] < cut.isoformat() and made["billed"] == 11 and made["remaining_cents"] == 100_000
+    # Los centavos que sobran van al final, como en el estado de cuenta: 1 000.00 en 6
+    _, odd = api.call("POST", "/api/finance/installments", {
+        "account_id": card["id"], "concept": "Tienda", "total_cents": 100_000, "months": 6,
+        "bank_cut": cut.isoformat(), "bank_part": 2, "bank_monthly_cents": 16_666, "bank_pending_cents": 66_668},
+        expect=201)
+    assert [b["amount_cents"] for b in odd["bills"]] == [16_666, 16_666, 16_667, 16_667, 16_667, 16_667]
+    _, st = api.call("GET", f"/api/finance/accounts/{card['id']}/statement", expect=200)
+    assert sorted((i["concept"], i["part"], i["amount_cents"]) for i in st["installments"]) == [
+        ("Compu", 11, 100_000), ("Tienda", 2, 16_666)]
+    assert st["msi_pending_cents"] == 100_000 + 66_668
+    assert st["pay_no_interest_cents"] == 500_000 - 166_668
 
 
 def test_the_bank_amount_overrides_the_estimate(api):

@@ -472,7 +472,8 @@
 }
 
 .fin-tx.transfer .fin-tx-amount,
-.fin-tx.opening .fin-tx-amount {
+.fin-tx.opening .fin-tx-amount,
+.fin-tx.bill .fin-tx-amount {
     color: var(--text-secondary);
 }
 
@@ -1915,6 +1916,18 @@
 
 .fin-menu-page[hidden] {
     display: none;
+}
+
+/* "11 de 12": los dos números en una línea */
+.fin-msi-part {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fin-msi-part input {
+    min-width: 0;
+    flex: 1;
 }
 
 /* La línea del estado de cuenta en el menú de una tarjeta, y su desglose */

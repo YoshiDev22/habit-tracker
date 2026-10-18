@@ -15,14 +15,14 @@ from sqlmodel import Session, select
 
 from backend.auth import get_current_user
 from backend.database import get_session
-from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, bank_statement, cut_on_or_after,
+from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, bank_statement, cut_on_or_after, cut_on_or_before, shift_cut, installment_parts,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
 from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
                             FinStatement, FinTransaction, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
-    FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
+    FinInstallmentBill, FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
     FinStatementResponse, FinConsentResponse, FinCategoryOrder, FinStatementOverride,
     FinAccountCreate,
     FinAccountListResponse,
@@ -908,7 +908,36 @@ def _installment_response(inst: FinInstallment, account: FinAccount, today: date
         purchase_date=inst.purchase_date, first_statement=inst.first_statement, monthly_cents=bills[0][1],
         billed=len(done), remaining_cents=inst.total_cents - sum(done),
         next_statement=upcoming[0] if upcoming else None,
+        bills=[FinInstallmentBill(cut=cut, part=k + 1, amount_cents=cents) for k, (cut, cents) in enumerate(bills)],
     )
+
+
+def _plan_from_bank(account: FinAccount, body: FinInstallmentCreate) -> tuple:
+    """(primer corte, fecha de compra) de un plan copiado del estado de cuenta: si
+    el corte `bank_cut` pide el pago `bank_part`, el primero fue `bank_part - 1`
+    cortes antes. El pago requerido y el saldo pendiente (lo que queda después de
+    ese pago), si vienen, tienen que cuadrar con el monto original y los meses."""
+    if body.bank_cut is None or body.bank_part is None:
+        raise _unprocessable("Del estado de cuenta, pide el corte y el número de pago")
+    if not account.statement_day:
+        raise _conflict(f"Pon el día de corte de '{account.name}' primero")
+    if body.bank_part > body.months:
+        raise _unprocessable(f"El pago {body.bank_part} no cabe en {body.months} meses")
+    cut = cut_on_or_before(account.statement_day, body.bank_cut)
+    first = shift_cut(cut, 1 - body.bank_part, account.statement_day)
+    parts = installment_parts(body.total_cents, body.months)
+    money = lambda cents: f"{cents / 100:,.2f}"
+    # Cada banco redondea a su modo: unos centavos de diferencia se aceptan
+    slack = body.months
+    if body.bank_monthly_cents is not None and abs(parts[body.bank_part - 1] - body.bank_monthly_cents) > slack:
+        raise _unprocessable(f"No cuadra: {money(body.total_cents)} en {body.months} meses son "
+                             f"{money(parts[body.bank_part - 1])} al mes, no {money(body.bank_monthly_cents)}")
+    pending = sum(parts[body.bank_part:])
+    if body.bank_pending_cents is not None and abs(pending - body.bank_pending_cents) > slack:
+        raise _unprocessable(f"No cuadra: después del pago {body.bank_part} de {body.months} quedan "
+                             f"{money(pending)}, no {money(body.bank_pending_cents)}")
+    purchase = body.purchase_date if body.purchase_date is not None and body.purchase_date <= first else first
+    return first, purchase
 
 
 @router.get("/installments", response_model=FinInstallmentListResponse)
@@ -943,6 +972,14 @@ def create_installment(body: FinInstallmentCreate, session: Session = Depends(ge
         concept, total, purchase = tx.concept, tx.amount_cents, tx.tx_date
         if body.months < 2:
             raise _unprocessable("Una compra a meses va de 2 meses en adelante")
+    elif body.bank_part is not None or body.bank_cut is not None:
+        if body.account_id is None or body.total_cents is None or not body.concept:
+            raise _unprocessable("Del estado de cuenta, pide cuenta, descripción y monto original")
+        account = _credit_card(session, user.id, body.account_id)
+        if body.total_cents < body.months:
+            raise _unprocessable("El monto original no alcanza para tantos meses")
+        concept, total = _clean_concept(body.concept), body.total_cents
+        body.first_statement, purchase = _plan_from_bank(account, body)
     else:
         if body.account_id is None or body.total_cents is None or body.purchase_date is None or not body.concept:
             raise _unprocessable("Sin la compra anotada, pide cuenta, concepto, total y fecha de compra")

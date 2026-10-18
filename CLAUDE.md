@@ -525,10 +525,14 @@ Lo que no se ve en Swagger:
   En el menú de la tarjeta, *Estado de cuenta* lo desglosa y ahí se corrige con el banco (`finRenderStatementPage()`).
   **MSI** (`fin_installments`, `/installments`): una compra a meses cuenta como gasto completa el día
   que se hace (regla de la fase 1); el plan solo dice cuánto pide cada corte (`installment_parts()`,
-  los centavos que sobran a las primeras), desde el primer corte en o después de la compra. Una
+  los centavos que sobran a las últimas, como los bancos), desde el primer corte en o después de la compra. Una
   compra, un plan (409); borrar la compra se lleva su plan. Un plan **sin compra** son los meses que
-  le faltan a una deuda de antes (desde el menú de la tarjeta: mensualidad × meses que faltan, desde
-  hoy); puede tener 1 mes, una compra no. **Dividir un cargo** (`fin_splits`,
+  le faltan a una deuda de antes; puede tener 1 mes, una compra no. Se copia del estado de cuenta tal como
+  viene (menú de la tarjeta › Meses sin intereses): monto original, meses, el pago que pide un corte
+  (`bank_cut`, `bank_part`: "11 de 12") y, para comprobar, pago requerido y saldo pendiente
+  (`_plan_from_bank()`: el plan se arma hacia atrás desde ese corte; si no cuadran, 422). La respuesta trae
+  `bills` (cada mensualidad con su corte), y Movimientos enseña cada una en su corte (`finBillRow()`), sin
+  sumarla. **Dividir un cargo** (`fin_splits`,
   `splits` en el movimiento): al menos dos partes, cada una con una categoría de su tipo sin repetir,
   que suman exacto el monto; el movimiento queda sin `category_id`, el resumen cuenta cada parte en su
   categoría y una categoría con partes no se borra. Editar el monto sin mandar las partes, si ya las

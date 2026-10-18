@@ -282,9 +282,17 @@ document.getElementById('finAdjustForm').addEventListener('submit', async (event
 
 async function openFinMsi() {
     document.getElementById('finMsiError').classList.add('hidden');
-    document.getElementById('finMsiForm').reset();
+    finResetMsiForm();
     finMenuPage('msi');
     await finLoadMsi();
+}
+
+// El corte de partida: el del estado de cuenta que enseña la tarjeta (el último
+// que ya llegó; si ya enseña el próximo, el de antes)
+function finResetMsiForm() {
+    document.getElementById('finMsiForm').reset();
+    const st = finMenu.statement;
+    document.getElementById('finMsiCut').value = st ? (st.upcoming ? st.prev_cut : st.last_cut) : '';
 }
 
 async function finLoadMsi() {
@@ -304,9 +312,15 @@ async function finLoadMsi() {
         const item = el('li', 'fin-msi');
         const done = p.billed >= p.months;
         const text = el('span', 'fin-msi-text');
-        text.append(el('span', '', p.concept), el('small', '', done ? `Liquidada (${p.months} meses)`
-            : `${formatMoney(p.monthly_cents, p.currency)} al mes · faltan ${formatMoney(p.remaining_cents, p.currency)}`
-              + (p.next_statement ? ` · siguiente, corte del ${finShortDate(p.next_statement)}` : '')));
+        const money = cents => formatMoney(cents, p.currency);
+        // Como en el estado de cuenta: el último pago pedido, lo que queda y el original
+        const last = p.billed ? p.bills[p.billed - 1] : null;
+        const detail = done ? `Liquidada (${p.months} meses de ${money(p.bills[0].amount_cents)})`
+            : [last ? `pago ${last.part} de ${p.months} (corte del ${finShortDate(last.cut)})`
+                : `pago 1 de ${p.months} en el corte del ${finShortDate(p.next_statement)}`,
+               `${money(p.monthly_cents)} al mes`, `pendiente ${money(p.remaining_cents)}`,
+               `original ${money(p.total_cents)}`].join(' · ');
+        text.append(el('span', '', p.concept), el('small', '', detail));
         item.appendChild(text);
         // Solo se quitan desde aquí los que no tienen compra (los de una compra, con su compra)
         if (!p.transaction_id) {
@@ -341,19 +355,31 @@ document.getElementById('finMsiForm').addEventListener('submit', async (event) =
     const a = finMenu.account;
     const errorEl = document.getElementById('finMsiError');
     errorEl.classList.add('hidden');
-    const concept = document.getElementById('finMsiConcept').value.trim();
-    const monthly = parseMoneyCents(document.getElementById('finMsiMonthly').value.trim());
-    const months = Number(document.getElementById('finMsiMonths').value);
-    if (!concept) return showError(errorEl, 'Escribe qué compra es.');
-    if (monthly == null || monthly <= 0) return showError(errorEl, 'Escribe la mensualidad: solo números.');
-    if (!Number.isInteger(months) || months < 1 || months > 48) return showError(errorEl, 'Los meses que faltan van de 1 a 48.');
+    const value = id => document.getElementById(id).value.trim();
+    const concept = value('finMsiConcept');
+    const original = parseMoneyCents(value('finMsiOriginal'));
+    const pending = value('finMsiPending') ? parseMoneyCents(value('finMsiPending')) : null;
+    const monthly = value('finMsiMonthly') ? parseMoneyCents(value('finMsiMonthly')) : null;
+    const part = Number(value('finMsiPart'));
+    const months = Number(value('finMsiMonths'));
+    const cut = value('finMsiCut');
+    if (!concept) return showError(errorEl, 'Escribe la descripción, como viene en tu estado de cuenta.');
+    if (original == null || original <= 0) return showError(errorEl, 'Escribe el monto original: solo números.');
+    if ((value('finMsiPending') && pending == null) || (value('finMsiMonthly') && monthly == null)) {
+        return showError(errorEl, 'El saldo pendiente y el pago requerido van en números.');
+    }
+    if (!Number.isInteger(months) || months < 1 || months > 48) return showError(errorEl, 'Los meses van de 1 a 48.');
+    if (!Number.isInteger(part) || part < 1 || part > months) {
+        return showError(errorEl, `El número de pago va de 1 a ${months} ("11 de 12").`);
+    }
+    if (!cut) return showError(errorEl, 'Escribe la fecha de corte de ese estado de cuenta.');
     if (!a.statement_day) return showError(errorEl, 'Primero pon el día de corte de la tarjeta (Editar).');
     try {
-        // Desde hoy: la siguiente mensualidad entra en el próximo corte
         await apiFetch('/api/finance/installments', { method: 'POST', json: {
-            account_id: a.id, concept, total_cents: monthly * months, months, purchase_date: finToday(),
+            account_id: a.id, concept, total_cents: original, months, bank_cut: cut, bank_part: part,
+            bank_monthly_cents: monthly, bank_pending_cents: pending,
         } });
-        document.getElementById('finMsiForm').reset();
+        finResetMsiForm();
         await finLoadMsi();
         finLoadMenuStatement();
         if (finState.tab === 'accounts') finRenderAccounts();

@@ -416,18 +416,33 @@
 
             <!-- Meses sin intereses que ya traía la deuda (sin compra anotada) -->
             <div class="fin-menu-page" id="finMsiPage" hidden>
-                <p class="fin-hint">Lo que de tu deuda ya estaba a meses: el estado de cuenta solo pide la mensualidad
-                    de cada corte, no todo.</p>
+                <p class="fin-hint">Cópialas de tu estado de cuenta, de la tabla de compras a meses sin intereses. Ya van
+                    en tu deuda: aquí solo se dice cuánto pide cada corte.</p>
                 <ul class="fin-msi-list" id="finMsiList"></ul>
                 <form class="fin-form" id="finMsiForm" novalidate>
-                    <label class="fin-field wide">Concepto
-                        <input type="text" id="finMsiConcept" maxlength="200" autocomplete="off" placeholder="Celular">
+                    <label class="fin-field wide">Descripción
+                        <input type="text" id="finMsiConcept" maxlength="200" autocomplete="off" placeholder="Computadora">
                     </label>
-                    <label class="fin-field">Mensualidad
+                    <label class="fin-field">Monto original
+                        <input type="text" id="finMsiOriginal" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                    </label>
+                    <label class="fin-field">Saldo pendiente
+                        <input type="text" id="finMsiPending" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                    </label>
+                    <label class="fin-field">Pago requerido
                         <input type="text" id="finMsiMonthly" inputmode="decimal" autocomplete="off" placeholder="0.00">
                     </label>
-                    <label class="fin-field">Meses que faltan
-                        <input type="number" id="finMsiMonths" min="1" max="48" inputmode="numeric" placeholder="1–48">
+                    <div class="fin-field">Núm. de pago
+                        <span class="fin-msi-part">
+                            <input type="number" id="finMsiPart" min="1" max="48" inputmode="numeric" placeholder="11"
+                                   aria-label="Número de pago">
+                            de
+                            <input type="number" id="finMsiMonths" min="1" max="48" inputmode="numeric" placeholder="12"
+                                   aria-label="Meses en total">
+                        </span>
+                    </div>
+                    <label class="fin-field wide">Corte de ese estado de cuenta
+                        <input type="date" id="finMsiCut">
                     </label>
                     <div id="finMsiError" class="form-error hidden wide"></div>
                     <div class="fin-form-actions wide">

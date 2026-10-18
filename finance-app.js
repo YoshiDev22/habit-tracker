@@ -237,16 +237,18 @@ async function finLoad() {
     try {
         // Los fijos primero: generan lo que ya llegó, y el resumen ya lo cuenta
         const recurring = await apiFetch('/api/finance/recurring');
-        const [summary, accounts, categories] = await Promise.all([
+        const [summary, accounts, categories, plans] = await Promise.all([
             apiFetch(`/api/finance/summary${query}`),
             apiFetch('/api/finance/accounts'),
             apiFetch('/api/finance/categories'),
+            // Las mensualidades de MSI solo se enseñan en la lista: sin ellas, todo lo demás sale
+            apiFetch('/api/finance/installments').catch(() => ({ installments: [] })),
         ]);
         // La lista, con las fechas que dio el resumen (así "Siempre" sabe desde cuándo)
         const list = await apiFetch(`/api/finance/transactions?date_from=${summary.date_from}&date_to=${summary.date_to}`);
         Object.assign(finState, {
             summary, transactions: list.transactions, accounts: accounts.accounts,
-            categories: categories.categories, recurring: recurring.recurring,
+            categories: categories.categories, recurring: recurring.recurring, installments: plans.installments,
         });
     } catch (error) {
         if (error.status !== 401) finShowError(error.message || 'No se pudo cargar Finanzas.');
@@ -659,6 +661,34 @@ function finOpeningRow(account) {
     return row;
 }
 
+// Una mensualidad de MSI en el corte que la pide: también solo se enseña (la compra,
+// o la deuda inicial, ya la contó)
+function finBillRow({ plan, bill }) {
+    const account = finAccount(plan.account_id);
+    const row = el('button', 'fin-tx bill');
+    row.type = 'button';
+    row.dataset.openingAccount = String(plan.account_id);
+    const text = el('span', 'fin-tx-text');
+    text.append(el('strong', '', plan.concept),
+        el('small', '', [`Meses sin intereses · ${bill.part} de ${plan.months}`, account ? account.name : ''].filter(Boolean).join(' · ')));
+    row.append(finBadge('calendar-days', FIN_NEUTRAL), text,
+        el('span', 'fin-tx-amount', formatMoney(bill.amount_cents, plan.currency)));
+    return row;
+}
+
+function finBillsInPeriod(only) {
+    const s = finState.summary;
+    const out = [];
+    (finState.installments || []).forEach(plan => {
+        if (only && plan.account_id !== only.id) return;
+        if (!finAccount(plan.account_id)) return;
+        plan.bills.forEach(bill => {
+            if (!s || (bill.cut >= s.date_from && bill.cut <= s.date_to)) out.push({ plan, bill });
+        });
+    });
+    return out;
+}
+
 function finOpeningsInPeriod(only) {
     const s = finState.summary;
     return finState.accounts.filter(a => a.opening_date && a.opening_balance_cents
@@ -677,7 +707,8 @@ function finRenderList() {
     const txs = only ? finState.transactions.filter(t => t.account_id === only.id || t.to_account_id === only.id)
         : finState.transactions;
     const openings = finOpeningsInPeriod(only);
-    if (!txs.length && !openings.length) {
+    const bills = finBillsInPeriod(only);
+    if (!txs.length && !openings.length && !bills.length) {
         list.replaceChildren(el('p', 'fin-empty', only ? `Sin movimientos de ${only.name} en este periodo.`
             : 'Sin movimientos en este periodo. Toca una categoría o ＋ Agregar.'));
         return;
@@ -688,6 +719,7 @@ function finRenderList() {
         byDay.get(tx.tx_date).push(tx);
     });
     openings.forEach(account => { if (!byDay.has(account.opening_date)) byDay.set(account.opening_date, []); });
+    bills.forEach(({ bill }) => { if (!byDay.has(bill.cut)) byDay.set(bill.cut, []); });
     const main = finMainCurrency();
     const groups = [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([day, rows]) => {
         const net = rows.filter(t => t.currency === main && t.kind !== 'transfer')
@@ -697,6 +729,7 @@ function finRenderList() {
         head.append(el('span', '', finDayTitle(day)), el('span', `fin-day-total${net < 0 ? ' expense' : net > 0 ? ' income' : ''}`, rows.length ? finMoney(net, main) : ''));
         // El saldo inicial va al empezar el día: abajo, porque la lista va del más reciente
         group.append(head, ...rows.map(finTxRow),
+            ...bills.filter(b => b.bill.cut === day).map(finBillRow),
             ...openings.filter(a => a.opening_date === day).map(finOpeningRow));
         return group;
     });

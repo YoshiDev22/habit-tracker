@@ -145,6 +145,11 @@ def _shift(day: date_type, months: int) -> tuple:
     return index // 12, index % 12 + 1
 
 
+def shift_cut(cut: date_type, months: int, statement_day: int) -> date_type:
+    """El corte `months` meses antes (negativo) o después de `cut`."""
+    return _clamp(*_shift(cut, months), statement_day)
+
+
 def cut_on_or_before(statement_day: int, day: date_type) -> date_type:
     """El corte más reciente en o antes de `day`."""
     cut = _clamp(day.year, day.month, statement_day)
@@ -165,9 +170,9 @@ def due_after(cut: date_type, due_day: int) -> date_type:
 
 def installment_parts(total_cents: int, months: int) -> List[int]:
     """El total en partes que suman exacto: los centavos que sobran, uno a cada
-    una de las primeras."""
+    una de las últimas (como los estados de cuenta: 6 × 270.53 y el resto al final)."""
     base, extra = divmod(total_cents, months)
-    return [base + (1 if i < extra else 0) for i in range(months)]
+    return [base + (1 if i >= months - extra else 0) for i in range(months)]
 
 
 def installment_bills(inst: FinInstallment, statement_day: Optional[int]) -> List[tuple]:

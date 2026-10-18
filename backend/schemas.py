@@ -1750,6 +1750,19 @@ class FinInstallmentCreate(SQLModel):
     months: int = Field(ge=1, le=FIN_MAX_INSTALLMENT_MONTHS)
     purchase_date: Optional[date_type] = None
     first_statement: Optional[date_type] = None   # sin él, el primer corte desde la compra
+    # Copiado del estado de cuenta del banco (sin compra): el corte de ese estado de
+    # cuenta y el número de pago que factura ("11 de 12"); el plan se arma desde ahí.
+    # El pago requerido y el saldo pendiente, si vienen, se comprueban contra el plan
+    bank_cut: Optional[date_type] = None
+    bank_part: Optional[int] = Field(default=None, ge=1, le=FIN_MAX_INSTALLMENT_MONTHS)
+    bank_monthly_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    bank_pending_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+
+
+class FinInstallmentBill(SQLModel):
+    cut: date_type                # el corte que la pide
+    part: int                     # 11 (de 12)
+    amount_cents: int
 
 
 class FinInstallmentResponse(SQLModel):
@@ -1766,6 +1779,7 @@ class FinInstallmentResponse(SQLModel):
     billed: int                   # cuántas partes ya pidió algún corte hasta hoy
     remaining_cents: int          # lo que aún no se factura
     next_statement: Optional[date_type] = None
+    bills: List[FinInstallmentBill] = []   # cada mensualidad, con su corte
 
 
 class FinInstallmentListResponse(SQLModel):

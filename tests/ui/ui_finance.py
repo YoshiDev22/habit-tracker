@@ -227,13 +227,25 @@ async def main():
         check(st["acts"] == ["edit", "adjust", "movements", "pay", "expense", "msi"] and st["label"] == "A favor" and st["form"],
               f"a card opens its menu, with what it has in favor after paying more ({st})")
         await b.shot("finance_card_menu", full=False)
-        # Meses sin intereses que ya traía la deuda: 3 de $100
+        # Meses sin intereses copiados del estado de cuenta: $300 en 3, el pago 2 de 3
         await b.js("document.querySelector('[data-menu-act=\"msi\"]').click()")
+        cut_default = await b.wait_for("document.getElementById('finMsiCut').value", lambda v: v)
+        check(bool(cut_default), f"the statement's cut comes filled in ({cut_default})")
         await set_value("#finMsiConcept", "Celular")
+        await set_value("#finMsiOriginal", "300")
+        await set_value("#finMsiPending", "90")
         await set_value("#finMsiMonthly", "100")
+        await set_value("#finMsiPart", "2")
         await set_value("#finMsiMonths", "3")
         await b.js("document.querySelector('#finMsiForm [type=\"submit\"]').click()")
+        err = await b.wait_for("document.getElementById('finMsiError').textContent", lambda v: v)
+        check("No cuadra" in (err or ""), f"a pending balance that does not add up is caught ({err})")
+        await set_value("#finMsiPending", "100")
+        await b.js("document.querySelector('#finMsiForm [type=\"submit\"]').click()")
         await b.wait_for("document.getElementById('finMsiList').textContent.includes('Celular')")
+        item = await b.js("document.getElementById('finMsiList').textContent")
+        check("pago 2 de 3" in item and "original" in item, f"the plan reads like the statement ({item})")
+        await b.shot("finance_msi", full=False)
         plans = [p for p in api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
                  if p["concept"] == "Celular"]
         check(len(plans) == 1 and plans[0]["transaction_id"] is None and plans[0]["months"] == 3
@@ -584,6 +596,8 @@ async def main():
         expected = f"{months[TODAY.month - 1].capitalize()} {TODAY.year}"
         label = await b.wait_for("document.getElementById('finPeriodLabel').textContent", lambda t: t == expected)
         check(label == expected, f"the period label follows the setting ({label})")
+        bills = await b.js("finBillsInPeriod(null).map(x => x.plan.concept + ' ' + x.bill.part)")
+        check(any(x.startswith("Celular ") for x in bills), f"each monthly payment of a plan shows in Movimientos on its cut ({bills})")
 
         # En oscuro también
         await b.js("document.querySelector('#finNav [data-tab=\"categories\"]').click()")
