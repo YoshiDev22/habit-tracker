@@ -186,8 +186,12 @@ def test_personal_finance(seeded):
     _, msi = api.call("POST", "/api/finance/installments", {"transaction_id": laptop["id"], "months": 3}, expect=201)
     theirs = other.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"][0]
     their_cat = other.call("GET", "/api/finance/categories", expect=200)[1]["categories"][0]
+    _, group = api.call("POST", "/api/finance/budget/groups", {"name": "Necesarios", "percent_bp": 4500}, expect=201)
+    _, line = api.call("POST", "/api/finance/budget/items", {"group_id": group["id"], "name": "Renta",
+                                                             "amount_cents": 450_000}, expect=201)
+    _, their_group = other.call("POST", "/api/finance/budget/groups", {"name": "Suyo"}, expect=201)
 
-    # Ni ver, ni tocar, ni usar mis cuentas, categorías, movimientos o fijos
+    # Ni ver, ni tocar, ni usar mis cuentas, categorías, movimientos, fijos o presupuesto
     for method, path, body in [
         ("PATCH", f"/api/finance/accounts/{mine['id']}", {"name": "hack"}),
         ("DELETE", f"/api/finance/accounts/{card['id']}", None),
@@ -212,6 +216,13 @@ def test_personal_finance(seeded):
         ("PUT", f"/api/finance/accounts/{card['id']}/statement", {"cut_date": date.today().isoformat(),
                                                                   "pay_no_interest_cents": 1}),
         ("DELETE", f"/api/finance/accounts/{card['id']}/statement?cut_date={date.today().isoformat()}", None),
+        ("PATCH", f"/api/finance/budget/groups/{group['id']}", {"name": "hack"}),
+        ("DELETE", f"/api/finance/budget/groups/{group['id']}", None),
+        ("PATCH", f"/api/finance/budget/items/{line['id']}", {"name": "hack"}),
+        ("DELETE", f"/api/finance/budget/items/{line['id']}", None),
+        ("POST", "/api/finance/budget/items", {"group_id": group["id"], "name": "x"}),
+        ("POST", "/api/finance/budget/items", {"group_id": their_group["id"], "name": "x", "category_id": cat["id"]}),
+        ("POST", "/api/finance/budget/items", {"group_id": their_group["id"], "name": "x", "recurring_id": rc["id"]}),
         ("POST", "/api/finance/transactions", {**tx(theirs, 2, "x"), "category_id": None,
                                                "splits": [{"category_id": cat["id"], "amount_cents": 1},
                                                           {"category_id": their_cat["id"], "amount_cents": 1}]}),
@@ -225,6 +236,8 @@ def test_personal_finance(seeded):
     assert [t["concept"] for t in other.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]] == ["suyo"]
     assert other.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"] == []
     assert other.call("GET", "/api/finance/installments", expect=200)[1]["installments"] == []
+    assert [g["name"] for g in other.call("GET", "/api/finance/budget", expect=200)[1]["groups"]] == ["Suyo"]
+    assert other.call("GET", "/api/finance/budget", expect=200)[1]["items"] == []
     assert other.call("GET", f"/api/finance/transactions?account_id={mine['id']}", expect=200)[1]["transactions"] == []
     # Lo mío, intacto
     assert sorted(x["concept"] for x in api.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]) == ["Laptop", "Tacos"]

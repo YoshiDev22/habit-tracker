@@ -18,7 +18,7 @@ from backend.database import get_session
 from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, bank_statement, cut_on_or_after, cut_on_or_before, shift_cut, installment_parts,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
-from backend.models import (FinAccount, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
+from backend.models import (FinAccount, FinBudgetItem, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
                             FinStatement, FinTransaction, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
@@ -591,6 +591,10 @@ def delete_category(category_id: int, session: Session = Depends(get_session), u
         FinCategory.user_id == user.id, FinCategory.kind == category.kind)).one()
     if same_kind <= 1:
         raise _conflict(f"Necesitas al menos una categoría de {'ingresos' if category.kind == 'income' else 'gastos'}")
+    for item in session.exec(select(FinBudgetItem).where(FinBudgetItem.user_id == user.id,
+                                                         FinBudgetItem.category_id == category.id)).all():
+        item.category_id = None
+        session.add(item)
     session.delete(category)
     session.commit()
 
@@ -719,6 +723,11 @@ def delete_recurring(recurring_id: int, delete_transactions: bool = False, sessi
         else:
             tx.recurring_id = None
             session.add(tx)
+    # El renglón del presupuesto vuelve a ser una estimación
+    for item in session.exec(select(FinBudgetItem).where(FinBudgetItem.user_id == user.id,
+                                                         FinBudgetItem.recurring_id == rc.id)).all():
+        item.recurring_id = None
+        session.add(item)
     session.delete(rc)
     session.commit()
 

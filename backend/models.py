@@ -900,6 +900,44 @@ class FinStatement(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
+class FinBudgetGroup(SQLModel, table=True):
+    """
+    Un grupo del presupuesto mensual (Necesidades, Fondo de emergencia, Dar…) con
+    su parte del ingreso en puntos base (4500 = 45 %). Los nombres y porcentajes
+    son del usuario; una referencia (50/30/20) solo los crea para empezar.
+    """
+    __tablename__ = "fin_budget_groups"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    name: str
+    percent_bp: int = Field(default=0)
+    order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinBudgetItem(SQLModel, table=True):
+    """
+    Un renglón del presupuesto mensual: un ingreso planeado (sin grupo) o un gasto
+    planeado dentro de un grupo. Es solo el plan: nunca crea movimientos. Con
+    `recurring_id` es un fijo (ese sí se anota solo); sin él, una estimación. La
+    categoría, opcional, es para comparar después con lo gastado.
+    """
+    __tablename__ = "fin_budget_items"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    kind: str = Field(default="expense")         # expense | income
+    group_id: Optional[int] = Field(default=None, foreign_key="fin_budget_groups.id")
+    name: str
+    amount_cents: int = Field(default=0)         # al mes
+    note: Optional[str] = Field(default=None)
+    category_id: Optional[int] = Field(default=None, foreign_key="fin_categories.id")
+    recurring_id: Optional[int] = Field(default=None, foreign_key="fin_recurring.id")
+    order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
 class FinInstallment(SQLModel, table=True):
     """
     Una compra a meses sin intereses en una tarjeta de crédito. La compra cuenta

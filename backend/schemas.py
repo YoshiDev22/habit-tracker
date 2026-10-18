@@ -1759,6 +1759,84 @@ class FinInstallmentCreate(SQLModel):
     bank_pending_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
 
 
+FIN_BUDGET_MAX_GROUPS = 20
+FIN_BUDGET_MAX_ITEMS = 300
+# Las referencias para empezar: solo crean grupos, que luego son del usuario
+FIN_BUDGET_TEMPLATES = {
+    "50-30-20": [("Necesidades", 5000), ("Gustos", 3000), ("Ahorro y deudas", 2000)],
+}
+
+
+class FinBudgetGroupFields(SQLModel):
+    name: str = Field(min_length=1, max_length=60)
+    percent_bp: int = Field(default=0, ge=0, le=10000)
+
+
+class FinBudgetGroupUpdate(SQLModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=60)
+    percent_bp: Optional[int] = Field(default=None, ge=0, le=10000)
+    order: Optional[int] = Field(default=None, ge=0, le=10_000)
+
+
+class FinBudgetTemplate(SQLModel):
+    template: str
+
+    @field_validator("template")
+    @classmethod
+    def validate_template(cls, v):
+        return _one_of(v, tuple(FIN_BUDGET_TEMPLATES), "template")
+
+
+class FinBudgetItemFields(SQLModel):
+    kind: str = "expense"
+    group_id: Optional[int] = None
+    name: str = Field(min_length=1, max_length=80)
+    amount_cents: int = Field(default=0, ge=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=200)
+    category_id: Optional[int] = None
+    recurring_id: Optional[int] = None
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v):
+        return _one_of(v, FIN_CATEGORY_KINDS, "kind")
+
+
+class FinBudgetItemUpdate(SQLModel):
+    """Lo que viene cambia; `null` en nota, categoría o fijo los quita."""
+    group_id: Optional[int] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    amount_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    note: Optional[str] = Field(default=None, max_length=200)
+    category_id: Optional[int] = None
+    recurring_id: Optional[int] = None
+    order: Optional[int] = Field(default=None, ge=0, le=10_000)
+
+
+class FinBudgetGroupResponse(SQLModel):
+    id: int
+    name: str
+    percent_bp: int
+    order: int
+
+
+class FinBudgetItemResponse(SQLModel):
+    id: int
+    kind: str
+    group_id: Optional[int] = None
+    name: str
+    amount_cents: int
+    note: Optional[str] = None
+    category_id: Optional[int] = None
+    recurring_id: Optional[int] = None
+    order: int
+
+
+class FinBudgetResponse(SQLModel):
+    groups: List[FinBudgetGroupResponse]
+    items: List[FinBudgetItemResponse]
+
+
 class FinInstallmentBill(SQLModel):
     cut: date_type                # el corte que la pide
     part: int                     # 11 (de 12)

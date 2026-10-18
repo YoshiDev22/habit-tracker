@@ -811,3 +811,69 @@ def test_the_timer_charges_fixed_and_logs_no_email(api, capsys):
     later = TODAY + timedelta(days=40)
     assert generate_reports.main(["--email", "timer-fin@test.com", "--today", later.isoformat()]) == 0
     assert "fixed charge" not in capsys.readouterr().out
+
+
+def test_budget(api):
+    """El presupuesto mensual: grupos con su parte del ingreso (de una referencia o
+    propios), renglones de ingreso y de gasto, y fijos enlazados. Nada de esto crea
+    movimientos; borrar un fijo o una categoría deja el renglón sin él."""
+    cash, debit, credit, cats = setup(api, "presupuesto@test.com")
+    url = "/api/finance/budget"
+    _, empty = api.call("GET", url, expect=200)
+    assert empty == {"groups": [], "items": []}
+    # La referencia solo crea sus grupos; luego son del usuario
+    _, budget = api.call("POST", f"{url}/template", {"template": "50-30-20"}, expect=201)
+    assert [(g["name"], g["percent_bp"]) for g in budget["groups"]] == [
+        ("Necesidades", 5000), ("Gustos", 3000), ("Ahorro y deudas", 2000)]
+    needs, wants, savings = budget["groups"]
+    api.call("PATCH", f"{url}/groups/{needs['id']}", {"name": "Gastos necesarios", "percent_bp": 4500}, expect=200)
+    _, give = api.call("POST", f"{url}/groups", {"name": "Dar", "percent_bp": 200}, expect=201)
+    assert give["order"] == 3
+
+    # Un ingreso va sin grupo; un gasto, en uno
+    _, salary = api.call("POST", f"{url}/items", {"kind": "income", "name": "Sueldo", "amount_cents": 2_550_000,
+                                                  "category_id": cats["Sueldo"]["id"]}, expect=201)
+    assert api.call("POST", f"{url}/items", {"kind": "income", "name": "x", "group_id": needs["id"]})[0] == 422
+    assert api.call("POST", f"{url}/items", {"name": "Renta", "amount_cents": 1})[0] == 422
+    _, rent = api.call("POST", f"{url}/items", {"group_id": needs["id"], "name": "Renta", "amount_cents": 450_000,
+                                                "note": "  Va a cuenta  "}, expect=201)
+    assert rent["note"] == "Va a cuenta" and rent["kind"] == "expense" and rent["recurring_id"] is None
+    # La categoría, del mismo tipo
+    assert api.call("POST", f"{url}/items", {"group_id": needs["id"], "name": "x",
+                                             "category_id": cats["Sueldo"]["id"]})[0] == 422
+    _, food = api.call("POST", f"{url}/items", {"group_id": needs["id"], "name": "Comida", "amount_cents": 260_000,
+                                                "category_id": cats["Súper"]["id"], "note": "En promedio"}, expect=201)
+
+    # Hacer fijo: el fijo se crea aparte y el renglón lo enlaza; uno por renglón
+    _, internet_rc = api.call("POST", "/api/finance/recurring", {
+        "account_id": debit["id"], "category_id": cats["Casa y servicios"]["id"], "concept": "Internet",
+        "amount_cents": 50_000, "start_date": TODAY.isoformat()}, expect=201)
+    _, internet = api.call("POST", f"{url}/items", {"group_id": needs["id"], "name": "Internet",
+                                                    "amount_cents": 50_000, "recurring_id": internet_rc["id"]},
+                           expect=201)
+    assert api.call("POST", f"{url}/items", {"group_id": wants["id"], "name": "Otra vez",
+                                             "recurring_id": internet_rc["id"]})[0] == 409
+    assert api.call("POST", f"{url}/items", {"kind": "income", "name": "x", "recurring_id": internet_rc["id"]})[0] == 422
+    # Moverlo de grupo y quitarle la nota; null en el nombre no lo borra
+    _, moved = api.call("PATCH", f"{url}/items/{internet['id']}", {"group_id": wants["id"], "note": None,
+                                                                   "name": None}, expect=200)
+    assert moved["group_id"] == wants["id"] and moved["name"] == "Internet"
+    # El plan no es dinero: ningún movimiento salió de aquí (el fijo anota el suyo)
+    concepts = [t["concept"] for t in api.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]]
+    assert "Renta" not in concepts and "Comida" not in concepts and "Sueldo" not in concepts
+
+    # Borrar el fijo deja el renglón como estimación; borrar la categoría, sin ella
+    api.call("DELETE", f"/api/finance/recurring/{internet_rc['id']}", expect=204)
+    _, extra = api.call("POST", "/api/finance/categories", {"name": "Capoeira", "kind": "expense"}, expect=201)
+    api.call("PATCH", f"{url}/items/{food['id']}", {"category_id": extra["id"]}, expect=200)
+    api.call("DELETE", f"/api/finance/categories/{extra['id']}", expect=204)
+    items = {i["name"]: i for i in api.call("GET", url, expect=200)[1]["items"]}
+    assert items["Internet"]["recurring_id"] is None and items["Comida"]["category_id"] is None
+    assert items["Sueldo"]["amount_cents"] == 2_550_000
+
+    # Borrar un grupo se lleva sus renglones
+    api.call("DELETE", f"{url}/groups/{needs['id']}", expect=204)
+    _, after = api.call("GET", url, expect=200)
+    assert [g["name"] for g in after["groups"]] == ["Gustos", "Ahorro y deudas", "Dar"]
+    assert sorted(i["name"] for i in after["items"]) == ["Internet", "Sueldo"]
+    api.call("DELETE", f"{url}/items/{salary['id']}", expect=204)
