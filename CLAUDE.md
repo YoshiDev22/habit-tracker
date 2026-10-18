@@ -102,6 +102,7 @@ habit-tracker/
 │       ├── tags.py        # /api/tags/*
 │       ├── costs.py       # /api/costs/*      (gastos, categorías y resumen; plan maker)
 │       ├── finance.py     # /api/finance/*    (cuentas, categorías, movimientos, fijos, periodo)
+│       ├── finance_budget.py # /api/finance/budget (el presupuesto del mes: grupos y renglones)
 │       ├── days.py        # /api/days/*       (huso, país, festivos y días marcados)
 │       ├── metrics.py     # /api/metrics      (las cifras de un periodo)
 │       ├── reports.py     # /api/reports      (reportes guardados)
@@ -142,6 +143,7 @@ habit-tracker/
 ├── finance-accounts.js    # Finanzas: el menú de una cuenta (acciones), ajustar saldo y los MSI de una deuda
 ├── finance-import.js      # Finanzas: pegar el estado de cuenta o un CSV, con vista previa
 ├── finance-data.js        # Finanzas: el panel lateral (la inicial, arriba a la izquierda) y Datos (exportar a CSV, importar varias cuentas)
+├── finance-budget.js      # Finanzas: el presupuesto del mes (ingreso, grupos con su %, renglones estimados o fijos)
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -210,7 +212,8 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
 `ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`, las de Finanzas (`FinAccount`, `FinCategory`,
-`FinTransaction`, `FinRecurring`, `FinSettings`, `FinSplit`, `FinInstallment`, `FinStatement`),
+`FinTransaction`, `FinRecurring`, `FinSettings`, `FinSplit`, `FinInstallment`, `FinStatement`, `FinBudgetGroup`,
+`FinBudgetItem`),
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -566,7 +569,7 @@ Lo que no se ve en Swagger:
   (saldos de las activas, por moneda) y el periodo, que al tocarlo abre la hoja *Periodo* (`openFinRange()`:
   el suyo, un día, la semana, el mes, el año, siempre o un rango; `GET /summary` acepta `date_from`/`date_to`
   hasta diez años y `all=true`, desde el primer movimiento); abajo cinco pestañas (Cuentas, Categorías,
-  Movimientos, Presupuesto —*Próximamente*— y Resumen), recordada en `finance_tab`. **Categorías**
+  Movimientos, Presupuesto y Resumen), recordada en `finance_tab`. **Categorías**
   es un anillo SVG con lo de cada categoría y alrededor sus círculos (`finRingSlot()`); tocar el anillo
   cambia a las de ingresos; el ✎ de la barra de arriba (a la derecha, solo en Categorías) las ordena (tocar una y luego otra las cambia de lugar,
   `finSwapCategories()`). **Tocar una cuenta abre su menú** (`finance-accounts.js`): su saldo (en
@@ -596,6 +599,15 @@ Lo que no se ve en Swagger:
   (*Moneda del archivo*: una que ninguna cuenta usa empieza como la principal, porque otra app puede llamar USD a
   cualquier "$"). Las cuentas y categorías que falten se crean al
   confirmar y los movimientos entran de una vez (`FIN_MAX_IMPORT_ROWS`, 5000). Las hojas que suben desde abajo llevan su pila (`finSheets`) para el Escape.
+  **Presupuesto** (`finance-budget.js`, router `finance_budget.py`, tablas `fin_budget_groups` y
+  `fin_budget_items`): el plan del **mes**, que **nunca crea movimientos**. El ingreso son renglones `income`
+  sin grupo (la primera vez, el del fijo del sueldo al mes: quincenal × 2, anual ÷ 12, `finRecurringMonthly()`);
+  los gastos, renglones `expense` en grupos con su parte del ingreso en puntos base (Teórico = ingreso × %,
+  Planeado = la suma de sus renglones, Dinero disponible = ingreso − lo planeado). Las referencias
+  (`FIN_BUDGET_TEMPLATES`, hoy 50/30/20) solo crean grupos, que luego son del usuario. Un renglón con
+  `recurring_id` es un fijo (*Hacer fijo* crea el fijo con `POST /recurring` y lo enlaza; uno por renglón);
+  sin él, una estimación. Borrar el fijo o la categoría deja el renglón sin ellos; borrar un grupo se lleva sus
+  renglones, no sus fijos. Comparar con lo gastado de verdad (por la categoría del renglón) es lo siguiente.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va

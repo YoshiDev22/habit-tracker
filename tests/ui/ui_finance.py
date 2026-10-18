@@ -681,6 +681,68 @@ async def main():
         check(bool(line), f"and the breakdown says it ({line})")
         await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
 
+        # Presupuesto: el ingreso empieza con el sueldo (quincenal: dos pagos al mes), los
+        # grupos salen de 50/30/20 y se cambian, un renglón estimado, otro hecho fijo, y un
+        # fijo que ya existía metido a un grupo. Nada de esto crea movimientos
+        cats = {c["name"]: c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]}
+        api.call("POST", "/api/finance/recurring", {
+            "kind": "income", "account_id": accounts()["Efectivo"]["id"], "category_id": cats["Sueldo"]["id"],
+            "concept": "Sueldo", "amount_cents": 1_275_000, "frequency": "semimonthly",
+            "start_date": (TODAY + timedelta(days=1)).isoformat()}, expect=201)
+        before_tx = len(transactions())
+        await b.js("finLoad()")
+        await b.js("document.querySelector('#finNav [data-tab=\"budget\"]').click()")
+        income = await b.wait_for("(document.querySelector('#finBudget .fin-budget-head strong') || {}).textContent",
+                                  lambda v: v and v != "$0.00")
+        check(income == "$25,500.00", f"the budget's income starts with the salary, twice a month ({income})")
+        await b.js("document.querySelector('[data-budget-template=\"50-30-20\"]').click()")
+        await b.wait_for("document.querySelectorAll('.fin-budget-group-head').length === 3")
+        # Renombrar el primero y cambiar su %
+        await b.js("document.querySelector('.fin-budget-group-head').click()")
+        await set_value("#finBudgetGroupName", "Gastos necesarios")
+        await set_value("#finBudgetGroupPercent", "45")
+        await b.js("document.querySelector('#finBudgetGroupForm [type=\"submit\"]').click()")
+        await b.wait_for("document.querySelector('.fin-budget-group-head').textContent.includes('Gastos necesarios')")
+        # Un renglón estimado
+        await b.js("document.querySelector('[data-budget-add=\"expense\"]').click()")
+        await set_value("#finBudgetItemName", "Renta")
+        await set_value("#finBudgetItemAmount", "4500")
+        await set_value("#finBudgetItemNote", "Va a cuenta")
+        await b.js("document.querySelector('#finBudgetItemForm [type=\"submit\"]').click()")
+        await b.wait_for("document.getElementById('finBudget').textContent.includes('Renta')")
+        # Otro, hecho fijo: pide la categoría, la cuenta y el primer cobro
+        await b.js("document.querySelector('[data-budget-add=\"expense\"]').click()")
+        await set_value("#finBudgetItemName", "Internet")
+        await set_value("#finBudgetItemAmount", "500")
+        await b.js("document.getElementById('finBudgetItemFixed').click()")
+        await b.js("document.querySelector('#finBudgetItemForm [type=\"submit\"]').click()")
+        err = await b.wait_for("document.getElementById('finBudgetItemError').textContent", lambda v: v)
+        check("categoría" in (err or ""), f"a fixed one asks for its category ({err})")
+        await b.js(f"""(() => {{ const s = document.getElementById('finBudgetItemCategory');
+            s.value = '{cats["Casa y servicios"]["id"]}'; }})()""")
+        await set_value("#finBudgetFixedDate", (TODAY + timedelta(days=3)).isoformat())
+        await b.js("document.querySelector('#finBudgetItemForm [type=\"submit\"]').click()")
+        await b.wait_for("document.getElementById('finBudgetItemSheet').classList.contains('hidden')")
+        budget = api.call("GET", "/api/finance/budget", expect=200)[1]
+        fixed = [r for r in api.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"] if r["concept"] == "Internet"]
+        line = next((i for i in budget["items"] if i["name"] == "Internet"), {})
+        check(len(fixed) == 1 and line.get("recurring_id") == fixed[0]["id"] and fixed[0]["amount_cents"] == 50000,
+              f"Hacer fijo creates the fixed charge and links the line ({line}, {fixed})")
+        # El fijo que ya existía (Streaming), metido a un grupo desde "Fijos sin presupuesto"
+        group_id = budget["groups"][1]["id"]
+        await b.wait_for("!!document.querySelector('[data-budget-loose]')")
+        await b.js(f"""(() => {{ const s = document.querySelector('[data-budget-loose]');
+            s.value = '{group_id}'; s.dispatchEvent(new Event('change', {{bubbles: true}})); }})()""")
+        await b.wait_for("!document.querySelector('[data-budget-loose]')")
+        free = await b.wait_for("(document.querySelector('.fin-budget-free') || {}).textContent",
+                                lambda v: v and "20,301.00" in v)
+        check(bool(free), f"what is left: income minus everything planned (25,500 - 4,500 - 500 - 199) ({free})")
+        table = await b.js("document.querySelector('.fin-budget-table').textContent")
+        check("45 %" in table and "11,475.00" in table and "Teórico" in table,
+              f"the plan's table: each group with its %, theoretical and planned ({table})")
+        await b.shot("finance_budget", full=False)
+        check(len(transactions()) == before_tx, "the budget never adds movements")
+
         # El teléfono más angosto común (360px) con la letra más grande: nada se sale de
         # lado en ninguna pestaña ni hoja
         await b.viewport(360, 640, mobile=True)

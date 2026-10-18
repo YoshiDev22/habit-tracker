@@ -441,6 +441,7 @@ function finRenderTab() {
     else if (finState.tab === 'transactions') finRenderList();
     else if (finState.tab === 'overview') finRenderOverview();
     else if (finState.tab === 'accounts') finRenderAccounts();
+    else if (finState.tab === 'budget') finRenderBudget();
 }
 
 // ============================================

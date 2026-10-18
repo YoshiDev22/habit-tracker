@@ -13,7 +13,7 @@ def test_frontend_files_are_served(client):
     for path in ["/", "/index.html", "/styles.css", "/script.js", "/habits.js", "/projects.js",
                  "/board.js", "/pomodoro.js", "/reports.js", "/project-overview.js", "/costs.js", "/notifications.js", "/workdays.js", "/settings.js", "/saved-reports.js", "/account.js", "/drilldown.js", "/core.js", "/manifest.webmanifest",
                  "/finance", "/finance.css", "/finance-icons.js", "/finance-app.js", "/finance-entry.js",
-                 "/finance-settings.js", "/finance-accounts.js", "/finance-import.js", "/finance-data.js",
+                 "/finance-settings.js", "/finance-accounts.js", "/finance-import.js", "/finance-data.js", "/finance-budget.js",
                  "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
                  "/favicon.ico"]:
         assert client.get(path).status_code == 200, path

@@ -136,13 +136,10 @@
             <div id="finTxList"></div>
         </section>
 
-        <!-- Presupuesto: fase C -->
+        <!-- Presupuesto: el plan del mes (finance-budget.js); nunca crea movimientos -->
         <section class="fin-tab" data-tab="budget" hidden>
-            <div class="fin-card fin-soon">
-                <h2 class="fin-card-title">Presupuesto</h2>
-                <p class="fin-hint">Próximamente: un límite por categoría, en monto o en porcentaje de tu
-                    ingreso, con referencias para empezar, y el flujo de cada mes.</p>
-            </div>
+            <div id="finBudget"></div>
+            <div id="finBudgetError" class="form-error hidden"></div>
         </section>
 
         <!-- Resumen -->
@@ -451,6 +448,70 @@
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <!-- Un renglón del presupuesto: ingreso o gasto, estimado o fijo (finance-budget.js) -->
+    <div class="fin-sheet hidden" id="finBudgetItemSheet" role="dialog" aria-modal="true" aria-labelledby="finBudgetItemTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finBudgetItemTitle">Renglón</h2>
+            <form id="finBudgetItemForm" class="fin-form" novalidate>
+                <label class="fin-field wide">Nombre
+                    <input type="text" id="finBudgetItemName" maxlength="80" autocomplete="off" placeholder="Renta">
+                </label>
+                <label class="fin-field">Al mes
+                    <input type="text" id="finBudgetItemAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                </label>
+                <label class="fin-field" id="finBudgetItemGroupField">Grupo
+                    <select id="finBudgetItemGroup"></select>
+                </label>
+                <label class="fin-field wide">Nota
+                    <input type="text" id="finBudgetItemNote" maxlength="200" autocomplete="off"
+                           placeholder="En promedio, va a cuenta…">
+                </label>
+                <label class="fin-field wide">Categoría <span class="fin-hint">(opcional: para comparar con lo que gastas)</span>
+                    <select id="finBudgetItemCategory"></select>
+                </label>
+                <p class="fin-hint wide" id="finBudgetItemStatus"></p>
+                <!-- Hacer fijo: la cuenta y el primer cobro; se anota solo cada mes -->
+                <div class="fin-budget-fixed wide" id="finBudgetFixedBox" hidden>
+                    <label class="fin-field">Sale de
+                        <select id="finBudgetFixedAccount"></select>
+                    </label>
+                    <label class="fin-field">Primer cobro
+                        <input type="date" id="finBudgetFixedDate">
+                    </label>
+                    <p class="fin-hint wide">Se anotará solo cada mes en tus movimientos, con 🔁.</p>
+                </div>
+                <div id="finBudgetItemError" class="form-error hidden wide"></div>
+                <div class="fin-form-actions wide">
+                    <button type="button" class="link-btn" id="finBudgetItemDelete" hidden>Quitar</button>
+                    <button type="button" class="link-btn" id="finBudgetItemFixed">Hacer fijo</button>
+                    <button type="submit" class="submit-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Un grupo del presupuesto: su nombre y su parte del ingreso -->
+    <div class="fin-sheet hidden" id="finBudgetGroupSheet" role="dialog" aria-modal="true" aria-labelledby="finBudgetGroupTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finBudgetGroupTitle">Grupo</h2>
+            <form id="finBudgetGroupForm" class="fin-form" novalidate>
+                <label class="fin-field wide">Nombre
+                    <input type="text" id="finBudgetGroupName" maxlength="60" autocomplete="off" placeholder="Gastos necesarios">
+                </label>
+                <label class="fin-field">% de tu ingreso
+                    <input type="text" id="finBudgetGroupPercent" inputmode="decimal" autocomplete="off" placeholder="45">
+                </label>
+                <div id="finBudgetGroupError" class="form-error hidden wide"></div>
+                <div class="fin-form-actions wide">
+                    <button type="button" class="link-btn" id="finBudgetGroupDelete" hidden>Quitar grupo</button>
+                    <button type="submit" class="submit-btn">Guardar</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -781,5 +842,6 @@
     <script src="finance-accounts.js"></script>
     <script src="finance-import.js"></script>
     <script src="finance-data.js"></script>
+    <script src="finance-budget.js"></script>
 </body>
 </html>

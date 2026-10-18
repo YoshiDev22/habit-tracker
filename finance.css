@@ -2321,3 +2321,176 @@
     .fin-data-table td:nth-child(4) { grid-area: amount; text-align: right; }
     .fin-data-table td:nth-child(5) { grid-area: concept; color: var(--text-secondary); }
 }
+
+/* --- Presupuesto (finance-budget.js) --- */
+
+.fin-budget-card {
+    margin-bottom: 12px;
+}
+
+.fin-budget-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.fin-budget-head strong {
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-budget-row,
+.fin-budget-loose {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 2px;
+    border: none;
+    border-top: 1px solid var(--border-color);
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+}
+
+.fin-budget-row {
+    cursor: pointer;
+}
+
+.fin-budget-row:hover {
+    background: var(--bg-hover);
+}
+
+.fin-budget-row-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.fin-budget-row-text > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fin-budget-row-text small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.fin-budget-row-amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-budget-loose select {
+    width: auto;
+    flex: none;
+}
+
+.fin-budget-add {
+    margin-top: 6px;
+}
+
+.fin-budget-group-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 0 2px 8px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.fin-budget-group-head > strong {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-budget-group-head svg {
+    color: var(--text-secondary);
+    flex: none;
+}
+
+.fin-budget-group-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.fin-budget-group-title small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.fin-budget-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-budget-table th {
+    text-align: right;
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    padding: 4px 0 6px 6px;
+}
+
+.fin-budget-table td {
+    text-align: right;
+    padding: 5px 0 5px 6px;
+    border-top: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.fin-budget-table th:first-child,
+.fin-budget-table td:first-child {
+    text-align: left;
+    padding-left: 0;
+    white-space: normal;
+}
+
+.fin-budget-table tr.total td {
+    font-weight: 700;
+}
+
+.fin-budget-free {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--bg-surface-2);
+}
+
+.fin-budget-free strong {
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-budget-fixed {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+}
+
+.fin-budget-fixed[hidden] {
+    display: none;
+}
+
+@media (max-width: 400px) {
+    .fin-budget-table {
+        font-size: 0.8rem;
+    }
+}
