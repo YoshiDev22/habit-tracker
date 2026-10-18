@@ -7,6 +7,34 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.31.0] — 2026-10-18
+
+Meses sin intereses capturados tal como vienen en el estado de cuenta, sus mensualidades en
+Movimientos, lo que queda de cada uno a la vista y colores por tipo de movimiento.
+
+### Nuevo
+- **Meses sin intereses como en tu estado de cuenta**: en el menú de una tarjeta, *Meses sin
+  intereses* pide las columnas de la tabla del banco (descripción, monto original, saldo pendiente,
+  pago requerido, número de pago "11 de 12" y el corte de ese estado de cuenta). La app arma el plan
+  desde ahí y avisa si el pago requerido o el saldo pendiente no cuadran.
+- **Mensualidades en Movimientos**: cada mensualidad de meses sin intereses sale en su día de corte
+  ("Meses sin intereses · 11 de 12"). Solo se enseña: la compra, o la deuda inicial, ya la contó.
+- **Lo que queda de cada compra a meses**, en *Estado de cuenta* de la tarjeta: en grande, con una
+  barra de los pagos que lleva y el total de lo que queda en meses sin intereses.
+- **Colores por tipo**: los ingresos en verde, los gastos y compras en rojo y las transferencias entre
+  tus cuentas en gris, también en el total de cada día y en las vistas previas al importar.
+
+### Cambios
+- **Tarjetas más limpias**: en *Cuentas › Tarjetas* cada tarjeta enseña solo cuánto pagar y antes de
+  cuándo; la línea del corte, *Corregir con tu estado de cuenta* y los meses sin intereses quedan
+  tras *Detalle*.
+- **Los centavos que sobran de una compra a meses van en los últimos pagos**, como en los estados de
+  cuenta (antes iban en los primeros).
+- Los meses sin intereses dicen "10 de 12 pagos".
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel.
+
 ## [1.30.1] — 2026-10-18
 
 Correcciones de Finanzas tras probarla con datos reales: las tarjetas enseñan el pago correcto, cada
@@ -997,6 +1025,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.31.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.0
 [1.30.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.1
 [1.30.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.0
 [1.29.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.29.0

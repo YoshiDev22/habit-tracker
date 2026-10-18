@@ -4,6 +4,17 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.31.0 — 2026-10-18
+### Nuevas funciones
+- **Finanzas: meses sin intereses como en tu estado de cuenta**: en el menú de la tarjeta, cópialos de
+  la tabla del banco (monto original, pendiente, pago requerido y "11 de 12").
+- **Finanzas: lo que te queda de cada compra a meses**: en grande, en el *Estado de cuenta* de la
+  tarjeta, y cada mensualidad sale en Movimientos en su día de corte.
+### Cambios
+- **Finanzas: colores**: lo que entra en verde, lo que sale en rojo y lo que pasa entre tus cuentas en
+  gris.
+- **Finanzas: tarjetas más limpias**: a la vista, solo cuánto pagar; lo demás, en *Detalle*.
+
 ## 1.30.1 — 2026-10-18
 ### Nuevas funciones
 - **Finanzas: estado de cuenta de cada tarjeta**: toca la tarjeta y luego *Estado de cuenta* para ver
