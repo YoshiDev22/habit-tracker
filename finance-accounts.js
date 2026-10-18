@@ -5,7 +5,7 @@
 // ============================================
 
 const finAccountMenu = document.getElementById('finAccountMenu');
-const finMenu = { account: null, plans: [] };
+const finMenu = { account: null, plans: [], statement: null };
 
 // Las acciones de cada tipo de cuenta: [acción, icono, texto, color]
 const FIN_MENU_ACTIONS = {
@@ -29,9 +29,35 @@ const FIN_MENU_ACTIONS = {
 
 function openFinAccountMenu(account) {
     finMenu.account = account;
+    finMenu.statement = null;
     finMenuPage(null);
     finRenderAccountMenu();
     openFinSheet(finAccountMenu);
+    finLoadMenuStatement();
+}
+
+// La línea del estado de cuenta arriba de las acciones (solo tarjetas con corte y pago)
+async function finLoadMenuStatement() {
+    const a = finMenu.account;
+    const row = document.getElementById('finMenuStatement');
+    const pay = document.getElementById('finMenuStatementPay');
+    if (!(a.kind === 'credit' && a.statement_day && a.due_day)) {
+        row.hidden = true;
+        return;
+    }
+    try {
+        const st = await apiFetch(`/api/finance/accounts/${a.id}/statement`);
+        if (finMenu.account !== a) return;
+        finMenu.statement = st;
+        pay.textContent = st.remaining_cents
+            ? `Pagar ${formatMoney(st.remaining_cents, a.currency)} antes del ${finShortDate(st.due_date)}`
+            : st.upcoming ? `Nada por pagar; corte el ${finShortDate(st.last_cut)}` : 'Pagado';
+    } catch (error) {
+        return;
+    }
+    // Solo se ve con las acciones; en una página, la página manda
+    row.hidden = document.getElementById('finMenuActions').hidden;
+    if (!document.getElementById('finStatementPage').hidden) finRenderStatementPage();
 }
 
 function finRenderAccountMenu() {
@@ -75,6 +101,8 @@ function finMenuPage(name) {
     document.getElementById('finMenuActions').hidden = Boolean(name);
     document.getElementById('finAdjustForm').hidden = name !== 'adjust';
     document.getElementById('finMsiPage').hidden = name !== 'msi';
+    document.getElementById('finStatementPage').hidden = name !== 'statement';
+    document.getElementById('finMenuStatement').hidden = Boolean(name) || !finMenu.statement;
 }
 
 document.getElementById('finMenuActions').addEventListener('click', (event) => {
@@ -107,6 +135,101 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
 
 finAccountMenu.addEventListener('click', (event) => {
     if (event.target.closest('[data-menu-back]')) finMenuPage(null);
+});
+
+// ---------- El estado de cuenta, desglosado ----------
+
+document.getElementById('finMenuStatement').addEventListener('click', () => {
+    if (!finMenu.statement) return;
+    finMenuPage('statement');
+    finRenderStatementPage();
+});
+
+function finRenderStatementPage() {
+    const a = finMenu.account;
+    const st = finMenu.statement;
+    const money = cents => formatMoney(cents, a.currency);
+    const lines = [];
+    const line = (label, value, className = '') => lines.push(el('dt', className, label), el('dd', className, value));
+    // Dada de alta después del corte: su deuda de entonces es la inicial
+    const afterCut = a.opening_date && a.opening_date > st.last_cut;
+    const when = `pagar antes del ${finShortDate(st.due_date)}`;
+    if (st.upcoming) {
+        document.getElementById('finStPeriod').textContent = `Próximo corte, el ${finShortDate(st.last_cut)} · ${when}`;
+        line('Deuda hoy', money(st.debt_at_cut_cents));
+        if (st.msi_pending_cents) line('− Meses sin intereses de cortes después', money(st.msi_pending_cents));
+        line('Llevas para ese corte', money(st.pay_no_interest_cents), 'total');
+    } else {
+        document.getElementById('finStPeriod').textContent = `Corte del ${finShortDate(st.last_cut)} · ${when}`;
+        line(afterCut ? `Deuda al darla de alta (${finShortDate(a.opening_date)})` : 'Deuda al corte',
+            money(st.debt_at_cut_cents));
+        if (st.msi_pending_cents) line('− Meses sin intereses de cortes después', money(st.msi_pending_cents));
+        line(st.from_bank ? 'Calculado por la app' : 'Para no generar intereses', money(st.estimated_cents),
+            st.from_bank ? 'muted' : '');
+        if (st.from_bank) line('Según tu estado de cuenta', money(st.pay_no_interest_cents));
+        if (st.paid_since_cut_cents) line('− Ya pagaste desde el corte', money(st.paid_since_cut_cents));
+        line('Te falta pagar', money(st.remaining_cents), 'total');
+    }
+    document.getElementById('finStLines').replaceChildren(...lines);
+
+    const extra = [];
+    if (st.installments.length) {
+        const list = el('ul', 'fin-msi-list');
+        st.installments.forEach(i => {
+            const item = el('li', 'fin-msi');
+            item.append(el('span', '', i.concept), el('small', '', `${i.part} de ${i.months} · ${money(i.amount_cents)}`));
+            list.appendChild(item);
+        });
+        extra.push(el('p', 'fin-stat-label', 'Mensualidades de este corte (ya van en la deuda)'), list);
+    }
+    if (!st.upcoming && st.cycle_charges_cents) {
+        extra.push(el('p', 'fin-hint', `Desde el corte llevas ${money(st.cycle_charges_cents)} en compras: `
+            + `van al corte del ${finShortDate(st.next_cut)}.`));
+    }
+    if (!st.upcoming && afterCut && !st.from_bank) {
+        extra.push(el('p', 'fin-hint', 'La diste de alta después del corte: la app toma la deuda de ese día. '
+            + 'Si tu estado de cuenta dice otra cifra, escríbela abajo.'));
+    }
+    document.getElementById('finStExtra').replaceChildren(...extra);
+
+    // El corte en curso se corrige con lo que dice el banco; el próximo aún no tiene
+    document.getElementById('finStBankForm').hidden = st.upcoming;
+    document.getElementById('finStError').classList.add('hidden');
+    document.getElementById('finStBankAmount').value = (st.pay_no_interest_cents / 100).toFixed(2);
+    document.getElementById('finStBankReset').hidden = !st.from_bank;
+    document.getElementById('finStPay').hidden = !st.remaining_cents;
+}
+
+async function finSaveStatementBank(reset) {
+    const a = finMenu.account;
+    const st = finMenu.statement;
+    const errorEl = document.getElementById('finStError');
+    const url = `/api/finance/accounts/${a.id}/statement`;
+    try {
+        if (reset) {
+            finMenu.statement = await apiFetch(`${url}?cut_date=${st.last_cut}`, { method: 'DELETE' });
+        } else {
+            const cents = parseMoneyCents(document.getElementById('finStBankAmount').value.trim());
+            if (cents == null || cents < 0) return showError(errorEl, 'Escribe el monto: solo números.');
+            finMenu.statement = await apiFetch(url, { method: 'PUT',
+                json: { cut_date: st.last_cut, pay_no_interest_cents: cents } });
+        }
+        await finLoadMenuStatement();
+        if (finState.tab === 'accounts') finRenderAccounts();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+}
+
+document.getElementById('finStBankForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    finSaveStatementBank(false);
+});
+document.getElementById('finStBankReset').addEventListener('click', () => finSaveStatementBank(true));
+document.getElementById('finStMsi').addEventListener('click', () => openFinMsi());
+document.getElementById('finStPay').addEventListener('click', () => {
+    closeFinSheet(finAccountMenu);
+    finPayCard(finMenu.account);
 });
 
 // Pagar una tarjeta: con lo que pide su estado de cuenta, si se sabe
@@ -206,6 +329,7 @@ document.getElementById('finMsiList').addEventListener('click', async (event) =>
     try {
         await apiFetch(`/api/finance/installments/${plan.id}`, { method: 'DELETE' });
         await finLoadMsi();
+        finLoadMenuStatement();
         if (finState.tab === 'accounts') finRenderAccounts();
     } catch (error) {
         showError(document.getElementById('finMsiError'), error.message);
@@ -231,6 +355,7 @@ document.getElementById('finMsiForm').addEventListener('submit', async (event) =
         } });
         document.getElementById('finMsiForm').reset();
         await finLoadMsi();
+        finLoadMenuStatement();
         if (finState.tab === 'accounts') finRenderAccounts();
     } catch (error) {
         showError(errorEl, error.message);

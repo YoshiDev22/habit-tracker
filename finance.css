@@ -1900,6 +1900,75 @@
     display: none;
 }
 
+/* La línea del estado de cuenta en el menú de una tarjeta, y su desglose */
+.fin-menu-statement {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.fin-menu-statement[hidden] {
+    display: none;
+}
+
+.fin-menu-statement:hover {
+    background: var(--bg-hover);
+}
+
+.fin-menu-statement-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.fin-menu-statement-go {
+    font-size: 1.4rem;
+    color: var(--text-secondary);
+}
+
+.fin-st-lines {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    margin: 6px 0 12px;
+}
+
+.fin-st-lines dt,
+.fin-st-lines dd {
+    margin: 0;
+}
+
+.fin-st-lines dd {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-st-lines .muted {
+    color: var(--text-secondary);
+}
+
+.fin-st-lines .total {
+    padding-top: 6px;
+    border-top: 1px solid var(--border-color);
+    font-weight: 700;
+}
+
+#finStatementPage > .fin-form-actions {
+    flex-wrap: wrap;
+}
+
 .fin-menu-page .fin-form-actions {
     margin-top: 8px;
 }

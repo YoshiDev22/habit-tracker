@@ -368,7 +368,38 @@
                 <span class="fin-menu-more" id="finMenuMore"></span>
             </div>
             <p class="fin-hint fin-menu-history" id="finMenuHistory" hidden></p>
+            <!-- Tarjeta con corte y pago: su estado de cuenta, desglosado -->
+            <button type="button" class="fin-menu-statement" id="finMenuStatement" hidden>
+                <span class="fin-menu-statement-text">
+                    <span class="fin-stat-label">Estado de cuenta</span>
+                    <strong id="finMenuStatementPay">—</strong>
+                </span>
+                <span class="fin-menu-statement-go" aria-hidden="true">›</span>
+            </button>
             <div class="fin-menu-actions" id="finMenuActions"></div>
+
+            <!-- El estado de cuenta: de dónde sale el pago, y lo que pide el banco -->
+            <div class="fin-menu-page" id="finStatementPage" hidden>
+                <p class="fin-stat-label" id="finStPeriod"></p>
+                <dl class="fin-st-lines" id="finStLines"></dl>
+                <div id="finStExtra"></div>
+                <form class="fin-form" id="finStBankForm" novalidate hidden>
+                    <label class="fin-field wide">Lo que pide tu estado de cuenta para no generar intereses
+                        <input type="text" id="finStBankAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                    </label>
+                    <p class="fin-hint wide">Manda sobre el cálculo hasta el siguiente corte.</p>
+                    <div id="finStError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" id="finStBankReset" hidden>Usar el cálculo de la app</button>
+                        <button type="submit" class="submit-btn">Guardar</button>
+                    </div>
+                </form>
+                <div class="fin-form-actions">
+                    <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                    <button type="button" class="link-btn" id="finStMsi">Meses sin intereses</button>
+                    <button type="button" class="submit-btn" id="finStPay">Pagar</button>
+                </div>
+            </div>
 
             <!-- Ajustar el saldo: el real de hoy; cuadra moviendo el saldo inicial -->
             <form class="fin-menu-page" id="finAdjustForm" hidden novalidate>

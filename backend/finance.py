@@ -220,13 +220,14 @@ def card_statement(session: Session, account: FinAccount, today: date_type) -> F
     mensualidades de MSI que aún no se facturan (la compra entró completa), menos
     lo que ya se abonó desde el corte.
 
-    Si el pago de ese corte ya venció, o la tarjeta se dio de alta después del
-    corte (su deuda de entonces no se conoce: se supone pagada), enseña el
-    PRÓXIMO corte con lo que lleva acumulado hasta hoy (`upcoming`)."""
+    Si el pago de ese corte ya venció, enseña el PRÓXIMO corte con lo que lleva
+    acumulado hasta hoy (`upcoming`). Una tarjeta dada de alta después del corte,
+    con el pago aún por venir, enseña ese corte: su deuda de entonces se toma de la
+    inicial (lo que se debía al darla de alta), y el banco la corrige."""
     day, opening = account.statement_day, account.opening_date
     last_cut = cut_on_or_before(day, today)
     due = due_after(last_cut, account.due_day)
-    if today > due or (opening is not None and last_cut < opening):
+    if today > due:
         cut = cut_on_or_after(day, today + timedelta(days=1))
         debt = max(0, -_balance_until(session, account, today))
         pending, billed = _msi_at(session, account, cut, today)
@@ -243,7 +244,10 @@ def card_statement(session: Session, account: FinAccount, today: date_type) -> F
     prev_cut = cut_on_or_before(day, last_cut - timedelta(days=1))
     next_cut = cut_on_or_after(day, last_cut + timedelta(days=1))
     debt = max(0, -_balance_until(session, account, last_cut))
-    pending, billed = _msi_at(session, account, last_cut, last_cut)
+    # Dada de alta después del corte: los meses que le quedan a su deuda (planes
+    # anotados después) salen de la deuda inicial, aunque se anotaran hoy
+    known_by = today if opening is not None and opening > last_cut else last_cut
+    pending, billed = _msi_at(session, account, last_cut, known_by)
     paid, charges = _movements_between(session, account, last_cut, today)
     estimated = max(0, debt - pending)
     # Si el usuario escribió lo que pide su estado de cuenta, eso manda en este corte

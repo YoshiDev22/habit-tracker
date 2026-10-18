@@ -331,14 +331,22 @@ def test_card_shows_the_next_cut_when_the_payment_passed(api):
     _, bought = api.call("POST", "/api/finance/transactions", tx(card, 900, "Tenis", cats["Personal"]), expect=201)
     assert api.call("POST", "/api/finance/installments", {"transaction_id": bought["id"], "months": 1})[0] == 422
 
-    # Dada de alta después del corte, con el pago aún por venir: tampoco se
-    # conoce lo de ese corte, así que también va al próximo
+    # Dada de alta después del corte, con el pago aún por venir: enseña ESE corte,
+    # con la deuda inicial, menos los meses que le quedan, y se corrige con el banco
     cut2, due2 = _days_for(3, 20)
     _, card2 = api.call("POST", "/api/finance/accounts", {
         "name": "TDC 2", "kind": "credit", "opening_balance_cents": -50_000,
         "statement_day": cut2.day, "due_day": due2.day}, expect=201)
-    _, st2 = api.call("GET", f"/api/finance/accounts/{card2['id']}/statement", expect=200)
-    assert st2["upcoming"] is True and st2["last_cut"] > TODAY.isoformat()
+    url2 = f"/api/finance/accounts/{card2['id']}/statement"
+    _, st2 = api.call("GET", url2, expect=200)
+    assert st2["upcoming"] is False and st2["last_cut"] == cut2.isoformat() and st2["due_date"] == due2.isoformat()
+    assert st2["debt_at_cut_cents"] == 50_000 and st2["remaining_cents"] == 50_000
+    api.call("POST", "/api/finance/installments", {"account_id": card2["id"], "concept": "PC", "total_cents": 30_000,
+                                                   "months": 3, "purchase_date": TODAY.isoformat()}, expect=201)
+    _, st2 = api.call("GET", url2, expect=200)
+    assert st2["msi_pending_cents"] == 30_000 and st2["remaining_cents"] == 20_000
+    _, st2 = api.call("PUT", url2, {"cut_date": cut2.isoformat(), "pay_no_interest_cents": 25_000}, expect=200)
+    assert st2["from_bank"] and st2["remaining_cents"] == 25_000
 
 
 def test_the_bank_amount_overrides_the_estimate(api):

@@ -516,12 +516,13 @@ Lo que no se ve en Swagger:
   (`cut_on_or_before()`, el día que el mes no tiene cae en el último), la fecha límite
   (`due_after()`), y **para no generar intereses** = la deuda al corte − las mensualidades de MSI aún
   sin facturar − lo abonado desde el corte (transferencias que llegan e ingresos a la tarjeta).
-  Si el pago de ese corte ya venció, o la tarjeta se dio de alta después del corte (lo de entonces se
-  supone pagado), enseña el **próximo** corte (`upcoming`): su fecha y su pago, con lo acumulado hasta
+  Si el pago de ese corte ya venció, enseña el **próximo** corte (`upcoming`): su fecha y su pago, con lo acumulado hasta
   hoy menos los MSI que vienen después. En el corte en curso (no en el próximo) el usuario puede
   escribir lo que pide **el banco** (`PUT`/`DELETE /accounts/{id}/statement`, tabla `fin_statements`,
   una fila por tarjeta y corte): manda sobre el cálculo (`from_bank`, con `estimated_cents`) hasta el
-  siguiente corte, que vuelve a calcular. Borrar la tarjeta se lleva sus filas.
+  siguiente corte, que vuelve a calcular. Borrar la tarjeta se lleva sus filas. Una tarjeta dada de alta después del corte, con el pago aún por
+  venir, enseña ese corte con la deuda inicial como deuda al corte (menos los MSI anotados, aunque sea hoy).
+  En el menú de la tarjeta, *Estado de cuenta* lo desglosa y ahí se corrige con el banco (`finRenderStatementPage()`).
   **MSI** (`fin_installments`, `/installments`): una compra a meses cuenta como gasto completa el día
   que se hace (regla de la fase 1); el plan solo dice cuánto pide cada corte (`installment_parts()`,
   los centavos que sobran a las primeras), desde el primer corte en o después de la compra. Una

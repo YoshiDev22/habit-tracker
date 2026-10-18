@@ -617,6 +617,42 @@ async def main():
             || {{}}).textContent""", lambda v: v and "según tu estado de cuenta" in v)
         check("según tu estado de cuenta" in (facts or ""), f"the card says where the amount comes from ({facts})")
 
+        # Dada de alta hoy, después de su corte y antes del pago: su menú enseña ESE
+        # pago, y el estado de cuenta se desglosa y se corrige ahí mismo
+        cut3 = TODAY - timedelta(days=3)
+        while cut3.day > 28:
+            cut3 -= timedelta(days=1)
+        due3 = cut3 + timedelta(days=20)
+        while due3.day > 28:
+            due3 += timedelta(days=1)
+        _, late_card = api.call("POST", "/api/finance/accounts", {
+            "name": "Recién", "kind": "credit", "opening_balance_cents": -900_000,
+            "statement_day": cut3.day, "due_day": due3.day}, expect=201)
+        api.call("POST", "/api/finance/installments", {"account_id": late_card["id"], "concept": "PC",
+                                                       "total_cents": 300_000, "months": 3,
+                                                       "purchase_date": TODAY.isoformat()}, expect=201)
+        await b.js("finLoad()")
+        await b.wait_for("[...document.querySelectorAll('#finAccountsBody .fin-account strong')].some(s => s.textContent === 'Recién')")
+        await open_menu("Recién")
+        line = await b.wait_for("document.getElementById('finMenuStatementPay').textContent",
+                                lambda v: v and v.startswith("Pagar"))
+        check(line and "6,000.00" in line and str(due3.day) in line,
+              f"the card's menu says what to pay for the cut that passed, before its due date ({line})")
+        await b.js("document.getElementById('finMenuStatement').click()")
+        st = await b.js("""({lines: document.getElementById('finStLines').textContent,
+            form: !document.getElementById('finStBankForm').hidden})""")
+        check("Deuda al darla de alta" in st["lines"] and "3,000.00" in st["lines"] and st["form"],
+              f"the statement breaks down the debt, the months-without-interest and lets you correct it ({st})")
+        await b.shot("finance_card_statement", full=False)
+        await set_value("#finStBankAmount", "5500")
+        await b.js("document.querySelector('#finStBankForm [type=\"submit\"]').click()")
+        st = await wait_api(f"/api/finance/accounts/{late_card['id']}/statement", lambda body: body["from_bank"])
+        check(st["remaining_cents"] == 550_000, f"the bank amount from the card's statement is saved ({st['remaining_cents']})")
+        line = await b.wait_for("document.getElementById('finStLines').textContent",
+                                lambda v: v and "Según tu estado de cuenta" in v)
+        check(bool(line), f"and the breakdown says it ({line})")
+        await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
+
         # El teléfono más angosto común (360px) con la letra más grande: nada se sale de
         # lado en ninguna pestaña ni hoja
         await b.viewport(360, 640, mobile=True)
