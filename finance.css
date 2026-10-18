@@ -1930,6 +1930,58 @@
     flex: 1;
 }
 
+/* Cada plan a meses en el estado de cuenta: lo que queda y su barra de pagos */
+.fin-msi-cards-head {
+    display: flex;
+    justify-content: space-between;
+    margin: 12px 0 6px;
+}
+
+.fin-msi-cards {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+}
+
+.fin-msi-card {
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    display: grid;
+    gap: 6px;
+}
+
+.fin-msi-card small {
+    color: var(--text-secondary);
+}
+
+.fin-msi-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.fin-msi-card-left {
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-msi-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-hover);
+    overflow: hidden;
+}
+
+.fin-msi-bar span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+}
+
 /* La línea del estado de cuenta en el menú de una tarjeta, y su desglose */
 .fin-menu-statement {
     display: flex;

@@ -173,14 +173,16 @@ function finRenderStatementPage() {
     document.getElementById('finStLines').replaceChildren(...lines);
 
     const extra = [];
-    if (st.installments.length) {
-        const list = el('ul', 'fin-msi-list');
-        st.installments.forEach(i => {
-            const item = el('li', 'fin-msi');
-            item.append(el('span', '', i.concept), el('small', '', `${i.part} de ${i.months} · ${money(i.amount_cents)}`));
-            list.appendChild(item);
-        });
-        extra.push(el('p', 'fin-stat-label', 'Mensualidades de este corte (ya van en la deuda)'), list);
+    // Cada plan a meses: lo que queda en grande y cuántos pagos lleva
+    const plans = (finState.installments || []).filter(p => p.account_id === a.id && p.billed < p.months);
+    if (plans.length) {
+        const list = el('ul', 'fin-msi-cards');
+        plans.forEach(p => list.appendChild(finMsiCard(p, st, money)));
+        const left = plans.reduce((acc, p) => acc + p.remaining_cents, 0);
+        const head = el('p', 'fin-msi-cards-head');
+        head.append(el('span', 'fin-stat-label', 'Meses sin intereses'),
+            el('span', 'fin-stat-label', `te quedan ${money(left)}`));
+        extra.push(head, list);
     }
     if (!st.upcoming && st.cycle_charges_cents) {
         extra.push(el('p', 'fin-hint', `Desde el corte llevas ${money(st.cycle_charges_cents)} en compras: `
@@ -198,6 +200,33 @@ function finRenderStatementPage() {
     document.getElementById('finStBankAmount').value = (st.pay_no_interest_cents / 100).toFixed(2);
     document.getElementById('finStBankReset').hidden = !st.from_bank;
     document.getElementById('finStPay').hidden = !st.remaining_cents;
+}
+
+function finMsiCard(p, st, money) {
+    const item = el('li', 'fin-msi-card');
+    const top = el('div', 'fin-msi-card-top');
+    top.append(el('strong', '', p.concept), el('strong', 'fin-msi-card-left', money(p.remaining_cents)));
+    const bar = el('div', 'fin-msi-bar');
+    const fill = el('span');
+    fill.style.width = `${Math.round((p.billed / p.months) * 100)}%`;
+    bar.appendChild(fill);
+    bar.setAttribute('role', 'img');
+    bar.setAttribute('aria-label', `${p.billed} de ${p.months} pagos`);
+    const left = p.months - p.billed;
+    const now = p.bills.find(b => b.cut === st.last_cut);
+    const lines = [`${p.billed} de ${p.months} pagos · ${left === 1 ? 'falta 1' : `faltan ${left}`} de ${money(p.monthly_cents)}`];
+    if (now) lines.push(`este corte pide el ${now.part}: ${money(now.amount_cents)} (ya va en la deuda)`);
+    item.append(top, bar, el('small', '', lines.join(' · ')));
+    return item;
+}
+
+// Los planes de todas las tarjetas, otra vez: la página del estado de cuenta y Movimientos
+async function finRefreshPlans() {
+    try {
+        finState.installments = (await apiFetch('/api/finance/installments')).installments;
+    } catch (error) { /* se quedan los de antes */ }
+    await finLoadMenuStatement();
+    finRenderList();
 }
 
 async function finSaveStatementBank(reset) {
@@ -343,7 +372,7 @@ document.getElementById('finMsiList').addEventListener('click', async (event) =>
     try {
         await apiFetch(`/api/finance/installments/${plan.id}`, { method: 'DELETE' });
         await finLoadMsi();
-        finLoadMenuStatement();
+        await finRefreshPlans();
         if (finState.tab === 'accounts') finRenderAccounts();
     } catch (error) {
         showError(document.getElementById('finMsiError'), error.message);
@@ -381,7 +410,7 @@ document.getElementById('finMsiForm').addEventListener('submit', async (event) =
         } });
         finResetMsiForm();
         await finLoadMsi();
-        finLoadMenuStatement();
+        await finRefreshPlans();
         if (finState.tab === 'accounts') finRenderAccounts();
     } catch (error) {
         showError(errorEl, error.message);

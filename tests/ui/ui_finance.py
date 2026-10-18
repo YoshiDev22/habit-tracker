@@ -246,6 +246,8 @@ async def main():
         item = await b.js("document.getElementById('finMsiList').textContent")
         check("pago 2 de 3" in item and "original" in item, f"the plan reads like the statement ({item})")
         await b.shot("finance_msi", full=False)
+        fresh = await b.js("(finState.installments || []).map(p => p.concept)")
+        check("Celular" in fresh, f"adding one refreshes the plans Movimientos draws, without reloading ({fresh})")
         plans = [p for p in api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
                  if p["concept"] == "Celular"]
         check(len(plans) == 1 and plans[0]["transaction_id"] is None and plans[0]["months"] == 3
@@ -657,6 +659,9 @@ async def main():
             form: !document.getElementById('finStBankForm').hidden})""")
         check("Deuda al darla de alta" in st["lines"] and "3,000.00" in st["lines"] and st["form"],
               f"the statement breaks down the debt, the months-without-interest and lets you correct it ({st})")
+        card_msi = await b.js("[...document.querySelectorAll('#finStExtra .fin-msi-card')].map(c => c.textContent)")
+        check(len(card_msi) == 1 and "PC" in card_msi[0] and "$3,000.00" in card_msi[0] and "0 de 3 pagos" in card_msi[0],
+              f"each plan shows what is left in big and its payments ({card_msi})")
         await b.shot("finance_card_statement", full=False)
         await set_value("#finStBankAmount", "5500")
         await b.js("document.querySelector('#finStBankForm [type=\"submit\"]').click()")
