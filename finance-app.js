@@ -993,10 +993,16 @@ function finRenderAccounts() {
         const balance = el('span', `fin-account-balance${a.balance_cents < 0 ? ' negative' : a.balance_cents === 0 ? ' zero' : ''}`,
             formatMoney(a.balance_cents, a.currency));
         text.append(el('strong', '', a.name), balance);
-        const badge = finBadge(finAccountIcon(a), finAccountColor(a), { size: 'lg', square: true });
+        // Las tarjetas, compactas: su estado de cuenta va debajo
+        const badge = finBadge(finAccountIcon(a), finAccountColor(a), { size: sub === 'cards' ? 'md' : 'lg', square: true });
         if (a.is_default) badge.appendChild(el('span', 'fin-badge-star', '★'));
         const side = el('span', 'fin-account-side');
-        if (a.available_cents != null) {
+        if (a.available_cents != null && sub === 'cards') {
+            // En una línea: "Disponible $19,500.00"
+            const line = el('span', 'fin-available-line');
+            line.append(el('small', '', 'Disponible '), el('span', 'fin-available', formatMoney(a.available_cents, a.currency)));
+            side.appendChild(line);
+        } else if (a.available_cents != null) {
             side.append(el('small', '', 'Disponible'), el('span', 'fin-available', formatMoney(a.available_cents, a.currency)));
         }
         if (sub === 'cards' && (a.statement_day || a.due_day)) {
@@ -1056,8 +1062,8 @@ function finStatementView(card, st, plans) {
     const main = el('div', 'fin-statement-main');
     const pay = el('div', 'fin-statement-pay');
     const label = st.upcoming
-        ? `Próximo corte, el ${finShortDate(st.last_cut)}: pagar antes del ${finShortDate(st.due_date)}`
-        : `Para no generar intereses, antes del ${finShortDate(st.due_date)}`;
+        ? `Corte del ${finShortDate(st.last_cut)} · antes del ${finShortDate(st.due_date)}`
+        : `Sin intereses, antes del ${finShortDate(st.due_date)}`;
     pay.append(el('span', 'fin-stat-label', label),
         el('strong', st.remaining_cents ? '' : 'paid',
             st.remaining_cents ? money(st.remaining_cents) : (st.upcoming ? 'Nada por ahora' : 'Pagado')));

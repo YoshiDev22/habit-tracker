@@ -778,6 +778,45 @@
     margin: 10px 2px 0;
 }
 
+/* Compactas: menos aire, el icono mediano y el botón de pagar más chico */
+.fin-card-block {
+    padding: 2px 2px 8px;
+    margin-bottom: 8px;
+}
+
+.fin-card-block .fin-account {
+    gap: 10px;
+    padding: 8px;
+}
+
+.fin-card-block .fin-account-side {
+    gap: 0;
+}
+
+.fin-card-block .fin-statement {
+    padding: 0 8px;
+}
+
+.fin-card-block .fin-statement-main {
+    padding: 6px 6px 6px 10px;
+    gap: 8px;
+}
+
+.fin-card-block .fin-statement-pay strong {
+    font-size: 1.05rem;
+}
+
+.fin-card-block .fin-pay-btn {
+    width: auto;
+    padding: 6px 16px;
+    font-size: 0.9rem;
+}
+
+.fin-card-block .fin-statement-more > summary {
+    margin-top: 4px;
+    font-size: 0.8rem;
+}
+
 /* El detalle del estado de cuenta, plegado tras una flecha */
 .fin-statement-more > summary {
     display: inline-flex;

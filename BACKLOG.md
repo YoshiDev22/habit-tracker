@@ -629,3 +629,17 @@ la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es
 **Por decidir.** Con qué número empieza (lo publicado hasta hoy salió dentro de Habit Tracker 1.27.0 a 1.28.0)
 y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
 
+
+## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.5)
+
+**Pedido el 2026-10-19.** Que la tarjeta lo diga cuando la fecha límite de pago esté cerca y aún quede algo por
+pagar, y que la campana de Finanzas lo avise.
+
+**Idea.** Con lo que ya calcula `card_statement()` (`due_date` y `remaining_cents`): en *Cuentas › Tarjetas*,
+una línea en la tarjeta ("Vence en 3 días", "Vence hoy") y, en la campana, un aviso **pendiente** calculado de los
+datos, como `missed_day` (`backend/notices.py`): se crea al pedir los avisos y queda `done` en cuanto lo que falta
+pagar llega a cero, así que nunca dice algo que ya no es cierto. Se suma a `FIN_BELL_KINDS` y **no** sale en la
+campana de Habit Tracker.
+
+**Por decidir.** Con cuántos días de anticipación (¿5?, ¿ajustable en Configuración?) y si también avisa el día
+de corte.
