@@ -1,6 +1,6 @@
 """Cuentas (BACKLOG 26, parte sin correo): cambiar la contraseña e irse."""
 import sys
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 from sqlalchemy import func, select as sa_select
@@ -74,7 +74,8 @@ def test_leave_for_a_while_and_come_back(api):
 def test_delete_now_removes_everything(seeded):
     api, other = seeded["api"], seeded["other"]
     api.call("POST", "/api/reports", {"kind": "week",
-                                      "period_start": (utc_now_naive().date() - timedelta(days=utc_now_naive().weekday())).isoformat()},
+                                      "period_start": (date.today() - timedelta(days=date.today().weekday())).isoformat(),
+                                      "today": date.today().isoformat()},
              expect=200)
     with Session(engine) as session:
         me = user_row(session, "yoshi@test.com")
