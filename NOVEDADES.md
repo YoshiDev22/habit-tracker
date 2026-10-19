@@ -4,6 +4,14 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.32.0 — 2026-10-19
+### Cambios
+- **Reportes con IA más confiables**: la app escribe el reporte y la IA solo propone los pasos
+  para el siguiente periodo y el tip. Si la IA falla, el reporte sale igual.
+- **Hábitos: sugerencias que ya no se repiten**: un hábito que te costó se ata al que más
+  haces ("hazlo justo después de…").
+- **Tiempo: siempre hay un siguiente paso**, aunque no haya nada que corregir.
+
 ## 1.31.1 — 2026-10-19
 ### Cambios
 - **Reporte de tiempo con IA**: ya no se queda en "Texto de reglas" cuando trabajaste por la tarde.

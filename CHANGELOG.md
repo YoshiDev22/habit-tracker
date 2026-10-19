@@ -9,6 +9,36 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.32.0] — 2026-10-19
+
+La app escribe el reporte y la IA solo propone los siguientes pasos y el tip: menos fallos, nada
+de cifras inventadas en los datos, y sugerencias de reglas que ya no se repiten.
+
+### Cambios
+- **La IA escribe solo las sugerencias.** Las reglas escriben todo el reporte; con la IA
+  encendida, ella reescribe *Para la próxima semana* (o el próximo mes) y el *Tip*, y recibe lo
+  que las reglas ya escribieron para no repetirlo ni contradecirlo. Comparados lado a lado, en
+  el resumen, los patrones y las observaciones la IA no aportaba nada y era donde inventaba
+  cifras (13.3, 14.6, 7.7) y se perdía el texto entero.
+- **Una sugerencia con una cifra inventada se descarta**, no tira las demás. El tip también puede
+  proponer un entero nuevo ("bloques de 45 min"). Las instrucciones prohíben hacer cuentas con dos
+  cifras y juzgar el horario, y en hábitos piden usar las notas del día.
+- **Regenerar ya no se bloquea si la IA falla**: el reporte se guarda con las sugerencias de
+  las reglas y dice por qué. Se quitó *Regenerar con reglas*.
+- **Etiquetas**: «✨ Sugerencias de IA» en lugar de «✨ Texto de IA», y *Rehacer sugerencias con
+  IA* (o *Pedir sugerencias a la IA*) en lugar de *Reescribir el texto con IA*.
+- **Hábitos, sin IA**: un hábito que costó se ata al más constante ("hazlo justo después de 💻
+  Proyectos, que ya haces 4 de 5 días"); antes, cada hábito flojo de una semana recibía la misma
+  frase. Sustentado en Gollwitzer y Sheeran 2006 (`docs/referencias.md`).
+- **Tiempo, sin IA**: cuando no hay nada que corregir, *Para la próxima semana* propone una meta
+  de horas para el proyecto principal; antes quedaba vacío.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel.
+Los reportes ya guardados no cambian; *Rehacer sugerencias con IA* en uno de antes lo deja con el
+formato nuevo. El proveedor sigue siendo el de `backend/.env`; el endpoint `/compat` de Cloudflare
+AI Gateway también sirve, con el mismo formato.
+
 ## [1.31.1] — 2026-10-19
 
 El reporte de tiempo con IA vuelve a salir, y los errores de la IA dicen qué pasó.
@@ -1047,6 +1077,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.32.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.32.0
 [1.31.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.1
 [1.31.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.0
 [1.30.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.1
