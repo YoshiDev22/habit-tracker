@@ -24,7 +24,7 @@ from backend.models import (AccountMessage, AdminAction, AiCall, AiGrant, Announ
                             Habit, PomodoroSession, ProjectCost, Report, SecurityEvent, Task, User, UserModule, utc_now_naive)
 from backend.security_log import KINDS as SECURITY_KINDS, cleanup as cleanup_security_events, is_proxy_ip
 from backend.report_ai import ai_usage as account_ai_usage, extra_today
-from backend.modules import MODULES, resolve as resolve_module
+from backend.modules import MODULES, access_title, resolve as resolve_module
 
 router = APIRouter()
 
@@ -41,10 +41,6 @@ def record_action(session: Session, admin: str, action: str, account_id: Optiona
     row = AdminAction(admin_email=admin, action=action, account_id=account_id, before=before, after=after)
     session.add(row)
     return row
-
-
-# "Ya tienes acceso …": con su contracción (al, a la)
-MODULE_ACCESS = {"maker": "al plan Maker", "ai": "a la IA de los reportes", "finance": "a Finanzas"}
 
 
 def send_message(session: Session, user_id: int, title: str, body: str = "") -> AccountMessage:
@@ -282,7 +278,7 @@ def set_module_access(user_id: int, module: str, body: ModuleAccess, request: Re
     if before != after:
         record_action(session, _admin(request), "module", user.id, {module: before}, {module: after})
         if after["allowed"] and not before["allowed"]:
-            send_message(session, user.id, f"Ya tienes acceso {MODULE_ACCESS.get(module, module)}",
+            send_message(session, user.id, access_title(module),
                          "Enciéndelo en ⚙️ Configuración › Módulos.")
     session.commit()
     return {"module": module, **after}

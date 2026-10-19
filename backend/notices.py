@@ -120,7 +120,10 @@ def describe(session: Session, notice: Notice) -> Optional[Dict]:
             AccountMessage.user_id == notice.user_id, AccountMessage.id == int(notice.ref))).first()
         if message is None:
             return None
-        return {**base, "status": "info", "title": message.title, "detail": message.body}
+        from backend.modules import access_module
+        # "Ya tienes acceso a Finanzas": la página de Finanzas lo enseña como su bienvenida
+        return {**base, "status": "info", "title": message.title, "detail": message.body,
+                "access_module": access_module(message.title)}
     if notice.kind == "feedback_closed":
         # Un problema que reportó, ya revisado: con la nota para él, nunca la interna
         feedback = session.exec(select(Feedback).where(

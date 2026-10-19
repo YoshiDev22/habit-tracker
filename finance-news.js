@@ -148,10 +148,18 @@ async function finLoadNotices() {
         finNotices.unread ? `Avisos: ${finNotices.unread} sin ver` : 'Avisos');
 }
 
+// El aviso de "Ya tienes acceso a Finanzas" es, aquí, su bienvenida
+const FIN_WELCOME = {
+    title: 'Te damos la bienvenida a Finanzas',
+    detail: 'Empieza por tus cuentas, en la pestaña Cuentas. Con tu inicial, arriba a la izquierda, '
+        + 'están la configuración, tus datos y las novedades.',
+};
+
 function finNoticeRow(notice) {
     const row = el('div', `fin-notice ${notice.status}`);
-    row.append(el('strong', '', notice.title));
-    if (notice.detail) row.appendChild(el('p', 'fin-hint', notice.detail));
+    const text = notice.access_module === 'finance' ? FIN_WELCOME : notice;
+    row.append(el('strong', '', text.title));
+    if (text.detail) row.appendChild(el('p', 'fin-hint', text.detail));
     return row;
 }
 

@@ -26,6 +26,19 @@ MODULES = {
     "finance": {"enabled": False, "allowed": False},
 }
 
+# "Ya tienes acceso …": con su contracción (al, a la). El panel manda ese aviso al dar
+# el acceso, y la campana lo reconoce por su título (access_module)
+MODULE_ACCESS = {"maker": "al plan Maker", "ai": "a la IA de los reportes", "finance": "a Finanzas"}
+
+
+def access_title(module):
+    return f"Ya tienes acceso {MODULE_ACCESS.get(module, module)}"
+
+
+def access_module(title):
+    """El módulo de un aviso "Ya tienes acceso …", o None."""
+    return next((name for name in MODULE_ACCESS if access_title(name) == title), None)
+
 
 def resolve(module, enabled=None, allowed=None):
     """Estado de un módulo para una cuenta, a partir de su fila (NULL = el

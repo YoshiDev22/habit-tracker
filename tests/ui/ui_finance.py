@@ -789,17 +789,24 @@ async def main():
             uid = conn.execute("SELECT id FROM users WHERE email = 'yoshi@test.com'").fetchone()[0]
             conn.execute("INSERT INTO notices (user_id, kind, ref, created_at) VALUES (?, 'novedades', '9.9.9', ?)",
                          (uid, f"{TODAY.isoformat()} 12:00:00"))
+            # El aviso de acceso que manda el panel: aquí es la bienvenida
+            mid = conn.execute("INSERT INTO account_messages (user_id, created_at, title, body) VALUES (?, ?, ?, ?)",
+                               (uid, f"{TODAY.isoformat()} 12:00:00", "Ya tienes acceso a Finanzas",
+                                "Enciéndelo en ⚙️ Configuración › Módulos.")).lastrowid
+            conn.execute("INSERT INTO notices (user_id, kind, ref, created_at) VALUES (?, 'message', ?, ?)",
+                         (uid, str(mid), f"{TODAY.isoformat()} 12:00:00"))
         await b.js("finLoadNotices()")
         count = await b.wait_for("document.getElementById('finBellCount').textContent", lambda v: v)
         await b.js("document.getElementById('finBellBtn').click()")
         await b.wait_for("!document.getElementById('finNoticesSheet').classList.contains('hidden')")
         text = await b.js("document.getElementById('finNoticesBody').textContent")
-        check("Mantenimiento" in text and "9.9.9" not in text and count == "1",
+        check("Mantenimiento" in text and "bienvenida a Finanzas" in text and "Configuración › Módulos" not in text
+              and "9.9.9" not in text and count == "2",
               f"the Finanzas bell shows what concerns it, not Habit Tracker's notices ({count}, {text})")
         await b.shot("finance_notices", full=False)
         await b.js("document.querySelector('#finNoticesSheet .fin-sheet-overlay').click()")
         after = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]["notices"]
-        check(any(n["kind"] == "announcement" and n["read"] for n in after)
+        check(all(n["read"] for n in after if n["kind"] in ("announcement", "message"))
               and any(n["kind"] == "novedades" and not n["read"] for n in after),
               "opening it reads only its own notices; Habit Tracker's stay unread in the app")
 

@@ -107,8 +107,10 @@ def test_give_finance_access(admin, api):
     api.call("PUT", "/api/auth/me/modules/finance", {"enabled": True}, expect=200)
     api.call("POST", "/api/finance/consent", expect=200)
     api.call("GET", "/api/finance/accounts", expect=200)
-    titles = [n["title"] for n in api.call("GET", "/api/notices", expect=200)[1]["notices"]]
-    assert "Ya tienes acceso a Finanzas" in titles
+    notices = api.call("GET", "/api/notices", expect=200)[1]["notices"]
+    access = [n for n in notices if n["title"] == "Ya tienes acceso a Finanzas"]
+    # La página de Finanzas lo reconoce para darle su bienvenida
+    assert len(access) == 1 and access[0]["access_module"] == "finance"
 
 
 def test_module_access_refuses_what_it_should(admin, api):
