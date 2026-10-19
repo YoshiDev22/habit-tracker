@@ -776,6 +776,22 @@ async def main():
         await b.shot("finance_budget", full=False)
         check(len(transactions()) == before_tx, "the budget never adds movements")
 
+        # En computadora, el panel no se ensancha al abrir una opción, y nada se sale de lado
+        await b.viewport(1280, 900, mobile=False)
+        await b.js("document.getElementById('finMenuBtn').click()")
+        await b.js("document.getAnimations().forEach(a => a.finish())")
+        root_width = await b.js("document.getElementById('finDrawerPanel').getBoundingClientRect().width")
+        await b.js("document.querySelector('#finDrawer [data-go=\"settings\"]').click()")
+        await b.js("document.querySelector('#finSettingsMenu [data-open=\"categories\"]').click()")
+        await b.js("document.getAnimations().forEach(a => a.finish())")
+        st = await b.js("""(() => { const p = document.getElementById('finDrawerPanel');
+            return {width: p.getBoundingClientRect().width, inner: p.scrollWidth - p.clientWidth}; })()""")
+        check(abs(st["width"] - root_width) < 1 and st["inner"] <= 1,
+              f"on a computer the side menu keeps its width in a page ({root_width}, {st})")
+        await b.shot("finance_drawer_desktop", full=False)
+        await b.js("document.querySelector('#finDrawer .fin-sheet-overlay').click()")
+        await b.viewport(390, 844, mobile=True)
+
         # El teléfono más angosto común (360px) con la letra más grande: nada se sale de
         # lado en ninguna pestaña ni hoja
         await b.viewport(360, 640, mobile=True)

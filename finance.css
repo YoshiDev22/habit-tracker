@@ -2284,8 +2284,13 @@
     gap: 2px;
 }
 
-.fin-drawer-panel.wide {
-    width: min(480px, 100vw);
+/* Una página del panel: en computadora, el mismo ancho que la lista; en el
+   teléfono, toda la pantalla (los formularios no caben en 84 %) */
+@media (max-width: 560px) {
+    .fin-drawer-panel.wide {
+        width: 100vw;
+        border-radius: 0;
+    }
 }
 
 .fin-drawer-bar {

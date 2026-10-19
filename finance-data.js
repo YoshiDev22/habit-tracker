@@ -42,7 +42,7 @@ function finDrawerShow(name, { animate = true } = {}) {
     document.getElementById('finDrawerHome').hidden = !home;
     document.getElementById('finDrawerBar').hidden = home;
     document.getElementById('finDrawerPageTitle').textContent = page.dataset.title;
-    // Las páginas con formularios necesitan más ancho que la lista
+    // En el teléfono, una página ocupa toda la pantalla (finance.css)
     finDrawerPanel.classList.toggle('wide', !home);
     document.getElementById('finSettingsError').classList.add('hidden');
     finDrawerPanel.scrollTop = 0;
