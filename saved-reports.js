@@ -1019,7 +1019,7 @@ async function generateSavedReport(kind, periodStart, useAi = true) {
         if (error.status === 429) showSavedStatus(error.message);
         else showSavedError(error.message);
         // La IA falló al regenerar: el reporte de antes sigue igual (su fecha también)
-        if (error.status === 502 && regenerating) {
+        if (error.status === 424 && regenerating) {
             savedRules.hidden = false;
             refreshAiUsage(kindSubject(kind));
         }

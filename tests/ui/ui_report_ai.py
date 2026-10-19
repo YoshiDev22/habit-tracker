@@ -76,7 +76,7 @@ async def main():
         await b.js("""(() => {
             const real = window.apiFetch;
             window.apiFetch = (path, options) => path === '/api/reports' && options && options.method === 'POST' && options.json.use_ai
-                ? Promise.reject(new ApiError('La IA no pudo escribir el texto (no se pudo conectar). El reporte no cambió.', 502))
+                ? Promise.reject(new ApiError('La IA no pudo escribir el texto (no se pudo conectar). El reporte no cambió.', 424))
                 : real(path, options);
             savedState.readyAt = 0;
         })()""")

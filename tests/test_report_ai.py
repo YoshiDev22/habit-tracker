@@ -108,10 +108,10 @@ def test_invented_numbers_fall_back_to_rules(api, provider, monkeypatch):
     body = {"kind": "week", "period_start": MON.isoformat(), "today": TODAY.isoformat()}
     provider["reply"] = json.dumps({**GOOD, "patterns": "no es lista"})
     status, err = api.call("POST", "/api/reports", body)
-    assert status == 502 and "patterns" in err["detail"] and "no cambió" in err["detail"]
+    assert status == 424 and "patterns" in err["detail"] and "no cambió" in err["detail"]
     provider["reply"] = AiError("No se pudo conectar con el proveedor de IA")
     status, err = api.call("POST", "/api/reports", body)
-    assert status == 502 and "no se pudo conectar" in err["detail"]
+    assert status == 424 and "no se pudo conectar" in err["detail"]
     kept = api.call("GET", f"/api/reports/{good['id']}", expect=200)[1]
     assert kept["text_source"] == "ai" and kept["created_at"] == good["created_at"]
     # Sin IA, a propósito: sale con las reglas
@@ -126,7 +126,7 @@ def test_daily_limit_and_calls_log(api, provider):
         assert generate(api)["text_source"] == "ai"
     status, err = api.call("POST", "/api/reports", {"kind": "week", "period_start": MON.isoformat(),
                                                     "today": TODAY.isoformat()})
-    assert status == 502 and "límite de 3" in err["detail"]
+    assert status == 424 and "límite de 3" in err["detail"]
     assert len(provider["sent"]) == 3
     with Session(engine) as session:
         calls = session.exec(select(AiCall)).all()
@@ -141,7 +141,7 @@ def test_rewrite_and_preview(api, provider):
     assert again["id"] == rep["id"] and again["text_source"] == "ai" and again["total_seconds"] == rep["total_seconds"]
     provider["reply"] = AiError("El proveedor de IA rechazó la clave (401)")
     status, body = api.call("POST", f"/api/reports/{rep['id']}/rewrite")
-    assert status == 502 and "401" in body["detail"]
+    assert status == 424 and "401" in body["detail"]
     assert api.call("GET", f"/api/reports/{rep['id']}", expect=200)[1]["text_source"] == "ai"
 
     _, pv = api.call("GET", "/api/reports/ai-preview", expect=200)
@@ -302,7 +302,7 @@ def test_failed_calls_do_not_spend_the_limit(api, provider, monkeypatch):
     api.call("POST", f"/api/reports/{rep['id']}/rewrite")
     sent = len(provider["sent"])
     status, err = api.call("POST", f"/api/reports/{rep['id']}/rewrite")
-    assert status == 502 and "falló 2 veces" in err["detail"] and len(provider["sent"]) == sent
+    assert status == 424 and "falló 2 veces" in err["detail"] and len(provider["sent"]) == sent
     # Y un texto bueno sí gasta el límite
     monkeypatch.setattr(report_ai, "FAILED_DAILY_LIMIT", 10)
     provider["reply"] = json.dumps(GOOD, ensure_ascii=False)

@@ -33,7 +33,7 @@ def test_extra_texts_only_today(admin, api, provider):
     for _ in range(3):                                  # el límite de la instancia (3 en las pruebas)
         assert generate(api)["text_source"] == "ai"
     status, err = try_generate(api)
-    assert status == 502 and "límite de 3" in err["detail"]
+    assert status == 424 and "límite de 3" in err["detail"]
 
     r = give(admin, user_id, extra=2)
     assert r.status_code == 200 and r.json()["extra"] == 2
@@ -42,7 +42,7 @@ def test_extra_texts_only_today(admin, api, provider):
     for _ in range(2):
         assert generate(api)["text_source"] == "ai"
     status, err = try_generate(api)
-    assert status == 502 and "límite de 5" in err["detail"]
+    assert status == 424 and "límite de 5" in err["detail"]
     assert len(provider["sent"]) == 5
 
     # El panel ve el uso de hoy con su extra; los costos no cambiaron

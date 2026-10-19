@@ -157,7 +157,7 @@ def test_time_and_habits_share_a_counter_costs_has_its_own(api, provider, monkey
     assert first["text_source"] == "ai"
     status, err = api.call("POST", "/api/reports", {"kind": "costs-month", "period_start": TODAY.replace(day=1).isoformat(),
                                                     "today": TODAY.isoformat()})
-    assert status == 502 and "costos" in err["detail"]
+    assert status == 424 and "costos" in err["detail"]
 
     _, time_usage = api.call("GET", "/api/reports/ai-usage?subject=habits", expect=200)
     _, costs_usage = api.call("GET", "/api/reports/ai-usage?subject=costs", expect=200)

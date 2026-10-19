@@ -32,6 +32,10 @@ router = APIRouter(tags=["reports"])
 # timer no pasa por aquí.
 DEFAULT_COOLDOWN_SECONDS = 30
 
+# La IA no dio un texto usable. No 502: Cloudflare cambia el 502 del origen por su
+# página de error, y el navegador perdía el motivo ("Error de red"). Un 4xx pasa tal cual.
+AI_FAILED = status.HTTP_424_FAILED_DEPENDENCY
+
 
 def cooldown_seconds() -> int:
     try:
@@ -122,7 +126,7 @@ def create_report(body: ReportCreate, session: Session = Depends(get_session),
         report = generate_report(session, current_user, body.kind, body.period_start, today, use_ai=body.use_ai)
     except AiTextFailed as error:
         reason = str(error)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+        raise HTTPException(status_code=AI_FAILED,
                             detail=f"La IA no pudo escribir el texto ({reason[:1].lower()}{reason[1:]}). "
                                    "El reporte no cambió.") from None
     return _full(report)
@@ -209,7 +213,7 @@ def rewrite_with_ai(report_id: int, session: Session = Depends(get_session),
     try:
         text, model = write_with_ai(session, current_user, report.kind, report.metrics, config)
     except AiError as error:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from None
+        raise HTTPException(status_code=AI_FAILED, detail=str(error)) from None
     report.text = text
     report.text_source, report.text_model, report.text_note = "ai", model, None
     # El texto es nuevo: la hora que enseña el reporte es la de esta escritura
