@@ -12,19 +12,13 @@ from backend.models import AiCall, User, UserModule
 from test_metrics import MON, TUE, post
 
 TODAY = date.today()
-GOOD = {
-    "summary": "Registraste 3.5 h en 2 días hábiles.",
-    "data_cleanup": "Limpieza de datos: no hay registros dudosos. No se excluyó nada.",
-    "patterns": ["Horario promedio de trabajo: 9 a 11 h."],
-    "legibility": [],
-    "observations": ["Tesis se llevó todo el tiempo.", "El lunes trabajaste 2 h."],
-    "comparison": "",
-    "next_steps": ["Mantén Tesis en 4 h o más."],
-    "closing": {"well_done": "Registraste dos días seguidos.", "tip": "Etiqueta tus tareas."},
-}
-# Sin cifras: para probar la validación con métricas inventadas
-PLAIN = {**GOOD, "summary": "Registraste tiempo.", "patterns": ["Trabajaste en la mañana."],
-         "observations": ["Tesis se llevó todo el tiempo."], "next_steps": ["Etiqueta tus tareas."]}
+# Desde la 1.32 la IA escribe solo los pasos y el tip; lo demás, las reglas
+GOOD = {"next_steps": ["Mantén Tesis en 4 h o más.", "Anota el martes con la misma tarea."],
+        "tip": "Etiqueta tus tareas al crearlas."}
+
+
+def steps(*items, tip="Revisa tu reporte cada lunes."):
+    return json.dumps({"next_steps": list(items), "tip": tip}, ensure_ascii=False)
 
 
 def grant(email, enabled=True):
@@ -80,42 +74,50 @@ def test_ai_writes_the_text(api, provider):
     grant("ia@test.com")
     rep = generate(api)
     assert rep["text_source"] == "ai" and rep["text_model"] == "modelo-de-prueba", rep["text_note"]
-    assert rep["text"] == GOOD
+    # Los pasos y el tip son de la IA; lo que lleva datos, de las reglas
+    assert rep["text"]["next_steps"] == GOOD["next_steps"] and rep["text"]["closing"]["tip"] == GOOD["tip"]
+    assert rep["text"]["summary"].startswith("Registraste 3.5 h") and rep["text"]["closing"]["well_done"]
     sent = provider["sent"][0]
     # Minutos y sin ids ni colores
     assert sent["period"] == "semana" and sent["metrics"]["total_minutes"] == 210
     assert "project_id" not in json.dumps(sent) and "color" not in json.dumps(sent)
     assert sent["metrics"]["by_project"][0]["name"] == "Tesis"
+    # Recibe lo que las reglas ya escribieron, sin los pasos ni el cierre que ella reescribe
+    assert sent["already_written"]["summary"] == rep["text"]["summary"]
+    assert "next_steps" not in sent["already_written"] and "closing" not in sent["already_written"]
     # use_ai=false: las reglas, sin llamar
     rep = generate(api, use_ai=False)
     assert rep["text_source"] == "rules" and len(provider["sent"]) == 1
 
 
-def test_invented_numbers_fall_back_to_rules(api, provider, monkeypatch):
-    monkeypatch.setenv("AI_DAILY_LIMIT", "10")   # cuatro intentos aquí
+def test_invented_numbers_drop_the_step_not_the_rest(api, provider, monkeypatch):
+    monkeypatch.setenv("AI_DAILY_LIMIT", "10")   # varios intentos aquí
     setup(api)
     grant("ia@test.com")
-    provider["reply"] = json.dumps({**GOOD, "closing": {"well_done": "Trabajaste 37 h este mes.", "tip": "Sigue."}})
-    # Un reporte nuevo se guarda con las reglas y dice por qué
+    rules = generate(api, use_ai=False)["text"]
+    # Una viñeta con una cifra inventada se descarta y las demás se quedan; un tip así, también
+    provider["reply"] = steps("Trabajaste 37.5 h: baja el ritmo.", "Anota el martes con la misma tarea.",
+                              tip="Llevas 12.4 h sin etiqueta.")
     rep = generate(api)
-    assert rep["text_source"] == "rules" and "37" in rep["text_note"]
-    assert rep["text"]["summary"].startswith("Registraste 3.5 h")
+    assert rep["text_source"] == "ai" and rep["text"]["next_steps"] == ["Anota el martes con la misma tarea."]
+    assert rep["text"]["closing"]["tip"] == rules["closing"]["tip"]
+    # Si no queda ninguna, todo con reglas y dice por qué: también al regenerar (antes, 424 y sin guardar)
+    provider["reply"] = steps("Trabajaste 37.5 h esta semana.")
+    rep = generate(api)
+    assert rep["text_source"] == "rules" and "37.5" in rep["text_note"]
+    assert rep["text"]["next_steps"] == rules["next_steps"] and rep["text"]["summary"] == rules["summary"]
     # Texto con basura alrededor y bloque de código: se acepta si el JSON es bueno
     provider["reply"] = "Claro:\n```json\n" + json.dumps(GOOD) + "\n```"
-    good = generate(api)
-    assert good["text_source"] == "ai"
-    # Al regenerar, si la IA falla el reporte no cambia (ni su fecha) y dice por qué
-    body = {"kind": "week", "period_start": MON.isoformat(), "today": TODAY.isoformat()}
-    provider["reply"] = json.dumps({**GOOD, "patterns": "no es lista"})
-    status, err = api.call("POST", "/api/reports", body)
-    assert status == 424 and "patterns" in err["detail"] and "no cambió" in err["detail"]
+    assert generate(api)["text_source"] == "ai"
+    # Sin la lista, o sin conexión: reglas, y se guarda con la nota
+    provider["reply"] = json.dumps({"next_steps": "no es lista", "tip": "x"})
+    rep = generate(api)
+    assert rep["text_source"] == "rules" and "next_steps" in rep["text_note"]
     provider["reply"] = AiError("No se pudo conectar con el proveedor de IA")
-    status, err = api.call("POST", "/api/reports", body)
-    assert status == 424 and "no se pudo conectar" in err["detail"]
-    kept = api.call("GET", f"/api/reports/{good['id']}", expect=200)[1]
-    assert kept["text_source"] == "ai" and kept["created_at"] == good["created_at"]
-    # Sin IA, a propósito: sale con las reglas
-    plain = api.call("POST", "/api/reports", {**body, "use_ai": False}, expect=200)[1]
+    rep = generate(api)
+    assert rep["text_source"] == "rules" and "No se pudo conectar" in rep["text_note"]
+    # Sin IA, a propósito: sale con las reglas y sin nota
+    plain = generate(api, use_ai=False)
     assert plain["text_source"] == "rules" and plain["text_note"] is None
 
 
@@ -124,9 +126,8 @@ def test_daily_limit_and_calls_log(api, provider):
     grant("ia@test.com")
     for _ in range(3):
         assert generate(api)["text_source"] == "ai"
-    status, err = api.call("POST", "/api/reports", {"kind": "week", "period_start": MON.isoformat(),
-                                                    "today": TODAY.isoformat()})
-    assert status == 424 and "límite de 3" in err["detail"]
+    rep = generate(api)
+    assert rep["text_source"] == "rules" and "límite de 3" in rep["text_note"]
     assert len(provider["sent"]) == 3
     with Session(engine) as session:
         calls = session.exec(select(AiCall)).all()
@@ -149,6 +150,7 @@ def test_rewrite_and_preview(api, provider):
     # Una reescritura buena y una fallida: solo la buena gasta el límite
     assert pv["daily_limit"] == 3 and pv["used_today"] == 1 and pv["training_warning"] is False
     assert pv["payload"]["metrics"]["total_minutes"] == 210 and "Responde SOLO" in pv["system"]
+    assert pv["payload"]["already_written"]["summary"].startswith("Registraste 3.5 h")
 
 
 def test_module_off_and_unconfigured(api, provider, monkeypatch):
@@ -202,14 +204,13 @@ def test_numbers_with_thousands_and_minutes_everywhere():
     assert m["minutes_after_16h"] == 95 and m["median_minutes_per_active_day"] is None
     assert "seconds" not in json.dumps(payload)
 
-    def text(summary):
-        return json.dumps({**PLAIN, "summary": summary})
-    # "1 580", "1,580" y "1.580" son el total; "26 h 20 min" su conversión
-    for written in ("1 580 minutos", "1 580 minutos", "1,580 minutos", "1.580 minutos", "26 h 20 min", "475 %"):
-        assert report_ai.validate_text(text(f"Registraste {written}."), payload)
-    # Pero un número que no está, aunque lleve separador, no
-    with pytest.raises(AiError, match="2580"):
-        report_ai.validate_text(text("Registraste 2 580 minutos."), payload)
+    # "1 580", "1,580" y "1.580" son el total, "26 h 20 min" su conversión y 26.3 sus horas
+    for written in ("1 580 minutos", "1 580 minutos", "1,580 minutos", "1.580 minutos", "26 h 20 min",
+                    "26.3 h", "475 %"):
+        assert report_ai.validate_suggestions(steps(f"Pasa de {written}."), payload)["next_steps"]
+    # Pero un decimal que no está, aunque lleve separador de miles, no
+    with pytest.raises(AiError, match="2580.5"):
+        report_ai.validate_suggestions(steps("Pasa de 2,580.50 minutos."), payload)
 
 
 def test_hours_of_minutes_in_the_middle_of_the_key():
@@ -219,21 +220,38 @@ def test_hours_of_minutes_in_the_middle_of_the_key():
                "seconds_after_16h": 879 * 60, "by_project": [], "previous": {}}
     payload = report_ai.ai_payload("week", metrics)
     for written in ("14.6 h después de las 16 h", "14.7 h después de las 16 h", "7.8 h por día"):
-        assert report_ai.validate_text(json.dumps({**PLAIN, "patterns": [written]}), payload)
+        assert report_ai.validate_suggestions(steps(written), payload)["next_steps"] == [written]
     with pytest.raises(AiError, match="14.9"):
-        report_ai.validate_text(json.dumps({**PLAIN, "patterns": ["14.9 h después de las 16 h"]}), payload)
+        report_ai.validate_suggestions(steps("14.9 h después de las 16 h"), payload)
 
 
-def test_goals_may_propose_whole_numbers():
+def test_goals_may_propose_whole_numbers_not_decimals():
     payload = report_ai.ai_payload("week", {"total_seconds": 3600, "by_project": [], "previous": {}})
-    goal = json.dumps({**PLAIN, "next_steps": ["Mantén el proyecto en 4 h o menos y llega a 60 %."]})
-    assert report_ai.validate_text(goal, payload)["next_steps"]
-    # Pero un decimal inventado, ni en una meta
+    # Una meta propone enteros nuevos, también en el tip ("bloques de 45 min" se rechazaba en la 1.31)
+    out = report_ai.validate_suggestions(steps("Mantén el proyecto en 4 h o menos y llega a 60 %.",
+                                               tip="Trabaja en bloques de 45 min."), payload)
+    assert out["next_steps"] and out["tip"] == "Trabaja en bloques de 45 min."
+    # Un decimal inventado, nunca: la viñeta se va, y si no queda ninguna, AiError
+    out = report_ai.validate_suggestions(steps("Llega a 7.3 h.", "Etiqueta tus tareas."), payload)
+    assert out["next_steps"] == ["Etiqueta tus tareas."]
     with pytest.raises(AiError, match="7.3"):
-        report_ai.validate_text(json.dumps({**PLAIN, "next_steps": ["Llega a 7.3 h."]}), payload)
-    # Y fuera de las metas, un entero inventado tampoco
-    with pytest.raises(AiError, match="75"):
-        report_ai.validate_text(json.dumps({**PLAIN, "observations": ["Llegaste a 75 %."]}), payload)
+        report_ai.validate_suggestions(steps("Llega a 7.3 h."), payload)
+
+
+def test_suggestions_shape():
+    payload = report_ai.ai_payload("week", {"total_seconds": 3600, "by_project": [], "previous": {}})
+    # Más de 4 viñetas: las primeras 4; vacías o demasiado largas se descartan; el tip es opcional
+    out = report_ai.validate_suggestions(json.dumps({"next_steps": ["a", "", "x" * 401, "b", "c", "d", "e"]}),
+                                         payload)
+    assert out == {"next_steps": ["a", "b"], "tip": None}
+    for bad in ('{"next_steps": []}', '{"tip": "x"}', '[1, 2]', "sin json"):
+        with pytest.raises(AiError):
+            report_ai.validate_suggestions(bad, payload)
+    # Se mezcla sobre el texto de las reglas sin tocar lo demás, en un dict nuevo
+    rules = {"summary": "S", "next_steps": ["r"], "closing": {"well_done": "W", "tip": "T"}}
+    merged = report_ai.merge_suggestions(rules, {"next_steps": ["ia"], "tip": None})
+    assert merged == {"summary": "S", "next_steps": ["ia"], "closing": {"well_done": "W", "tip": "T"}}
+    assert rules["next_steps"] == ["r"] and merged["closing"] is not rules["closing"]
 
 
 def test_regenerate_and_rewrite_update_the_time(api, provider):

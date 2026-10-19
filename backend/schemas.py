@@ -1328,7 +1328,7 @@ class ReportCreate(SQLModel):
     kind: str
     period_start: date_type
     today: Optional[date_type] = None   # fecha LOCAL del cliente (resolve_client_today)
-    use_ai: bool = True                 # con la IA encendida, que ella escriba el texto
+    use_ai: bool = True                 # con la IA encendida, que ella escriba los pasos y el tip
 
     @field_validator("kind")
     @classmethod

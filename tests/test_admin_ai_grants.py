@@ -32,8 +32,8 @@ def test_extra_texts_only_today(admin, api, provider):
     user_id = me(api)["id"]
     for _ in range(3):                                  # el límite de la instancia (3 en las pruebas)
         assert generate(api)["text_source"] == "ai"
-    status, err = try_generate(api)
-    assert status == 424 and "límite de 3" in err["detail"]
+    status, rep = try_generate(api)                     # al tope: reglas, y dice por qué
+    assert status == 200 and rep["text_source"] == "rules" and "límite de 3" in rep["text_note"]
 
     r = give(admin, user_id, extra=2)
     assert r.status_code == 200 and r.json()["extra"] == 2
@@ -41,8 +41,8 @@ def test_extra_texts_only_today(admin, api, provider):
     assert usage["limit"] == 5 and usage["remaining"] == 2      # el aviso y el bloqueo dicen lo mismo
     for _ in range(2):
         assert generate(api)["text_source"] == "ai"
-    status, err = try_generate(api)
-    assert status == 424 and "límite de 5" in err["detail"]
+    status, rep = try_generate(api)
+    assert status == 200 and rep["text_source"] == "rules" and "límite de 5" in rep["text_note"]
     assert len(provider["sent"]) == 5
 
     # El panel ve el uso de hoy con su extra; los costos no cambiaron
