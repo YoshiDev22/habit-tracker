@@ -1165,6 +1165,15 @@ savedRewrite.addEventListener('click', async () => {
 function renderForPrint(printing) {
     if (!savedState.current || savedState.printing === printing) return;
     savedState.printing = printing;
+    // El navegador pone document.title arriba de cada hoja y lo propone como nombre
+    // del PDF: el del reporte, no el reloj del pomodoro (que no lo toca mientras)
+    document.body.classList.toggle('printing-report', printing);
+    if (printing) {
+        savedState.pageTitle = document.title;
+        document.title = `${reportTitle(savedState.current.kind)} · ${savedPeriodLabel(savedState.current)}`;
+    } else {
+        document.title = savedState.pageTitle;
+    }
     renderSavedReport(savedState.current);
 }
 

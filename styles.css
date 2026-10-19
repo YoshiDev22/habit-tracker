@@ -6703,8 +6703,10 @@ button.day-log-date:focus-visible {
         min-height: 0;
     }
 
+    /* El error y el motivo de "Texto de reglas" son para la pantalla, no para el papel */
     body.saved-report-open .saved-report-ai,
-    body.saved-report-open .saved-report-status {
+    body.saved-report-open .saved-report-status,
+    body.saved-report-open #savedReportError {
         display: none;
     }
 

@@ -69,12 +69,16 @@ async def main():
         check(not st["back"] and st["actions"] and st["wide"] <= 390, f"no ‹ when opened from the button, fits a phone ({st})")
         await b.shot("saved_report", full=False)
 
-        # Imprimir: solo el reporte, sin botones
+        # Imprimir: solo el reporte, sin botones ni el aviso de error
+        await b.js("showSavedError('Error de red')")
         await b.send("Emulation.setEmulatedMedia", media="print")
         st = await b.js("""({app: getComputedStyle(document.querySelector('.app-container')).display,
             modal: getComputedStyle(document.getElementById('savedReportsModal')).display,
-            actions: getComputedStyle(document.getElementById('savedReportActions')).display})""")
-        check(st == {"app": "none", "modal": "block", "actions": "none"}, f"printing shows only the report ({st})")
+            actions: getComputedStyle(document.getElementById('savedReportActions')).display,
+            error: getComputedStyle(document.getElementById('savedReportError')).display})""")
+        check(st == {"app": "none", "modal": "block", "actions": "none", "error": "none"},
+              f"printing shows only the report ({st})")
+        await b.js("showSavedError(null)")
         await b.send("Emulation.setEmulatedMedia", media="")
 
         # Cerrar: ahora el botón abre el guardado
@@ -107,12 +111,19 @@ async def main():
         check("Espera 20 s" in status and before == after, f"a click during the wait says how long is left ({status})")
 
         # Imprimir: las gráficas al ancho de una hoja, y de vuelta al terminar
+        await b.js("document.title = '⏱ 03:55 — Habit Tracker'")
         await b.js("window.dispatchEvent(new Event('beforeprint'))")
         printing = await b.js("document.querySelector('#savedReportBody .report-chart').getAttribute('viewBox')")
+        # El título que el navegador imprime arriba es el del reporte, y el reloj no lo pisa
+        await b.js("setPageTitle('⏱ 03:56 — Habit Tracker')")
+        title = await b.js("document.title")
         await b.js("window.dispatchEvent(new Event('afterprint'))")
         screen = await b.js("document.querySelector('#savedReportBody .report-chart').getAttribute('viewBox')")
         check(printing.startswith("0 0 680 ") and not screen.startswith("0 0 680 "),
               f"charts are drawn at page width to print ({printing} / {screen})")
+        restored = await b.js("document.title")
+        check(title.startswith("Reporte semanal de tiempo · ") and restored == "⏱ 03:55 — Habit Tracker",
+              f"printing titles the page with the report, then gives it back ({title} / {restored})")
         await b.js("document.getElementById('savedReportClose').click()")
 
         # La lista, y de ahí el reporte con ‹; Escape vuelve a la lista
