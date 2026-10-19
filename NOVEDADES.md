@@ -4,6 +4,13 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.31.1 — 2026-10-19
+### Cambios
+- **Reporte de tiempo con IA**: ya no se queda en "Texto de reglas" cuando trabajaste por la tarde.
+- **Errores de la IA más claros**: en vez de "Error de red", el reporte dice qué pasó.
+- **Imprimir / PDF más limpio**: sin avisos de error y con el nombre del reporte, aunque el timer
+  esté corriendo.
+
 ## 1.31.0 — 2026-10-18
 ### Nuevas funciones
 - **Finanzas: meses sin intereses como en tu estado de cuenta**: en el menú de la tarjeta, cópialos de

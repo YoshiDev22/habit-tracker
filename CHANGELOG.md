@@ -9,6 +9,26 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.31.1] — 2026-10-19
+
+El reporte de tiempo con IA vuelve a salir, y los errores de la IA dicen qué pasó.
+
+### Correcciones
+- **La IA ya puede citar las horas después de las 16 h y el promedio por día.** El validador
+  solo aceptaba en horas las cifras cuya clave terminaba en `minutes`; `minutes_after_16h` y
+  `avg/median_minutes_per_active_day` no, así que el texto del reporte de tiempo se rechazaba
+  casi siempre ("La IA citó una cifra que no venía en las métricas"). También acepta las dos
+  formas de redondear un valor justo en la mitad (14.65 h: 14.6 o 14.7).
+- **Un timeout de la IA ya no dice "No se pudo conectar"**: dice "no respondió en N s".
+- **Los fallos de la IA responden 424 en vez de 502.** Cloudflare cambia un 502 del origen por su
+  propia página, y la app enseñaba "Error de red" sin el motivo.
+- **Imprimir / PDF** ya no incluye el aviso de error ni el motivo de "Texto de reglas", y el título
+  de arriba de la hoja (y el nombre sugerido del PDF) es el del reporte, no el reloj del pomodoro.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app. Opcional:
+`AI_TIMEOUT` en `backend/.env` (60 por defecto), siempre por debajo de 100 si Cloudflare va delante.
+
 ## [1.31.0] — 2026-10-18
 
 Meses sin intereses capturados tal como vienen en el estado de cuenta, sus mensualidades en
@@ -1027,6 +1047,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.31.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.1
 [1.31.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.0
 [1.30.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.1
 [1.30.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.30.0
