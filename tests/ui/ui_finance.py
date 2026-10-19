@@ -776,6 +776,21 @@ async def main():
         await b.shot("finance_budget", full=False)
         check(len(transactions()) == before_tx, "the budget never adds movements")
 
+        # La campana: los avisos de la cuenta, los mismos que en la app
+        expected = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]
+        await b.js("document.getElementById('finBellBtn').click()")
+        await b.wait_for("!document.getElementById('finNoticesSheet').classList.contains('hidden')")
+        st = await b.js("""({rows: document.querySelectorAll('#finNoticesBody .fin-notice').length,
+            text: document.getElementById('finNoticesBody').textContent})""")
+        shown = [n for n in expected["notices"] if n["status"] in ("pending", "info")]
+        check(st["rows"] >= len(shown) and (st["rows"] or "No tienes avisos" in st["text"]),
+              f"the bell lists the account's notices ({st['rows']} rows, {len(expected['notices'])} notices)")
+        await b.shot("finance_notices", full=False)
+        await b.js("document.querySelector('#finNoticesSheet .fin-sheet-overlay').click()")
+        after = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]
+        check(not any(n["status"] == "info" and not n["read"] for n in after["notices"]),
+              "opening the bell reads the informative ones")
+
         # En computadora, el panel no se ensancha al abrir una opción, y nada se sale de lado
         await b.viewport(1280, 900, mobile=False)
         await b.js("document.getElementById('finMenuBtn').click()")

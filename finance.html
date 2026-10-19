@@ -85,6 +85,10 @@
                 <span class="fin-total-more" id="finTotalMore"></span>
             </div>
             <div class="fin-top-side end">
+                <!-- Los avisos de tu cuenta, los mismos de la app (finance-news.js) -->
+                <button type="button" class="fin-round-btn fin-bell" id="finBellBtn" aria-label="Avisos" title="Avisos">
+                    <span class="fin-bell-count" id="finBellCount" hidden></span>
+                </button>
                 <!-- Solo en Categorías: ordenar los círculos -->
                 <button type="button" class="fin-round-btn" id="finRingEdit" aria-pressed="false" hidden
                         aria-label="Ordenar categorías" title="Ordenar categorías"></button>
@@ -454,6 +458,18 @@
                         <button type="submit" class="submit-btn">Agregar</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Los avisos de tu cuenta: los mismos de la campanita de la app -->
+    <div class="fin-sheet hidden" id="finNoticesSheet" role="dialog" aria-modal="true" aria-labelledby="finNoticesTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finNoticesTitle">Avisos</h2>
+            <div id="finNoticesBody"></div>
+            <div class="fin-form-actions">
+                <button type="button" class="submit-btn" data-close-sheet>Cerrar</button>
             </div>
         </div>
     </div>

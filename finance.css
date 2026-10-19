@@ -2575,3 +2575,47 @@
     display: grid;
     gap: 4px;
 }
+
+/* --- La campana de avisos (finance-news.js) --- */
+
+.fin-bell {
+    position: relative;
+}
+
+.fin-bell-count {
+    position: absolute;
+    top: 4px;
+    right: 2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--danger-fg);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+}
+
+.fin-bell-count[hidden] {
+    display: none;
+}
+
+.fin-notice-group {
+    margin: 12px 0 4px;
+}
+
+.fin-notice {
+    padding: 8px 2px;
+    border-top: 1px solid var(--border-color);
+}
+
+.fin-notice .fin-hint {
+    margin: 2px 0 0;
+}
+
+.fin-notice.done strong,
+.fin-notice.dismissed strong {
+    color: var(--text-secondary);
+}

@@ -1,5 +1,7 @@
 // ============================================
-// Finanzas: sus Novedades y su aviso de versión nueva. Finanzas lleva su propio
+// Finanzas: la campana de avisos, sus Novedades y su aviso de versión nueva.
+// La campana es la misma de la app (GET /api/notices): lo pendiente se resuelve
+// en Habit Tracker (Anotar, Corregir), así que aquí lleva a la app. Finanzas lleva su propio
 // número (FINANCE_VERSION, CLAUDE.md › Versionado): al entrar, si este
 // dispositivo no ha visto las de la versión actual, se enseñan en una hoja; el
 // panel lateral › Novedades las lista todas. Una página abierta no se actualiza
@@ -120,3 +122,62 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && Date.now() - finNews.lastCheck > FIN_UPDATE_ON_RETURN_MS) finCheckUpdate();
 });
 setInterval(finCheckUpdate, FIN_UPDATE_EVERY_MS);
+
+// ---------- La campana: los avisos de tu cuenta ----------
+
+const finNoticesSheet = document.getElementById('finNoticesSheet');
+const finNotices = { list: [], unread: 0, lastLoad: 0 };
+
+async function finLoadNotices() {
+    finNotices.lastLoad = Date.now();
+    try {
+        const data = await apiFetch(`/api/notices?today=${finToday()}`);
+        finNotices.list = data.notices;
+        finNotices.unread = data.unread;
+    } catch (error) {
+        return;   // sin avisos, la campana se queda como estaba
+    }
+    const count = document.getElementById('finBellCount');
+    count.hidden = !finNotices.unread;
+    count.textContent = finNotices.unread > 9 ? '9+' : String(finNotices.unread);
+    document.getElementById('finBellBtn').setAttribute('aria-label',
+        finNotices.unread ? `Avisos: ${finNotices.unread} sin ver` : 'Avisos');
+}
+
+function finNoticeRow(notice) {
+    const row = el('div', `fin-notice ${notice.status}`);
+    row.append(el('strong', '', notice.title));
+    if (notice.detail) row.appendChild(el('p', 'fin-hint', notice.detail));
+    if (notice.status === 'pending') {
+        // Se resuelve en la app: el día sin anotar, el registro por confirmar
+        const go = el('a', 'link-btn', 'Resolver en Habit Tracker');
+        go.href = '/';
+        row.appendChild(go);
+    }
+    return row;
+}
+
+async function openFinNotices() {
+    await finLoadNotices();
+    const groups = [
+        ['Pendientes', finNotices.list.filter(n => n.status === 'pending')],
+        ['Avisos', finNotices.list.filter(n => n.status === 'info')],
+        ['Hechos', finNotices.list.filter(n => n.status === 'done' || n.status === 'dismissed').slice(0, 10)],
+    ].filter(([, list]) => list.length);
+    document.getElementById('finNoticesBody').replaceChildren(...(groups.length
+        ? groups.flatMap(([title, list]) => [el('p', 'fin-stat-label fin-notice-group', title), ...list.map(finNoticeRow)])
+        : [el('p', 'fin-hint', 'No tienes avisos.')]));
+    openFinSheet(finNoticesSheet);
+    // Abrir la campana lee los informativos (los pendientes siguen hasta resolverse)
+    if (finNotices.list.some(n => n.status === 'info' && !n.read)) {
+        try {
+            await apiFetch('/api/notices/read', { method: 'POST', json: {} });
+        } catch (error) { /* se leerán la próxima vez */ }
+        await finLoadNotices();
+    }
+}
+
+document.getElementById('finBellBtn').addEventListener('click', openFinNotices);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - finNotices.lastLoad > 60 * 1000) finLoadNotices();
+});

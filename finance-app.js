@@ -181,6 +181,7 @@ async function finStart() {
     // Lo nuevo de Finanzas y la versión con la que abrió la página (finance-news.js)
     finLoadNews();
     finCheckUpdate();
+    finLoadNotices();
 }
 
 // El consentimiento expreso, la primera vez: hasta aceptarlo no se pide nada
@@ -1266,6 +1267,7 @@ document.querySelector('#confirmModal .modal-overlay').addEventListener('click',
 function finPaintStaticIcons() {
     document.getElementById('finBack').appendChild(financeIcon('chevron-left', 22));
     document.getElementById('finDrawerBack').appendChild(financeIcon('chevron-left', 20));
+    document.getElementById('finBellBtn').prepend(financeIcon('bell', 20));
     document.getElementById('finPrev').appendChild(financeIcon('chevron-left', 18));
     document.getElementById('finNext').appendChild(financeIcon('chevron-right', 18));
     document.querySelectorAll('[data-icon]').forEach(span => span.appendChild(financeIcon(span.dataset.icon, 22)));
