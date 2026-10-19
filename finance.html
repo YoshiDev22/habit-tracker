@@ -60,6 +60,13 @@
         </div>
     </section>
 
+    <!-- El servidor corre otra versión: Actualizar (finance-news.js) -->
+    <div id="finUpdateBanner" class="update-banner" role="status" hidden>
+        <span>Hay una versión nueva de Finanzas.</span>
+        <button type="button" class="update-banner-btn" id="finUpdateReload">Actualizar</button>
+        <button type="button" class="update-banner-close" id="finUpdateDismiss" aria-label="Cerrar">&times;</button>
+    </div>
+
     <!-- Arriba, siempre: regresar, el total de las cuentas y el periodo -->
     <header class="fin-top">
         <div class="fin-top-row">
@@ -451,6 +458,18 @@
         </div>
     </div>
 
+    <!-- Lo nuevo de Finanzas, al entrar después de una actualización (finance-news.js) -->
+    <div class="fin-sheet hidden" id="finNewsSheet" role="dialog" aria-modal="true" aria-labelledby="finNewsTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finNewsTitle">Novedades de Finanzas</h2>
+            <div id="finNewsBody"></div>
+            <div class="fin-form-actions">
+                <button type="button" class="submit-btn" id="finNewsOk">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Un renglón del presupuesto: ingreso o gasto, estimado o fijo (finance-budget.js) -->
     <div class="fin-sheet hidden" id="finBudgetItemSheet" role="dialog" aria-modal="true" aria-labelledby="finBudgetItemTitle">
         <div class="fin-sheet-overlay" data-close-sheet></div>
@@ -571,6 +590,8 @@
                     <span data-icon="settings"></span>Configuración</button>
                 <button type="button" class="fin-drawer-item" data-go="data">
                     <span data-icon="arrow-left-right"></span>Datos</button>
+                <button type="button" class="fin-drawer-item" data-go="news">
+                    <span data-icon="sparkles"></span>Novedades</button>
                 <button type="button" class="fin-drawer-item" data-go="privacy">
                     <span data-icon="list"></span>Aviso de privacidad</button>
                 <a class="fin-drawer-item" href="/">
@@ -710,6 +731,11 @@
             <div id="finDataError" class="form-error hidden"></div>
             </div>
 
+            <!-- Las Novedades de Finanzas, todas -->
+            <div class="settings-page fin-drawer-page" data-section="news" data-title="Novedades" data-parent="root">
+                <div id="finNewsAll"></div>
+            </div>
+
             <!-- El aviso de privacidad, aquí mismo (se carga al abrirlo) -->
             <div class="settings-page fin-drawer-page fin-drawer-privacy" data-section="privacy"
                  data-title="Aviso de privacidad" data-parent="root">
@@ -841,5 +867,6 @@
     <script src="finance-import.js"></script>
     <script src="finance-data.js"></script>
     <script src="finance-budget.js"></script>
+    <script src="finance-news.js"></script>
 </body>
 </html>

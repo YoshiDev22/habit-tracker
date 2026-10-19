@@ -2555,3 +2555,23 @@
         font-size: 0.8rem;
     }
 }
+
+/* --- Novedades de Finanzas (finance-news.js) --- */
+
+.fin-news-version {
+    padding: 4px 0 12px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+}
+
+.fin-news-section {
+    margin: 8px 0 4px;
+    font-weight: 600;
+}
+
+.fin-news-list {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 4px;
+}

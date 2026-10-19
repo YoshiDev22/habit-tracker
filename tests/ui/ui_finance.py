@@ -480,7 +480,7 @@ async def main():
         await b.js("document.getElementById('finMenuBtn').click()")
         await b.wait_for("!document.getElementById('finDrawer').classList.contains('hidden')")
         items = await b.js("[...document.querySelectorAll('#finDrawer .fin-drawer-item')].map(i => i.textContent.trim())")
-        check(items == ["Configuración", "Datos", "Aviso de privacidad", "Regresar a Habit Tracker"],
+        check(items == ["Configuración", "Datos", "Novedades", "Aviso de privacidad", "Regresar a Habit Tracker"],
               f"the gear opens a side menu ({items})")
         await b.shot("finance_drawer", full=False)
         await b.js("document.querySelector('#finDrawer [data-go=\"data\"]').click()")
@@ -850,6 +850,12 @@ async def main():
         await b.js("document.querySelector('#finSettingsMenu [data-open=\"fixed\"]').click()")
         await fits("settings › fixed")
         await b.js("document.getElementById('finDrawerBack').click()")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        await b.js("document.querySelector('#finDrawer [data-go=\"news\"]').click()")
+        news = await b.js("document.getElementById('finNewsAll').textContent")
+        check("novedades" in news.lower(), f"Novedades has its own page in the side menu ({news})")
+        version = await b.js("finNews.pageVersions")
+        check(bool(version) and "|" in version, f"the page remembers the versions it opened with ({version})")
         await b.js("document.getElementById('finDrawerBack').click()")
         await b.js("document.querySelector('#finDrawer [data-go=\"privacy\"]').click()")
         src = await b.wait_for("document.getElementById('finPrivacyFrame').getAttribute('src')", lambda v: v)

@@ -3,6 +3,8 @@
 Qué trae cada versión de Habit Tracker, escrito para quien usa la app. El detalle técnico
 está en el historial de git; cada versión tiene su tag (`v1.9.0`, `v1.10.0`…).
 
+Finanzas lleva su propio número desde 2026-10-18: lo suyo va en `CHANGELOG-FINANZAS.md`.
+
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.

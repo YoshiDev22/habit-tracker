@@ -616,3 +616,16 @@ sesión, y que las páginas de Configuración y Mi perfil se queden como están 
 **Por decidir.** Si la campanita y el tema siguen sueltos arriba; si el panel reemplaza el menú de
 la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es de Hábitos.
 
+## 44 · P3 · Un número de versión propio para el panel de administración
+
+**Pedido el 2026-10-18.** Finanzas ya lleva su número (`FINANCE_VERSION`, sus Novedades y sus tags
+`finanzas-vX.Y.Z`; CLAUDE.md › Versionado). El panel de administración es otro proceso
+(`backend/admin_main.py`) con sus propias páginas, y hoy sus cambios mueven la versión de Habit Tracker.
+
+**Idea.** Hacer con el panel lo mismo que con Finanzas, para cuando se trabaje solo en él: `ADMIN_VERSION`,
+`CHANGELOG-ADMIN.md` y tags `admin-vX.Y.Z`; el panel enseña su número, y un cambio solo del panel no mueve
+`VERSION`. No necesita Novedades (no lo ven los usuarios).
+
+**Por decidir.** Con qué número empieza (lo publicado hasta hoy salió dentro de Habit Tracker 1.27.0 a 1.28.0)
+y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
+

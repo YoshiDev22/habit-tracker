@@ -21,6 +21,12 @@ with open(os.path.join(BASE_DIR, "VERSION"), encoding="utf-8") as f:
 # Las Novedades de cada versión (NOVEDADES.md), leídas una vez, como VERSION.
 # HABIT_NOVEDADES_FILE solo lo usan las pruebas de navegador (sin ventana)
 NOVEDADES = novedades.load(os.getenv("HABIT_NOVEDADES_FILE") or os.path.join(BASE_DIR, "NOVEDADES.md"))
+# Finanzas lleva su propio número y sus Novedades (CLAUDE.md › Versionado): un cambio
+# solo de Finanzas no mueve VERSION. Se leen igual, una vez al arrancar
+with open(os.path.join(BASE_DIR, "FINANCE_VERSION"), encoding="utf-8") as f:
+    FINANCE_VERSION = f.read().strip()
+FINANCE_NOVEDADES = novedades.load(os.getenv("HABIT_FINANCE_NOVEDADES_FILE")
+                                   or os.path.join(BASE_DIR, "NOVEDADES-FINANZAS.md"))
 
 # Crear las tablas en la base de datos, y parar si a alguna existente le
 # faltan columnas por migrar (ver check_pending_migrations)
@@ -208,7 +214,7 @@ def finance_page():
 
 FINANCE_FILES = ("finance.css", "finance-icons.js", "finance-app.js", "finance-entry.js",
                  "finance-settings.js", "finance-accounts.js", "finance-import.js",
-                 "finance-data.js", "finance-budget.js")
+                 "finance-data.js", "finance-budget.js", "finance-news.js")
 
 
 # Una ruta por archivo, como todo el frontend (una genérica "/{name}" taparía
@@ -287,6 +293,7 @@ def build_api_info() -> dict:
     return {
         "message": "Habits Tracker API",
         "version": APP_VERSION,
+        "finance_version": FINANCE_VERSION,
         "docs": "/api/docs"
     }
 
@@ -312,6 +319,12 @@ def api_novedades():
     """What's new in each version, from NOVEDADES.md (never the CHANGELOG), the
     newest first. Public, like /api/version: it's the app's own text."""
     return {"current": APP_VERSION, "versions": NOVEDADES}
+
+
+@app.get("/api/novedades/finance")
+def api_finance_novedades():
+    """Finanzas' own Novedades (NOVEDADES-FINANZAS.md), shown inside /finance."""
+    return {"current": FINANCE_VERSION, "versions": FINANCE_NOVEDADES}
 
 
 # Under /api for the same reason as /api/version: a bare /health never gets

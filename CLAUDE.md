@@ -157,6 +157,10 @@ habit-tracker/
 ├── VERSION                # Semver, leído por el backend y mostrado en la UI
 ├── CHANGELOG.md           # Todo lo de cada versión (GitHub y despliegue)
 ├── NOVEDADES.md           # Lo que ve el usuario de cada versión, corto (backend/novedades.py)
+├── FINANCE_VERSION        # El número propio de Finanzas (0.x mientras esté en prueba)
+├── CHANGELOG-FINANZAS.md  # Lo de cada versión de Finanzas (tags finanzas-vX.Y.Z)
+├── NOVEDADES-FINANZAS.md  # Lo que ve quien usa Finanzas, dentro de /finance (finance-news.js)
+├── finance-news.js        # Finanzas: sus Novedades (hoja al entrar y página del panel) y su aviso de versión nueva
 ├── requirements.txt     # Dependencias directas
 ├── requirements.lock    # Árbol completo fijado: lo que se instala
 ├── README.md
@@ -1267,6 +1271,18 @@ una fuente nueva se agrega ahí con qué decisión sostiene. No se venden escudo
 
 `VERSION` en la raíz, semver. El backend lo lee **al arrancar** y el frontend lo muestra vía
 `GET /api`, así que subir el archivo sin reiniciar el servicio no cambia nada de lo que se ve.
+
+**Finanzas lleva su propio número** (desde 2026-10-18): `FINANCE_VERSION`, con su
+`CHANGELOG-FINANZAS.md`, su `NOVEDADES-FINANZAS.md` (se ven dentro de `/finance`: una hoja al entrar con
+lo que este dispositivo no ha visto, `finance_novedades_seen`, y el panel lateral › Novedades; la primera
+vez empieza al día) y sus tags `finanzas-vX.Y.Z`. Un cambio **solo de Finanzas** sube `FINANCE_VERSION`
+(con el mismo criterio de abajo) y **no** `VERSION`; un cambio del núcleo o de Habit Tracker sube
+`VERSION`, y si obliga a ajustar Finanzas, los dos. Va en **0.x** mientras Finanzas esté en prueba por
+invitación. El servidor es uno: se despliega igual (`git pull`, `migrate.py` si hace falta, reiniciar), y
+`migrate.py` no depende de ningún número. `GET /api/version` trae los dos (`finance_version`), y la página de
+Finanzas ofrece *Actualizar* si cualquiera cambió (`finCheckUpdate()`). Las 0.1.0 a 0.3.0 salieron dentro de
+Habit Tracker 1.29.0 a 1.31.0 (sus tags van sobre esos mismos commits). El bump de Finanzas va en su commit,
+`chore: bump Finanzas to X.Y.Z`, con su tag anotado `finanzas-vX.Y.Z`.
 
 **Qué bump toca.** Lo decide el commit de mayor rango que entra en el lote desde la última
 versión publicada:

@@ -13,7 +13,7 @@ def test_frontend_files_are_served(client):
     for path in ["/", "/index.html", "/styles.css", "/script.js", "/habits.js", "/projects.js",
                  "/board.js", "/pomodoro.js", "/reports.js", "/project-overview.js", "/costs.js", "/notifications.js", "/workdays.js", "/settings.js", "/saved-reports.js", "/account.js", "/drilldown.js", "/core.js", "/manifest.webmanifest",
                  "/finance", "/finance.css", "/finance-icons.js", "/finance-app.js", "/finance-entry.js",
-                 "/finance-settings.js", "/finance-accounts.js", "/finance-import.js", "/finance-data.js", "/finance-budget.js",
+                 "/finance-settings.js", "/finance-accounts.js", "/finance-import.js", "/finance-data.js", "/finance-budget.js", "/finance-news.js",
                  "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
                  "/favicon.ico"]:
         assert client.get(path).status_code == 200, path
@@ -65,6 +65,12 @@ def test_novedades_come_from_their_own_file(api):
         text = " ".join(i for s in v["sections"] for i in s["items"]).lower()
         # Nunca lleva despliegue
         assert "migrate" not in text and "systemctl" not in text and ".env" not in text
+    # Finanzas: su número y sus Novedades, aparte
+    from backend.main import FINANCE_VERSION
+    status, body = api.call("GET", "/api/novedades/finance")
+    assert status == 200 and body["current"] == FINANCE_VERSION and body["versions"]
+    assert body["versions"][0]["version"] == FINANCE_VERSION
+    assert api.call("GET", "/api/version")[1]["finance_version"] == FINANCE_VERSION
     parsed = novedades.parse(
         "# x\n\n## 1.2.0 — 2026-01-02\n### Nuevas funciones\n- **Uno**: algo\n  que sigue\n### Cambios\n\n"
         "## 1.1.0\n### Correcciones internas\n")

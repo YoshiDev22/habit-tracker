@@ -178,6 +178,9 @@ async function finStart() {
     } catch (e) { /* sin localStorage */ }
     finSetTab(FIN_TABS.includes(saved) ? saved : 'categories', { save: false });
     await finLoad();
+    // Lo nuevo de Finanzas y la versión con la que abrió la página (finance-news.js)
+    finLoadNews();
+    finCheckUpdate();
 }
 
 // El consentimiento expreso, la primera vez: hasta aceptarlo no se pide nada

@@ -53,6 +53,7 @@ function finDrawerShow(name, { animate = true } = {}) {
     }
     if (FIN_SETTINGS_PAGES.includes(name)) finRenderSettingsPage(name);
     if (name === 'data') document.getElementById('finDataError').classList.add('hidden');
+    if (name === 'news') finRenderNewsPage();
     if (name === 'privacy') {
         const frame = document.getElementById('finPrivacyFrame');
         if (!frame.getAttribute('src')) frame.setAttribute('src', '/privacidad');
