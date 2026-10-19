@@ -2385,8 +2385,93 @@
 
 /* --- Presupuesto (finance-budget.js) --- */
 
-.fin-budget-card {
+/* Arriba el ingreso y la tabla del plan; debajo, una cuadrícula con cada grupo en su tarjeta.
+   En Presupuesto la página usa más ancho (body.fin-wide), como el tablero de la app */
+body.fin-wide .fin-main {
+    max-width: 1180px;
+}
+
+.fin-budget-top,
+.fin-budget-grid {
+    display: grid;
+    gap: 12px;
+    align-items: start;
     margin-bottom: 12px;
+}
+
+.fin-budget-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.fin-budget-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.fin-budget-card {
+    margin: 0;
+    min-width: 0;
+}
+
+.fin-budget > .fin-budget-card {
+    margin-bottom: 12px;
+}
+
+.fin-budget-new-group {
+    min-height: 88px;
+    border: 1px dashed var(--border-color);
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.fin-budget-new-group:hover {
+    background: var(--bg-hover);
+}
+
+/* Ordenar: lo que se puede tocar, punteado; lo primero que se tocó, marcado */
+.fin-budget.editing .fin-budget-group,
+.fin-budget.editing .fin-budget-row {
+    outline: 1px dashed var(--border-color);
+    outline-offset: -2px;
+}
+
+.fin-budget .picked {
+    outline: 2px solid var(--accent) !important;
+    background: var(--accent-soft);
+}
+
+/* Un teléfono: el ingreso y la tabla, uno sobre otro; los grupos, de dos en dos, con
+   el monto debajo del nombre */
+@media (max-width: 560px) {
+    .fin-budget-top {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .fin-budget-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .fin-budget-group {
+        padding: 10px;
+    }
+
+    .fin-budget-group .fin-budget-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .fin-budget-group .fin-budget-group-head {
+        flex-wrap: wrap;
+        gap: 2px 8px;
+    }
+
+    .fin-budget-group .fin-budget-group-title {
+        flex-basis: 100%;
+    }
 }
 
 .fin-budget-head {

@@ -89,6 +89,9 @@
                 <button type="button" class="fin-round-btn fin-bell" id="finBellBtn" aria-label="Avisos" title="Avisos">
                     <span class="fin-bell-count" id="finBellCount" hidden></span>
                 </button>
+                <!-- Solo en Presupuesto, con grupos: cambiar de lugar grupos y gastos -->
+                <button type="button" class="fin-round-btn" id="finBudgetEdit" aria-pressed="false" hidden
+                        aria-label="Ordenar el presupuesto" title="Ordenar el presupuesto"></button>
                 <!-- Solo en Categorías: ordenar los círculos -->
                 <button type="button" class="fin-round-btn" id="finRingEdit" aria-pressed="false" hidden
                         aria-label="Ordenar categorías" title="Ordenar categorías"></button>
@@ -149,7 +152,9 @@
 
         <!-- Presupuesto: el plan del mes (finance-budget.js); nunca crea movimientos -->
         <section class="fin-tab" data-tab="budget" hidden>
-            <div id="finBudget"></div>
+            <p class="fin-hint fin-ring-hint" id="finBudgetHint" hidden>Toca un grupo y luego otro para
+                cambiarlos de lugar; igual con dos gastos o dos ingresos. ✓ arriba para terminar.</p>
+            <div id="finBudget" class="fin-budget"></div>
             <div id="finBudgetError" class="form-error hidden"></div>
         </section>
 

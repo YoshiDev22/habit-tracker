@@ -776,6 +776,48 @@ async def main():
         await b.shot("finance_budget", full=False)
         check(len(transactions()) == before_tx, "the budget never adds movements")
 
+        # Una cuadrícula, no una lista: en el teléfono, dos grupos por fila y nada se sale
+        st = await b.js("""(() => { const g = [...document.querySelectorAll('.fin-budget-group')];
+            return {tops: g.map(x => Math.round(x.getBoundingClientRect().top)),
+                    overflow: document.documentElement.scrollWidth - window.innerWidth,
+                    add: [...document.querySelectorAll('[data-budget-add="expense"]')].map(x => x.textContent)}; })()""")
+        check(st["tops"][0] == st["tops"][1] and st["tops"][2] > st["tops"][0] and st["overflow"] <= 0,
+              f"on a phone the groups go two per row, without side scroll ({st})")
+        check(st["add"] and all(t == "+ Gasto" for t in st["add"]), f"each group adds with + Gasto ({st['add']})")
+        # El ✎ de arriba: un grupo y luego otro cambian de lugar; un gasto pasa al lugar
+        # (y al grupo) de otro
+        ids = [g["id"] for g in budget["groups"]]
+        await b.js("document.getElementById('finBudgetEdit').click()")
+        await b.wait_for("document.getElementById('finBudget').classList.contains('editing')")
+        hint = await b.js("!document.getElementById('finBudgetHint').hidden && !document.querySelector('.fin-budget-new-group')")
+        await b.js(f"document.querySelector('[data-budget-group=\"{ids[0]}\"]').click()")
+        await b.wait_for(".fin-budget-group.picked".join(["!!document.querySelector('", "')"]))
+        await b.js(f"document.querySelector('[data-budget-group=\"{ids[2]}\"]').click()")
+        swapped = await wait_api("/api/finance/budget", lambda body: [g["id"] for g in body["groups"]][0] == ids[2])
+        order = [g["id"] for g in swapped["groups"]]
+        check(hint and order == [ids[2], ids[1], ids[0]], f"the pencil swaps two groups ({ids} -> {order})")
+        items = {i["name"]: i for i in swapped["items"]}
+        await b.wait_for(f"!!document.querySelector('[data-budget-item=\"{items['Renta']['id']}\"]')")
+        await b.js(f"document.querySelector('[data-budget-item=\"{items['Renta']['id']}\"]').click()")
+        await b.wait_for(".fin-budget-row.picked".join(["!!document.querySelector('", "')"]))
+        await b.js(f"document.querySelector('[data-budget-item=\"{items['Streaming']['id']}\"]').click()")
+        moved = await wait_api("/api/finance/budget", lambda body: any(
+            i["name"] == "Renta" and i["group_id"] == items["Streaming"]["group_id"] for i in body["items"]))
+        after = {i["name"]: i for i in moved["items"]}
+        check(after["Streaming"]["group_id"] == items["Renta"]["group_id"]
+              and after["Renta"]["order"] == items["Streaming"]["order"],
+              f"two expenses swap places, from one group to another ({items['Renta']}, {after['Renta']})")
+        await b.shot("finance_budget_order", full=False)
+        await b.js("document.getElementById('finBudgetEdit').click()")
+        await b.wait_for("!document.getElementById('finBudget').classList.contains('editing')")
+        # En computadora, más ancho: los tres grupos en una fila
+        await b.viewport(1280, 900, mobile=False)
+        tops = await b.wait_for("""(() => { const t = [...document.querySelectorAll('.fin-budget-group')]
+            .map(x => Math.round(x.getBoundingClientRect().top)); return t[0] === t[2] ? t : null; })()""", lambda v: v)
+        check(bool(tops), f"on a computer the budget is a wide grid, the groups side by side ({tops})")
+        await b.shot("finance_budget_desktop", full=False)
+        await b.viewport(390, 844, mobile=True)
+
         # La campana de Finanzas: un anuncio para todas las cuentas sí; un aviso de Habit
         # Tracker (sus Novedades) no, y abrirla no lo da por leído en la app
         db = Path(os.environ["HABIT_UI_TMP"]) / "test_finance.db"

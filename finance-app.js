@@ -435,6 +435,9 @@ function finSetTab(tab, { save = true } = {}) {
         finState.ringEditing = false;
         finState.ringPick = null;
     }
+    // El presupuesto usa todo el ancho (una cuadrícula de grupos) y tiene su ✎
+    document.body.classList.toggle('fin-wide', tab === 'budget');
+    if (tab !== 'budget' && typeof finBudgetStopEditing === 'function') finBudgetStopEditing();
     finRenderTab();
     window.scrollTo({ top: 0 });
 }

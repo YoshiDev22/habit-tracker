@@ -6,7 +6,8 @@
 // Usa finance-app.js (estado, hojas, formato) y la API /api/finance/budget.
 // ============================================
 
-const finBudget = { groups: [], items: [], loaded: false, loading: null };
+// editing: el ✎ de arriba (cambiar de lugar); pick: lo primero que se tocó, { type, id }
+const finBudget = { groups: [], items: [], loaded: false, loading: null, editing: false, pick: null };
 const finBudgetItemSheet = document.getElementById('finBudgetItemSheet');
 const finBudgetGroupSheet = document.getElementById('finBudgetGroupSheet');
 const finBudgetForm = { item: null, kind: 'expense', groupId: null, fixed: false };
@@ -68,7 +69,27 @@ async function finRenderBudget() {
     }
     errorEl.classList.add('hidden');
     if (finState.tab !== 'budget') return;
-    box.replaceChildren(finBudgetIncomeCard(), ...finBudgetBody());
+    if (!finBudget.groups.length) finBudget.editing = false;
+    box.classList.toggle('editing', finBudget.editing);
+    box.replaceChildren(...finBudgetBody());
+    const edit = document.getElementById('finBudgetEdit');
+    edit.hidden = !finBudget.groups.length;
+    edit.replaceChildren(financeIcon(finBudget.editing ? 'check' : 'pencil', 18));
+    edit.setAttribute('aria-pressed', String(finBudget.editing));
+    edit.setAttribute('aria-label', finBudget.editing ? 'Listo' : 'Ordenar el presupuesto');
+    edit.title = edit.getAttribute('aria-label');
+    document.getElementById('finBudgetHint').hidden = !finBudget.editing;
+}
+
+function finBudgetStopEditing() {
+    finBudget.editing = false;
+    finBudget.pick = null;
+    document.getElementById('finBudgetEdit').hidden = true;
+    document.getElementById('finBudgetHint').hidden = true;
+}
+
+function finBudgetPicked(type, id) {
+    return Boolean(finBudget.pick && finBudget.pick.type === type && finBudget.pick.id === id);
 }
 
 function finBudgetIncome() {
@@ -85,6 +106,7 @@ function finBudgetRow(item) {
     const row = el('button', 'fin-budget-row');
     row.type = 'button';
     row.dataset.budgetItem = String(item.id);
+    if (finBudgetPicked('item', item.id)) row.classList.add('picked');
     const text = el('span', 'fin-budget-row-text');
     const name = el('span', '', item.name);
     if (item.recurring_id) name.prepend(financeIcon('repeat', 14));
@@ -95,8 +117,8 @@ function finBudgetRow(item) {
     return row;
 }
 
-function finBudgetAddButton(label, data) {
-    const button = el('button', 'link-btn fin-budget-add', label);
+function finBudgetAddButton(label, data, className = 'link-btn fin-budget-add') {
+    const button = el('button', className, label);
     button.type = 'button';
     Object.entries(data).forEach(([key, value]) => { button.dataset[key] = value; });
     return button;
@@ -109,12 +131,14 @@ function finBudgetIncomeCard() {
     card.appendChild(head);
     card.appendChild(el('p', 'fin-hint', 'Lo que esperas que entre cada mes. Es tu plan: no cambia tus ingresos reales.'));
     finBudget.items.filter(i => i.kind === 'income').forEach(i => card.appendChild(finBudgetRow(i)));
-    card.appendChild(finBudgetAddButton('+ Ingreso', { budgetAdd: 'income' }));
+    if (!finBudget.editing) card.appendChild(finBudgetAddButton('+ Ingreso', { budgetAdd: 'income' }));
     return card;
 }
 
+// Arriba, el ingreso y la tabla del plan; debajo, la cuadrícula de grupos
 function finBudgetBody() {
-    const parts = [];
+    const top = el('div', 'fin-budget-top');
+    top.appendChild(finBudgetIncomeCard());
     if (!finBudget.groups.length) {
         const empty = el('section', 'fin-card fin-budget-card');
         empty.append(el('h2', 'fin-card-title', 'Reparte tu ingreso'),
@@ -130,15 +154,15 @@ function finBudgetBody() {
         reference.dataset.budgetTemplate = '50-30-20';
         actions.append(blank, reference);
         empty.appendChild(actions);
-        parts.push(empty);
-        return parts;
+        top.appendChild(empty);
+        return [top];
     }
-    parts.push(finBudgetSummaryCard());
-    finBudget.groups.forEach(group => parts.push(finBudgetGroupCard(group)));
-    parts.push(finBudgetAddButton('+ Grupo', { budgetGroupNew: '1' }));
+    top.appendChild(finBudgetSummaryCard());
+    const grid = el('div', 'fin-budget-grid');
+    finBudget.groups.forEach(group => grid.appendChild(finBudgetGroupCard(group)));
+    if (!finBudget.editing) grid.appendChild(finBudgetAddButton('+ Grupo', { budgetGroupNew: '1' }, 'fin-card fin-budget-new-group'));
     const loose = finBudgetLooseFixed();
-    if (loose) parts.push(loose);
-    return parts;
+    return loose ? [top, grid, loose] : [top, grid];
 }
 
 // La tabla de arriba: cada grupo con su %, lo teórico (% del ingreso) y lo planeado
@@ -181,18 +205,20 @@ function finBudgetPercent(bp) {
 
 function finBudgetGroupCard(group) {
     const income = finBudgetIncome();
-    const card = el('section', 'fin-card fin-budget-card');
+    const card = el('section', 'fin-card fin-budget-card fin-budget-group');
+    if (finBudgetPicked('group', group.id)) card.classList.add('picked');
     const head = el('button', 'fin-budget-group-head');
     head.type = 'button';
     head.dataset.budgetGroup = String(group.id);
     const title = el('span', 'fin-budget-group-title');
     title.append(el('strong', '', group.name),
         el('small', '', `${finBudgetPercent(group.percent_bp)} · teórico ${finBudgetMoney(Math.round(income * group.percent_bp / 10000))}`));
-    head.append(title, el('strong', '', finBudgetMoney(finBudgetPlanned(group.id))), financeIcon('pencil', 16));
+    head.append(title, el('strong', '', finBudgetMoney(finBudgetPlanned(group.id))));
+    if (!finBudget.editing) head.appendChild(financeIcon('pencil', 16));
     card.appendChild(head);
     finBudget.items.filter(i => i.kind === 'expense' && i.group_id === group.id)
         .forEach(i => card.appendChild(finBudgetRow(i)));
-    card.appendChild(finBudgetAddButton('+ Renglón', { budgetAdd: 'expense', group: String(group.id) }));
+    if (!finBudget.editing) card.appendChild(finBudgetAddButton('+ Gasto', { budgetAdd: 'expense', group: String(group.id) }));
     return card;
 }
 
@@ -230,7 +256,7 @@ function finBudgetLooseFixed() {
 function openFinBudgetItem({ item = null, kind = 'expense', groupId = null } = {}) {
     Object.assign(finBudgetForm, { item, kind: item ? item.kind : kind, groupId: item ? item.group_id : groupId, fixed: false });
     const income = finBudgetForm.kind === 'income';
-    document.getElementById('finBudgetItemTitle').textContent = item ? item.name : (income ? 'Nuevo ingreso' : 'Nuevo renglón');
+    document.getElementById('finBudgetItemTitle').textContent = item ? item.name : (income ? 'Nuevo ingreso' : 'Nuevo gasto');
     document.getElementById('finBudgetItemName').value = item ? item.name : '';
     document.getElementById('finBudgetItemName').placeholder = income ? 'Sueldo' : 'Renta';
     document.getElementById('finBudgetItemAmount').value = item ? (item.amount_cents / 100).toFixed(2) : '';
@@ -377,7 +403,7 @@ document.getElementById('finBudgetGroupDelete').addEventListener('click', async 
     const group = finBudgetGroupEditing;
     if (!group) return;
     const count = finBudget.items.filter(i => i.group_id === group.id).length;
-    const lines = count ? ` Se quitan también sus ${count === 1 ? 'renglón' : `${count} renglones`}; los fijos siguen anotándose.` : '';
+    const lines = count ? ` Se quitan también ${count === 1 ? 'su gasto' : `sus ${count} gastos`}; los fijos siguen anotándose.` : '';
     if (!(await confirmDialog(`¿Quitar el grupo "${group.name}"?${lines}`, { confirmLabel: 'Quitar' }))) return;
     try {
         await apiFetch(`/api/finance/budget/groups/${group.id}`, { method: 'DELETE' });
@@ -399,8 +425,55 @@ async function finBudgetRefresh() {
     await finRenderBudget();
 }
 
+// ---------- Cambiar de lugar (el ✎ de arriba) ----------
+
+document.getElementById('finBudgetEdit').addEventListener('click', () => {
+    finBudget.editing = !finBudget.editing;
+    finBudget.pick = null;
+    finRenderBudget();
+});
+
+// Lo segundo que se toca cambia de lugar con lo primero: dos grupos, o dos gastos
+// (de un grupo a otro, también) o dos ingresos. Cada uno se queda con el orden del otro.
+async function finBudgetEditTap(target) {
+    const groupEl = target.closest('[data-budget-group]');
+    const itemEl = target.closest('[data-budget-item]');
+    const tapped = itemEl ? { type: 'item', id: Number(itemEl.dataset.budgetItem) }
+        : groupEl ? { type: 'group', id: Number(groupEl.dataset.budgetGroup) } : null;
+    if (!tapped) return;
+    const first = finBudget.pick;
+    const list = tapped.type === 'group' ? finBudget.groups : finBudget.items;
+    const a = first && first.type === tapped.type ? list.find(x => x.id === first.id) : null;
+    const b = list.find(x => x.id === tapped.id);
+    // Lo mismo otra vez lo suelta; algo de otra clase (un ingreso y un gasto) empieza de nuevo
+    if (!a || a.id === b.id || (tapped.type === 'item' && a.kind !== b.kind)) {
+        finBudget.pick = a && a.id === b.id ? null : tapped;
+        finRenderBudget();
+        return;
+    }
+    finBudget.pick = null;
+    const path = tapped.type === 'group' ? 'groups' : 'items';
+    const changes = [[a, { order: b.order }], [b, { order: a.order }]];
+    if (tapped.type === 'item' && a.group_id !== b.group_id) {
+        changes[0][1].group_id = b.group_id;
+        changes[1][1].group_id = a.group_id;
+    }
+    try {
+        for (const [row, body] of changes) {
+            await apiFetch(`/api/finance/budget/${path}/${row.id}`, { method: 'PATCH', json: body });
+        }
+    } catch (error) {
+        showError(document.getElementById('finBudgetError'), error.message);
+    }
+    await finBudgetRefresh();
+}
+
 document.getElementById('finBudget').addEventListener('click', async (event) => {
     const errorEl = document.getElementById('finBudgetError');
+    if (finBudget.editing) {
+        finBudgetEditTap(event.target);
+        return;
+    }
     const row = event.target.closest('[data-budget-item]');
     if (row) {
         const item = finBudget.items.find(i => i.id === Number(row.dataset.budgetItem));
