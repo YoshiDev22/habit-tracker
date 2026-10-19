@@ -212,9 +212,12 @@ def allowed_numbers(payload: dict) -> Set[float]:
             allowed.add(float(abs(value)))
             if key.endswith("amount"):
                 allowed.update({float(round(abs(value))), round(abs(value), 1)})
-            if key.endswith("minutes"):
+            # Todas las de minutos, también a media clave (minutes_after_16h,
+            # avg_minutes_per_active_day): con endswith, sus horas se rechazaban
+            if "minutes" in key:
                 minutes = abs(int(value))
-                allowed.update({float(minutes // 60), float(minutes % 60),
+                # minutes / 60 sin redondear: en 14.65 h valen 14.6 y 14.7
+                allowed.update({float(minutes // 60), float(minutes % 60), minutes / 60,
                                 round(minutes / 60, 1), float(round(minutes / 60))})
         elif isinstance(value, str):
             for readings in _numbers_in(value.replace("-", " ").replace(":", " ")):

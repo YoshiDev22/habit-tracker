@@ -212,6 +212,18 @@ def test_numbers_with_thousands_and_minutes_everywhere():
         report_ai.validate_text(text("Registraste 2 580 minutos."), payload)
 
 
+def test_hours_of_minutes_in_the_middle_of_the_key():
+    # 879 min después de las 16 h = 14.65 h; 470 min por día = 7.8 h. Con endswith("minutes")
+    # se rechazaban y la IA nunca podía citar las horas que el prompt le pide
+    metrics = {"total_seconds": 2000 * 60, "avg_seconds_per_active_day": 470 * 60,
+               "seconds_after_16h": 879 * 60, "by_project": [], "previous": {}}
+    payload = report_ai.ai_payload("week", metrics)
+    for written in ("14.6 h después de las 16 h", "14.7 h después de las 16 h", "7.8 h por día"):
+        assert report_ai.validate_text(json.dumps({**PLAIN, "patterns": [written]}), payload)
+    with pytest.raises(AiError, match="14.9"):
+        report_ai.validate_text(json.dumps({**PLAIN, "patterns": ["14.9 h después de las 16 h"]}), payload)
+
+
 def test_goals_may_propose_whole_numbers():
     payload = report_ai.ai_payload("week", {"total_seconds": 3600, "by_project": [], "previous": {}})
     goal = json.dumps({**PLAIN, "next_steps": ["Mantén el proyecto en 4 h o menos y llega a 60 %."]})
