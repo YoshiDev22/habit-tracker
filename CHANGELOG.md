@@ -26,8 +26,8 @@ El reporte de tiempo con IA vuelve a salir, y los errores de la IA dicen qué pa
   de arriba de la hoja (y el nombre sugerido del PDF) es el del reporte, no el reloj del pomodoro.
 
 ### Para actualizar
-Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app. Opcional:
-`AI_TIMEOUT` en `backend/.env` (60 por defecto), siempre por debajo de 100 si Cloudflare va delante.
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app y el panel
+(los dos usan el código de la IA). Opcional: `AI_TIMEOUT` en `backend/.env` (60 por defecto), siempre por debajo de 100 si Cloudflare va delante.
 
 ## [1.31.0] — 2026-10-18
 
