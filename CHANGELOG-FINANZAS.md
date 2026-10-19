@@ -9,6 +9,30 @@ indica. Va en 0.x mientras Finanzas esté en prueba por invitación.
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de `CLAUDE.md`.
 
+## [0.4.0] — 2026-10-18
+
+La primera con su propio número. El presupuesto del mes, los fijos que vienen en Movimientos, la campana
+de avisos, las Novedades de Finanzas y todo el panel lateral en un mismo lugar.
+
+### Nuevo
+- **Presupuesto** (pestaña nueva): tu ingreso del mes (la primera vez, el de tu sueldo) y grupos con su
+  parte en %, cada uno con lo teórico, lo planeado y el dinero que queda sin planear. Empieza con la
+  referencia 50/30/20 o con grupos propios. Cada renglón es una estimación o un fijo (*Hacer fijo*).
+  El presupuesto nunca crea movimientos.
+- **Programados en Movimientos**: el siguiente cobro de cada fijo que aún no llega sale en su día, sin
+  sumarse; tocarlo abre tus fijos.
+- **Campana de avisos**, arriba a la derecha: los anuncios para todas las cuentas y los mensajes para la
+  tuya. El aviso de acceso a Finanzas aquí es una bienvenida. Los avisos de Habit Tracker se quedan en su
+  campana.
+- **Novedades de Finanzas**: al entrar después de una actualización y en el panel lateral › Novedades. Si
+  hay versión nueva con la página abierta, ofrece *Actualizar*.
+
+### Cambios
+- El panel lateral abre cada opción dentro de sí mismo (Configuración y sus páginas, Datos, Novedades y
+  el aviso de privacidad), con ‹ y Escape para regresar. En computadora no cambia de ancho; en un
+  teléfono, una página ocupa la pantalla.
+- El aviso de privacidad menciona el presupuesto y la cifra del banco del estado de cuenta.
+
 ## [0.3.0] — 2026-10-18
 
 Publicada con Habit Tracker 1.31.0. Meses sin intereses capturados como vienen en el estado de cuenta,
@@ -74,6 +98,7 @@ Publicada con Habit Tracker 1.29.0. La primera versión, en prueba y por invitac
 - **Pegar un estado de cuenta** o un CSV, con vista previa y sin duplicar.
 - El **consentimiento expreso** para guardar datos financieros, la primera vez.
 
+[0.4.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.4.0
 [0.3.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.3.0
 [0.2.1]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.2.1
 [0.2.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.2.0

@@ -4,6 +4,18 @@ Lo que ve quien usa Finanzas al entrar a la página después de una actualizaci�
 lateral › Novedades). Mismo formato que NOVEDADES.md (`backend/novedades.py`): corto, para quien la usa,
 nunca nada de despliegue. Se escribe en el mismo commit del bump de `FINANCE_VERSION`.
 
+## 0.4.0 — 2026-10-18
+### Nuevas funciones
+- **Presupuesto**: planea tu mes con tu ingreso y grupos con su parte (empieza con 50/30/20 o
+  con los tuyos); anota lo que cuesta vivir y haz fijos los pagos seguros.
+- **Lo que viene**: los fijos que aún no llegan, como la renta, salen en Movimientos en su día
+  como programados.
+- **Avisos**: una campana arriba a la derecha con los anuncios y mensajes para tu cuenta.
+- **Novedades de Finanzas**: lo nuevo de cada versión, aquí mismo y en el menú de tu inicial.
+### Cambios
+- **Todo en el menú de tu inicial**: Configuración, Datos y el aviso de privacidad se abren ahí
+  mismo, con ‹ para regresar.
+
 ## 0.3.0 — 2026-10-18
 ### Nuevas funciones
 - **Meses sin intereses como en tu estado de cuenta**: en el menú de la tarjeta, cópialos de la tabla
