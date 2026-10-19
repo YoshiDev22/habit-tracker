@@ -20,6 +20,7 @@ MONTHS = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agost
 PERIOD = {"week": "la semana", "month": "el mes"}
 THIS_PERIOD = {"week": "esta semana", "month": "este mes"}
 PREVIOUS = {"week": "la semana pasada", "month": "el mes pasado"}
+NEXT = {"week": "la próxima semana", "month": "el próximo mes"}
 
 SIMILAR_RATIO = 0.10        # cambio de ritmo que se considera "parecido"
 SHARE_CHANGE_PCT = 5        # cambio de % de un proyecto que vale la pena decir
@@ -262,6 +263,11 @@ def _next_steps(kind: str, m: dict) -> List[str]:
     total = m["total_seconds"]
     if total and m["untagged_seconds"] * 100 / total >= UNTAGGED_NOTICE_PCT:
         out.append("Etiqueta tus tareas: el desglose por actividad será más útil.")
+    # Sin nada que corregir la sección quedaba vacía: una meta medible sobre lo principal
+    if not out and m["by_project"]:
+        top = m["by_project"][0]
+        out.append(f"Ponle una meta de horas a {top['name']} para {NEXT[kind]} (llevó {hours(top['seconds'])} "
+                   f"{THIS_PERIOD[kind]}) y revisa en el próximo reporte si la cumpliste.")
     return out[:MAX_NEXT]
 
 

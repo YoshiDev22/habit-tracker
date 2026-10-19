@@ -90,6 +90,20 @@ una inferencia de estos, consistente con los días de descanso y las vacaciones.
 2008 y Dai 2014 quedan para lo que viene: el día después de un festivo es un buen momento
 para retomar.
 
+### Un plan "después de X, hago Y" ayuda a cumplir
+**Gollwitzer, P. M. y Sheeran, P. (2006).** Implementation intentions and goal achievement:
+A meta-analysis of effects and processes. *Advances in Experimental Social Psychology, 38*,
+69–119. <https://doi.org/10.1016/S0065-2601(06)38002-1>
+
+Metaanálisis de 94 pruebas independientes (63 reportes) sobre salud, estudio y otras
+metas: formar una intención de implementación, un plan si-entonces que fija cuándo y dónde
+actuar, mejoró el logro de la meta con un efecto medio-grande (d = 0.65). El plan hace más
+visible la ocasión y vuelve más automática la respuesta.
+
+**Sostiene:** que el reporte de hábitos proponga hacer un hábito que costó "justo después
+de" el hábito más constante del periodo. Ese hábito ya se repite, así que funciona como la
+señal de contexto que dispara la conducta (Wood et al. 2005).
+
 ## Cómo lo resuelven otras apps
 
 Consultado el 2026-09-29. Sirve de contraste, no de modelo a copiar.
@@ -120,3 +134,4 @@ escudos: cobrar por salvar la racha es aprovechar el miedo a perderla.
 | La pausa se programa hoy o hacia adelante, nunca para días pasados | Para lo pasado ya están los escudos; una pausa retroactiva borraría los fallos del registro |
 | No hay escudos de pago | Silverman y Barasch 2023; contraste con Duolingo y Snapchat |
 | Ocultar un hábito no cambia la racha; borrar avisa cuánto baja | Silverman y Barasch 2023 |
+| El reporte ata un hábito que costó al más constante ("hazlo justo después de…") (2026-10-19) | Gollwitzer y Sheeran 2006; Wood, Tam y Witt 2005 |

@@ -198,3 +198,33 @@ def test_timer_script(api, capsys):
     assert generate_reports.main(["--email", "script@test.com", "--today", TODAY.isoformat()]) == 0
     assert "0 report(s) generated." in capsys.readouterr().out
     assert generate_reports.main(["--email", "nadie@test.com"]) == 1
+
+
+def test_habit_steps_anchor_a_weak_habit_to_the_most_constant_one():
+    from backend.habit_report import _next_steps
+
+    def habit(label, done, possible, icon=""):
+        return {"label": label, "icon": icon, "days_done": done, "days_possible": possible,
+                "pct": round(done * 100 / possible), "best_weekday": None, "weak_weekday": None}
+    m = {"habits": [habit("Proyectos", 4, 5, "💻"), habit("Ejercicio", 0, 5, "💪"), habit("Dieta", 0, 5, "🥗")],
+         "missed_days": []}
+    steps = _next_steps("week", m)
+    assert steps[:2] == ["💪 Ejercicio: hazlo justo después de 💻 Proyectos, que ya haces 4 de 5 días.",
+                         "🥗 Dieta: hazlo justo después de 💻 Proyectos, que ya haces 4 de 5 días."]
+    # Sin un hábito constante al cual atarlos, dos frases distintas (antes, la misma dos veces)
+    m["habits"] = [habit("Ejercicio", 1, 5), habit("Dieta", 0, 5)]
+    first, second = _next_steps("week", m)[:2]
+    assert first.startswith("Dieta: átalo") and second.startswith("Ejercicio: hazlo a la misma hora")
+
+
+def test_time_steps_are_never_empty_with_time_logged():
+    from backend.report_text import _next_steps
+    m = {"to_review": {"unconfirmed": 0, "long_sessions": [], "overlaps": [], "inconsistent": []},
+         "missing_workdays": [], "top_tasks": [], "night_sessions": [], "pomodoros": 0, "pomodoros_cut": 0,
+         "total_seconds": 7200, "untagged_seconds": 0,
+         "by_project": [{"name": "Tesis", "seconds": 5400, "pct": 75}, {"name": "VPS", "seconds": 1800, "pct": 25}]}
+    assert _next_steps("week", m) == ["Ponle una meta de horas a Tesis para la próxima semana (llevó 1.5 h "
+                                      "esta semana) y revisa en el próximo reporte si la cumpliste."]
+    # Con algo que corregir, eso va primero y no se agrega la meta
+    m["missing_workdays"] = ["2026-10-13"]
+    assert len(_next_steps("week", m)) == 1 and "anótalos a mano" in _next_steps("week", m)[0]

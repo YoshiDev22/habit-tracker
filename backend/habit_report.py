@@ -368,13 +368,23 @@ def _comparison(period: str, m: dict) -> str:
 
 def _next_steps(period: str, m: dict) -> List[str]:
     out = []
-    low = [h for h in m["habits"] if h["pct"] is not None and h["pct"] < LOW_PCT]
-    for h in sorted(low, key=lambda h: h["pct"])[:2]:
+    rated = [h for h in m["habits"] if h["pct"] is not None]
+    low = sorted((h for h in rated if h["pct"] < LOW_PCT), key=lambda h: h["pct"])[:2]
+    # El ancla: el hábito más constante. "Después de X, hago Y" es un plan si-entonces
+    # (Gollwitzer y Sheeran 2006) con una señal que ya se repite (Wood et al. 2005)
+    anchor = max((h for h in rated if h["pct"] >= LOW_PCT), key=lambda h: (h["pct"], h["days_done"]), default=None)
+    generic = ["átalo a algo que ya haces cada día (después del café, al llegar a casa).",
+               "hazlo a la misma hora y en el mismo lugar cada día, aunque sea poco."]
+    for h in low:
         if h["best_weekday"] is not None and h["weak_weekday"] is not None:
             out.append(f"{_name(h)}: te sale mejor los {WEEKDAYS[h['best_weekday']]}; prueba hacerlo a la misma "
                        f"hora y en el mismo lugar los {WEEKDAYS[h['weak_weekday']]}.")
+        elif anchor is not None:
+            out.append(f"{_name(h)}: hazlo justo después de {_name(anchor)}, que ya haces "
+                       f"{anchor['days_done']} de {anchor['days_possible']} días.")
         else:
-            out.append(f"{_name(h)}: átalo a algo que ya haces cada día (después del café, al llegar a casa).")
+            # Sin ancla, una frase distinta por hábito: la misma dos veces se leía como plantilla
+            out.append(f"{_name(h)}: {generic.pop(0)}")
     if m["missed_days"]:
         out.append("Si un día se te pasa, retómalo al siguiente: faltar uno no deshace el hábito.")
     if not out:
