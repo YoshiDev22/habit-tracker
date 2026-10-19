@@ -160,7 +160,7 @@ habit-tracker/
 ├── FINANCE_VERSION        # El número propio de Finanzas (0.x mientras esté en prueba)
 ├── CHANGELOG-FINANZAS.md  # Lo de cada versión de Finanzas (tags finanzas-vX.Y.Z)
 ├── NOVEDADES-FINANZAS.md  # Lo que ve quien usa Finanzas, dentro de /finance (finance-news.js)
-├── finance-news.js        # Finanzas: la campana (los avisos de la cuenta), sus Novedades y su aviso de versión nueva
+├── finance-news.js        # Finanzas: la campana (solo anuncios y mensajes del panel, FIN_BELL_KINDS), sus Novedades y su aviso de versión nueva
 ├── requirements.txt     # Dependencias directas
 ├── requirements.lock    # Árbol completo fijado: lo que se instala
 ├── README.md

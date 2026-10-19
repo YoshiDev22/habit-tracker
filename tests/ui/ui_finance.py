@@ -776,20 +776,32 @@ async def main():
         await b.shot("finance_budget", full=False)
         check(len(transactions()) == before_tx, "the budget never adds movements")
 
-        # La campana: los avisos de la cuenta, los mismos que en la app
-        expected = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]
+        # La campana de Finanzas: un anuncio para todas las cuentas sí; un aviso de Habit
+        # Tracker (sus Novedades) no, y abrirla no lo da por leído en la app
+        db = Path(os.environ["HABIT_UI_TMP"]) / "test_finance.db"
+        env = {**os.environ, "DATABASE_URL": f"sqlite:///{db.as_posix()}", "PYTHONIOENCODING": "utf-8"}
+        made = subprocess.run([sys.executable, str(ROOT / "scripts" / "announce.py"), "--title", "Mantenimiento",
+                               "--body", "El domingo a las 23:00.", "--hours", "2"], cwd=ROOT, env=env,
+                              capture_output=True, text=True)
+        check(made.returncode == 0, f"an announcement for every account is published ({made.stderr[-200:]})")
+        import sqlite3
+        with sqlite3.connect(db) as conn:
+            uid = conn.execute("SELECT id FROM users WHERE email = 'yoshi@test.com'").fetchone()[0]
+            conn.execute("INSERT INTO notices (user_id, kind, ref, created_at) VALUES (?, 'novedades', '9.9.9', ?)",
+                         (uid, f"{TODAY.isoformat()} 12:00:00"))
+        await b.js("finLoadNotices()")
+        count = await b.wait_for("document.getElementById('finBellCount').textContent", lambda v: v)
         await b.js("document.getElementById('finBellBtn').click()")
         await b.wait_for("!document.getElementById('finNoticesSheet').classList.contains('hidden')")
-        st = await b.js("""({rows: document.querySelectorAll('#finNoticesBody .fin-notice').length,
-            text: document.getElementById('finNoticesBody').textContent})""")
-        shown = [n for n in expected["notices"] if n["status"] in ("pending", "info")]
-        check(st["rows"] >= len(shown) and (st["rows"] or "No tienes avisos" in st["text"]),
-              f"the bell lists the account's notices ({st['rows']} rows, {len(expected['notices'])} notices)")
+        text = await b.js("document.getElementById('finNoticesBody').textContent")
+        check("Mantenimiento" in text and "9.9.9" not in text and count == "1",
+              f"the Finanzas bell shows what concerns it, not Habit Tracker's notices ({count}, {text})")
         await b.shot("finance_notices", full=False)
         await b.js("document.querySelector('#finNoticesSheet .fin-sheet-overlay').click()")
-        after = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]
-        check(not any(n["status"] == "info" and not n["read"] for n in after["notices"]),
-              "opening the bell reads the informative ones")
+        after = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]["notices"]
+        check(any(n["kind"] == "announcement" and n["read"] for n in after)
+              and any(n["kind"] == "novedades" and not n["read"] for n in after),
+              "opening it reads only its own notices; Habit Tracker's stay unread in the app")
 
         # En computadora, el panel no se ensancha al abrir una opción, y nada se sale de lado
         await b.viewport(1280, 900, mobile=False)

@@ -1,7 +1,8 @@
 // ============================================
 // Finanzas: la campana de avisos, sus Novedades y su aviso de versión nueva.
-// La campana es la misma de la app (GET /api/notices): lo pendiente se resuelve
-// en Habit Tracker (Anotar, Corregir), así que aquí lleva a la app. Finanzas lleva su propio
+// La campana lee los avisos de la cuenta (GET /api/notices) pero solo enseña los
+// que tocan a Finanzas (FIN_BELL_KINDS): los de Habit Tracker (día sin anotar,
+// registro por confirmar, reportes, sus Novedades) se quedan en su campana. Finanzas lleva su propio
 // número (FINANCE_VERSION, CLAUDE.md › Versionado): al entrar, si este
 // dispositivo no ha visto las de la versión actual, se enseñan en una hoja; el
 // panel lateral › Novedades las lista todas. Una página abierta no se actualiza
@@ -127,13 +128,16 @@ setInterval(finCheckUpdate, FIN_UPDATE_EVERY_MS);
 
 const finNoticesSheet = document.getElementById('finNoticesSheet');
 const finNotices = { list: [], unread: 0, lastLoad: 0 };
+// Los anuncios para todas las cuentas (un mantenimiento) y los mensajes del panel
+// para la tuya; los avisos propios de Finanzas (p. ej. un pago por vencer) irán aquí
+const FIN_BELL_KINDS = ['announcement', 'message'];
 
 async function finLoadNotices() {
     finNotices.lastLoad = Date.now();
     try {
         const data = await apiFetch(`/api/notices?today=${finToday()}`);
-        finNotices.list = data.notices;
-        finNotices.unread = data.unread;
+        finNotices.list = data.notices.filter(n => FIN_BELL_KINDS.includes(n.kind));
+        finNotices.unread = finNotices.list.filter(n => n.status === 'pending' || (n.status === 'info' && !n.read)).length;
     } catch (error) {
         return;   // sin avisos, la campana se queda como estaba
     }
@@ -148,12 +152,6 @@ function finNoticeRow(notice) {
     const row = el('div', `fin-notice ${notice.status}`);
     row.append(el('strong', '', notice.title));
     if (notice.detail) row.appendChild(el('p', 'fin-hint', notice.detail));
-    if (notice.status === 'pending') {
-        // Se resuelve en la app: el día sin anotar, el registro por confirmar
-        const go = el('a', 'link-btn', 'Resolver en Habit Tracker');
-        go.href = '/';
-        row.appendChild(go);
-    }
     return row;
 }
 
@@ -168,10 +166,11 @@ async function openFinNotices() {
         ? groups.flatMap(([title, list]) => [el('p', 'fin-stat-label fin-notice-group', title), ...list.map(finNoticeRow)])
         : [el('p', 'fin-hint', 'No tienes avisos.')]));
     openFinSheet(finNoticesSheet);
-    // Abrir la campana lee los informativos (los pendientes siguen hasta resolverse)
-    if (finNotices.list.some(n => n.status === 'info' && !n.read)) {
+    // Abrir la campana lee solo sus avisos: los de Habit Tracker siguen sin leer en la app
+    const unread = finNotices.list.filter(n => n.status === 'info' && !n.read).map(n => n.id);
+    if (unread.length) {
         try {
-            await apiFetch('/api/notices/read', { method: 'POST', json: {} });
+            await apiFetch('/api/notices/read', { method: 'POST', json: { ids: unread } });
         } catch (error) { /* se leerán la próxima vez */ }
         await finLoadNotices();
     }
