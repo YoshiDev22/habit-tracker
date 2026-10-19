@@ -4,6 +4,15 @@ Lo que ve quien usa Finanzas al entrar a la página después de una actualizaci�
 lateral › Novedades). Mismo formato que NOVEDADES.md (`backend/novedades.py`): corto, para quien la usa,
 nunca nada de despliegue. Se escribe en el mismo commit del bump de `FINANCE_VERSION`.
 
+## 0.5.0 — 2026-10-19
+### Nuevas funciones
+- **Ordena tu presupuesto**: con el lápiz de arriba, toca un grupo y luego otro para cambiarlos
+  de lugar; en computadora, también arrastrándolos.
+### Cambios
+- **Presupuesto en cuadrícula**: tus grupos se ven lado a lado (en el teléfono, de dos en dos).
+- **+ Agregar**: en cada grupo, para un gasto, un ahorro o una inversión.
+- **Tarjetas más compactas**: lo que pagar y antes de cuándo, en menos espacio.
+
 ## 0.4.0 — 2026-10-18
 ### Nuevas funciones
 - **Presupuesto**: planea tu mes con tu ingreso y grupos con su parte (empieza con 50/30/20 o

@@ -9,6 +9,22 @@ indica. Va en 0.x mientras Finanzas esté en prueba por invitación.
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de `CLAUDE.md`.
 
+## [0.5.0] — 2026-10-19
+
+El presupuesto en cuadrícula y con orden propio, y tarjetas de crédito más compactas. Sin migración.
+
+### Nuevo
+- **Ordenar el presupuesto**: el lápiz de la barra de arriba, en Presupuesto, cambia de lugar dos grupos, o dos
+  renglones (también de un grupo a otro) o dos ingresos, tocando uno y luego otro. Con ratón, también se
+  arrastran: un grupo cae en el lugar de otro y un renglón antes del renglón donde se suelta, o al final del grupo.
+
+### Cambios
+- El presupuesto es una cuadrícula: arriba el ingreso y la tabla del plan, debajo un grupo por tarjeta. En
+  computadora la página se ensancha en esa pestaña; en un teléfono van dos grupos por fila.
+- En cada grupo se agrega con *+ Agregar* (antes *+ Renglón*), porque no todo es un gasto: ahorro, inversión.
+- En *Cuentas › Tarjetas*, cada tarjeta ocupa cerca de un tercio menos: icono mediano, lo disponible en una línea,
+  la etiqueta del pago más corta y el botón *Pagar* más chico.
+
 ## [0.4.0] — 2026-10-18
 
 La primera con su propio número. El presupuesto del mes, los fijos que vienen en Movimientos, la campana
@@ -98,6 +114,7 @@ Publicada con Habit Tracker 1.29.0. La primera versión, en prueba y por invitac
 - **Pegar un estado de cuenta** o un CSV, con vista previa y sin duplicar.
 - El **consentimiento expreso** para guardar datos financieros, la primera vez.
 
+[0.5.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.5.0
 [0.4.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.4.0
 [0.3.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.3.0
 [0.2.1]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.2.1

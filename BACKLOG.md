@@ -630,7 +630,7 @@ la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es
 y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
 
 
-## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.5)
+## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.6)
 
 **Pedido el 2026-10-19.** Que la tarjeta lo diga cuando la fecha límite de pago esté cerca y aún quede algo por
 pagar, y que la campana de Finanzas lo avise.
@@ -641,5 +641,11 @@ datos, como `missed_day` (`backend/notices.py`): se crea al pedir los avisos y q
 pagar llega a cero, así que nunca dice algo que ya no es cierto. Se suma a `FIN_BELL_KINDS` y **no** sale en la
 campana de Habit Tracker.
 
-**Por decidir.** Con cuántos días de anticipación (¿5?, ¿ajustable en Configuración?) y si también avisa el día
-de corte.
+**Decidido (2026-10-19).** La tarjeta cambia a color de alerta y dice "Vence en 3 días" / "Vence mañana" /
+"Vence hoy". En el panel lateral, *Configuración › Avisos* (página nueva, lista para otros avisos): con cuántos días
+de anticipación (3 o 5; por defecto 5) y *Avisarme en la campana* (por defecto sí; apagada, solo el color). Se
+guardan en **dos columnas nuevas de `fin_settings`** (NULL = por defecto), así que lleva **migración**
+(`migrate.py` antes de reiniciar). La campana de Habit Tracker pide sus avisos sin el de Finanzas, y su conteo no lo
+incluye. Va sola en su versión para que la migración no se mezcle con otros cambios.
+
+**Por decidir.** Si también avisa el día de corte.
