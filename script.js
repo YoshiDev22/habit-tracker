@@ -126,8 +126,8 @@ const MODULE_STATUS = {
         off: 'Plan Maker apagado. Tu costeo se guarda y vuelve al encenderlo.',
     },
     ai: {
-        on: 'IA encendida: escribirá el texto de tus próximos reportes. En uno ya guardado, usa «Reescribir con IA».',
-        off: 'IA apagada: el texto de los reportes sale de reglas fijas.',
+        on: 'IA encendida: propondrá los pasos y el tip de tus próximos reportes. En uno ya guardado, usa «Pedir sugerencias a la IA».',
+        off: 'IA apagada: todo el texto de los reportes sale de reglas fijas.',
     },
     habits: {
         on: 'Hábitos encendido: vuelve la pestaña Calendario.',

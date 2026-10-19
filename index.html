@@ -859,7 +859,7 @@
                     <input type="checkbox" id="moduleAi" data-module="ai">
                     <span class="module-text">
                         <span class="module-name">IA para los reportes</span>
-                        <span class="module-hint">Una IA escribe el resumen, las observaciones y las recomendaciones de tus reportes guardados, a partir de sus cifras. Si falla, el texto sale de reglas fijas.</span>
+                        <span class="module-hint">Una IA propone los pasos para el siguiente periodo y el tip de tus reportes guardados, a partir de sus cifras. Lo demás (y las sugerencias, si la IA falla) sale de reglas fijas.</span>
                     </span>
                 </label>
                 <!-- Qué recibe el proveedor (settings.js, GET /api/reports/ai-preview) -->
@@ -1076,9 +1076,7 @@
             <p class="overview-meta" id="savedReportMeta"></p>
             <div class="saved-report-actions" id="savedReportActions" hidden>
                 <button type="button" class="submit-btn btn-neutral" id="savedReportRegenerate">Regenerar</button>
-                <button type="button" class="submit-btn btn-neutral" id="savedReportRewrite" hidden title="Solo el texto, sobre las mismas cifras: para recalcularlas, Regenerar">Reescribir el texto con IA</button>
-                <!-- Solo cuando regenerar con IA falló: el reporte no cambió y se puede rehacer con reglas -->
-                <button type="button" class="submit-btn btn-neutral" id="savedReportRules" hidden>Regenerar con reglas</button>
+                <button type="button" class="submit-btn btn-neutral" id="savedReportRewrite" hidden title="Solo los pasos para el siguiente periodo y el tip, sobre las mismas cifras: para recalcularlas, Regenerar">Rehacer sugerencias con IA</button>
                 <button type="button" class="submit-btn" id="savedReportPrint">Imprimir / PDF</button>
                 <!-- "Reporte generado ✓", o cuánto falta para poder regenerarlo -->
                 <span class="saved-report-status" id="savedReportStatus" role="status"></span>

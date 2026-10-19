@@ -272,7 +272,7 @@ def test_regenerate_and_rewrite_update_the_time(api, provider):
     age_it()
     again = generate(api)
     assert again["id"] == rep["id"] and again["created_at"] > old.isoformat() and again["trigger"] == "manual"
-    # Reescribir con IA, también
+    # Rehacer sugerencias con IA, también
     grant("ia@test.com")
     age_it()
     _, rewritten = api.call("POST", f"/api/reports/{rep['id']}/rewrite", expect=200)
