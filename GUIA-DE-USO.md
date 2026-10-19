@@ -107,10 +107,11 @@ vez, si aún no sigues ningún hábito, abre directo en *Hábitos*. Los hábitos
   de descanso de Configuración y la tarjeta de hábitos de Reportes. **No se borra nada**: al
   encenderla vuelven tus hábitos, tus días marcados y tu racha tal como estaban. Se guarda
   en tu cuenta, así que vale en todos tus dispositivos.
-- **IA para los reportes** (solo si tu cuenta tiene acceso): una IA escribe el texto de
-  tus reportes guardados a partir de sus cifras. **Ver qué se envía** muestra exactamente
-  lo que recibe: las instrucciones y las cifras del reporte (en minutos), con los nombres de
-  tus proyectos, tareas y etiquetas; nunca tus registros uno por uno.
+- **IA para los reportes** (solo si tu cuenta tiene acceso): una IA propone los pasos para
+  el siguiente periodo y el tip de tus reportes guardados; lo demás lo escribe la app. **Ver
+  qué se envía** muestra exactamente lo que recibe: las instrucciones, las cifras del reporte
+  (en minutos) con los nombres de tus proyectos, tareas y etiquetas, y lo que la app ya
+  escribió; nunca tus registros uno por uno.
 - **Pomodoro**: las duraciones del enfoque y los descansos.
 - **Accesibilidad › Tamaño del texto**: agranda toda la app (Normal, Grande o Muy grande). Se
   aplica al momento y se queda en ese dispositivo, también en la app instalada y aunque
@@ -419,8 +420,8 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
   categoría, una dona por mes con la parte de cada proyecto, los gastos más grandes, y cada
   proyecto con su presupuesto disponible y su margen **acumulados** hasta el cierre del
   mes. Sale solo cada día 1, del mes anterior. **Reportes de
-  costos** los lista todos. Con la IA encendida, el texto lo escribe ella, con su propio
-  límite diario.
+  costos** los lista todos. Con la IA encendida, ella propone los pasos y el tip, con su
+  propio límite diario.
 - **Abajo, la hoja de gastos** del proyecto elegido (toca su fila en el resumen o elígelo
   en la lista). Se usa como una hoja de cálculo: escribe en las celdas y cada cambio se
   guarda solo; **＋ Agregar fila** para uno nuevo, y Enter baja a la fila siguiente.
@@ -516,12 +517,13 @@ observaciones y recomendaciones, para leerlo después o compararlo.
   hay que esperar unos segundos para volver a generarlo; si tocas antes, te dice cuánto
   falta, sin gastar nada.
 - **Reportes guardados**: la lista de todos, del más nuevo al más viejo.
-- **Con IA** (si la encendiste en *Configuración › Módulos*): el texto lo escribe la IA,
-  y arriba dice «texto de IA» o «texto de reglas». Las cifras siempre las calcula la app;
-  si la IA falla, cita una cifra que no estaba o llegaste al límite del día, el reporte
-  usa las reglas y te dice por qué. **Reescribir el texto con IA** vuelve a pedir el texto de un
-  reporte ya guardado, sin cambiar sus cifras: si corregiste registros o la app trae cifras
-  nuevas, usa **Regenerar**. Bajo los botones dice cuántos textos con IA
+- **Con IA** (si la encendiste en *Configuración › Módulos*): la app escribe el reporte y
+  la IA propone **Para la próxima semana** (o el próximo mes) y el **Tip**; arriba dice
+  «Sugerencias de IA» o «Texto de reglas». Las cifras siempre las calcula la app, y una
+  sugerencia que cite una cifra que no estaba se descarta. Si la IA falla o llegaste al
+  límite del día, las sugerencias salen de las reglas y el reporte te dice por qué.
+  **Rehacer sugerencias con IA** vuelve a pedirlas para un reporte ya guardado, sin cambiar
+  sus cifras: si corregiste registros o la app trae cifras nuevas, usa **Regenerar**. Bajo los botones dice cuántos textos con IA
   te quedan hoy: los reportes de tiempo y de hábitos comparten 10 al día, y los de costos
   tienen los suyos.
 - **Imprimir / PDF**: imprime solo el reporte, en colores claros. Para un PDF, elige

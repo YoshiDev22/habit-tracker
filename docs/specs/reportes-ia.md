@@ -4,6 +4,11 @@
 > ejemplo (fuera del repo: traen datos personales) · Entrada 30 del [BACKLOG](../../BACKLOG.md).
 > Nada de esto está implementado: es el plan acordado antes de escribir código. El esquema
 > se revisa otra vez al empezar cada fase.
+>
+> **Cambio en la 1.32 (2026-10-19):** la IA ya no escribe todo el texto, solo los pasos para
+> el siguiente periodo y el tip. Comparada lado a lado con las reglas, en las secciones con
+> datos no aportaba y era donde inventaba cifras. Lo vigente está en `CLAUDE.md` (*IA para
+> las sugerencias*); esta spec queda como registro del plan original.
 
 ## La idea, en limpio
 

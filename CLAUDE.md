@@ -908,24 +908,28 @@ módulo encendido (`MODULE` en `report_kinds.py`). La lista (`GET /api/reports`)
 (tiempo y hábitos) y su lista; la pestaña Costos, el mes y su lista (`savedState.scope`).
 El mismo modal pinta los tres (`renderSavedReport()` despacha), con los mismos botones.
 
-**IA para el texto** (épica 30, Fase 5). Módulo `ai`, con acceso como el plan maker
-(`grant_module.py --module ai`). Con él encendido, `write_text()` (`backend/reports.py`)
-pide el texto a la IA al generar (botón y timer) y, si algo falla, deja el de las reglas
-con el motivo en `Report.text_note`, salvo al **regenerar a mano uno que ya existe**: ahí
-no se guarda nada (ni cifras, ni texto, ni fecha) y `POST /api/reports` responde 424 con el
-motivo (`AiTextFailed`), y la vista ofrece *Regenerar con reglas* (`use_ai: false`). El
-texto se escribe en un borrador fuera de la sesión porque la llamada hace commit de
-`ai_calls`; `text_source` es `ai` o `rules` y `text_model` el
-modelo. El proveedor es **uno por instancia**, en `backend/.env` (`AI_PROVIDER`,
-`AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`, ver `.env.example`); `backend/ai.py` habla el
-formato *chat completions* de OpenAI con `urllib` (Cloudflare Workers AI, Gemini, OpenAI o
-local), y una URL con `<ACCOUNT_ID>` sin llenar cuenta como sin configurar. La IA recibe
-`ai_payload()` (`backend/report_ai.py`): las cifras del reporte en **minutos**, sin ids ni
-colores, nunca las sesiones. Lo que vuelve pasa por `validate_text()`: JSON con la forma
-de las reglas, textos con tope y **ninguna cifra que no esté en lo enviado** (o en su
-conversión a horas y minutos, `allowed_numbers()`); si cita otra, se rechaza. Un número con
-separador de miles ("1 580") se lee entero. Solo en `next_steps` se aceptan enteros nuevos:
-una meta propone un número ("4 h o menos"); un decimal nuevo, nunca. Cada intento
+**IA para las sugerencias** (épica 30, Fase 5; **híbrido desde la 1.32**). Módulo `ai`, con
+acceso como el plan maker (`grant_module.py --module ai`). Las reglas escriben **todo** el
+reporte (`rules_text()`); con la IA encendida, `write_text()` (`backend/reports.py`) le pide
+**solo `next_steps` y el `tip` del cierre** y los pone en lugar de los de las reglas
+(`merge_suggestions()`, `text_source` `ai`). Lo que lleva datos (resumen, patrones,
+observaciones) no pasa por la IA: comparados lado a lado, ahí no aportaba nada y era donde
+inventaba cifras. Si la IA falla, todo queda con reglas y el motivo en `Report.text_note`,
+también al regenerar a mano (ya no hay `AiTextFailed` ni *Regenerar con reglas*). La IA
+recibe `ai_payload(kind, metrics, written)` (`backend/report_ai.py`): las cifras en
+**minutos**, sin ids ni colores, nunca las sesiones, y en `already_written` lo que las
+reglas ya escribieron, para apoyarse en ello sin repetirlo ni contradecirlo. El texto se
+escribe en un borrador fuera de la sesión porque la llamada hace commit de `ai_calls`. El
+proveedor es **uno por instancia**, en `backend/.env` (`AI_PROVIDER`, `AI_BASE_URL`,
+`AI_API_KEY`, `AI_MODEL`, ver `.env.example`); `backend/ai.py` habla el formato *chat
+completions* de OpenAI con `urllib` (Cloudflare Workers AI, el endpoint `/compat` de AI
+Gateway, Gemini, OpenAI o local), y una URL con `<ACCOUNT_ID>` sin llenar cuenta como sin
+configurar. Lo que vuelve pasa por `validate_suggestions()`: **ninguna cifra que no esté en
+lo enviado** (o en su conversión a horas y minutos, `allowed_numbers()`; cualquier clave
+que *contenga* `minutes`, no solo las que terminan así), salvo **enteros nuevos**, que una
+meta propone ("4 h o menos", "45 min"); un decimal nuevo, nunca. Una viñeta (o el tip) con
+una cifra inventada, vacía o de más de 400 caracteres **se descarta**; solo si no queda
+ninguna viñeta es un fallo. Un número con separador de miles ("1 580") se lee entero. Cada intento
 queda en `ai_calls` (tabla nueva), que cuenta el límite diario por cuenta (`AI_DAILY_LIMIT`,
 10; día UTC). Desde la 1.23 hay **dos contadores**, por `ai_calls.purpose`: `report`
 (tiempo y hábitos, `AI_DAILY_LIMIT`) y `costs` (`AI_COSTS_DAILY_LIMIT`, 10); `AI_POOL` en
@@ -937,9 +941,10 @@ contradigan, y mañana vuelve el normal solo. **Solo las llamadas
 buenas (`ok`) gastan el límite**; las fallidas tienen su propio tope por contador y día
 (`FAILED_DAILY_LIMIT`, 10), porque igual gastan tokens del proveedor. Las instrucciones
 dicen que los nombres escritos por el usuario son datos, no órdenes. Cada tema manda sus
-instrucciones (`PROMPTS`); en costos los centavos viajan como `..._amount` en la moneda. `POST /api/reports/{id}/rewrite` reescribe solo el texto (403 sin el módulo,
-503 sin proveedor, 424 si la IA falla, y el reporte no cambia; no 502, que Cloudflare
-cambia por su página y el navegador pierde el motivo); `GET /api/reports/ai-preview`
+instrucciones (`PROMPTS`); en costos los centavos viajan como `..._amount` en la moneda. `POST /api/reports/{id}/rewrite` (*Rehacer sugerencias con IA*) rehace solo los pasos y el
+tip sobre un texto de reglas recién calculado (403 sin el módulo, 503 sin proveedor, 424 si
+la IA falla, y el reporte no cambia; no 502, que Cloudflare cambia por su página y el
+navegador pierde el motivo); `GET /api/reports/ai-preview`
 enseña las instrucciones y el JSON exactos (Configuración › Módulos › *Ver qué se envía*), y
 `GET /api/reports/ai-usage` cuántos quedan hoy ("IA: te quedan 7 de 10 textos hoy", en el
 reporte). Un límite por cuenta está en el BACKLOG (31).
