@@ -473,7 +473,8 @@
 
 .fin-tx.transfer .fin-tx-amount,
 .fin-tx.opening .fin-tx-amount,
-.fin-tx.bill .fin-tx-amount {
+.fin-tx.bill .fin-tx-amount,
+.fin-tx.upcoming .fin-tx-amount {
     color: var(--text-secondary);
 }
 
@@ -2270,6 +2271,61 @@
 .fin-drawer-item [data-icon] {
     display: inline-flex;
     color: var(--text-secondary);
+}
+
+/* Las páginas del panel: una a la vez, en el mismo panel */
+.fin-drawer .fin-drawer-page:not(.active) {
+    display: none;
+}
+
+.fin-drawer .fin-drawer-page[data-section="root"].active {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.fin-drawer-panel.wide {
+    width: min(480px, 100vw);
+}
+
+.fin-drawer-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fin-drawer-bar[hidden],
+.fin-drawer-head[hidden] {
+    display: none;
+}
+
+.fin-drawer-page-title {
+    margin: 0;
+    font-size: 1.15rem;
+}
+
+.fin-drawer-page {
+    padding: 0 4px;
+}
+
+.fin-drawer-privacy.active {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+}
+
+.fin-drawer-privacy iframe {
+    flex: 1;
+    min-height: 60vh;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-surface);
 }
 
 /* --- Datos --- */

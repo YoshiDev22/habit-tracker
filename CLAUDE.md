@@ -574,7 +574,8 @@ Lo que no se ve en Swagger:
   cambia a las de ingresos; el ✎ de la barra de arriba (a la derecha, solo en Categorías) las ordena (tocar una y luego otra las cambia de lugar,
   `finSwapCategories()`). **Tocar una cuenta abre su menú** (`finance-accounts.js`): su saldo (en
   crédito, la deuda o lo que queda a favor), Editar, Ajustar saldo (el real de hoy: mueve el saldo inicial,
-  sin crear movimientos), Movimientos (la lista solo de esa cuenta, `accountFilter`) —la lista enseña también el saldo inicial de cada cuenta en su día (`finOpeningRow()`), sin sumarlo al día ni al resumen—, Ingreso / Gasto /
+  sin crear movimientos), Movimientos (la lista solo de esa cuenta, `accountFilter`) —la lista enseña también el saldo inicial de cada cuenta en su día (`finOpeningRow()`) y el siguiente cobro de
+  cada fijo que aún no llega, como *Programado* (`finUpcomingRow()`), sin sumarlos al día ni al resumen—, Ingreso / Gasto /
   Transferencia desde ella y, en una tarjeta, Pagar y Meses sin intereses. El 👁 junto al total lo
   oculta. **Tocar un círculo abre la hoja del monto** (`finance-entry.js`): bandas
   *De cuenta* / *A categoría* (al revés en un ingreso; elegir una cuenta como destino la vuelve
@@ -589,8 +590,11 @@ Lo que no se ve en Swagger:
   descarga un CSV de ejemplo (`finSampleCsv()`, armado en el navegador). En la vista previa cada fila se
   corrige (fecha, concepto, monto, gasto o ingreso y categoría; la elegida a mano manda) y en un teléfono
   cada fila es una tarjeta. La inicial de la cuenta, arriba a la izquierda junto a ‹, abre un **panel lateral**
-  (`#finDrawer`, `finance-data.js`: Configuración, Datos, Aviso de privacidad, Regresar); Configuración
-  es el desglose de siempre con `createDrillDown()`. **Datos** exporta los movimientos a CSV
+  (`#finDrawer`, `finance-data.js`: Configuración, Datos, Aviso de privacidad, Regresar), y **cada opción se
+  abre en el mismo panel** (`finDrawerShow()`): páginas `.fin-drawer-page` con `data-parent`, ‹ y Escape
+  regresan un paso; Configuración es una página con su menú y las cuatro de siempre (Periodo y sueldo,
+  Categorías, Fijos, Cuentas archivadas; `openFinSettings(página)` abre el panel ahí), Datos otra, y el aviso
+  de privacidad va en un `iframe` que se carga al abrirlo. Al cerrar el panel desde una página, `finLoad()`. **Datos** exporta los movimientos a CSV
   (`finExportLines()`: todos o los del periodo; un dividido, una fila por parte con la misma marca en
   *Parte de*; `finCsvCell()` antepone `'` a lo que empiece por `= + - @`) e **importa** un CSV con
   varias cuentas (`rowsToFinanceData()`): el propio u otro con columnas parecidas, incluido el de una

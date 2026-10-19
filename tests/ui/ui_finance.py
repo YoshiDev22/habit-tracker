@@ -35,6 +35,10 @@ def transactions():
     return api.call("GET", f"/api/finance/transactions{query}", expect=200)[1]["transactions"]
 
 
+def cats_by_name():
+    return {c["name"]: c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]}
+
+
 def accounts():
     return {a["name"]: a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"]}
 
@@ -479,8 +483,13 @@ async def main():
         check(items == ["Configuración", "Datos", "Aviso de privacidad", "Regresar a Habit Tracker"],
               f"the gear opens a side menu ({items})")
         await b.shot("finance_drawer", full=False)
-        await b.js("document.querySelector('#finDrawer [data-drawer=\"data\"]').click()")
-        await b.wait_for("!document.getElementById('finDataSheet').classList.contains('hidden')")
+        await b.js("document.querySelector('#finDrawer [data-go=\"data\"]').click()")
+        st = await b.wait_for("""(() => { const page = document.querySelector('#finDrawer [data-section="data"]');
+            return page.classList.contains('active') ? {title: document.getElementById('finDrawerPageTitle').textContent,
+                open: !document.getElementById('finDrawer').classList.contains('hidden')} : null; })()""", lambda v: v)
+        check(st and st["title"] == "Datos" and st["open"], f"Datos opens inside the side menu, with its title ({st})")
+        await b.js("document.getAnimations().forEach(a => a.finish())")
+        await b.shot("finance_drawer_data", full=False)
         lines = await b.js("finExportLines(finState.transactions)")
         check(lines[0] == "Fecha,Tipo,Cuenta,Hacia cuenta,Categoría,Monto,Moneda,Concepto,Nota,Parte de"
               and any(",D" in line for line in lines[1:]),
@@ -529,7 +538,7 @@ async def main():
               f"the import creates what was missing and lands each row where it goes ({sorted(by)})")
         # Lo mismo otra vez: todo sale repetido y no entra
         await b.js("document.getElementById('finMenuBtn').click()")
-        await b.js("document.querySelector('#finDrawer [data-drawer=\"data\"]').click()")
+        await b.js("document.querySelector('#finDrawer [data-go=\"data\"]').click()")
         await b.js("document.getElementById('finDataImportOpen').click()")
         await set_value("#finDataText", other_app)
         again = await b.wait_for("document.getElementById('finDataSummary').textContent",
@@ -580,19 +589,24 @@ async def main():
 
         # Ajustes: una categoría nueva con su icono; el periodo a mes
         await b.js("document.getElementById('finMenuBtn').click()")
+        await b.js("document.querySelector('#finDrawer [data-go=\"settings\"]').click()")
         await b.js("document.querySelector('#finSettingsMenu [data-open=\"categories\"]').click()")
-        await b.wait_for("document.getElementById('finSettingsTitle').textContent === 'Categorías'")
+        await b.wait_for("document.getElementById('finDrawerPageTitle').textContent === 'Categorías'")
+        await b.js("document.getAnimations().forEach(a => a.finish())")
+        await b.shot("finance_drawer_categories", full=False)
         await set_value("#finCatName", "Moto")
         await b.js("document.querySelector('#finCatIcons [data-icon=\"bike\"]').click()")
         await b.js("document.getElementById('finCatSave').click()")
         cats = await wait_api("/api/finance/categories", lambda body: any(c["name"] == "Moto" for c in body["categories"]))
         moto = [c for c in cats["categories"] if c["name"] == "Moto"]
         check(moto and moto[0]["icon"] == "bike" and moto[0]["kind"] == "expense", f"a new category with its icon ({moto})")
-        await b.js("document.getElementById('finSettingsBack').click()")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        back = await b.js("document.getElementById('finDrawerPageTitle').textContent")
+        check(back == "Configuración", f"‹ goes back one step, to Configuración ({back})")
         await b.js("document.querySelector('#finSettingsMenu [data-open=\"period\"]').click()")
         await b.js("document.querySelector('#finPeriodToggle [data-period=\"month\"]').click()")
         await wait_api("/api/finance/settings", lambda body: body["period"] == "month")
-        await b.js("document.getElementById('finSettingsClose').click()")
+        await b.js("document.querySelector('#finDrawer .fin-sheet-overlay').click()")
         months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
                   "noviembre", "diciembre"]
         expected = f"{months[TODAY.month - 1].capitalize()} {TODAY.year}"
@@ -681,6 +695,21 @@ async def main():
         check(bool(line), f"and the breakdown says it ({line})")
         await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
 
+        # Un fijo que aún no llega (la renta del 22): sale programado en su día, sin contar
+        rent_day = TODAY + timedelta(days=2)
+        api.call("POST", "/api/finance/recurring", {
+            "kind": "expense", "account_id": accounts()["Efectivo"]["id"], "category_id": cats_by_name()["Casa y servicios"]["id"],
+            "concept": "Renta", "amount_cents": 450_000, "start_date": rent_day.isoformat()}, expect=201)
+        await b.js("finLoad()")
+        await b.js("document.querySelector('#finNav [data-tab=\"transactions\"]').click()")
+        await b.js("document.getElementById('finPeriodLabel').click()")
+        await b.js("document.querySelector('#finRangeSheet [data-range=\"month\"]').click()")
+        planned = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finTxList [data-upcoming-fixed]')]
+            .find(x => x.textContent.includes('Renta')); return r ? r.textContent : null; })()""", lambda v: v)
+        if rent_day.month == TODAY.month:
+            check(planned and "Programado" in planned and "4,500.00" in planned,
+                  f"a fixed charge that has not come yet shows on its day as scheduled ({planned})")
+
         # Presupuesto: el ingreso empieza con el sueldo (quincenal: dos pagos al mes), los
         # grupos salen de 50/30/20 y se cambian, un renglón estimado, otro hecho fijo, y un
         # fijo que ya existía metido a un grupo. Nada de esto crea movimientos
@@ -723,17 +752,21 @@ async def main():
         await set_value("#finBudgetFixedDate", (TODAY + timedelta(days=3)).isoformat())
         await b.js("document.querySelector('#finBudgetItemForm [type=\"submit\"]').click()")
         await b.wait_for("document.getElementById('finBudgetItemSheet').classList.contains('hidden')")
-        budget = api.call("GET", "/api/finance/budget", expect=200)[1]
+        budget = await wait_api("/api/finance/budget",
+                                lambda body: any(i["name"] == "Internet" and i["recurring_id"] for i in body["items"]))
         fixed = [r for r in api.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"] if r["concept"] == "Internet"]
         line = next((i for i in budget["items"] if i["name"] == "Internet"), {})
         check(len(fixed) == 1 and line.get("recurring_id") == fixed[0]["id"] and fixed[0]["amount_cents"] == 50000,
               f"Hacer fijo creates the fixed charge and links the line ({line}, {fixed})")
         # El fijo que ya existía (Streaming), metido a un grupo desde "Fijos sin presupuesto"
         group_id = budget["groups"][1]["id"]
-        await b.wait_for("!!document.querySelector('[data-budget-loose]')")
-        await b.js(f"""(() => {{ const s = document.querySelector('[data-budget-loose]');
+        streaming = next(r for r in api.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"]
+                         if r["concept"] == "Streaming")
+        loose = f"document.querySelector('[data-budget-loose=\"{streaming['id']}\"]')"
+        await b.wait_for(f"!!{loose}")
+        await b.js(f"""(() => {{ const s = {loose};
             s.value = '{group_id}'; s.dispatchEvent(new Event('change', {{bubbles: true}})); }})()""")
-        await b.wait_for("!document.querySelector('[data-budget-loose]')")
+        await b.wait_for(f"!{loose}")
         free = await b.wait_for("(document.querySelector('.fin-budget-free') || {}).textContent",
                                 lambda v: v and "20,301.00" in v)
         check(bool(free), f"what is left: income minus everything planned (25,500 - 4,500 - 500 - 199) ({free})")
@@ -797,7 +830,15 @@ async def main():
         await b.goto(BASE + "/finance", wait=2.5)
         await b.js("document.documentElement.setAttribute('data-text-size', 'xlarge')")
         await b.js("document.getElementById('finMenuBtn').click()")
-        await fits("settings")
+        await b.js("document.querySelector('#finDrawer [data-go=\"settings\"]').click()")
+        await b.js("document.querySelector('#finSettingsMenu [data-open=\"fixed\"]').click()")
+        await fits("settings › fixed")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        await b.js("document.querySelector('#finDrawer [data-go=\"privacy\"]').click()")
+        src = await b.wait_for("document.getElementById('finPrivacyFrame').getAttribute('src')", lambda v: v)
+        check(src == "/privacidad", f"the privacy notice opens inside the side menu ({src})")
+        await fits("privacy")
         await b.js("document.documentElement.removeAttribute('data-text-size')")
         await b.viewport(390, 844, mobile=True)
 

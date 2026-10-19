@@ -1,5 +1,6 @@
 // ============================================
-// Finanzas: el panel lateral de la inicial (Configuración, Datos, aviso, regresar) y
+// Finanzas: el panel lateral de la inicial (Configuración, Datos, aviso, regresar),
+// donde cada opción se abre en el mismo panel con ‹, y
 // Datos: exportar los movimientos a CSV e importarlos de un CSV con varias
 // cuentas (el que exporta esta app u otro con columnas parecidas), con vista
 // previa. Las cuentas y categorías que falten se crean al confirmar; los
@@ -7,7 +8,7 @@
 // ============================================
 
 const finDrawer = document.getElementById('finDrawer');
-const finDataSheet = document.getElementById('finDataSheet');
+const finDrawerPanel = document.getElementById('finDrawerPanel');
 const finDataImportModal = document.getElementById('finDataImportModal');
 let finDataPending = null;
 
@@ -22,24 +23,86 @@ function finInitial() {
     return (Array.from(finUserName())[0] || '?').toUpperCase();
 }
 
-function openFinDrawer() {
-    document.getElementById('finDrawerAvatar').textContent = finInitial();
-    document.getElementById('finDrawerUser').textContent = finUserName();
-    openFinSheet(finDrawer);
+// Las páginas del panel: la portada (root), Configuración y sus cuatro páginas,
+// Datos y el aviso. Cada una sabe a cuál vuelve ‹ (data-parent)
+const finDrawerNav = { current: 'root' };
+const FIN_SETTINGS_PAGES = ['period', 'categories', 'fixed', 'archived'];
+
+function finDrawerPages() {
+    return [...finDrawerPanel.querySelectorAll('.fin-drawer-page')];
 }
 
-finDrawer.addEventListener('click', (event) => {
-    const item = event.target.closest('[data-drawer]');
-    if (!item) return;
-    closeFinSheet(finDrawer);
-    if (item.dataset.drawer === 'settings') openFinSettings();
-    else if (item.dataset.drawer === 'data') {
-        document.getElementById('finDataError').classList.add('hidden');
-        openFinSheet(finDataSheet);
+function finDrawerShow(name, { animate = true } = {}) {
+    const page = finDrawerPages().find(p => p.dataset.section === name);
+    if (!page) return;
+    const back = finDrawerNav.current !== 'root' && page.dataset.section === finDrawerParent(finDrawerNav.current);
+    finDrawerNav.current = name;
+    finDrawerPages().forEach(p => p.classList.toggle('active', p === page));
+    const home = name === 'root';
+    document.getElementById('finDrawerHome').hidden = !home;
+    document.getElementById('finDrawerBar').hidden = home;
+    document.getElementById('finDrawerPageTitle').textContent = page.dataset.title;
+    // Las páginas con formularios necesitan más ancho que la lista
+    finDrawerPanel.classList.toggle('wide', !home);
+    document.getElementById('finSettingsError').classList.add('hidden');
+    finDrawerPanel.scrollTop = 0;
+    if (animate) {
+        page.classList.remove('slide-from-right', 'slide-from-left');
+        void page.offsetWidth;
+        page.classList.add(back ? 'slide-from-left' : 'slide-from-right');
     }
-});
+    if (FIN_SETTINGS_PAGES.includes(name)) finRenderSettingsPage(name);
+    if (name === 'data') document.getElementById('finDataError').classList.add('hidden');
+    if (name === 'privacy') {
+        const frame = document.getElementById('finPrivacyFrame');
+        if (!frame.getAttribute('src')) frame.setAttribute('src', '/privacidad');
+    }
+}
 
-document.getElementById('finDataClose').addEventListener('click', () => closeFinSheet(finDataSheet));
+function finDrawerParent(name) {
+    const page = finDrawerPages().find(p => p.dataset.section === name);
+    return page ? page.dataset.parent || 'root' : 'root';
+}
+
+function openFinDrawer(page = 'root') {
+    document.getElementById('finDrawerAvatar').textContent = finInitial();
+    document.getElementById('finDrawerUser').textContent = finUserName();
+    if (finDrawer.classList.contains('hidden')) openFinSheet(finDrawer);
+    finDrawerShow(page, { animate: false });
+}
+
+// Cerrar el panel: lo que se cambió en Configuración se ve en la página
+function closeFinDrawer() {
+    const wasSettings = finDrawerNav.current !== 'root';
+    closeFinSheet(finDrawer);
+    finResetCategoryForm();
+    finSettings.editingFixed = null;
+    finDrawerShow('root', { animate: false });
+    if (wasSettings) finLoad();
+}
+
+finSheetDismiss.set('finDrawer', closeFinDrawer);
+
+finDrawerPanel.addEventListener('click', (event) => {
+    const go = event.target.closest('[data-go]');
+    if (go) {
+        finDrawerShow(go.dataset.go);
+        return;
+    }
+    const open = event.target.closest('#finSettingsMenu [data-open]');
+    if (open) finDrawerShow(open.dataset.open);
+});
+document.getElementById('finDrawerBack').addEventListener('click', () => finDrawerShow(finDrawerParent(finDrawerNav.current)));
+
+// Escape, dentro de una página, regresa un paso; en la portada, cierra (finDismissSheet)
+window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || finDrawer.classList.contains('hidden') || finDrawerNav.current === 'root') return;
+    if (finSheets[finSheets.length - 1] !== finDrawer) return;
+    if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    finDrawerShow(finDrawerParent(finDrawerNav.current));
+}, true);
 
 // ---------- Exportar ----------
 
@@ -436,7 +499,7 @@ function finParseDataImport() {
 }
 
 function openFinDataImport() {
-    closeFinSheet(finDataSheet);
+    closeFinDrawer();
     finDataPending = null;
     document.getElementById('finDataText').value = '';
     document.getElementById('finDataDupes').checked = false;

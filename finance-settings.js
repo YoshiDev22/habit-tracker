@@ -2,12 +2,12 @@
 // Finanzas: ajustes, cuentas y el sueldo
 // ============================================
 //
-// Ajustes es un menú de desglose (createDrillDown, drilldown.js): Periodo y
-// sueldo, Categorías, Fijos y Cuentas archivadas. Una cuenta se crea o edita
+// Configuración vive en el panel lateral (finance-data.js): un menú con Periodo
+// y sueldo, Categorías, Fijos y Cuentas archivadas, cada una una página del mismo
+// panel con ‹. Una cuenta se crea o edita
 // en su hoja (pestaña Cuentas). "¿Cuánto cobras?" guarda el sueldo como el fijo
 // de ingreso "Sueldo".
 
-const finSettingsModal = document.getElementById('finSettingsModal');
 const finSettingsError = document.getElementById('finSettingsError');
 const finSettings = {
     catKind: 'expense',
@@ -17,37 +17,22 @@ const finSettings = {
     editingFixed: null,
 };
 
-const finSettingsNav = createDrillDown({
-    modal: finSettingsModal,
-    menu: document.getElementById('finSettingsMenu'),
-    back: document.getElementById('finSettingsBack'),
-    title: document.getElementById('finSettingsTitle'),
-    rootTitle: 'Ajustes',
-    onPage: (name) => {
-        finSettingsError.classList.add('hidden');
-        finRenderSettingsPage(name);
+// La página de Configuración que se ve en el panel, si es una
+const finSettingsNav = {
+    get current() {
+        return typeof finDrawerNav !== 'undefined' && FIN_SETTINGS_PAGES.includes(finDrawerNav.current)
+            ? finDrawerNav.current : null;
     },
-    onMenu: () => finSettingsError.classList.add('hidden'),
-    onClose: () => closeFinSettings(),
-});
+};
 
 function openFinSettings(page = null, { kind = null } = {}) {
-    finSettingsError.classList.add('hidden');
     if (kind) finSettings.catKind = kind;
-    showModal(finSettingsModal);
-    if (page) finSettingsNav.show(page, { animate: false });
-    else finSettingsNav.showMenu({ animate: false });
+    openFinDrawer(page || 'settings');
 }
 
 function closeFinSettings() {
-    hideModal(finSettingsModal);
-    finResetCategoryForm();
-    finSettings.editingFixed = null;
-    finLoad();   // lo cambiado aquí (nombres, fijos) se ve en la página
+    closeFinDrawer();
 }
-
-document.getElementById('finSettingsClose').addEventListener('click', closeFinSettings);
-finSettingsModal.querySelector('.modal-overlay').addEventListener('click', closeFinSettings);
 
 function finRenderSettingsPage(name) {
     if (name === 'period') finRenderPeriodPage();

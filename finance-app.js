@@ -691,6 +691,29 @@ function finBillsInPeriod(only) {
     return out;
 }
 
+// El siguiente cobro de un fijo que aún no llega: se enseña en su día como
+// programado (no es un movimiento todavía; generate_due lo anota al llegar)
+function finUpcomingRow(rc) {
+    const account = finAccount(rc.account_id);
+    const row = el('button', 'fin-tx upcoming');
+    row.type = 'button';
+    row.dataset.upcomingFixed = String(rc.id);
+    const category = finCategory(rc.category_id);
+    const text = el('span', 'fin-tx-text');
+    text.append(el('strong', '', rc.concept),
+        el('small', '', ['Programado', category ? category.name : '', account ? account.name : ''].filter(Boolean).join(' · ')));
+    const sign = rc.kind === 'income' ? '+' : '−';
+    row.append(finBadge('calendar', FIN_NEUTRAL), text, el('span', 'fin-tx-amount', `${sign}${formatMoney(rc.amount_cents, rc.currency)}`));
+    return row;
+}
+
+function finUpcomingInPeriod(only) {
+    const s = finState.summary;
+    const today = finToday();
+    return (finState.recurring || []).filter(rc => rc.next_date && !rc.paused && rc.next_date > today
+        && (!only || rc.account_id === only.id) && (!s || (rc.next_date >= s.date_from && rc.next_date <= s.date_to)));
+}
+
 function finOpeningsInPeriod(only) {
     const s = finState.summary;
     return finState.accounts.filter(a => a.opening_date && a.opening_balance_cents
@@ -710,7 +733,8 @@ function finRenderList() {
         : finState.transactions;
     const openings = finOpeningsInPeriod(only);
     const bills = finBillsInPeriod(only);
-    if (!txs.length && !openings.length && !bills.length) {
+    const upcoming = finUpcomingInPeriod(only);
+    if (!txs.length && !openings.length && !bills.length && !upcoming.length) {
         list.replaceChildren(el('p', 'fin-empty', only ? `Sin movimientos de ${only.name} en este periodo.`
             : 'Sin movimientos en este periodo. Toca una categoría o ＋ Agregar.'));
         return;
@@ -722,6 +746,7 @@ function finRenderList() {
     });
     openings.forEach(account => { if (!byDay.has(account.opening_date)) byDay.set(account.opening_date, []); });
     bills.forEach(({ bill }) => { if (!byDay.has(bill.cut)) byDay.set(bill.cut, []); });
+    upcoming.forEach(rc => { if (!byDay.has(rc.next_date)) byDay.set(rc.next_date, []); });
     const main = finMainCurrency();
     const groups = [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([day, rows]) => {
         const net = rows.filter(t => t.currency === main && t.kind !== 'transfer')
@@ -730,7 +755,7 @@ function finRenderList() {
         const head = el('div', 'fin-day-head');
         head.append(el('span', '', finDayTitle(day)), el('span', `fin-day-total${net < 0 ? ' expense' : net > 0 ? ' income' : ''}`, rows.length ? finMoney(net, main) : ''));
         // El saldo inicial va al empezar el día: abajo, porque la lista va del más reciente
-        group.append(head, ...rows.map(finTxRow),
+        group.append(head, ...upcoming.filter(rc => rc.next_date === day).map(finUpcomingRow), ...rows.map(finTxRow),
             ...bills.filter(b => b.bill.cut === day).map(finBillRow),
             ...openings.filter(a => a.opening_date === day).map(finOpeningRow));
         return group;
@@ -753,6 +778,11 @@ document.getElementById('finEyeBtn').addEventListener('click', () => {
 });
 
 document.getElementById('finTxList').addEventListener('click', (event) => {
+    const fixed = event.target.closest('[data-upcoming-fixed]');
+    if (fixed) {
+        openFinSettings('fixed');
+        return;
+    }
     const opening = event.target.closest('[data-opening-account]');
     if (opening) {
         const account = finAccount(Number(opening.dataset.openingAccount));
@@ -1232,6 +1262,7 @@ document.querySelector('#confirmModal .modal-overlay').addEventListener('click',
 // Los iconos fijos del HTML (flechas, pestañas, ajustes)
 function finPaintStaticIcons() {
     document.getElementById('finBack').appendChild(financeIcon('chevron-left', 22));
+    document.getElementById('finDrawerBack').appendChild(financeIcon('chevron-left', 20));
     document.getElementById('finPrev').appendChild(financeIcon('chevron-left', 18));
     document.getElementById('finNext').appendChild(financeIcon('chevron-right', 18));
     document.querySelectorAll('[data-icon]').forEach(span => span.appendChild(financeIcon(span.dataset.icon, 22)));
