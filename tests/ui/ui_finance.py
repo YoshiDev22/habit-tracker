@@ -783,7 +783,7 @@ async def main():
                     add: [...document.querySelectorAll('[data-budget-add="expense"]')].map(x => x.textContent)}; })()""")
         check(st["tops"][0] == st["tops"][1] and st["tops"][2] > st["tops"][0] and st["overflow"] <= 0,
               f"on a phone the groups go two per row, without side scroll ({st})")
-        check(st["add"] and all(t == "+ Gasto" for t in st["add"]), f"each group adds with + Gasto ({st['add']})")
+        check(st["add"] and all(t == "+ Agregar" for t in st["add"]), f"each group adds with + Agregar ({st['add']})")
         # El ✎ de arriba: un grupo y luego otro cambian de lugar; un gasto pasa al lugar
         # (y al grupo) de otro
         ids = [g["id"] for g in budget["groups"]]
@@ -816,6 +816,29 @@ async def main():
             .map(x => Math.round(x.getBoundingClientRect().top)); return t[0] === t[2] ? t : null; })()""", lambda v: v)
         check(bool(tops), f"on a computer the budget is a wide grid, the groups side by side ({tops})")
         await b.shot("finance_budget_desktop", full=False)
+        # Con ratón y el ✎ puesto, también se arrastra: el último grupo al primer lugar, y
+        # un gasto soltado en la tarjeta de otro grupo queda al final de ese grupo
+        await b.js("document.getElementById('finBudgetEdit').click()")
+        await b.wait_for("!!document.querySelector('.fin-budget-group[draggable=\"true\"]')")
+        drag = """((from, to) => { const dt = new DataTransfer();
+            const fire = (node, type) => node.dispatchEvent(new DragEvent(type, {bubbles: true, cancelable: true, dataTransfer: dt}));
+            fire(from, 'dragstart'); fire(to, 'dragover'); fire(to, 'drop'); fire(from, 'dragend'); })"""
+        await b.js(f"""{drag}(document.querySelector('[data-budget-group-card="{order[2]}"]'),
+            document.querySelector('[data-budget-group-card="{order[0]}"]'))""")
+        dragged = await wait_api("/api/finance/budget", lambda body: body["groups"][0]["id"] == order[2])
+        new_order = [g["id"] for g in dragged["groups"]]
+        check(new_order == [order[2], order[0], order[1]], f"dragging a group puts it in that place ({order} -> {new_order})")
+        internet = next(i for i in dragged["items"] if i["name"] == "Internet")
+        target = next(g for g in new_order if g != internet["group_id"])
+        await b.wait_for(f"!!document.querySelector('[data-budget-item=\"{internet['id']}\"][draggable=\"true\"]')")
+        await b.js(f"""{drag}(document.querySelector('[data-budget-item="{internet['id']}"]'),
+            document.querySelector('[data-budget-group-card="{target}"] .fin-budget-group-head'))""")
+        landed = await wait_api("/api/finance/budget", lambda body: any(
+            i["id"] == internet["id"] and i["group_id"] == target for i in body["items"]))
+        last = [i["id"] for i in landed["items"] if i["group_id"] == target][-1]
+        check(last == internet["id"], f"an expense dropped on another group goes to its end ({landed['items']})")
+        await b.js("document.getElementById('finBudgetEdit').click()")
+        await b.wait_for("!document.querySelector('.fin-budget-group[draggable=\"true\"]')")
         await b.viewport(390, 844, mobile=True)
 
         # La campana de Finanzas: un anuncio para todas las cuentas sí; un aviso de Habit

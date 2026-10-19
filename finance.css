@@ -2442,6 +2442,20 @@ body.fin-wide .fin-main {
     background: var(--accent-soft);
 }
 
+/* Arrastrar (con ratón): lo que se lleva, tenue; donde caería, marcado */
+.fin-budget [draggable="true"] {
+    cursor: grab;
+}
+
+.fin-budget .dragging {
+    opacity: 0.45;
+}
+
+.fin-budget .drop-target {
+    outline: 2px dashed var(--accent) !important;
+    background: var(--accent-soft);
+}
+
 /* Un teléfono: el ingreso y la tabla, uno sobre otro; los grupos, de dos en dos, con
    el monto debajo del nombre */
 @media (max-width: 560px) {

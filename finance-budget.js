@@ -7,7 +7,9 @@
 // ============================================
 
 // editing: el ✎ de arriba (cambiar de lugar); pick: lo primero que se tocó, { type, id }
-const finBudget = { groups: [], items: [], loaded: false, loading: null, editing: false, pick: null };
+const finBudget = { groups: [], items: [], loaded: false, loading: null, editing: false, pick: null, drag: null };
+// Arrastrar, solo con ratón (como el tablero de la app) y con el ✎ puesto
+const FIN_BUDGET_CAN_DRAG = window.matchMedia('(hover: hover) and (pointer: fine)');
 const finBudgetItemSheet = document.getElementById('finBudgetItemSheet');
 const finBudgetGroupSheet = document.getElementById('finBudgetGroupSheet');
 const finBudgetForm = { item: null, kind: 'expense', groupId: null, fixed: false };
@@ -107,6 +109,7 @@ function finBudgetRow(item) {
     row.type = 'button';
     row.dataset.budgetItem = String(item.id);
     if (finBudgetPicked('item', item.id)) row.classList.add('picked');
+    row.draggable = finBudgetDraggable();
     const text = el('span', 'fin-budget-row-text');
     const name = el('span', '', item.name);
     if (item.recurring_id) name.prepend(financeIcon('repeat', 14));
@@ -126,6 +129,7 @@ function finBudgetAddButton(label, data, className = 'link-btn fin-budget-add') 
 
 function finBudgetIncomeCard() {
     const card = el('section', 'fin-card fin-budget-card');
+    card.dataset.budgetIncomeCard = '1';
     const head = el('div', 'fin-budget-head');
     head.append(el('h2', 'fin-card-title', 'Ingreso mensual'), el('strong', '', finBudgetMoney(finBudgetIncome())));
     card.appendChild(head);
@@ -206,6 +210,8 @@ function finBudgetPercent(bp) {
 function finBudgetGroupCard(group) {
     const income = finBudgetIncome();
     const card = el('section', 'fin-card fin-budget-card fin-budget-group');
+    card.dataset.budgetGroupCard = String(group.id);
+    card.draggable = finBudgetDraggable();
     if (finBudgetPicked('group', group.id)) card.classList.add('picked');
     const head = el('button', 'fin-budget-group-head');
     head.type = 'button';
@@ -218,7 +224,7 @@ function finBudgetGroupCard(group) {
     card.appendChild(head);
     finBudget.items.filter(i => i.kind === 'expense' && i.group_id === group.id)
         .forEach(i => card.appendChild(finBudgetRow(i)));
-    if (!finBudget.editing) card.appendChild(finBudgetAddButton('+ Gasto', { budgetAdd: 'expense', group: String(group.id) }));
+    if (!finBudget.editing) card.appendChild(finBudgetAddButton('+ Agregar', { budgetAdd: 'expense', group: String(group.id) }));
     return card;
 }
 
@@ -256,7 +262,9 @@ function finBudgetLooseFixed() {
 function openFinBudgetItem({ item = null, kind = 'expense', groupId = null } = {}) {
     Object.assign(finBudgetForm, { item, kind: item ? item.kind : kind, groupId: item ? item.group_id : groupId, fixed: false });
     const income = finBudgetForm.kind === 'income';
-    document.getElementById('finBudgetItemTitle').textContent = item ? item.name : (income ? 'Nuevo ingreso' : 'Nuevo gasto');
+    const group = finBudget.groups.find(g => g.id === finBudgetForm.groupId);
+    document.getElementById('finBudgetItemTitle').textContent = item ? item.name
+        : income ? 'Nuevo ingreso' : `Agregar a ${group ? group.name : 'un grupo'}`;
     document.getElementById('finBudgetItemName').value = item ? item.name : '';
     document.getElementById('finBudgetItemName').placeholder = income ? 'Sueldo' : 'Renta';
     document.getElementById('finBudgetItemAmount').value = item ? (item.amount_cents / 100).toFixed(2) : '';
@@ -403,7 +411,7 @@ document.getElementById('finBudgetGroupDelete').addEventListener('click', async 
     const group = finBudgetGroupEditing;
     if (!group) return;
     const count = finBudget.items.filter(i => i.group_id === group.id).length;
-    const lines = count ? ` Se quitan también ${count === 1 ? 'su gasto' : `sus ${count} gastos`}; los fijos siguen anotándose.` : '';
+    const lines = count ? ` Se quita también lo que tiene (${count}); los fijos siguen anotándose.` : '';
     if (!(await confirmDialog(`¿Quitar el grupo "${group.name}"?${lines}`, { confirmLabel: 'Quitar' }))) return;
     try {
         await apiFetch(`/api/finance/budget/groups/${group.id}`, { method: 'DELETE' });
@@ -467,6 +475,107 @@ async function finBudgetEditTap(target) {
     }
     await finBudgetRefresh();
 }
+
+function finBudgetDraggable() {
+    return finBudget.editing && FIN_BUDGET_CAN_DRAG.matches;
+}
+
+// Guarda un orden nuevo: cada uno toma, en su lugar, uno de los órdenes que ya tenían
+// entre todos (así no choca con los de otros grupos). Solo manda lo que cambió.
+async function finBudgetSaveOrder(path, rows, moved = null, groupId = null) {
+    const orders = rows.map(r => r.order).sort((a, b) => a - b);
+    for (const [i, row] of rows.entries()) {
+        const body = {};
+        if (row.order !== orders[i]) body.order = orders[i];
+        if (row === moved && groupId != null && row.group_id !== groupId) body.group_id = groupId;
+        if (Object.keys(body).length) await apiFetch(`/api/finance/budget/${path}/${row.id}`, { method: 'PATCH', json: body });
+    }
+}
+
+// Soltar lo arrastrado: un grupo cae en el lugar de otro; un gasto, antes del gasto
+// donde se suelta (o al final del grupo, soltado en la tarjeta); un ingreso, entre ingresos
+function finBudgetDropPlan(target) {
+    const drag = finBudget.drag;
+    if (!drag) return null;
+    if (drag.type === 'group') {
+        const card = target.closest('[data-budget-group-card]');
+        const id = card ? Number(card.dataset.budgetGroupCard) : null;
+        return id && id !== drag.id ? { el: card, id } : null;
+    }
+    const item = finBudget.items.find(i => i.id === drag.id);
+    const rowEl = target.closest('[data-budget-item]');
+    const over = rowEl ? finBudget.items.find(i => i.id === Number(rowEl.dataset.budgetItem)) : null;
+    if (over) return over.id !== item.id && over.kind === item.kind ? { el: rowEl, over } : null;
+    const card = item.kind === 'income' ? target.closest('[data-budget-income-card]') : target.closest('[data-budget-group-card]');
+    return card ? { el: card, groupId: item.kind === 'income' ? null : Number(card.dataset.budgetGroupCard) } : null;
+}
+
+async function finBudgetDrop(plan) {
+    const drag = finBudget.drag;
+    try {
+        if (drag.type === 'group') {
+            const rows = finBudget.groups.slice();
+            const from = rows.findIndex(g => g.id === drag.id);
+            const to = rows.findIndex(g => g.id === plan.id);
+            rows.splice(to, 0, ...rows.splice(from, 1));
+            await finBudgetSaveOrder('groups', rows);
+        } else {
+            const item = finBudget.items.find(i => i.id === drag.id);
+            const groupId = plan.over ? plan.over.group_id : plan.groupId;
+            const rows = finBudget.items.filter(i => i.kind === item.kind && i.group_id === groupId && i.id !== item.id);
+            const sameGroup = item.group_id === groupId;
+            let at = plan.over ? rows.indexOf(plan.over) : rows.length;
+            // En el mismo grupo, hacia abajo queda después del que estaba ahí
+            if (plan.over && sameGroup) {
+                const list = finBudget.items.filter(i => i.kind === item.kind && i.group_id === groupId);
+                if (list.indexOf(item) < list.indexOf(plan.over)) at += 1;
+            }
+            rows.splice(at, 0, item);
+            await finBudgetSaveOrder('items', rows, item, item.kind === 'income' ? null : groupId);
+        }
+    } catch (error) {
+        showError(document.getElementById('finBudgetError'), error.message);
+    }
+    await finBudgetRefresh();
+}
+
+function finBudgetClearDrop() {
+    document.querySelectorAll('#finBudget .drop-target').forEach(x => x.classList.remove('drop-target'));
+}
+
+const finBudgetBox = document.getElementById('finBudget');
+finBudgetBox.addEventListener('dragstart', (event) => {
+    if (!finBudgetDraggable()) return;
+    const itemEl = event.target.closest('[data-budget-item]');
+    const groupEl = event.target.closest('[data-budget-group-card]');
+    finBudget.drag = itemEl ? { type: 'item', id: Number(itemEl.dataset.budgetItem) }
+        : groupEl ? { type: 'group', id: Number(groupEl.dataset.budgetGroupCard) } : null;
+    if (!finBudget.drag) return;
+    finBudget.pick = null;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', '');   // Firefox no arrastra sin datos
+    (itemEl || groupEl).classList.add('dragging');
+});
+finBudgetBox.addEventListener('dragover', (event) => {
+    const plan = finBudgetDropPlan(event.target);
+    finBudgetClearDrop();
+    if (!plan) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    plan.el.classList.add('drop-target');
+});
+finBudgetBox.addEventListener('drop', (event) => {
+    const plan = finBudgetDropPlan(event.target);
+    finBudgetClearDrop();
+    if (!plan) return;
+    event.preventDefault();
+    finBudgetDrop(plan);   // lee lo arrastrado antes de su primer await
+});
+finBudgetBox.addEventListener('dragend', () => {
+    finBudget.drag = null;
+    finBudgetClearDrop();
+    document.querySelectorAll('#finBudget .dragging').forEach(x => x.classList.remove('dragging'));
+});
 
 document.getElementById('finBudget').addEventListener('click', async (event) => {
     const errorEl = document.getElementById('finBudgetError');
