@@ -309,3 +309,19 @@ def test_failed_calls_do_not_spend_the_limit(api, provider, monkeypatch):
     api.call("POST", f"/api/reports/{rep['id']}/rewrite", expect=200)
     _, usage = api.call("GET", "/api/reports/ai-usage", expect=200)
     assert usage["used_today"] == 1 and usage["remaining"] == 2
+
+
+def test_a_timeout_is_not_a_connection_failure(monkeypatch):
+    import socket
+    import urllib.error
+    from backend import ai
+    config = ai.AiConfig(provider="cloudflare", base_url="https://example.test/v1", api_key=None,
+                         model="m", daily_limit=10, timeout=60)
+    for raised, expected in ((socket.timeout("timed out"), "no respondió en 60 s"),
+                             (urllib.error.URLError(socket.timeout("timed out")), "no respondió en 60 s"),
+                             (urllib.error.URLError("Name or service not known"), "No se pudo conectar")):
+        def fail(*args, **kwargs):
+            raise raised
+        monkeypatch.setattr(ai.urllib.request, "urlopen", fail)
+        with pytest.raises(AiError, match=expected):
+            ai.chat_completion(config, "system", "user")
