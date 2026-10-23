@@ -82,6 +82,7 @@ function finRenderAccountMenu() {
         if (parent) more.push(`Apartado de ${parent.name}`);
     }
     if (a.yield_rate_bp) more.push(`Gana ${finRateText(a.yield_rate_bp)} anual`);
+    if (a.interest_rate_bp != null) more.push(`Tasa ${finRateText(a.interest_rate_bp)} anual`);
     if (a.available_cents != null) more.push(`Disponible ${formatMoney(a.available_cents, a.currency)}`);
     if (a.opening_date) more.push(`desde el ${finShortDate(a.opening_date)}`);
     document.getElementById('finMenuMore').textContent = more.join(' · ');

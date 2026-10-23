@@ -1027,8 +1027,9 @@ function finRenderAccounts() {
         } else if (a.available_cents != null) {
             side.append(el('small', '', 'Disponible'), el('span', 'fin-available', formatMoney(a.available_cents, a.currency)));
         }
-        if (sub === 'cards' && (a.statement_day || a.due_day)) {
-            side.appendChild(el('small', '', [a.statement_day ? `Corte: ${a.statement_day}` : '', a.due_day ? `Pago: ${a.due_day}` : '']
+        if (sub === 'cards' && (a.statement_day || a.due_day || a.interest_rate_bp != null)) {
+            side.appendChild(el('small', '', [a.statement_day ? `Corte: ${a.statement_day}` : '', a.due_day ? `Pago: ${a.due_day}` : '',
+                a.interest_rate_bp != null ? `Tasa: ${finRateText(a.interest_rate_bp)}` : '']
                 .filter(Boolean).join(' · ')));
         }
         row.append(badge, text, side);

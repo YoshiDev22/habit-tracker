@@ -607,6 +607,8 @@ function openFinAccount(account, kind = 'debit', { parentId = null } = {}) {
         ? (account.credit_limit_cents / 100).toFixed(2) : '';
     document.getElementById('finAccStatement').value = account && account.statement_day ? String(account.statement_day) : '';
     document.getElementById('finAccDue').value = account && account.due_day ? String(account.due_day) : '';
+    document.getElementById('finAccInterest').value = account && account.interest_rate_bp != null
+        ? String(account.interest_rate_bp / 100) : '';
     document.getElementById('finAccArchive').hidden = !account;
     document.getElementById('finAccArchive').textContent = 'Archivar';
     document.getElementById('finAccError').classList.add('hidden');
@@ -684,12 +686,18 @@ document.getElementById('finAccountForm').addEventListener('submit', async (even
     const statement = credit ? finOptionalDay('finAccStatement') : null;
     const due = credit ? finOptionalDay('finAccDue') : null;
     const last4 = document.getElementById('finAccLast4').value.trim();
+    // La tasa de la tarjeta, de referencia: "45.5" o "45,5 %"
+    const interestText = credit ? document.getElementById('finAccInterest').value.trim().replace(',', '.').replace('%', '') : '';
+    const interest = interestText ? Number(interestText) : null;
     const openingDate = document.getElementById('finAccOpeningDate').value || null;
     if (!name) return showError(errorEl, 'Escribe el nombre de la cuenta.');
     if (openingDate && openingDate > finToday()) return showError(errorEl, 'El día del saldo no puede ser futuro.');
     if (Number.isNaN(opening) || Number.isNaN(limit)) return showError(errorEl, 'Revisa los montos: solo números.');
     if (Number.isNaN(statement) || Number.isNaN(due)) return showError(errorEl, 'Los días van del 1 al 31.');
     if (last4 && !/^\d{4}$/.test(last4)) return showError(errorEl, 'Los últimos 4 dígitos: exactamente 4 números.');
+    if (interest != null && !(Number.isFinite(interest) && interest >= 0 && interest <= 1000)) {
+        return showError(errorEl, 'La tasa de interés es un porcentaje: solo números.');
+    }
     const fields = {
         name, kind, currency: document.getElementById('finAccCurrency').value,
         icon: finAccountForm.icon, color: finAccountForm.color, last4: last4 || null,
@@ -697,6 +705,7 @@ document.getElementById('finAccountForm').addEventListener('submit', async (even
         // Sin día y con saldo, hoy; vacío en una que ya existe: cuentan todos sus movimientos
         opening_date: openingDate || (!finAccountForm.account && opening ? finToday() : null),
         credit_limit_cents: limit, statement_day: statement, due_day: due,
+        interest_rate_bp: interest == null ? null : Math.round(interest * 100),
         parent_id: finAccountForm.pocket ? Number(document.getElementById('finAccParent').value) : null,
     };
     if (finAccountForm.pocket) {

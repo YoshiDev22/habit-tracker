@@ -372,7 +372,7 @@ def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dic
         opening_balance_cents=account.opening_balance_cents, credit_limit_cents=account.credit_limit_cents,
         statement_day=account.statement_day, due_day=account.due_day, balance_cents=balance,
         available_cents=account.credit_limit_cents + balance if credit and account.credit_limit_cents is not None else None,
-        parent_id=account.parent_id,
+        parent_id=account.parent_id, interest_rate_bp=account.interest_rate_bp,
     )
 
 
@@ -384,9 +384,9 @@ def _opening_date(value: Optional[date_type], today: date_type) -> Optional[date
 
 
 def _credit_only(account: FinAccount) -> None:
-    """Límite, corte y pago son de una tarjeta de crédito: en otra, se vacían."""
+    """Límite, corte, pago y tasa son de una tarjeta de crédito: en otra, se vacían."""
     if account.kind != "credit":
-        account.credit_limit_cents = account.statement_day = account.due_day = None
+        account.credit_limit_cents = account.statement_day = account.due_day = account.interest_rate_bp = None
 
 
 def _children(session: Session, user_id: int, account_id: Optional[int]) -> List[FinAccount]:
@@ -468,7 +468,8 @@ def create_account(body: FinAccountCreate, session: Session = Depends(get_sessio
                          order=(last or 0) + 1, icon=body.icon, color=body.color,
                          opening_balance_cents=body.opening_balance_cents, opening_date=opening_date,
                          credit_limit_cents=body.credit_limit_cents,
-                         statement_day=body.statement_day, due_day=body.due_day)
+                         statement_day=body.statement_day, due_day=body.due_day,
+                         interest_rate_bp=body.interest_rate_bp)
     _set_parent(session, user.id, account, body.parent_id)
     _credit_only(account)
     if body.is_default:

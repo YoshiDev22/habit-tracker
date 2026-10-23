@@ -224,6 +224,16 @@ async def main():
             await b.wait_for("!document.getElementById('finAccountMenu').classList.contains('hidden')")
 
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        # La tasa de interés de la tarjeta, de referencia, en su hoja; la lista la enseña
+        await open_menu("Tarjeta")
+        await b.js("document.querySelector('[data-menu-act=\"edit\"]').click()")
+        await b.wait_for("!document.getElementById('finAccountSheet').classList.contains('hidden')")
+        await b.js("document.getElementById('finAccInterest').value = '45.5'; document.getElementById('finAccSave').click()")
+        card = await wait_api("/api/finance/accounts", lambda body: any(a["interest_rate_bp"] == 4550 for a in body["accounts"]))
+        side = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finAccountsBody .fin-account')]
+            .find(x => x.querySelector('strong').textContent === 'Tarjeta'); return r ? r.textContent : ''; })()""",
+                                lambda v: "Tasa" in v)
+        check("Tasa: 45.5 %" in side, f"a card keeps its interest rate for reference ({side})")
         await open_menu("Tarjeta")
         st = await b.js("""({acts: [...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct),
             label: document.getElementById('finMenuLabel').textContent,

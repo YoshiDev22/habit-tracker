@@ -81,6 +81,19 @@ def test_a_pocket_with_movements_keeps_its_currency(api):
     assert status == 409 and "USD" in body["detail"]
 
 
+def test_a_card_keeps_its_interest_rate_for_reference(api):
+    cash, debit, credit, cats = setup(api, "tasa@test.com")
+    _, card = api.call("POST", URL, {"name": "Oro", "kind": "credit", "interest_rate_bp": 4550}, expect=201)
+    assert card["interest_rate_bp"] == 4550
+    _, card = api.call("PATCH", f"{URL}/{card['id']}", {"interest_rate_bp": 6000}, expect=200)
+    assert card["interest_rate_bp"] == 6000
+    # Solo de crédito: en otra cuenta se vacía
+    _, other = api.call("POST", URL, {"name": "Otra", "kind": "debit", "interest_rate_bp": 4550}, expect=201)
+    assert other["interest_rate_bp"] is None
+    assert api.call("PATCH", f"{URL}/{card['id']}", {"interest_rate_bp": -1})[0] == 422
+    assert api.call("PATCH", f"{URL}/{card['id']}", {"interest_rate_bp": 100_001})[0] == 422
+
+
 def test_daily_yield_is_estimated_and_recorded(api):
     cash, debit, credit, cats = setup(api, "rendimiento@test.com")
     _, bank = api.call("POST", URL, {"name": "Banco", "kind": "debit", "opening_balance_cents": 1_000_000,

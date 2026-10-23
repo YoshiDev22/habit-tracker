@@ -1502,6 +1502,8 @@ class FinAccountCreate(SQLModel):
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
+    # Tasa de interés anual de la tarjeta, de referencia (en puntos base: 4500 = 45 %)
+    interest_rate_bp: Optional[int] = Field(default=None, ge=0, le=100_000)
     # Un apartado de esa cuenta: toma su moneda y su tipo
     parent_id: Optional[int] = None
 
@@ -1548,6 +1550,7 @@ class FinAccountUpdate(SQLModel):
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
+    interest_rate_bp: Optional[int] = Field(default=None, ge=0, le=100_000)
     parent_id: Optional[int] = None            # null: vuelve a ser cuenta suelta
 
     @field_validator("icon")
@@ -1602,6 +1605,7 @@ class FinAccountResponse(SQLModel):
     balance_cents: int = 0
     available_cents: Optional[int] = None
     parent_id: Optional[int] = None   # un apartado: la cuenta de la que cuelga
+    interest_rate_bp: Optional[int] = None   # crédito: la tasa anual, de referencia
     # Con tasa de rendimiento: la de hoy y lo ganado sin anotar (desde yield_since hasta ayer)
     yield_rate_bp: Optional[int] = None
     yield_since: Optional[date_type] = None

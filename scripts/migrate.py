@@ -101,6 +101,8 @@ MIGRATIONS = [
     {"table": "fin_settings", "column": "consent_at", "type": "DATETIME", "new_table": True},
     # Los apartados de una cuenta (Finanzas 0.6): la cuenta madre de un apartado
     {"table": "fin_accounts", "column": "parent_id", "type": "INTEGER", "new_table": True},
+    # La tasa de interés de una tarjeta de crédito, de referencia (Finanzas 0.6)
+    {"table": "fin_accounts", "column": "interest_rate_bp", "type": "INTEGER", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado
