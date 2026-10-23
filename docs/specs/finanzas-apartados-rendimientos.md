@@ -48,8 +48,9 @@ fecha hasta la siguiente**, así que un cambio de tasa del banco no reescribe lo
 
 **El estimado** (`yield_estimate()` en `backend/finance_yield.py`), día por día:
 
-- Empieza el día siguiente al último rendimiento anotado de la cuenta (un movimiento con
-  `source = "yield"`), o en la primera tasa (o el día del saldo inicial, el que sea después).
+- Empieza el día del último rendimiento anotado de la cuenta (un movimiento con
+  `source = "yield"`: lo anotado un día cubre hasta el anterior), o en la primera tasa (o el día
+  del saldo inicial, el que sea después).
 - Termina **ayer**: el banco paga el día cuando termina.
 - Cada día gana `min(saldo, tope) × tasa ÷ base` sobre el saldo al cierre del día, y lo ganado
   **se suma al saldo** de los días siguientes (interés diario compuesto, como lo pagan).
@@ -58,7 +59,8 @@ fecha hasta la siguiente**, así que un cambio de tasa del banco no reescribe lo
 **Anotar** (`POST /accounts/{id}/yield`, `{amount_cents?, tx_date?}`): un ingreso en la cuenta,
 categoría **"Rendimientos"** (de ingreso; se crea la primera vez si no existe), `source = "yield"`,
 concepto "Rendimientos". Sin monto, el del estimado; con monto, el del banco. Sin fecha, hoy. Con
-monto 0 o sin tasa, 422. El siguiente estimado empieza al día siguiente.
+monto 0 o sin tasa, 422. Cubre hasta el día anterior a su fecha: el siguiente estimado empieza
+en esa fecha.
 
 `GET /accounts` trae, por cuenta con tasa: `yield_rate_bp` (la de hoy), `yield_cap_cents`,
 `yield_since` y `yield_estimate_cents`. `GET`/`PUT /accounts/{id}/yield-rates` lista y pone una

@@ -787,6 +787,27 @@ class FinAccount(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
+class FinYieldRate(SQLModel, table=True):
+    """
+    La tasa anual que paga una cuenta (o un apartado) día a día, sin plazo,
+    desde `from_date` hasta la fila siguiente: un cambio de tasa del banco no
+    reescribe lo de antes. rate_bp = 0 es "desde aquí ya no gana". Con tope,
+    solo esa parte del saldo gana. El rendimiento no se guarda: se estima
+    (backend/finance_yield.py) y se anota con un movimiento source = "yield".
+    """
+    __tablename__ = "fin_yield_rates"
+    __table_args__ = (UniqueConstraint("account_id", "from_date", name="uq_fin_yield_rates_account_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    from_date: date_type
+    rate_bp: int                                  # 1500 = 15 % anual
+    cap_cents: Optional[int] = Field(default=None)
+    day_basis: int = Field(default=365)           # 365 o 360
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
 class FinCategory(SQLModel, table=True):
     """Categoría de gasto o de ingreso. Las de inicio las crea backend/finance.py
     la primera vez; después son del usuario. Con movimientos no se borra."""

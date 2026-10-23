@@ -432,6 +432,50 @@
                 </div>
             </form>
 
+            <!-- Rendimiento diario: la tasa, lo ganado sin anotar y anotarlo (finance-accounts.js) -->
+            <div class="fin-menu-page" id="finYieldPage" hidden>
+                <div class="fin-yield-earned" id="finYieldEarned">
+                    <span class="fin-stat-label" id="finYieldEarnedLabel">Ganado sin anotar</span>
+                    <strong id="finYieldEarnedAmount">—</strong>
+                </div>
+                <form class="fin-form" id="finYieldRecordForm" novalidate hidden>
+                    <label class="fin-field wide">¿Tu banco dice otra cifra? Escríbela
+                        <input type="text" id="finYieldBank" inputmode="decimal" autocomplete="off" placeholder="Opcional">
+                    </label>
+                    <p class="fin-hint wide">Se anota como un ingreso en Rendimientos, hoy. Lo siguiente se cuenta desde hoy.</p>
+                    <div id="finYieldRecordError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="submit" class="submit-btn" id="finYieldRecord">Anotar</button>
+                    </div>
+                </form>
+                <p class="fin-stat-label fin-yield-rates-title">Tasas</p>
+                <ul class="fin-yield-rates" id="finYieldRates"></ul>
+                <form class="fin-form" id="finYieldRateForm" novalidate>
+                    <label class="fin-field">Tasa anual (%)
+                        <input type="text" id="finYieldRate" inputmode="decimal" autocomplete="off" placeholder="15">
+                    </label>
+                    <label class="fin-field">Desde
+                        <input type="date" id="finYieldFrom">
+                    </label>
+                    <label class="fin-field">Hasta un monto
+                        <input type="text" id="finYieldCap" inputmode="decimal" autocomplete="off" placeholder="Sin tope">
+                    </label>
+                    <label class="fin-field">Año de
+                        <select id="finYieldBasis">
+                            <option value="365">365 días</option>
+                            <option value="360">360 días</option>
+                        </select>
+                    </label>
+                    <p class="fin-hint wide">Gana cada día sobre el saldo de ese día, y lo ganado también gana. Con tope,
+                        solo esa parte del saldo gana. Un cambio de tasa vale desde su día; 0 % deja de ganar.</p>
+                    <div id="finYieldRateError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                        <button type="submit" class="submit-btn">Guardar tasa</button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Meses sin intereses que ya traía la deuda (sin compra anotada) -->
             <div class="fin-menu-page" id="finMsiPage" hidden>
                 <p class="fin-hint">Cópialas de tu estado de cuenta, de la tabla de compras a meses sin intereses. Ya van

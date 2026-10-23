@@ -81,6 +81,7 @@ function finRenderAccountMenu() {
         const parent = finState.accounts.find(p => p.id === a.parent_id);
         if (parent) more.push(`Apartado de ${parent.name}`);
     }
+    if (a.yield_rate_bp) more.push(`Gana ${finRateText(a.yield_rate_bp)} anual`);
     if (a.available_cents != null) more.push(`Disponible ${formatMoney(a.available_cents, a.currency)}`);
     if (a.opening_date) more.push(`desde el ${finShortDate(a.opening_date)}`);
     document.getElementById('finMenuMore').textContent = more.join(' · ');
@@ -93,6 +94,7 @@ function finRenderAccountMenu() {
             + `salió ${formatMoney(a.before_out_cents, a.currency)}). Son historial: no cambian el saldo.`;
     }
     const list = credit ? FIN_MENU_ACTIONS.credit : [...FIN_MENU_ACTIONS.base,
+        ['yield', 'trending-up', 'Rendimiento', '#00b894'],
         // Una cuenta suelta puede tener apartados; un apartado, no
         ...(a.parent_id == null ? [['pocket', 'piggy-bank', 'Apartado', '#e67e22']] : [])];
     const actions = list.map(([act, icon, label, color]) => {
@@ -112,6 +114,7 @@ function finRenderAccountMenu() {
 function finMenuPage(name) {
     document.getElementById('finMenuActions').hidden = Boolean(name);
     document.getElementById('finAdjustForm').hidden = name !== 'adjust';
+    document.getElementById('finYieldPage').hidden = name !== 'yield';
     document.getElementById('finMsiPage').hidden = name !== 'msi';
     document.getElementById('finStatementPage').hidden = name !== 'statement';
     document.getElementById('finMenuStatement').hidden = Boolean(name) || !finMenu.statement;
@@ -145,6 +148,8 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
     } else if (act === 'pocket') {
         closeFinSheet(finAccountMenu);
         openFinAccount(null, a.kind, { parentId: a.id });
+    } else if (act === 'yield') {
+        openFinYield();
     }
 });
 
@@ -315,6 +320,125 @@ document.getElementById('finAdjustForm').addEventListener('submit', async (event
     const opening = a.opening_balance_cents + (target - a.balance_cents);
     try {
         await apiFetch(`/api/finance/accounts/${a.id}`, { method: 'PATCH', json: { opening_balance_cents: opening } });
+        closeFinSheet(finAccountMenu);
+        await finLoad();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+// ---------- Rendimiento diario ----------
+
+const finYield = { data: null };
+
+async function openFinYield() {
+    ['finYieldRecordError', 'finYieldRateError'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById('finYieldRateForm').reset();
+    document.getElementById('finYieldFrom').value = finToday();
+    document.getElementById('finYieldFrom').max = finToday();
+    finMenuPage('yield');
+    await finLoadYield();
+}
+
+async function finLoadYield() {
+    const a = finMenu.account;
+    try {
+        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield`);
+    } catch (error) {
+        showError(document.getElementById('finYieldRateError'), error.message);
+        return;
+    }
+    if (finMenu.account !== a) return;
+    finRenderYield();
+}
+
+// "15 %", "12.5 %"
+function finRateText(bp) {
+    return `${(bp / 100).toLocaleString('es-MX', { maximumFractionDigits: 2 })} %`;
+}
+
+function finRenderYield() {
+    const a = finMenu.account;
+    const y = finYield.data;
+    const money = cents => formatMoney(cents, a.currency);
+    const hasRate = y.rates.length > 0;
+    const earned = document.getElementById('finYieldEarned');
+    earned.hidden = !hasRate;
+    document.getElementById('finYieldRecordForm').hidden = !hasRate;
+    if (hasRate) {
+        const span = y.through < y.since ? 'Ganado sin anotar' : y.since === y.through
+            ? `Ganado ayer (${finShortDate(y.since)})` : `Ganado del ${finShortDate(y.since)} al ${finShortDate(y.through)}`;
+        document.getElementById('finYieldEarnedLabel').textContent = `${span}, estimado`;
+        document.getElementById('finYieldEarnedAmount').textContent = money(y.estimate_cents || 0);
+        document.getElementById('finYieldRecord').textContent = y.estimate_cents
+            ? `Anotar ${money(y.estimate_cents)}` : 'Anotar';
+    }
+    const list = document.getElementById('finYieldRates');
+    list.replaceChildren(...(hasRate ? [...y.rates].reverse().map(r => {
+        const row = el('li', 'fin-yield-rate');
+        row.dataset.rateId = String(r.id);
+        const text = [`${finRateText(r.rate_bp)} desde el ${finShortDate(r.from_date)}`];
+        if (r.cap_cents) text.push(`hasta ${money(r.cap_cents)}`);
+        if (r.day_basis === 360) text.push('año de 360 días');
+        const remove = el('button', 'link-btn fin-yield-remove', '×');
+        remove.type = 'button';
+        remove.setAttribute('aria-label', 'Quitar esta tasa');
+        row.append(el('span', '', text.join(' · ')), remove);
+        return row;
+    }) : [el('li', 'fin-hint', 'Sin tasa: esta cuenta no gana rendimiento.')]));
+}
+
+document.getElementById('finYieldRates').addEventListener('click', async (event) => {
+    const row = event.target.closest('[data-rate-id]');
+    if (!row || !event.target.closest('.fin-yield-remove')) return;
+    const a = finMenu.account;
+    try {
+        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield-rates/${row.dataset.rateId}`, { method: 'DELETE' });
+        finRenderYield();
+        finLoad();
+    } catch (error) {
+        showError(document.getElementById('finYieldRateError'), error.message);
+    }
+});
+
+document.getElementById('finYieldRateForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const a = finMenu.account;
+    const errorEl = document.getElementById('finYieldRateError');
+    errorEl.classList.add('hidden');
+    const rateText = document.getElementById('finYieldRate').value.trim().replace(',', '.').replace('%', '');
+    const rate = Number(rateText);
+    if (!rateText || !Number.isFinite(rate) || rate < 0 || rate > 100) return showError(errorEl, 'La tasa va de 0 a 100 %.');
+    const capText = document.getElementById('finYieldCap').value.trim();
+    const cap = capText ? parseMoneyCents(capText) : null;
+    if (capText && (cap == null || cap <= 0)) return showError(errorEl, 'El tope es un monto mayor que cero.');
+    const from = document.getElementById('finYieldFrom').value || finToday();
+    if (from > finToday()) return showError(errorEl, 'La tasa empieza hoy o antes.');
+    try {
+        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield-rates`, { method: 'PUT', json: {
+            from_date: from, rate_bp: Math.round(rate * 100), cap_cents: cap,
+            day_basis: Number(document.getElementById('finYieldBasis').value),
+        } });
+        document.getElementById('finYieldRateForm').reset();
+        document.getElementById('finYieldFrom').value = finToday();
+        finRenderYield();
+        finLoad();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+document.getElementById('finYieldRecordForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const a = finMenu.account;
+    const errorEl = document.getElementById('finYieldRecordError');
+    errorEl.classList.add('hidden');
+    const bankText = document.getElementById('finYieldBank').value.trim();
+    const bank = bankText ? parseMoneyCents(bankText) : null;
+    if (bankText && (bank == null || bank <= 0)) return showError(errorEl, 'Escribe el monto: solo números.');
+    try {
+        await apiFetch(`/api/finance/accounts/${a.id}/yield`, { method: 'POST', json: bank ? { amount_cents: bank } : {} });
+        document.getElementById('finYieldBank').value = '';
         closeFinSheet(finAccountMenu);
         await finLoad();
     } catch (error) {

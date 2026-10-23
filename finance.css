@@ -692,6 +692,51 @@
     font-size: 0.8rem;
 }
 
+.fin-account-sub.earning {
+    color: var(--income-fg);
+}
+
+/* El rendimiento de una cuenta (su página en el menú) */
+.fin-yield-earned {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--bg-surface-2);
+}
+
+.fin-yield-earned[hidden] {
+    display: none;
+}
+
+.fin-yield-earned strong {
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--income-fg);
+}
+
+.fin-yield-rates-title {
+    margin: 16px 0 4px;
+}
+
+.fin-yield-rates {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+.fin-yield-rate {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 2px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
 .fin-account-balance {
     font-size: 1.05rem;
     font-variant-numeric: tabular-nums;

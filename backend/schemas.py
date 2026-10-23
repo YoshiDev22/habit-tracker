@@ -1602,10 +1602,49 @@ class FinAccountResponse(SQLModel):
     balance_cents: int = 0
     available_cents: Optional[int] = None
     parent_id: Optional[int] = None   # un apartado: la cuenta de la que cuelga
+    # Con tasa de rendimiento: la de hoy y lo ganado sin anotar (desde yield_since hasta ayer)
+    yield_rate_bp: Optional[int] = None
+    yield_since: Optional[date_type] = None
+    yield_estimate_cents: Optional[int] = None
 
 
 class FinAccountListResponse(SQLModel):
     accounts: List[FinAccountResponse]
+
+
+class FinYieldRateFields(SQLModel):
+    """Una tasa anual desde un día (la misma fecha la reemplaza). 0 = ya no gana."""
+    from_date: date_type
+    rate_bp: int = Field(ge=0, le=10_000)
+    cap_cents: Optional[int] = Field(default=None, ge=1, le=MAX_MONEY_CENTS)
+    day_basis: int = 365
+
+    @field_validator("day_basis")
+    @classmethod
+    def validate_day_basis(cls, v):
+        if v not in (365, 360):
+            raise ValueError("day_basis debe ser 365 o 360")
+        return v
+
+
+class FinYieldRateResponse(FinYieldRateFields):
+    id: int
+
+
+class FinYieldResponse(SQLModel):
+    account_id: int
+    rates: List[FinYieldRateResponse]
+    rate_bp: Optional[int] = None         # la de hoy
+    cap_cents: Optional[int] = None
+    since: Optional[date_type] = None
+    through: Optional[date_type] = None
+    estimate_cents: Optional[int] = None
+
+
+class FinYieldRecord(SQLModel):
+    """Anotar el rendimiento: sin monto, el estimado; con monto, el del banco."""
+    amount_cents: Optional[int] = Field(default=None, ge=1, le=MAX_MONEY_CENTS)
+    tx_date: Optional[date_type] = None
 
 
 class FinCategoryCreate(SQLModel):

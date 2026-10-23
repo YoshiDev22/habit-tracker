@@ -261,7 +261,7 @@ async def main():
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
         await open_menu("Efectivo")
         acts = await b.js("[...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct)")
-        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer", "pocket"],
+        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer", "yield", "pocket"],
               f"cash offers income and more ({acts})")
         await b.shot("finance_account_menu", full=False)
         # Ingreso directo a Efectivo
@@ -343,6 +343,31 @@ async def main():
         check(st and st["pocket"] and "2,500.00" in st["text"] and "A la vista $2,000.00" in st["text"],
               f"the pocket shows under its account, which shows its total and what is on hand ({st})")
         await b.shot("finance_pockets", full=False)
+
+        # Rendimiento: la tasa desde el menú de la cuenta; lo ganado se estima y se anota
+        _, bank = api.call("POST", "/api/finance/accounts", {"name": "Banco digital", "kind": "debit",
+                           "opening_balance_cents": 1_000_000,
+                           "opening_date": (TODAY - timedelta(days=10)).isoformat()}, expect=201)
+        await b.js("finLoad()")
+        await b.wait_for("[...document.querySelectorAll('#finAccountsBody .fin-account strong')].some(s => s.textContent === 'Banco digital')")
+        await open_menu("Banco digital")
+        await b.js("document.querySelector('[data-menu-act=\"yield\"]').click()")
+        await b.wait_for("!document.getElementById('finYieldPage').hidden")
+        await b.js(f"""document.getElementById('finYieldRate').value = '12';
+            document.getElementById('finYieldFrom').value = '{(TODAY - timedelta(days=10)).isoformat()}';
+            document.querySelector('#finYieldRateForm [type=submit]').click()""")
+        y = await wait_api(f"/api/finance/accounts/{bank['id']}/yield", lambda body: body["rates"])
+        shown = await b.wait_for("document.getElementById('finYieldEarnedAmount').textContent", lambda v: v and v != "—")
+        expected = f"{y['estimate_cents'] / 100:,.2f}"
+        check(y["rates"][0]["rate_bp"] == 1200 and y["estimate_cents"] > 0 and expected in shown,
+              f"the rate is saved and the page shows what was earned ({y['estimate_cents']}, {shown})")
+        await b.shot("finance_yield", full=False)
+        await b.js("document.getElementById('finYieldRecord').click()")
+        recorded = await wait_api("/api/finance/transactions",
+                                  lambda body: any(t["source"] == "yield" for t in body["transactions"]))
+        rec = next(t for t in recorded["transactions"] if t["source"] == "yield")
+        check(rec["amount_cents"] == y["estimate_cents"] and rec["account_id"] == bank["id"] and rec["kind"] == "income",
+              f"Anotar records the estimate as income in that account ({rec})")
 
         # El ojo oculta el total, y se recuerda
         await b.js("document.getElementById('finEyeBtn').click()")

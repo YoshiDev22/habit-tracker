@@ -1002,6 +1002,11 @@ function finRenderAccounts() {
             formatMoney(total, a.currency));
         text.append(el('strong', '', a.name), balance);
         if (pockets.length) text.appendChild(el('small', 'fin-account-sub', `A la vista ${formatMoney(a.balance_cents, a.currency)}`));
+        // Lo ganado sin anotar: se anota desde el menú de la cuenta › Rendimiento
+        if (a.yield_estimate_cents) {
+            text.appendChild(el('small', 'fin-account-sub earning',
+                `+${formatMoney(a.yield_estimate_cents, a.currency)} de rendimiento sin anotar`));
+        }
         // Las tarjetas, compactas: su estado de cuenta va debajo
         const badge = finBadge(finAccountIcon(a), finAccountColor(a),
             { size: sub === 'cards' || isPocket ? 'md' : 'lg', square: true });
