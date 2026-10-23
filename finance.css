@@ -2740,6 +2740,69 @@ body.fin-wide .fin-main {
     display: none;
 }
 
+/* Los avisos salen de la campana, no de abajo: el panel cuelga de ella con su piquito */
+.fin-pop .fin-sheet-overlay {
+    background: transparent;
+}
+
+.fin-pop-panel {
+    position: fixed;
+    /* top, right y --fin-pop-arrow los pone finPlaceNotices() con la posición de la campana */
+    top: 64px;
+    right: 16px;
+    width: min(360px, calc(100vw - 32px));
+    max-height: min(480px, calc(100dvh - 96px));
+    /* El scroll va en la lista: en el panel recortaría el piquito */
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 12px 14px 10px;
+    box-shadow: var(--shadow-xl);
+    transform-origin: top right;
+    animation: fin-pop-in 0.15s ease-out;
+}
+
+/* El piquito: un cuadrito girado sobre el borde de arriba, bajo el centro de la campana */
+.fin-pop-panel::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    right: var(--fin-pop-arrow, 14px);
+    width: 12px;
+    height: 12px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
+    transform: rotate(45deg);
+}
+
+.fin-pop-panel:focus {
+    outline: none;
+}
+
+#finNoticesBody {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.fin-pop-title {
+    margin: 0 0 4px;
+    font-size: 1rem;
+}
+
+@keyframes fin-pop-in {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fin-pop-panel {
+        animation: none;
+    }
+}
+
 .fin-notice-group {
     margin: 12px 0 4px;
 }

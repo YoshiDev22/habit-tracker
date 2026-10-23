@@ -868,6 +868,15 @@ async def main():
         check("Mantenimiento" in text and "bienvenida a Finanzas" in text and "Configuración › Módulos" not in text
               and "9.9.9" not in text and count == "2",
               f"the Finanzas bell shows what concerns it, not Habit Tracker's notices ({count}, {text})")
+        # El panel sale de la campana (justo debajo y sin salirse de la pantalla), no de abajo
+        place = await b.js("""(() => {
+            const bell = document.getElementById('finBellBtn').getBoundingClientRect();
+            const panel = document.getElementById('finNoticesPanel').getBoundingClientRect();
+            return {gap: panel.top - bell.bottom, left: panel.left, right: innerWidth - panel.right,
+                    under: panel.left <= bell.left + bell.width / 2 && bell.left + bell.width / 2 <= panel.right};
+        })()""")
+        check(0 <= place["gap"] <= 16 and place["left"] >= 15 and place["right"] >= 15 and place["under"],
+              f"the notices open right under the bell, inside the screen ({place})")
         await b.shot("finance_notices", full=False)
         await b.js("document.querySelector('#finNoticesSheet .fin-sheet-overlay').click()")
         after = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]["notices"]

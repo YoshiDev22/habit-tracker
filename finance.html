@@ -468,15 +468,12 @@
         </div>
     </div>
 
-    <!-- Los avisos de tu cuenta: los mismos de la campanita de la app -->
-    <div class="fin-sheet hidden" id="finNoticesSheet" role="dialog" aria-modal="true" aria-labelledby="finNoticesTitle">
+    <!-- Los avisos de tu cuenta: un panel que sale de la campana (lo coloca finPlaceNotices()) -->
+    <div class="fin-sheet fin-pop hidden" id="finNoticesSheet" role="dialog" aria-modal="true" aria-labelledby="finNoticesTitle">
         <div class="fin-sheet-overlay" data-close-sheet></div>
-        <div class="fin-sheet-panel">
-            <h2 class="fin-sheet-title" id="finNoticesTitle">Avisos</h2>
+        <div class="fin-pop-panel" id="finNoticesPanel" tabindex="-1">
+            <h2 class="fin-pop-title" id="finNoticesTitle">Avisos</h2>
             <div id="finNoticesBody"></div>
-            <div class="fin-form-actions">
-                <button type="button" class="submit-btn" data-close-sheet>Cerrar</button>
-            </div>
         </div>
     </div>
 

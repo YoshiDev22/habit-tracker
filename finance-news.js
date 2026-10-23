@@ -174,6 +174,8 @@ async function openFinNotices() {
         ? groups.flatMap(([title, list]) => [el('p', 'fin-stat-label fin-notice-group', title), ...list.map(finNoticeRow)])
         : [el('p', 'fin-hint', 'No tienes avisos.')]));
     openFinSheet(finNoticesSheet);
+    finPlaceNotices();
+    document.getElementById('finNoticesPanel').focus();
     // Abrir la campana lee solo sus avisos: los de Habit Tracker siguen sin leer en la app
     const unread = finNotices.list.filter(n => n.status === 'info' && !n.read).map(n => n.id);
     if (unread.length) {
@@ -183,6 +185,30 @@ async function openFinNotices() {
         await finLoadNotices();
     }
 }
+
+// El panel cuelga de la campana: justo debajo, con su borde derecho alineado al de ella
+// (o a 16 px de la orilla) y el piquito bajo su centro. La campana no siempre es lo último
+// de la barra (en Presupuesto y Categorías hay un ✎ a su derecha), por eso se mide.
+function finPlaceNotices() {
+    if (finNoticesSheet.classList.contains('hidden')) return;
+    const bell = document.getElementById('finBellBtn').getBoundingClientRect();
+    const panel = document.getElementById('finNoticesPanel');
+    // Sin salirse por la izquierda: en un teléfono el panel ocupa casi todo el ancho
+    const width = Math.min(360, window.innerWidth - 32);
+    const right = Math.min(Math.max(16, window.innerWidth - bell.right), window.innerWidth - width - 16);
+    panel.style.top = `${Math.round(bell.bottom + 10)}px`;
+    panel.style.right = `${Math.round(right)}px`;
+    const arrow = window.innerWidth - right - (bell.left + bell.width / 2) - 6;
+    panel.style.setProperty('--fin-pop-arrow', `${Math.round(Math.max(10, arrow))}px`);
+}
+
+window.addEventListener('resize', finPlaceNotices);
+
+// Al cerrarlo (fuera, Escape o la campana otra vez) el foco vuelve a la campana
+finSheetDismiss.set('finNoticesSheet', () => {
+    closeFinSheet(finNoticesSheet);
+    document.getElementById('finBellBtn').focus();
+});
 
 document.getElementById('finBellBtn').addEventListener('click', openFinNotices);
 document.addEventListener('visibilitychange', () => {
