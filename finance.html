@@ -325,14 +325,18 @@
                 <label class="fin-field wide">Nombre
                     <input type="text" id="finAccName" maxlength="40" required>
                 </label>
-                <label class="fin-field">Tipo
+                <!-- Un apartado cuelga de una cuenta y toma su tipo y su moneda -->
+                <label class="fin-field wide" id="finAccParentField">Apartado de
+                    <select id="finAccParent"></select>
+                </label>
+                <label class="fin-field not-pocket">Tipo
                     <select id="finAccKind">
                         <option value="cash">Efectivo</option>
                         <option value="debit">Débito</option>
                         <option value="credit">Crédito</option>
                     </select>
                 </label>
-                <label class="fin-field">Moneda
+                <label class="fin-field not-pocket">Moneda
                     <select id="finAccCurrency"></select>
                 </label>
                 <label class="fin-field" id="finAccOpeningField"><span id="finAccOpeningLabel">Saldo al empezar</span>
@@ -341,7 +345,7 @@
                 <label class="fin-field">Al día
                     <input type="date" id="finAccOpeningDate">
                 </label>
-                <label class="fin-field">Últimos 4 dígitos
+                <label class="fin-field not-pocket">Últimos 4 dígitos
                     <input type="text" id="finAccLast4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Opcional">
                 </label>
                 <label class="fin-field credit-only">Límite de crédito

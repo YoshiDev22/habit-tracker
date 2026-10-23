@@ -544,7 +544,7 @@ const finAccountForm = { account: null, icon: 'wallet', color: FIN_PALETTE[3] };
 
 function finSyncAccountKind() {
     const kind = document.getElementById('finAccKind').value;
-    const credit = kind === 'credit';
+    const credit = kind === 'credit' && !finAccountForm.pocket;
     finAccountSheet.querySelectorAll('.credit-only').forEach(field => { field.hidden = !credit; });
     document.getElementById('finAccOpeningLabel').textContent = credit ? 'Deuda total' : 'Saldo';
     document.getElementById('finAccHint').textContent = credit
@@ -560,8 +560,29 @@ function finRenderAccountPickers() {
     finRenderColorRow(document.getElementById('finAccColors'), finAccountForm.color);
 }
 
-function openFinAccount(account, kind = 'debit') {
+// Las cuentas de las que puede colgar un apartado: activas, sueltas, de efectivo o débito
+function finPocketParents(account) {
+    return finState.accounts.filter(a => a.is_active && a.parent_id == null && a.kind !== 'credit'
+        && (!account || a.id !== account.id));
+}
+
+// "Apartado de": solo para una cuenta que no es de crédito y no tiene apartados.
+// Con una elegida, tipo, moneda y últimos 4 dígitos son los de esa cuenta.
+function finSyncAccountParent() {
+    const account = finAccountForm.account;
+    const hasPockets = account && finState.accounts.some(a => a.parent_id === account.id);
+    const field = document.getElementById('finAccParentField');
+    field.hidden = hasPockets || document.getElementById('finAccKind').value === 'credit'
+        || !finPocketParents(account).length;
+    const pocket = !field.hidden && Boolean(document.getElementById('finAccParent').value);
+    finAccountForm.pocket = pocket;
+    finAccountSheet.querySelectorAll('.not-pocket').forEach(f => { f.hidden = pocket; });
+    finSyncAccountKind();
+}
+
+function openFinAccount(account, kind = 'debit', { parentId = null } = {}) {
     finAccountForm.account = account;
+    finAccountForm.pocket = false;
     const k = account ? account.kind : kind;
     finAccountForm.icon = account ? finAccountIcon(account) : FIN_KIND_ICONS[k];
     finAccountForm.color = account ? finAccountColor(account) : FIN_PALETTE[(finState.accounts.length * 4 + 3) % FIN_PALETTE.length];
@@ -589,7 +610,21 @@ function openFinAccount(account, kind = 'debit') {
     document.getElementById('finAccArchive').hidden = !account;
     document.getElementById('finAccArchive').textContent = 'Archivar';
     document.getElementById('finAccError').classList.add('hidden');
-    finSyncAccountKind();
+    const parent = document.getElementById('finAccParent');
+    const none = el('option', '', 'Ninguna: es una cuenta aparte');
+    none.value = '';
+    parent.replaceChildren(none, ...finPocketParents(account).map(a => {
+        const option = el('option', '', a.name);
+        option.value = String(a.id);
+        return option;
+    }));
+    const parentOf = account ? account.parent_id : parentId;
+    parent.value = parentOf ? String(parentOf) : '';
+    if (!account && parentId) {
+        document.getElementById('finAccountTitle').textContent = 'Nuevo apartado';
+        finAccountForm.icon = 'piggy-bank';
+    }
+    finSyncAccountParent();
     finRenderAccountPickers();
     openFinSheet(finAccountSheet);
 }
@@ -608,7 +643,8 @@ function finOptionalDay(id) {
     return Number.isInteger(day) && day >= 1 && day <= 31 ? day : NaN;
 }
 
-document.getElementById('finAccKind').addEventListener('change', finSyncAccountKind);
+document.getElementById('finAccKind').addEventListener('change', finSyncAccountParent);
+document.getElementById('finAccParent').addEventListener('change', finSyncAccountParent);
 document.getElementById('finAccIcons').addEventListener('click', (event) => {
     const button = event.target.closest('[data-icon]');
     if (!button) return;
@@ -661,7 +697,14 @@ document.getElementById('finAccountForm').addEventListener('submit', async (even
         // Sin día y con saldo, hoy; vacío en una que ya existe: cuentan todos sus movimientos
         opening_date: openingDate || (!finAccountForm.account && opening ? finToday() : null),
         credit_limit_cents: limit, statement_day: statement, due_day: due,
+        parent_id: finAccountForm.pocket ? Number(document.getElementById('finAccParent').value) : null,
     };
+    if (finAccountForm.pocket) {
+        // Tipo y moneda son los de su cuenta: el servidor los pone
+        delete fields.kind;
+        delete fields.currency;
+        fields.last4 = null;
+    }
     const save = document.getElementById('finAccSave');
     save.disabled = true;
     try {

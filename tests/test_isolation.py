@@ -226,6 +226,9 @@ def test_personal_finance(seeded):
         ("POST", "/api/finance/transactions", {**tx(theirs, 2, "x"), "category_id": None,
                                                "splits": [{"category_id": cat["id"], "amount_cents": 1},
                                                           {"category_id": their_cat["id"], "amount_cents": 1}]}),
+        # Ni colgar un apartado suyo de mi cuenta
+        ("POST", "/api/finance/accounts", {"name": "Apartado", "parent_id": mine["id"]}),
+        ("PATCH", f"/api/finance/accounts/{theirs['id']}", {"parent_id": mine["id"]}),
     ]:
         assert other.call(method, path, body)[0] == 404, (method, path)
     _, their_tx = other.call("POST", "/api/finance/transactions", tx(theirs, 1, "suyo", their_cat), expect=201)

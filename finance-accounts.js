@@ -72,6 +72,15 @@ function finRenderAccountMenu() {
     document.getElementById('finMenuBalance').textContent = formatMoney(credit ? Math.abs(a.balance_cents)
         : a.balance_cents, a.currency);
     const more = [];
+    const pockets = finState.accounts.filter(p => p.is_active && p.parent_id === a.id);
+    if (pockets.length) {
+        const total = pockets.reduce((acc, p) => acc + p.balance_cents, a.balance_cents);
+        more.push(`Con ${pockets.length === 1 ? 'su apartado' : `sus ${pockets.length} apartados`}: ${formatMoney(total, a.currency)}`);
+    }
+    if (a.parent_id != null) {
+        const parent = finState.accounts.find(p => p.id === a.parent_id);
+        if (parent) more.push(`Apartado de ${parent.name}`);
+    }
     if (a.available_cents != null) more.push(`Disponible ${formatMoney(a.available_cents, a.currency)}`);
     if (a.opening_date) more.push(`desde el ${finShortDate(a.opening_date)}`);
     document.getElementById('finMenuMore').textContent = more.join(' · ');
@@ -83,7 +92,10 @@ function finRenderAccountMenu() {
         history.textContent = `Antes del ${finShortDate(a.opening_date)}: ${n} (entró ${formatMoney(a.before_in_cents, a.currency)}, `
             + `salió ${formatMoney(a.before_out_cents, a.currency)}). Son historial: no cambian el saldo.`;
     }
-    const actions = (credit ? FIN_MENU_ACTIONS.credit : FIN_MENU_ACTIONS.base).map(([act, icon, label, color]) => {
+    const list = credit ? FIN_MENU_ACTIONS.credit : [...FIN_MENU_ACTIONS.base,
+        // Una cuenta suelta puede tener apartados; un apartado, no
+        ...(a.parent_id == null ? [['pocket', 'piggy-bank', 'Apartado', '#e67e22']] : [])];
+    const actions = list.map(([act, icon, label, color]) => {
         const button = el('button', 'fin-menu-action');
         button.type = 'button';
         button.dataset.menuAct = act;
@@ -130,6 +142,9 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
         finPayCard(a);
     } else if (act === 'msi') {
         openFinMsi();
+    } else if (act === 'pocket') {
+        closeFinSheet(finAccountMenu);
+        openFinAccount(null, a.kind, { parentId: a.id });
     }
 });
 

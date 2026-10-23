@@ -1502,6 +1502,8 @@ class FinAccountCreate(SQLModel):
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
+    # Un apartado de esa cuenta: toma su moneda y su tipo
+    parent_id: Optional[int] = None
 
     @field_validator("icon")
     @classmethod
@@ -1546,6 +1548,7 @@ class FinAccountUpdate(SQLModel):
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
+    parent_id: Optional[int] = None            # null: vuelve a ser cuenta suelta
 
     @field_validator("icon")
     @classmethod
@@ -1598,6 +1601,7 @@ class FinAccountResponse(SQLModel):
     # negativo es deuda. Disponible: límite + saldo, solo con límite.
     balance_cents: int = 0
     available_cents: Optional[int] = None
+    parent_id: Optional[int] = None   # un apartado: la cuenta de la que cuelga
 
 
 class FinAccountListResponse(SQLModel):

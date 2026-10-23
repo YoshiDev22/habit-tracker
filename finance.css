@@ -669,6 +669,29 @@
     font-size: 1.02rem;
 }
 
+/* Un apartado, con sangría bajo su cuenta y una raya que los une */
+.fin-account.pocket {
+    padding-left: 36px;
+    position: relative;
+}
+
+.fin-account.pocket::before {
+    content: '';
+    position: absolute;
+    left: 26px;
+    top: 0;
+    bottom: 50%;
+    width: 8px;
+    border-left: 2px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
+    border-bottom-left-radius: 6px;
+}
+
+.fin-account-sub {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
 .fin-account-balance {
     font-size: 1.05rem;
     font-variant-numeric: tabular-nums;

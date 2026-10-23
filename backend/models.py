@@ -780,6 +780,10 @@ class FinAccount(SQLModel, table=True):
     credit_limit_cents: Optional[int] = Field(default=None)
     statement_day: Optional[int] = Field(default=None)
     due_day: Optional[int] = Field(default=None)
+    # Un apartado (ahorro dentro de la cuenta) cuelga de su cuenta madre: un solo
+    # nivel, de efectivo o débito, misma moneda y tipo. Mover dinero entre ellas
+    # es una transferencia. NULL = cuenta suelta.
+    parent_id: Optional[int] = Field(default=None, foreign_key="fin_accounts.id")
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 

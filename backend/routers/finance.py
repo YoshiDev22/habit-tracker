@@ -355,6 +355,7 @@ def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dic
         opening_balance_cents=account.opening_balance_cents, credit_limit_cents=account.credit_limit_cents,
         statement_day=account.statement_day, due_day=account.due_day, balance_cents=balance,
         available_cents=account.credit_limit_cents + balance if credit and account.credit_limit_cents is not None else None,
+        parent_id=account.parent_id,
     )
 
 
@@ -369,6 +370,43 @@ def _credit_only(account: FinAccount) -> None:
     """Límite, corte y pago son de una tarjeta de crédito: en otra, se vacían."""
     if account.kind != "credit":
         account.credit_limit_cents = account.statement_day = account.due_day = None
+
+
+def _children(session: Session, user_id: int, account_id: Optional[int]) -> List[FinAccount]:
+    """Los apartados de una cuenta."""
+    if account_id is None:
+        return []
+    return session.exec(select(FinAccount).where(FinAccount.user_id == user_id,
+                                                 FinAccount.parent_id == account_id)).all()
+
+
+def _set_parent(session: Session, user_id: int, account: FinAccount, parent_id: Optional[int],
+                tx_count: int = 0) -> None:
+    """Vuelve `account` un apartado de `parent_id` (o cuenta suelta con None). Un
+    apartado cuelga de una cuenta de efectivo o débito, activa y suelta (un solo
+    nivel), y toma su moneda y su tipo."""
+    if parent_id is None:
+        account.parent_id = None
+        return
+    parent = _own_account(session, user_id, parent_id)
+    if parent.id == account.id:
+        raise _unprocessable("Una cuenta no puede ser apartado de sí misma")
+    if parent.parent_id is not None:
+        raise _conflict(f"'{parent.name}' ya es un apartado: un apartado no tiene apartados")
+    if parent.kind == "credit":
+        raise _conflict("Una tarjeta de crédito no tiene apartados")
+    if not parent.is_active:
+        raise _conflict(f"'{parent.name}' está archivada")
+    if _children(session, user_id, account.id):
+        raise _conflict(f"'{account.name}' tiene apartados: no puede ser apartado de otra cuenta")
+    if account.kind == "credit":
+        raise _conflict("Una tarjeta de crédito no puede ser un apartado")
+    if account.currency != parent.currency and tx_count:
+        raise _conflict(f"'{account.name}' ya tiene movimientos en {account.currency}: "
+                        f"solo puede ser apartado de una cuenta en esa moneda")
+    account.parent_id = parent.id
+    account.kind = parent.kind
+    account.currency = parent.currency
 
 
 def _make_default(session: Session, user_id: int, account: FinAccount) -> None:
@@ -406,6 +444,7 @@ def create_account(body: FinAccountCreate, session: Session = Depends(get_sessio
                          opening_balance_cents=body.opening_balance_cents, opening_date=opening_date,
                          credit_limit_cents=body.credit_limit_cents,
                          statement_day=body.statement_day, due_day=body.due_day)
+    _set_parent(session, user.id, account, body.parent_id)
     _credit_only(account)
     if body.is_default:
         _make_default(session, user.id, account)
@@ -442,12 +481,36 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
             raise _conflict(f"'{account.name}' la usa un fijo: cámbialo de cuenta o páusalo antes de archivarla")
     if changes.get("is_default") and not changes.get("is_active", account.is_active):
         raise _conflict("Una cuenta archivada no puede ser la de por defecto")
+    children = _children(session, user.id, account.id)
+    if changes.get("is_active") is False and any(c.is_active for c in children):
+        raise _conflict(f"'{account.name}' tiene apartados: archívalos antes")
+    if changes.get("is_active") and account.parent_id is not None:
+        parent = session.get(FinAccount, account.parent_id)
+        if parent is not None and not parent.is_active:
+            raise _conflict(f"Primero reactiva '{parent.name}', la cuenta de este apartado")
+    if children and changes.get("kind", account.kind) == "credit":
+        raise _conflict(f"'{account.name}' tiene apartados: no puede ser tarjeta de crédito")
+    if children and changes.get("currency", account.currency) != account.currency:
+        raise _conflict(f"'{account.name}' tiene apartados: su moneda no cambia")
+    parent_change = "parent_id" in changes and changes["parent_id"] != account.parent_id
+    if account.parent_id is not None and not parent_change and (
+            changes.get("kind", account.kind) != account.kind
+            or changes.get("currency", account.currency) != account.currency):
+        raise _conflict("Un apartado toma el tipo y la moneda de su cuenta")
     if changes.pop("is_default", None):
         _make_default(session, user.id, account)
     if "opening_date" in changes:
         _opening_date(changes["opening_date"], _today(session, user))
+    parent_id = changes.pop("parent_id", account.parent_id)
     for field, value in changes.items():
         setattr(account, field, value)
+    if parent_change:
+        _set_parent(session, user.id, account, parent_id, counts.get(account.id, 0))
+    # Un cambio de tipo (efectivo ↔ débito) de la cuenta lo siguen sus apartados
+    for child in children:
+        if child.kind != account.kind:
+            child.kind = account.kind
+            session.add(child)
     _credit_only(account)
     session.add(account)
     session.commit()
@@ -471,6 +534,8 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
         raise _conflict(f"'{account.name}' tiene compras a meses: archívala en vez de borrarla")
     if account.is_default:
         raise _conflict(f"'{account.name}' es tu cuenta por defecto: elige otra antes de borrarla")
+    if _children(session, user.id, account.id):
+        raise _conflict(f"'{account.name}' tiene apartados: bórralos o sácalos antes")
     for row in session.exec(select(FinStatement).where(FinStatement.user_id == user.id,
                                                        FinStatement.account_id == account.id)).all():
         session.delete(row)

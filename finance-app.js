@@ -132,8 +132,11 @@ function normalizeKeepAccents(text) {
     return String(text).trim().toLowerCase();
 }
 
+// Las activas, en su orden, con cada apartado justo después de su cuenta
 function finActiveAccounts() {
-    return finState.accounts.filter(a => a.is_active);
+    const active = finState.accounts.filter(a => a.is_active);
+    const loose = active.filter(a => a.parent_id == null || !active.some(p => p.id === a.parent_id));
+    return loose.flatMap(a => [a, ...active.filter(p => p.parent_id === a.id)]);
 }
 
 function finKindCategories(kind) {
@@ -985,16 +988,23 @@ function finRenderAccounts() {
     const sum = accounts.filter(a => a.currency === main).reduce((acc, a) => acc + a.balance_cents, 0);
     head.append(el('span', '', sub === 'cards' ? 'Tarjetas de crédito' : 'Cuentas'),
         el('strong', sum < 0 ? 'negative' : '', finMoney(sum, main)));
+    // Los apartados, debajo de su cuenta; la cuenta enseña su total y lo que tiene a la vista
+    const pocketsOf = id => accounts.filter(p => p.parent_id === id);
     const rows = accounts.map(a => {
-        const row = el('button', 'fin-account');
+        const pockets = sub === 'cards' ? [] : pocketsOf(a.id);
+        const total = pockets.reduce((acc, p) => acc + p.balance_cents, a.balance_cents);
+        const isPocket = a.parent_id != null && accounts.some(p => p.id === a.parent_id);
+        const row = el('button', `fin-account${isPocket ? ' pocket' : ''}`);
         row.type = 'button';
         row.dataset.accountId = String(a.id);
         const text = el('span', 'fin-account-text');
-        const balance = el('span', `fin-account-balance${a.balance_cents < 0 ? ' negative' : a.balance_cents === 0 ? ' zero' : ''}`,
-            formatMoney(a.balance_cents, a.currency));
+        const balance = el('span', `fin-account-balance${total < 0 ? ' negative' : total === 0 ? ' zero' : ''}`,
+            formatMoney(total, a.currency));
         text.append(el('strong', '', a.name), balance);
+        if (pockets.length) text.appendChild(el('small', 'fin-account-sub', `A la vista ${formatMoney(a.balance_cents, a.currency)}`));
         // Las tarjetas, compactas: su estado de cuenta va debajo
-        const badge = finBadge(finAccountIcon(a), finAccountColor(a), { size: sub === 'cards' ? 'md' : 'lg', square: true });
+        const badge = finBadge(finAccountIcon(a), finAccountColor(a),
+            { size: sub === 'cards' || isPocket ? 'md' : 'lg', square: true });
         if (a.is_default) badge.appendChild(el('span', 'fin-badge-star', '★'));
         const side = el('span', 'fin-account-side');
         if (a.available_cents != null && sub === 'cards') {

@@ -261,7 +261,8 @@ async def main():
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
         await open_menu("Efectivo")
         acts = await b.js("[...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct)")
-        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer"], f"cash offers income and more ({acts})")
+        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer", "pocket"],
+              f"cash offers income and more ({acts})")
         await b.shot("finance_account_menu", full=False)
         # Ingreso directo a Efectivo
         await b.js("document.querySelector('[data-menu-act=\"income\"]').click()")
@@ -312,7 +313,36 @@ async def main():
         await b.js("""[...document.querySelectorAll('#finTxList [data-opening-account]')]
             .find(x => x.textContent.includes('Nómina')).click()""")
         await b.wait_for("!document.getElementById('finAccountMenu').classList.contains('hidden')")
-        await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
+        # Un apartado, desde el menú de la cuenta: cuelga de ella y toma su tipo y su moneda
+        await b.js("document.querySelector('[data-menu-act=\"pocket\"]').click()")
+        await b.wait_for("!document.getElementById('finAccountSheet').classList.contains('hidden')")
+        st = await b.js("""({title: document.getElementById('finAccountTitle').textContent,
+            parent: document.getElementById('finAccParent').selectedOptions[0].textContent,
+            kindHidden: document.getElementById('finAccKind').closest('label').hidden})""")
+        check(st == {"title": "Nuevo apartado", "parent": "Nómina", "kindHidden": True},
+              f"Apartado opens a new pocket of that account ({st})")
+        await b.js("document.getElementById('finAccName').value = 'Viaje'")
+        await b.js("document.getElementById('finAccSave').click()")
+        pocket = await wait_api("/api/finance/accounts",
+                                lambda body: any(a["name"] == "Viaje" for a in body["accounts"]))
+        pocket = next(a for a in pocket["accounts"] if a["name"] == "Viaje")
+        nomina = next(a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"] if a["name"] == "Nómina")
+        check(pocket["parent_id"] == nomina["id"] and pocket["kind"] == "debit", f"the pocket hangs from Nómina ({pocket})")
+        api.call("POST", "/api/finance/transactions", {"kind": "transfer", "account_id": nomina["id"],
+                 "to_account_id": pocket["id"], "amount_cents": 50000, "tx_date": TODAY.isoformat(),
+                 "concept": "Al apartado"}, expect=201)
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("finLoad()")
+        st = await b.wait_for("""(() => {
+            const rows = [...document.querySelectorAll('#finAccountsBody .fin-account')];
+            const i = rows.findIndex(r => r.querySelector('strong').textContent === 'Nómina');
+            if (i < 0 || !rows[i + 1]) return null;
+            return {next: rows[i + 1].querySelector('strong').textContent, pocket: rows[i + 1].classList.contains('pocket'),
+                    text: rows[i].textContent};
+        })()""", lambda v: v and v["next"] == "Viaje")
+        check(st and st["pocket"] and "2,500.00" in st["text"] and "A la vista $2,000.00" in st["text"],
+              f"the pocket shows under its account, which shows its total and what is on hand ({st})")
+        await b.shot("finance_pockets", full=False)
 
         # El ojo oculta el total, y se recuerda
         await b.js("document.getElementById('finEyeBtn').click()")
