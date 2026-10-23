@@ -18,7 +18,7 @@ from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from backend.finance import account_balances
-from backend.models import FinAccount, FinCategory, FinTransaction, FinYieldRate
+from backend.models import FinAccount, FinCategory, FinTerm, FinTransaction, FinYieldRate
 
 YIELD_SOURCE = "yield"
 YIELD_CATEGORY = ("Rendimientos", "#2ecc71", "income", "trending-up")
@@ -51,9 +51,12 @@ def rate_on(rates: List[FinYieldRate], day: date_type) -> Optional[FinYieldRate]
 
 
 def last_yield_date(session: Session, user_id: int, account_id: int) -> Optional[date_type]:
+    """El día del último rendimiento diario anotado. Los de un plazo fijo llevan
+    external_id y no cuentan: son otro rendimiento."""
     return session.exec(select(func.max(FinTransaction.tx_date)).where(
         FinTransaction.user_id == user_id, FinTransaction.account_id == account_id,
-        FinTransaction.source == YIELD_SOURCE)).one()
+        FinTransaction.source == YIELD_SOURCE, FinTransaction.kind == "income",
+        FinTransaction.external_id == None)).one()  # noqa: E711
 
 
 def _daily_moves(session: Session, user_id: int, account: FinAccount, start: date_type,
@@ -112,6 +115,81 @@ def yield_estimate(session: Session, user_id: int, account: FinAccount, today: d
         day += timedelta(days=1)
     result["estimate_cents"] = int(earned.quantize(Decimal(1), rounding=ROUND_HALF_UP))
     return result
+
+
+# ==================== A plazo fijo ====================
+
+# Vencimientos que se ponen al día de una vez (un plazo que se reinvierte desde hace mucho)
+MAX_TERM_CATCH_UP = 120
+
+
+def term_maturity(term: FinTerm) -> date_type:
+    return term.start_date + timedelta(days=term.days)
+
+
+def term_interest(principal_cents: int, rate_bp: int, days: int, day_basis: int) -> int:
+    """Rendimiento simple del plazo, con .5 hacia arriba."""
+    value = Decimal(principal_cents) * rate_bp * days / (Decimal(10_000) * day_basis)
+    return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def mature_terms(session: Session, user_id: int, today: date_type) -> List[FinTransaction]:
+    """Anota los plazos que vencieron hasta hoy (sin commit; lo hace quien
+    llama): el rendimiento como ingreso en su cuenta y, según el plazo, la
+    transferencia de regreso o el plazo nuevo. El external_id frena que dos
+    peticiones a la vez lo anoten dos veces (la segunda choca con el índice)."""
+    created: List[FinTransaction] = []
+    pending = session.exec(select(FinTerm).where(FinTerm.user_id == user_id, FinTerm.matured == False)  # noqa: E712
+                           .order_by(FinTerm.id)).all()
+    category = None
+    for _ in range(MAX_TERM_CATCH_UP):
+        due = [t for t in pending if not t.matured and term_maturity(t) <= today]
+        if not due:
+            break
+        for term in due:
+            if category is None:
+                category = income_category(session, user_id)
+            maturity = term_maturity(term)
+            interest = term_interest(term.principal_cents, term.rate_bp, term.days, term.day_basis)
+            if interest > 0 and category is not None:
+                tx = FinTransaction(user_id=user_id, account_id=term.account_id, kind="income", amount_cents=interest,
+                                    tx_date=maturity, category_id=category.id,
+                                    concept=f"Rendimiento: {term.concept}"[:200], source=YIELD_SOURCE,
+                                    external_id=f"term-{term.id}")
+                session.add(tx)
+                created.append(tx)
+            total = term.principal_cents + interest
+            if term.on_maturity == "return" and term.return_account_id is not None:
+                back = FinTransaction(user_id=user_id, account_id=term.account_id, kind="transfer", amount_cents=total,
+                                      tx_date=maturity, to_account_id=term.return_account_id,
+                                      concept=f"Vencimiento: {term.concept}"[:200], source=YIELD_SOURCE,
+                                      external_id=f"term-{term.id}-return")
+                session.add(back)
+                created.append(back)
+            elif term.on_maturity == "renew":
+                renewed = FinTerm(user_id=user_id, account_id=term.account_id, concept=term.concept,
+                                  principal_cents=total, start_date=maturity, days=term.days, rate_bp=term.rate_bp,
+                                  day_basis=term.day_basis, on_maturity="renew")
+                session.add(renewed)
+                session.flush()
+                pending.append(renewed)
+            term.matured = True
+            session.add(term)
+    return created
+
+
+def income_category(session: Session, user_id: int) -> Optional[FinCategory]:
+    """Dónde va un rendimiento: "Rendimientos" o, si ese nombre ya es de una
+    categoría de gastos, la primera de ingresos."""
+    return yield_category(session, user_id) or session.exec(select(FinCategory).where(
+        FinCategory.user_id == user_id, FinCategory.kind == "income").order_by(FinCategory.order)).first()
+
+
+def open_terms_by_account(session: Session, user_id: int) -> Dict[int, List[FinTerm]]:
+    out: Dict[int, List[FinTerm]] = {}
+    for term in session.exec(select(FinTerm).where(FinTerm.user_id == user_id, FinTerm.matured == False)).all():  # noqa: E712
+        out.setdefault(term.account_id, []).append(term)
+    return out
 
 
 def yield_category(session: Session, user_id: int) -> Optional[FinCategory]:

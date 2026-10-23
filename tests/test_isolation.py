@@ -192,6 +192,9 @@ def test_personal_finance(seeded):
     _, their_group = other.call("POST", "/api/finance/budget/groups", {"name": "Suyo"}, expect=201)
     my_rate = api.call("PUT", f"/api/finance/accounts/{mine['id']}/yield-rates", {"from_date": "2020-01-01",
                                                                                   "rate_bp": 1500}, expect=200)[1]["rates"][0]["id"]
+    term_body = {"account_id": mine["id"], "principal_cents": 100, "start_date": date.today().isoformat(), "days": 28,
+                 "rate_bp": 1100}
+    my_term = api.call("POST", "/api/finance/terms", term_body, expect=201)[1]["id"]
 
     # Ni ver, ni tocar, ni usar mis cuentas, categorías, movimientos, fijos o presupuesto
     for method, path, body in [
@@ -237,6 +240,12 @@ def test_personal_finance(seeded):
         ("DELETE", f"/api/finance/accounts/{mine['id']}/yield-rates/{my_rate}", None),
         ("DELETE", f"/api/finance/accounts/{theirs['id']}/yield-rates/{my_rate}", None),
         ("POST", f"/api/finance/accounts/{mine['id']}/yield", {"amount_cents": 1}),
+        # Ni mis plazos fijos, ni poner uno en mi cuenta o que regrese a ella
+        ("PUT", f"/api/finance/terms/{my_term}", {**term_body, "account_id": theirs["id"]}),
+        ("DELETE", f"/api/finance/terms/{my_term}", None),
+        ("POST", "/api/finance/terms", term_body),
+        ("POST", "/api/finance/terms", {**term_body, "account_id": theirs["id"], "on_maturity": "return",
+                                        "return_account_id": mine["id"]}),
     ]:
         assert other.call(method, path, body)[0] == 404, (method, path)
     _, their_tx = other.call("POST", "/api/finance/transactions", tx(theirs, 1, "suyo", their_cat), expect=201)

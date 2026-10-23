@@ -261,7 +261,7 @@ async def main():
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
         await open_menu("Efectivo")
         acts = await b.js("[...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct)")
-        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer", "yield", "pocket"],
+        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer", "yield", "term", "pocket"],
               f"cash offers income and more ({acts})")
         await b.shot("finance_account_menu", full=False)
         # Ingreso directo a Efectivo
@@ -368,6 +368,33 @@ async def main():
         rec = next(t for t in recorded["transactions"] if t["source"] == "yield")
         check(rec["amount_cents"] == y["estimate_cents"] and rec["account_id"] == bank["id"] and rec["kind"] == "income",
               f"Anotar records the estimate as income in that account ({rec})")
+
+        # Un plazo fijo desde el menú de la cuenta: la hoja dice cuándo vence y cuánto da
+        await b.wait_for("document.getElementById('finAccountMenu').classList.contains('hidden')")
+        await open_menu("Banco digital")
+        await b.js("document.querySelector('[data-menu-act=\"term\"]').click()")
+        await b.wait_for("!document.getElementById('finTermSheet').classList.contains('hidden')")
+        await b.js("""document.getElementById('finTermConcept').value = 'CETES 28';
+            const p = document.getElementById('finTermPrincipal'); p.value = '5000';
+            const r = document.getElementById('finTermRate'); r.value = '11';
+            r.dispatchEvent(new Event('input'))""")
+        st = await b.js("""({account: document.getElementById('finTermAccount').selectedOptions[0].textContent,
+            preview: document.getElementById('finTermPreview').textContent})""")
+        check(st["account"] == "Banco digital" and "$42.78" in st["preview"] and "$5,042.78" in st["preview"],
+              f"the term sheet starts on that account and previews the interest ({st})")
+        await b.js("document.getElementById('finTermSave').click()")
+        terms = await wait_api("/api/finance/terms", lambda body: body["terms"])
+        t = terms["terms"][0]
+        check((t["concept"], t["principal_cents"], t["rate_bp"], t["days"], t["day_basis"], t["account_id"]) ==
+              ("CETES 28", 500_000, 1100, 28, 360, bank["id"]), f"the term is saved ({t})")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"investments\"]').click()")
+        st = await b.wait_for("""(() => { const r = document.querySelector('#finAccountsBody [data-term-id]');
+            return r ? r.textContent : null; })()""", lambda v: v)
+        daily = await b.js("[...document.querySelectorAll('#finAccountsBody [data-account-id]')].map(r => r.textContent)")
+        check("CETES 28" in st and "+$42.78" in st and any("Banco digital" in d and "12 %" in d for d in daily),
+              f"Inversiones lists the open term and the accounts that earn daily ({st}, {daily})")
+        await b.shot("finance_investments", full=False)
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
 
         # El ojo oculta el total, y se recuerda
         await b.js("document.getElementById('finEyeBtn').click()")

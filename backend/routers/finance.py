@@ -18,10 +18,11 @@ from backend.database import get_session
 from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, bank_statement, cut_on_or_after, cut_on_or_before, shift_cut, installment_parts,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
-from backend.finance_yield import (YIELD_CATEGORY, YIELD_CONCEPT, YIELD_SOURCE, account_rates, rate_on, rates_by_account,
-                                   yield_category, yield_estimate)
+from backend.finance_yield import (YIELD_CATEGORY, YIELD_CONCEPT, YIELD_SOURCE, account_rates, open_terms_by_account,
+                                   rate_on, rates_by_account, term_interest, term_maturity, yield_category,
+                                   yield_estimate)
 from backend.models import (FinAccount, FinBudgetItem, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
-                            FinStatement, FinTransaction, FinYieldRate, User, utc_now_naive)
+                            FinStatement, FinTerm, FinTransaction, FinYieldRate, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
     FinInstallmentBill, FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
@@ -46,6 +47,9 @@ from backend.schemas import (
     FinTransactionListResponse,
     FinTransactionResponse,
     FinTransactionUpdate,
+    FinTermFields,
+    FinTermListResponse,
+    FinTermResponse,
     FinYieldRateFields,
     FinYieldRateResponse,
     FinYieldRecord,
@@ -348,12 +352,15 @@ def _account_counts(session: Session, user_id: int) -> Dict[int, int]:
 
 
 def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dict[int, int],
-                      before: Optional[Dict[int, tuple]] = None, earning: Optional[tuple] = None) -> FinAccountResponse:
+                      before: Optional[Dict[int, tuple]] = None, earning: Optional[tuple] = None,
+                      terms: Optional[list] = None) -> FinAccountResponse:
     balance = balances.get(account.id, account.opening_balance_cents)
     credit = account.kind == "credit"
     before_count, before_in, before_out = (before or {}).get(account.id, (0, 0, 0))
     rate, estimate = earning or (None, None)
     return FinAccountResponse(
+        term_locked_cents=sum(t.principal_cents for t in terms or []),
+        term_until=min((term_maturity(t) for t in terms), default=None) if terms else None,
         yield_rate_bp=rate.rate_bp if rate else None,
         yield_since=estimate["since"] if estimate else None,
         yield_estimate_cents=estimate["estimate_cents"] if estimate else None,
@@ -433,15 +440,18 @@ def list_accounts(session: Session = Depends(get_session), user: User = Depends(
     ensure_finance_setup(session, user.id)
     accounts = session.exec(select(FinAccount).where(FinAccount.user_id == user.id)
                             .order_by(FinAccount.order, FinAccount.id)).all()
-    counts = _account_counts(session, user.id)
     today = _today(session, user)
+    # Lo que ya llegó (fijos y plazos vencidos) cuenta en el saldo
+    generate_due(session, user.id, today)
+    counts = _account_counts(session, user.id)
     balances = account_balances(session, user.id, today)
     before = history_before_opening(session, user.id)
     rates = rates_by_account(session, user.id)
     earnings = {a.id: (rate_on(rates[a.id], today), yield_estimate(session, user.id, a, today, rates[a.id]))
                 for a in accounts if a.id in rates and a.is_active}
-    return FinAccountListResponse(accounts=[_account_response(a, counts, balances, before, earnings.get(a.id))
-                                            for a in accounts])
+    terms = open_terms_by_account(session, user.id)
+    return FinAccountListResponse(accounts=[_account_response(a, counts, balances, before, earnings.get(a.id),
+                                                              terms.get(a.id)) for a in accounts])
 
 
 @router.post("/accounts", response_model=FinAccountResponse, status_code=status.HTTP_201_CREATED)
@@ -499,6 +509,10 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
     children = _children(session, user.id, account.id)
     if changes.get("is_active") is False and any(c.is_active for c in children):
         raise _conflict(f"'{account.name}' tiene apartados: archívalos antes")
+    if changes.get("is_active") is False and _term_uses(session, user.id, account.id, open_only=True):
+        raise _conflict(f"'{account.name}' tiene un plazo fijo abierto: espera a que venza o bórralo antes")
+    if changes.get("kind") == "credit" and account.kind != "credit" and _term_uses(session, user.id, account.id):
+        raise _conflict(f"'{account.name}' tiene plazos fijos: no puede ser tarjeta de crédito")
     if changes.get("is_active") and account.parent_id is not None:
         parent = session.get(FinAccount, account.parent_id)
         if parent is not None and not parent.is_active:
@@ -553,12 +567,109 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
         raise _conflict(f"'{account.name}' es tu cuenta por defecto: elige otra antes de borrarla")
     if _children(session, user.id, account.id):
         raise _conflict(f"'{account.name}' tiene apartados: bórralos o sácalos antes")
+    if _term_uses(session, user.id, account.id):
+        raise _conflict(f"'{account.name}' la usa un plazo fijo: bórralo antes")
     for row in session.exec(select(FinStatement).where(FinStatement.user_id == user.id,
                                                        FinStatement.account_id == account.id)).all():
         session.delete(row)
     for row in account_rates(session, user.id, account.id):
         session.delete(row)
     session.delete(account)
+    session.commit()
+
+
+# ==================== A plazo fijo ====================
+
+def _term_uses(session: Session, user_id: int, account_id: int, open_only: bool = False) -> bool:
+    """Si algún plazo vive en la cuenta o regresa a ella."""
+    query = select(FinTerm.id).where(FinTerm.user_id == user_id, or_(FinTerm.account_id == account_id,
+                                                                    FinTerm.return_account_id == account_id))
+    if open_only:
+        query = query.where(FinTerm.matured == False)  # noqa: E712
+    return session.exec(query.limit(1)).first() is not None
+
+
+def _term_response(term: FinTerm) -> FinTermResponse:
+    return FinTermResponse(
+        id=term.id, account_id=term.account_id, concept=term.concept, principal_cents=term.principal_cents,
+        start_date=term.start_date, days=term.days, rate_bp=term.rate_bp, day_basis=term.day_basis,
+        on_maturity=term.on_maturity, return_account_id=term.return_account_id, matured=term.matured,
+        maturity_date=term_maturity(term),
+        interest_cents=term_interest(term.principal_cents, term.rate_bp, term.days, term.day_basis),
+    )
+
+
+def _check_term(session: Session, user_id: int, body: FinTermFields) -> None:
+    """Vive en una cuenta propia que no es de crédito; si regresa, a otra propia
+    de la misma moneda."""
+    account = _own_account(session, user_id, body.account_id)
+    if account.kind == "credit":
+        raise _conflict("Un plazo fijo no vive en una tarjeta de crédito")
+    if body.on_maturity == "return":
+        if body.return_account_id is None:
+            raise _unprocessable("Elige a qué cuenta regresa el dinero al vencer")
+        target = _own_account(session, user_id, body.return_account_id)
+        if target.id == account.id:
+            raise _unprocessable("Para que se quede en la cuenta, elige que se quede")
+        if target.currency != account.currency:
+            raise _conflict("El dinero solo regresa a una cuenta de la misma moneda")
+    elif body.return_account_id is not None:
+        raise _unprocessable("Solo un plazo que regresa lleva cuenta de regreso")
+
+
+def _own_term(session: Session, user_id: int, term_id: int) -> FinTerm:
+    term = session.exec(select(FinTerm).where(FinTerm.id == term_id, FinTerm.user_id == user_id)).first()
+    if not term:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plazo no encontrado")
+    return term
+
+
+@router.get("/terms", response_model=FinTermListResponse)
+def list_terms(session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Los plazos fijos: los abiertos primero (por vencimiento) y luego los vencidos."""
+    generate_due(session, user.id, _today(session, user))
+    terms = session.exec(select(FinTerm).where(FinTerm.user_id == user.id)).all()
+    terms.sort(key=lambda t: (t.matured, term_maturity(t) if not t.matured else -term_maturity(t).toordinal()))
+    return FinTermListResponse(terms=[_term_response(t) for t in terms])
+
+
+@router.post("/terms", response_model=FinTermResponse, status_code=status.HTTP_201_CREATED)
+def create_term(body: FinTermFields, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Un plazo fijo. El dinero lo mueve el usuario (una transferencia); si ya
+    venció, se anota al pedir los datos, como un fijo."""
+    _check_term(session, user.id, body)
+    term = FinTerm(user_id=user.id, **body.model_dump())
+    term.concept = term.concept.strip() or "Plazo fijo"
+    session.add(term)
+    session.commit()
+    session.refresh(term)
+    generate_due(session, user.id, _today(session, user))
+    session.refresh(term)
+    return _term_response(term)
+
+
+@router.put("/terms/{term_id}", response_model=FinTermResponse)
+def update_term(term_id: int, body: FinTermFields, session: Session = Depends(get_session),
+                user: User = Depends(finance_user)):
+    """Corrige un plazo abierto (uno vencido ya anotó lo suyo: 409)."""
+    term = _own_term(session, user.id, term_id)
+    if term.matured:
+        raise _conflict("Ese plazo ya venció y se anotó: corrige sus movimientos")
+    _check_term(session, user.id, body)
+    for field, value in body.model_dump().items():
+        setattr(term, field, value)
+    term.concept = term.concept.strip() or "Plazo fijo"
+    session.add(term)
+    session.commit()
+    generate_due(session, user.id, _today(session, user))
+    session.refresh(term)
+    return _term_response(term)
+
+
+@router.delete("/terms/{term_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_term(term_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Borra el plazo; lo que ya anotó se queda (son movimientos normales)."""
+    session.delete(_own_term(session, user.id, term_id))
     session.commit()
 
 

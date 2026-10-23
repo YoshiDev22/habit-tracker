@@ -1606,6 +1606,9 @@ class FinAccountResponse(SQLModel):
     yield_rate_bp: Optional[int] = None
     yield_since: Optional[date_type] = None
     yield_estimate_cents: Optional[int] = None
+    # En plazos fijos abiertos: cuánto no está disponible y hasta cuándo (el primero que vence)
+    term_locked_cents: int = 0
+    term_until: Optional[date_type] = None
 
 
 class FinAccountListResponse(SQLModel):
@@ -1639,6 +1642,46 @@ class FinYieldResponse(SQLModel):
     since: Optional[date_type] = None
     through: Optional[date_type] = None
     estimate_cents: Optional[int] = None
+
+
+FIN_TERM_ON_MATURITY = ("stay", "return", "renew")
+
+
+class FinTermFields(SQLModel):
+    """Un plazo fijo. Al vencer: se queda en la cuenta (stay), regresa a otra
+    (return, con return_account_id) o se reinvierte (renew)."""
+    account_id: int
+    concept: str = Field(default="Plazo fijo", min_length=1, max_length=80)
+    principal_cents: int = Field(ge=1, le=MAX_MONEY_CENTS)
+    start_date: date_type
+    days: int = Field(ge=1, le=3650)
+    rate_bp: int = Field(ge=0, le=10_000)
+    day_basis: int = 360
+    on_maturity: str = "stay"
+    return_account_id: Optional[int] = None
+
+    @field_validator("day_basis")
+    @classmethod
+    def validate_day_basis(cls, v):
+        if v not in (365, 360):
+            raise ValueError("day_basis debe ser 365 o 360")
+        return v
+
+    @field_validator("on_maturity")
+    @classmethod
+    def validate_on_maturity(cls, v):
+        return _one_of(v, FIN_TERM_ON_MATURITY, "on_maturity")
+
+
+class FinTermResponse(FinTermFields):
+    id: int
+    maturity_date: date_type
+    interest_cents: int
+    matured: bool
+
+
+class FinTermListResponse(SQLModel):
+    terms: List[FinTermResponse]
 
 
 class FinYieldRecord(SQLModel):

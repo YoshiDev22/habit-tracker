@@ -138,6 +138,61 @@ def test_daily_yield_is_estimated_and_recorded(api):
     assert api.call("PATCH", f"{URL}/{bank['id']}", {"kind": "credit"})[0] == 409
 
 
+def test_fixed_terms_mature_once(api):
+    cash, debit, credit, cats = setup(api, "plazos@test.com")
+    _, cetes = api.call("POST", URL, {"name": "CETES", "kind": "debit"}, expect=201)
+    api.call("POST", "/api/finance/transactions", tx(debit, 2_000_000, "Nómina", cats["Sueldo"], kind="income",
+                                                     day=TODAY - timedelta(days=40)), expect=201)
+    api.call("POST", "/api/finance/transactions", tx(debit, 1_000_000, "A CETES", kind="transfer", to=cetes,
+                                                     day=TODAY - timedelta(days=40)), expect=201)
+    term = {"account_id": cetes["id"], "concept": "CETES 28", "principal_cents": 1_000_000,
+            "start_date": days_ago(40), "days": 28, "rate_bp": 1100}
+    # Abierto (vence en el futuro): no anota nada y la cuenta dice cuánto no está disponible
+    _, open_term = api.call("POST", "/api/finance/terms", {**term, "start_date": days_ago(1)}, expect=201)
+    assert open_term["interest_cents"] == round(1_000_000 * 0.11 * 28 / 360) and not open_term["matured"]
+    assert open_term["maturity_date"] == (TODAY + timedelta(days=27)).isoformat()
+    mine = accounts(api)
+    assert mine["CETES"]["term_locked_cents"] == 1_000_000 and mine["CETES"]["term_until"] == open_term["maturity_date"]
+    api.call("DELETE", f"/api/finance/terms/{open_term['id']}", expect=204)
+
+    # Vencido hace 12 días, y regresa a Débito: rendimiento como ingreso y la transferencia de vuelta
+    _, done = api.call("POST", "/api/finance/terms", {**term, "on_maturity": "return",
+                                                      "return_account_id": debit["id"]}, expect=201)
+    interest = round(1_000_000 * 0.11 * 28 / 360)
+    assert done["matured"] and done["interest_cents"] == interest
+    for _ in range(2):  # pedirlo otra vez no anota de nuevo
+        mine = accounts(api)
+    assert mine["CETES"]["balance_cents"] == 0 and mine["CETES"]["term_locked_cents"] == 0
+    assert mine["Débito"]["balance_cents"] == 1_000_000 + 1_000_000 + interest
+    moves = [t for t in api.call("GET", f"/api/finance/transactions?date_from={days_ago(60)}&date_to={days_ago(0)}",
+                                 expect=200)[1]["transactions"] if t["source"] == "yield"]
+    assert sorted((t["kind"], t["amount_cents"], t["tx_date"]) for t in moves) == sorted([
+        ("income", interest, days_ago(12)), ("transfer", 1_000_000 + interest, days_ago(12))])
+    # Un plazo vencido ya no se corrige (sus movimientos sí); borrarlo deja lo anotado
+    assert api.call("PUT", f"/api/finance/terms/{done['id']}", term)[0] == 409
+    api.call("DELETE", f"/api/finance/terms/{done['id']}", expect=204)
+    assert accounts(api)["Débito"]["balance_cents"] == 2_000_000 + interest
+
+    # Reinvertir: cada vencimiento anota su rendimiento y empieza otro con capital + rendimiento
+    _, renew = api.call("POST", "/api/finance/terms", {**term, "principal_cents": 100_000, "days": 10,
+                                                       "start_date": days_ago(25), "on_maturity": "renew"}, expect=201)
+    terms = api.call("GET", "/api/finance/terms", expect=200)[1]["terms"]
+    first = round(100_000 * 0.11 * 10 / 360)
+    second = round((100_000 + first) * 0.11 * 10 / 360)
+    assert [(t["principal_cents"], t["matured"]) for t in terms] == [
+        (100_000 + first + second, False), (100_000 + first, True), (100_000, True)]
+    assert terms[0]["maturity_date"] == (TODAY + timedelta(days=5)).isoformat()
+
+    # Las reglas
+    assert api.call("POST", "/api/finance/terms", {**term, "account_id": credit["id"]})[0] == 409
+    assert api.call("POST", "/api/finance/terms", {**term, "on_maturity": "return"})[0] == 422
+    assert api.call("POST", "/api/finance/terms", {**term, "return_account_id": debit["id"]})[0] == 422
+    assert api.call("POST", "/api/finance/terms", {**term, "on_maturity": "x"})[0] == 422
+    assert api.call("PATCH", f"{URL}/{cetes['id']}", {"is_active": False})[0] == 409, "it has an open term"
+    status, body = api.call("DELETE", f"{URL}/{cetes['id']}")
+    assert status == 409
+
+
 def test_a_pocket_earns_its_own_rate(api):
     """Como un banco digital: 12 % a la vista y 15 % en el apartado, moviendo el
     dinero cuando sea. Cada cuenta gana con su tasa sobre lo que tiene ese día."""

@@ -95,6 +95,7 @@ function finRenderAccountMenu() {
     }
     const list = credit ? FIN_MENU_ACTIONS.credit : [...FIN_MENU_ACTIONS.base,
         ['yield', 'trending-up', 'Rendimiento', '#00b894'],
+        ['term', 'landmark', 'Plazo fijo', '#2980b9'],
         // Una cuenta suelta puede tener apartados; un apartado, no
         ...(a.parent_id == null ? [['pocket', 'piggy-bank', 'Apartado', '#e67e22']] : [])];
     const actions = list.map(([act, icon, label, color]) => {
@@ -150,6 +151,9 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
         openFinAccount(null, a.kind, { parentId: a.id });
     } else if (act === 'yield') {
         openFinYield();
+    } else if (act === 'term') {
+        closeFinSheet(finAccountMenu);
+        openFinTerm(null, a.id);
     }
 });
 
@@ -444,6 +448,204 @@ document.getElementById('finYieldRecordForm').addEventListener('submit', async (
     } catch (error) {
         showError(errorEl, error.message);
     }
+});
+
+// ---------- A plazo fijo ----------
+
+const finTermSheet = document.getElementById('finTermSheet');
+const finTermForm = { term: null };
+const FIN_ON_MATURITY = { stay: 'se queda ahí', return: 'regresa', renew: 'se reinvierte' };
+
+// Las cuentas donde vive un plazo: activas y que no son de crédito
+function finTermAccounts() {
+    return finActiveAccounts().filter(a => a.kind !== 'credit');
+}
+
+function finFillAccountSelect(select, accounts, selectedId) {
+    select.replaceChildren(...accounts.map(a => {
+        const option = el('option', '', a.name);
+        option.value = String(a.id);
+        return option;
+    }));
+    if (selectedId != null && accounts.some(a => a.id === selectedId)) select.value = String(selectedId);
+}
+
+function openFinTerm(term = null, accountId = null) {
+    finTermForm.term = term;
+    document.getElementById('finTermTitle').textContent = term ? term.concept : 'Nuevo plazo fijo';
+    document.getElementById('finTermConcept').value = term ? term.concept : '';
+    finFillAccountSelect(document.getElementById('finTermAccount'), finTermAccounts(), term ? term.account_id : accountId);
+    document.getElementById('finTermPrincipal').value = term ? (term.principal_cents / 100).toFixed(2) : '';
+    document.getElementById('finTermRate').value = term ? String(term.rate_bp / 100) : '';
+    document.getElementById('finTermStart').value = term ? term.start_date : finToday();
+    document.getElementById('finTermDays').value = term ? String(term.days) : '28';
+    document.getElementById('finTermBasis').value = term ? String(term.day_basis) : '360';
+    document.getElementById('finTermOnMaturity').value = term ? term.on_maturity : 'stay';
+    document.getElementById('finTermDelete').hidden = !term;
+    document.getElementById('finTermError').classList.add('hidden');
+    finSyncTermForm(term ? term.return_account_id : null);
+    openFinSheet(finTermSheet);
+}
+
+// "Regresa a" solo al regresar, sin la cuenta del plazo y en su moneda; y lo que dará
+function finSyncTermForm(returnId) {
+    const account = finAccount(Number(document.getElementById('finTermAccount').value));
+    const back = document.getElementById('finTermOnMaturity').value === 'return';
+    document.getElementById('finTermReturnField').hidden = !back;
+    const select = document.getElementById('finTermReturn');
+    const keep = returnId !== undefined ? returnId : Number(select.value) || null;
+    finFillAccountSelect(select, finActiveAccounts().filter(a => account && a.id !== account.id
+        && a.currency === account.currency && a.kind !== 'credit'), keep);
+    const values = finTermValues();
+    const preview = document.getElementById('finTermPreview');
+    if (!account || !values) {
+        preview.textContent = '';
+        return;
+    }
+    const interest = Math.round(values.principal_cents * values.rate_bp * values.days / (10000 * values.day_basis));
+    const end = finAddDays(values.start_date, values.days);
+    preview.textContent = `Vence el ${finShortDate(end)} y da ${formatMoney(interest, account.currency)} `
+        + `(${formatMoney(values.principal_cents + interest, account.currency)} en total).`;
+}
+
+// Lo del formulario, o null si falta algo
+function finTermValues() {
+    const principal = parseMoneyCents(document.getElementById('finTermPrincipal').value.trim());
+    const rateText = document.getElementById('finTermRate').value.trim().replace(',', '.').replace('%', '');
+    const rate = Number(rateText);
+    const days = Number(document.getElementById('finTermDays').value);
+    const start = document.getElementById('finTermStart').value;
+    if (principal == null || principal <= 0 || !rateText || !Number.isFinite(rate) || rate < 0 || rate > 100
+        || !Number.isInteger(days) || days < 1 || days > 3650 || !start) return null;
+    return { principal_cents: principal, rate_bp: Math.round(rate * 100), days, start_date: start,
+        day_basis: Number(document.getElementById('finTermBasis').value) };
+}
+
+['finTermAccount', 'finTermOnMaturity'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => finSyncTermForm());
+});
+['finTermPrincipal', 'finTermRate', 'finTermDays', 'finTermStart', 'finTermBasis'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => finSyncTermForm());
+});
+
+document.getElementById('finTermForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const errorEl = document.getElementById('finTermError');
+    errorEl.classList.add('hidden');
+    const values = finTermValues();
+    if (!values) return showError(errorEl, 'Revisa monto, tasa (0 a 100 %), días (1 a 3650) y la fecha.');
+    const onMaturity = document.getElementById('finTermOnMaturity').value;
+    const body = {
+        ...values, account_id: Number(document.getElementById('finTermAccount').value),
+        concept: document.getElementById('finTermConcept').value.trim() || 'Plazo fijo', on_maturity: onMaturity,
+        return_account_id: onMaturity === 'return' ? Number(document.getElementById('finTermReturn').value) || null : null,
+    };
+    if (onMaturity === 'return' && !body.return_account_id) return showError(errorEl, 'Elige a qué cuenta regresa.');
+    const term = finTermForm.term;
+    try {
+        await apiFetch(term ? `/api/finance/terms/${term.id}` : '/api/finance/terms', { method: term ? 'PUT' : 'POST', json: body });
+        closeFinSheet(finTermSheet);
+        await finLoad();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+document.getElementById('finTermDelete').addEventListener('click', async () => {
+    const term = finTermForm.term;
+    if (!term) return;
+    const ok = await confirmDialog(`¿Borrar "${term.concept}"? Lo que ya anotó se queda en tus movimientos.`,
+        { confirmLabel: 'Borrar' });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/finance/terms/${term.id}`, { method: 'DELETE' });
+        closeFinSheet(finTermSheet);
+        await finLoad();
+    } catch (error) {
+        showError(document.getElementById('finTermError'), error.message);
+    }
+});
+
+// La pestaña Cuentas › Inversiones: los plazos fijos y las cuentas que ganan día a día
+async function finRenderInvestments(body) {
+    let terms = [];
+    try {
+        terms = (await apiFetch('/api/finance/terms')).terms;
+    } catch (error) {
+        body.replaceChildren(el('p', 'fin-hint', error.message));
+        return;
+    }
+    if (finState.accountsSub !== 'investments') return;
+    finState.terms = terms;
+    const blocks = [];
+    const open = terms.filter(t => !t.matured);
+    const head = el('div', 'fin-accounts-head');
+    head.append(el('span', '', 'Plazos fijos'));
+    blocks.push(head);
+    if (!open.length) blocks.push(el('p', 'fin-empty', 'Sin plazos abiertos.'));
+    open.forEach(t => {
+        const a = finAccount(t.account_id);
+        const currency = a ? a.currency : finMainCurrency();
+        const row = el('button', 'fin-account fin-term');
+        row.type = 'button';
+        row.dataset.termId = String(t.id);
+        const text = el('span', 'fin-account-text');
+        text.append(el('strong', '', t.concept),
+            el('span', 'fin-account-balance', formatMoney(t.principal_cents, currency)),
+            el('small', 'fin-account-sub', `${a ? a.name : ''} · ${finRateText(t.rate_bp)} · ${t.days} días · ${FIN_ON_MATURITY[t.on_maturity]}`));
+        const side = el('span', 'fin-account-side');
+        side.append(el('small', '', `Vence el ${finShortDate(t.maturity_date)}`),
+            el('span', 'fin-available', `+${formatMoney(t.interest_cents, currency)}`));
+        row.append(finBadge('landmark', a ? finAccountColor(a) : FIN_NEUTRAL, { size: 'md', square: true }), text, side);
+        blocks.push(row);
+    });
+    const add = el('button', 'link-btn fin-add-account', '＋ Nuevo plazo fijo');
+    add.type = 'button';
+    add.dataset.newTerm = '1';
+    blocks.push(add);
+    const done = terms.filter(t => t.matured).slice(0, 10);
+    if (done.length) {
+        const past = el('details', 'fin-terms-past');
+        past.appendChild(el('summary', '', `Vencidos (${done.length})`));
+        done.forEach(t => {
+            const a = finAccount(t.account_id);
+            past.appendChild(el('p', 'fin-hint', `${t.concept}: ${formatMoney(t.principal_cents, a ? a.currency : finMainCurrency())}`
+                + ` + ${formatMoney(t.interest_cents, a ? a.currency : finMainCurrency())}, venció el ${finShortDate(t.maturity_date)}`));
+        });
+        blocks.push(past);
+    }
+    // Las que ganan día a día: su tasa y lo ganado sin anotar
+    const daily = finActiveAccounts().filter(a => a.yield_rate_bp);
+    const dailyHead = el('div', 'fin-accounts-head spaced');
+    dailyHead.appendChild(el('span', '', 'Rendimiento diario'));
+    blocks.push(dailyHead);
+    if (!daily.length) {
+        blocks.push(el('p', 'fin-empty', 'Ninguna cuenta gana día a día. Ponle su tasa en el menú de la cuenta › Rendimiento.'));
+    }
+    daily.forEach(a => {
+        const row = el('button', 'fin-account');
+        row.type = 'button';
+        row.dataset.accountId = String(a.id);
+        const text = el('span', 'fin-account-text');
+        text.append(el('strong', '', a.name), el('span', 'fin-account-balance', formatMoney(a.balance_cents, a.currency)),
+            el('small', 'fin-account-sub', `Gana ${finRateText(a.yield_rate_bp)} anual`));
+        const side = el('span', 'fin-account-side');
+        if (a.yield_estimate_cents) {
+            side.append(el('small', '', 'Sin anotar'), el('span', 'fin-available', `+${formatMoney(a.yield_estimate_cents, a.currency)}`));
+        }
+        row.append(finBadge(finAccountIcon(a), finAccountColor(a), { size: 'md', square: true }), text, side);
+        blocks.push(row);
+    });
+    body.replaceChildren(...blocks);
+}
+
+document.getElementById('finAccountsBody').addEventListener('click', (event) => {
+    const term = event.target.closest('[data-term-id]');
+    if (term) {
+        openFinTerm((finState.terms || []).find(t => t.id === Number(term.dataset.termId)) || null);
+        return;
+    }
+    if (event.target.closest('[data-new-term]')) openFinTerm();
 });
 
 // ---------- Meses sin intereses de la deuda ----------

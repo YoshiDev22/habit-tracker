@@ -2,6 +2,7 @@
 
 > Base: Finanzas 0.5.0 (Habit Tracker 1.31.0) · Planteado el 2026-10-23 · Va en una sola versión
 > de Finanzas junto con el aviso de pago de tarjeta (BACKLOG 45), con **una sola migración**.
+> **Implementado el 2026-10-23** (las tres fases); falta la 45 para publicar la versión.
 
 ## El problema
 
@@ -71,14 +72,16 @@ tasa desde una fecha; `DELETE /accounts/{id}/yield-rates/{rate_id}` quita una.
 Tabla **`fin_terms`**: `user_id`, `account_id` (la cuenta o apartado donde vive el dinero),
 `principal_cents`, `start_date`, `days` (1 a 3650), `rate_bp`, `day_basis` (360 por defecto, como
 CETES y pagarés), `on_maturity` (`stay | return | renew`), `return_account_id` (con `return`),
-`matured_tx_id` y `created_at`.
+`matured`, `concept` y `created_at`. Sus movimientos llevan `external_id` `term-<id>` (y `term-<id>-return`)
+en el índice único de `fin_transactions`, así que no se anotan dos veces; la tabla usa `AUTOINCREMENT` para
+que el id de uno borrado no se reutilice.
 
 - Rendimiento = `capital × tasa × días ÷ base`, con `ROUND_HALF_UP`. Vence el
   `start_date + days`.
 - Al vencer, `generate_due()` (el mismo que anota los fijos, perezoso al pedir datos) anota el
   ingreso del rendimiento en la cuenta con `source = "yield"`. Con `return`, además una
   transferencia de capital + rendimiento a `return_account_id`. Con `renew`, un plazo nuevo
-  desde el vencimiento con capital + rendimiento. Una vez (lo marca `matured_tx_id`).
+  desde el vencimiento con capital + rendimiento. Una vez (lo marca `matured`).
 - Mientras está abierto, la cuenta dice "No disponible: $X hasta el 15 nov".
 - El dinero entra al plazo con una transferencia que hace el usuario; la app no la crea al dar
   de alta el plazo (puede venir de cualquier cuenta, o ya estar ahí).

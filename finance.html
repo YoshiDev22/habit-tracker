@@ -374,6 +374,59 @@
         </div>
     </div>
 
+    <!-- Un plazo fijo: crear o corregir (finance-accounts.js) -->
+    <div class="fin-sheet hidden" id="finTermSheet" role="dialog" aria-modal="true" aria-labelledby="finTermTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finTermTitle">Plazo fijo</h2>
+            <form id="finTermForm" class="fin-form" novalidate>
+                <label class="fin-field wide">Nombre
+                    <input type="text" id="finTermConcept" maxlength="80" autocomplete="off" placeholder="CETES 28 días">
+                </label>
+                <label class="fin-field wide">Vive en
+                    <select id="finTermAccount"></select>
+                </label>
+                <label class="fin-field">Monto invertido
+                    <input type="text" id="finTermPrincipal" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                </label>
+                <label class="fin-field">Tasa anual (%)
+                    <input type="text" id="finTermRate" inputmode="decimal" autocomplete="off" placeholder="11">
+                </label>
+                <label class="fin-field">Desde
+                    <input type="date" id="finTermStart">
+                </label>
+                <label class="fin-field">Días
+                    <input type="number" id="finTermDays" min="1" max="3650" inputmode="numeric" placeholder="28">
+                </label>
+                <label class="fin-field">Año de
+                    <select id="finTermBasis">
+                        <option value="360">360 días</option>
+                        <option value="365">365 días</option>
+                    </select>
+                </label>
+                <label class="fin-field">Al vencer
+                    <select id="finTermOnMaturity">
+                        <option value="stay">Se queda ahí</option>
+                        <option value="return">Regresa a otra cuenta</option>
+                        <option value="renew">Se reinvierte</option>
+                    </select>
+                </label>
+                <label class="fin-field wide" id="finTermReturnField" hidden>Regresa a
+                    <select id="finTermReturn"></select>
+                </label>
+                <p class="fin-hint wide" id="finTermPreview"></p>
+                <p class="fin-hint wide">El dinero lo mueves tú con una transferencia a esa cuenta. Al vencer, la app anota
+                    el rendimiento como ingreso y, si regresa, la transferencia de vuelta.</p>
+                <div id="finTermError" class="form-error hidden wide"></div>
+                <div class="fin-form-actions wide">
+                    <button type="button" class="link-btn" id="finTermDelete" hidden>Borrar</button>
+                    <button type="button" class="link-btn" data-close-sheet>Cancelar</button>
+                    <button type="submit" class="submit-btn" id="finTermSave">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Tocar una cuenta: su saldo y lo que se hace con ella (finance-accounts.js) -->
     <div class="fin-sheet hidden" id="finAccountMenu" role="dialog" aria-modal="true" aria-labelledby="finMenuName">
         <div class="fin-sheet-overlay" data-close-sheet></div>

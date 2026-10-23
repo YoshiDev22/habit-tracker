@@ -973,12 +973,15 @@ function finRenderAccounts() {
     });
     const body = document.getElementById('finAccountsBody');
     const sub = finState.accountsSub;
-    if (sub === 'investments' || sub === 'debts') {
+    if (sub === 'investments') {
+        // Plazos fijos y rendimiento diario (finance-accounts.js)
+        finRenderInvestments(body);
+        return;
+    }
+    if (sub === 'debts') {
         const card = el('section', 'fin-card fin-soon');
-        card.append(el('h2', 'fin-card-title', sub === 'investments' ? 'Inversiones' : 'Deudas'),
-            el('p', 'fin-hint', sub === 'investments'
-                ? 'Próximamente: lo que aportas, el valor que actualizas y una ganancia estimada, sin revolverlo con tu saldo.'
-                : 'Próximamente: préstamos largos (carro, casa, negocio) con su pago y lo que falta, aparte del total de tus cuentas.'));
+        card.append(el('h2', 'fin-card-title', 'Deudas'), el('p', 'fin-hint',
+            'Próximamente: préstamos largos (carro, casa, negocio) con su pago y lo que falta, aparte del total de tus cuentas.'));
         body.replaceChildren(card);
         return;
     }
@@ -1002,6 +1005,10 @@ function finRenderAccounts() {
             formatMoney(total, a.currency));
         text.append(el('strong', '', a.name), balance);
         if (pockets.length) text.appendChild(el('small', 'fin-account-sub', `A la vista ${formatMoney(a.balance_cents, a.currency)}`));
+        if (a.term_locked_cents) {
+            text.appendChild(el('small', 'fin-account-sub',
+                `No disponible ${formatMoney(a.term_locked_cents, a.currency)} hasta el ${finShortDate(a.term_until)}`));
+        }
         // Lo ganado sin anotar: se anota desde el menú de la cuenta › Rendimiento
         if (a.yield_estimate_cents) {
             text.appendChild(el('small', 'fin-account-sub earning',

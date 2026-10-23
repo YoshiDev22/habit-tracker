@@ -300,3 +300,9 @@ def test_personal_finance(api):
     for bad in ({"amount_cents": 0}, {"amount_cents": 10 ** 13}):
         assert api.call("POST", f"{acc}/{cash['id']}/yield", bad)[0] == 422, bad
     assert api.call("POST", acc, {"name": "Suelto", "parent_id": "uno"})[0] == 422
+    term = {"account_id": cash["id"], "principal_cents": 100, "start_date": "2030-01-01", "days": 28, "rate_bp": 1100}
+    api.call("POST", "/api/finance/terms", term, expect=201)
+    for bad in ({"concept": "x" * 81}, {"concept": ""}, {"principal_cents": 0}, {"principal_cents": 10 ** 13},
+                {"days": 0}, {"days": 3651}, {"rate_bp": -1}, {"rate_bp": 10_001}, {"day_basis": 100},
+                {"on_maturity": "x" * 5000}):
+        assert api.call("POST", "/api/finance/terms", {**term, **bad})[0] == 422, bad

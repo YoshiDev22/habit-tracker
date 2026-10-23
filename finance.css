@@ -633,6 +633,10 @@
     color: var(--accent);
 }
 
+.fin-accounts-head.spaced {
+    margin-top: 18px;
+}
+
 .fin-accounts-head strong {
     font-variant-numeric: tabular-nums;
     font-size: 1.1rem;
@@ -694,6 +698,20 @@
 
 .fin-account-sub.earning {
     color: var(--income-fg);
+}
+
+.fin-terms-past {
+    margin: 4px 8px 12px;
+    color: var(--text-secondary);
+}
+
+.fin-terms-past summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.fin-terms-past .fin-hint {
+    margin: 6px 0 0;
 }
 
 /* El rendimiento de una cuenta (su página en el menú) */

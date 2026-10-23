@@ -808,6 +808,36 @@ class FinYieldRate(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
+class FinTerm(SQLModel, table=True):
+    """
+    Una inversión a plazo fijo (CETES, un pagaré) que vive en una cuenta o
+    apartado: el dinero llega con una transferencia del usuario y no está
+    disponible hasta el vencimiento (start_date + days). Al vencer, el
+    rendimiento (capital × tasa × días ÷ base) se anota como ingreso con
+    source = "yield", y según on_maturity el total se queda, regresa a otra
+    cuenta o se reinvierte en un plazo nuevo. Lo anota backend/finance_yield.py
+    una sola vez: external_id "term-<id>" en el índice único de los movimientos.
+    Por eso un id nunca se reutiliza (AUTOINCREMENT): uno borrado deja sus
+    movimientos, y otro plazo con su id chocaría con ellos.
+    """
+    __tablename__ = "fin_terms"
+    __table_args__ = {"sqlite_autoincrement": True}
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    concept: str
+    principal_cents: int
+    start_date: date_type
+    days: int
+    rate_bp: int
+    day_basis: int = Field(default=360)           # CETES y pagarés cuentan años de 360 días
+    on_maturity: str = Field(default="stay")      # stay | return | renew
+    return_account_id: Optional[int] = Field(default=None, foreign_key="fin_accounts.id")
+    matured: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
 class FinCategory(SQLModel, table=True):
     """Categoría de gasto o de ingreso. Las de inicio las crea backend/finance.py
     la primera vez; después son del usuario. Con movimientos no se borra."""
