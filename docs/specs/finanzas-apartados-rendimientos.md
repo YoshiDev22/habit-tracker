@@ -1,8 +1,8 @@
 # Spec: Finanzas — apartados y rendimientos
 
-> Base: Finanzas 0.5.0 (Habit Tracker 1.31.0) · Planteado el 2026-10-23 · Va en una sola versión
-> de Finanzas junto con el aviso de pago de tarjeta (BACKLOG 45), con **una sola migración**.
-> **Implementado el 2026-10-23** (las tres fases); falta la 45 para publicar la versión.
+> Base: Finanzas 0.5.0 (Habit Tracker 1.31.0) · Planteado el 2026-10-23 · **Implementado** el mismo día
+> (las tres fases) y publicado en Finanzas 0.6.0. El aviso de pago de tarjeta (BACKLOG 45), que iba a salir
+> con esto, quedó para la 0.7.
 
 ## El problema
 

@@ -630,7 +630,7 @@ la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es
 y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
 
 
-## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.6, con la 46)
+## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.7)
 
 **Pedido el 2026-10-19.** Que la tarjeta lo diga cuando la fecha límite de pago esté cerca y aún quede algo por
 pagar, y que la campana de Finanzas lo avise.
@@ -646,18 +646,10 @@ campana de Habit Tracker.
 de anticipación (3 o 5; por defecto 5) y *Avisarme en la campana* (por defecto sí; apagada, solo el color). Se
 guardan en **dos columnas nuevas de `fin_settings`** (NULL = por defecto), así que lleva **migración**
 (`migrate.py` antes de reiniciar). La campana de Habit Tracker pide sus avisos sin el de Finanzas, y su conteo no lo
-incluye. Sale en la misma versión que la 46 (decidido el 2026-10-23), con una sola migración.
+incluye. Se pensó para salir con la 46 (apartados y rendimientos, cerrada en Finanzas 0.6); el 2026-10-23 se
+dejó para la siguiente versión. Lleva su propia migración.
 
 **Por decidir.** Si también avisa el día de corte.
-
-## 46 · P2 · Finanzas: apartados y rendimientos (Finanzas 0.6, con la 45)
-
-**Pedido el 2026-10-23.** Una cuenta con apartados de ahorro, y rendimientos: diarios y sin plazo (como un banco
-digital que paga 12 % a la vista y 15 % en sus apartados, y deja mover el dinero entre ellos cuando sea) y a plazo
-fijo (CETES, pagarés). Hoy el rendimiento se ajusta a mano cada vez que se revisa. Plan y reglas en
-[`docs/specs/finanzas-apartados-rendimientos.md`](docs/specs/finanzas-apartados-rendimientos.md): apartados como
-cuentas hijas, el rendimiento diario como estimado con *Anotar rendimientos*, tope opcional, sin ISR.
-Lleva **migración** (`fin_accounts.parent_id`).
 
 ## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.7)
 
