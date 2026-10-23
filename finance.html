@@ -85,6 +85,8 @@
                 <span class="fin-total-more" id="finTotalMore"></span>
             </div>
             <div class="fin-top-side end">
+                <!-- Tus notas, a la izquierda de la campana (finance-data.js) -->
+                <button type="button" class="fin-round-btn" id="finNotesBtn" aria-label="Notas" title="Notas"></button>
                 <!-- Los avisos de tu cuenta, los mismos de la app (finance-news.js) -->
                 <button type="button" class="fin-round-btn fin-bell" id="finBellBtn" aria-label="Avisos" title="Avisos">
                     <span class="fin-bell-count" id="finBellCount" hidden></span>
@@ -325,14 +327,19 @@
                 <label class="fin-field wide">Nombre
                     <input type="text" id="finAccName" maxlength="40" required>
                 </label>
-                <label class="fin-field">Tipo
+                <!-- Un apartado cuelga de una cuenta y toma su tipo y su moneda -->
+                <label class="fin-field wide" id="finAccParentField">Apartado de
+                    <select id="finAccParent"></select>
+                </label>
+                <label class="fin-field not-pocket">Tipo
                     <select id="finAccKind">
                         <option value="cash">Efectivo</option>
                         <option value="debit">Débito</option>
+                        <option value="investment">Inversión</option>
                         <option value="credit">Crédito</option>
                     </select>
                 </label>
-                <label class="fin-field">Moneda
+                <label class="fin-field not-pocket">Moneda
                     <select id="finAccCurrency"></select>
                 </label>
                 <label class="fin-field" id="finAccOpeningField"><span id="finAccOpeningLabel">Saldo al empezar</span>
@@ -341,7 +348,7 @@
                 <label class="fin-field">Al día
                     <input type="date" id="finAccOpeningDate">
                 </label>
-                <label class="fin-field">Últimos 4 dígitos
+                <label class="fin-field not-pocket">Últimos 4 dígitos
                     <input type="text" id="finAccLast4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Opcional">
                 </label>
                 <label class="fin-field credit-only">Límite de crédito
@@ -352,6 +359,9 @@
                 </label>
                 <label class="fin-field credit-only">Día de pago
                     <input type="number" id="finAccDue" min="1" max="31" inputmode="numeric" placeholder="1–31">
+                </label>
+                <label class="fin-field credit-only">Tasa de interés anual (%)
+                    <input type="text" id="finAccInterest" inputmode="decimal" autocomplete="off" placeholder="Opcional">
                 </label>
                 <p class="fin-hint wide" id="finAccHint"></p>
                 <div class="fin-field wide">Icono
@@ -365,6 +375,67 @@
                     <button type="button" class="link-btn" id="finAccArchive" hidden>Archivar</button>
                     <button type="button" class="link-btn" id="finAccCancel">Cancelar</button>
                     <button type="submit" class="submit-btn" id="finAccSave">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Un plazo fijo: crear o corregir (finance-accounts.js) -->
+    <div class="fin-sheet hidden" id="finTermSheet" role="dialog" aria-modal="true" aria-labelledby="finTermTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <h2 class="fin-sheet-title" id="finTermTitle">Plazo fijo</h2>
+            <form id="finTermForm" class="fin-form" novalidate>
+                <label class="fin-field wide">Nombre
+                    <input type="text" id="finTermConcept" maxlength="80" autocomplete="off" placeholder="CETES 28 días">
+                </label>
+                <label class="fin-field wide">Vive en
+                    <select id="finTermAccount"></select>
+                </label>
+                <!-- "Nueva cuenta de inversión" en Vive en: se crea al guardar el plazo -->
+                <label class="fin-field wide" id="finTermNewField" hidden>Nombre de la cuenta nueva
+                    <input type="text" id="finTermNewName" maxlength="40" autocomplete="off" placeholder="CETES, GBM, Bitso…">
+                </label>
+                <!-- Solo al crear: la transferencia que mete el dinero al plazo, el día que empieza -->
+                <label class="fin-field wide" id="finTermFromField">El dinero sale de
+                    <select id="finTermFrom"></select>
+                </label>
+                <label class="fin-field">Monto invertido
+                    <input type="text" id="finTermPrincipal" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                </label>
+                <label class="fin-field">Tasa anual (%)
+                    <input type="text" id="finTermRate" inputmode="decimal" autocomplete="off" placeholder="11">
+                </label>
+                <label class="fin-field">Desde
+                    <input type="date" id="finTermStart">
+                </label>
+                <label class="fin-field">Días
+                    <input type="number" id="finTermDays" min="1" max="3650" inputmode="numeric" placeholder="28">
+                </label>
+                <label class="fin-field">Año de
+                    <select id="finTermBasis">
+                        <option value="360">360 días</option>
+                        <option value="365">365 días</option>
+                    </select>
+                </label>
+                <label class="fin-field">Al vencer
+                    <select id="finTermOnMaturity">
+                        <option value="stay">Se queda ahí</option>
+                        <option value="return">Regresa a otra cuenta</option>
+                        <option value="renew">Se reinvierte</option>
+                    </select>
+                </label>
+                <label class="fin-field wide" id="finTermReturnField" hidden>Regresa a
+                    <select id="finTermReturn"></select>
+                </label>
+                <p class="fin-hint wide" id="finTermPreview"></p>
+                <p class="fin-hint wide">Al vencer, la app anota el rendimiento como ingreso y, si regresa, la
+                    transferencia de vuelta.</p>
+                <div id="finTermError" class="form-error hidden wide"></div>
+                <div class="fin-form-actions wide">
+                    <button type="button" class="link-btn" id="finTermDelete" hidden>Borrar</button>
+                    <button type="button" class="link-btn" data-close-sheet>Cancelar</button>
+                    <button type="submit" class="submit-btn" id="finTermSave">Guardar</button>
                 </div>
             </form>
         </div>
@@ -428,6 +499,50 @@
                 </div>
             </form>
 
+            <!-- Rendimiento diario: la tasa, lo ganado sin anotar y anotarlo (finance-accounts.js) -->
+            <div class="fin-menu-page" id="finYieldPage" hidden>
+                <div class="fin-yield-earned" id="finYieldEarned">
+                    <span class="fin-stat-label" id="finYieldEarnedLabel">Ganado sin anotar</span>
+                    <strong id="finYieldEarnedAmount">—</strong>
+                </div>
+                <form class="fin-form" id="finYieldRecordForm" novalidate hidden>
+                    <label class="fin-field wide">¿Tu banco dice otra cifra? Escríbela
+                        <input type="text" id="finYieldBank" inputmode="decimal" autocomplete="off" placeholder="Opcional">
+                    </label>
+                    <p class="fin-hint wide">Se anota como un ingreso en Rendimientos, hoy. Lo siguiente se cuenta desde hoy.</p>
+                    <div id="finYieldRecordError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="submit" class="submit-btn" id="finYieldRecord">Anotar</button>
+                    </div>
+                </form>
+                <p class="fin-stat-label fin-yield-rates-title">Tasas</p>
+                <ul class="fin-yield-rates" id="finYieldRates"></ul>
+                <form class="fin-form" id="finYieldRateForm" novalidate>
+                    <label class="fin-field">Tasa anual (%)
+                        <input type="text" id="finYieldRate" inputmode="decimal" autocomplete="off" placeholder="15">
+                    </label>
+                    <label class="fin-field">Desde
+                        <input type="date" id="finYieldFrom">
+                    </label>
+                    <label class="fin-field">Hasta un monto
+                        <input type="text" id="finYieldCap" inputmode="decimal" autocomplete="off" placeholder="Sin tope">
+                    </label>
+                    <label class="fin-field">Año de
+                        <select id="finYieldBasis">
+                            <option value="365">365 días</option>
+                            <option value="360">360 días</option>
+                        </select>
+                    </label>
+                    <p class="fin-hint wide">Gana cada día sobre el saldo de ese día, y lo ganado también gana. Con tope,
+                        solo esa parte del saldo gana. Un cambio de tasa vale desde su día; 0 % deja de ganar.</p>
+                    <div id="finYieldRateError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                        <button type="submit" class="submit-btn">Guardar tasa</button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Meses sin intereses que ya traía la deuda (sin compra anotada) -->
             <div class="fin-menu-page" id="finMsiPage" hidden>
                 <p class="fin-hint">Cópialas de tu estado de cuenta, de la tabla de compras a meses sin intereses. Ya van
@@ -468,14 +583,23 @@
         </div>
     </div>
 
-    <!-- Los avisos de tu cuenta: los mismos de la campanita de la app -->
-    <div class="fin-sheet hidden" id="finNoticesSheet" role="dialog" aria-modal="true" aria-labelledby="finNoticesTitle">
+    <!-- Los avisos de tu cuenta: un panel que sale de la campana (lo coloca finPlaceNotices()) -->
+    <div class="fin-sheet fin-pop hidden" id="finNoticesSheet" role="dialog" aria-modal="true" aria-labelledby="finNoticesTitle">
         <div class="fin-sheet-overlay" data-close-sheet></div>
-        <div class="fin-sheet-panel">
-            <h2 class="fin-sheet-title" id="finNoticesTitle">Avisos</h2>
-            <div id="finNoticesBody"></div>
-            <div class="fin-form-actions">
-                <button type="button" class="submit-btn" data-close-sheet>Cerrar</button>
+        <div class="fin-pop-panel" id="finNoticesPanel" tabindex="-1">
+            <h2 class="fin-pop-title" id="finNoticesTitle">Avisos</h2>
+            <div class="fin-pop-body" id="finNoticesBody"></div>
+        </div>
+    </div>
+
+    <!-- Las notas, a la mano junto a la campana (finance-data.js); se editan en el panel lateral -->
+    <div class="fin-sheet fin-pop hidden" id="finNotesPop" role="dialog" aria-modal="true" aria-labelledby="finNotesPopTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-pop-panel" id="finNotesPopPanel" tabindex="-1">
+            <h2 class="fin-pop-title" id="finNotesPopTitle">Notas</h2>
+            <div class="fin-pop-body" id="finNotesPopBody"></div>
+            <div class="fin-pop-foot">
+                <button type="button" class="link-btn" id="finNotesPopNew">＋ Nueva nota</button>
             </div>
         </div>
     </div>
@@ -612,6 +736,8 @@
                     <span data-icon="settings"></span>Configuración</button>
                 <button type="button" class="fin-drawer-item" data-go="data">
                     <span data-icon="arrow-left-right"></span>Datos</button>
+                <button type="button" class="fin-drawer-item" data-go="notes">
+                    <span data-icon="book-open"></span>Notas</button>
                 <button type="button" class="fin-drawer-item" data-go="news">
                     <span data-icon="sparkles"></span>Novedades</button>
                 <button type="button" class="fin-drawer-item" data-go="privacy">
@@ -753,6 +879,32 @@
             <div id="finDataError" class="form-error hidden"></div>
             </div>
 
+            <!-- Notas: texto libre (p. ej. el prompt con el que una IA lee tus estados de cuenta) -->
+            <div class="settings-page fin-drawer-page" data-section="notes" data-title="Notas" data-parent="root">
+                <p class="fin-hint">Lo que quieras tener a la mano: el prompt con el que una IA saca tus movimientos,
+                    datos de tus cuentas, recordatorios. Solo tú las ves.</p>
+                <ul class="fin-notes" id="finNotesList"></ul>
+                <button type="button" class="link-btn fin-add-account" id="finNoteNew">＋ Nueva nota</button>
+                <div id="finNotesError" class="form-error hidden"></div>
+            </div>
+            <div class="settings-page fin-drawer-page" data-section="note" data-title="Nota" data-parent="notes">
+                <form class="fin-form" id="finNoteForm" novalidate>
+                    <label class="fin-field wide">Título
+                        <input type="text" id="finNoteTitle" maxlength="80" autocomplete="off" placeholder="Prompt de mis estados de cuenta">
+                    </label>
+                    <label class="fin-field wide">Texto
+                        <textarea id="finNoteBody" class="fin-note-body" rows="12" maxlength="10000"></textarea>
+                    </label>
+                    <p class="fin-hint wide" id="finNoteStatus"></p>
+                    <div id="finNoteError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" id="finNoteDelete" hidden>Borrar</button>
+                        <button type="button" class="link-btn" id="finNoteCopy">Copiar</button>
+                        <button type="submit" class="submit-btn" id="finNoteSave">Guardar</button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Las Novedades de Finanzas, todas -->
             <div class="settings-page fin-drawer-page" data-section="news" data-title="Novedades" data-parent="root">
                 <div id="finNewsAll"></div>
@@ -854,6 +1006,8 @@
                     <tbody id="finImportRows"></tbody>
                 </table>
             </div>
+            <!-- Las sumas de lo que se agregará: para cuadrarlas con el estado de cuenta -->
+            <dl class="fin-import-totals" id="finImportTotals" hidden></dl>
             <label class="fin-check hidden" id="finImportDupesOption">
                 <input type="checkbox" id="finImportDupes">
                 <span id="finImportDupesLabel"></span>

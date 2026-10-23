@@ -308,9 +308,12 @@ function finPickerItem(dataset, name, badge, sub = '') {
 }
 
 function finAccountPicks(skipId) {
+    // Un apartado dice de qué cuenta es: "Viaje" a secas no dice dónde está el dinero
+    const parentName = a => (finState.accounts.find(p => p.id === a.parent_id) || {}).name;
     return finActiveAccounts().filter(a => a.id !== skipId).map(a => finPickerItem(
         { pickAccount: String(a.id) }, a.name,
-        finBadge(finAccountIcon(a), finAccountColor(a), { square: true }), formatMoney(a.balance_cents, a.currency)));
+        finBadge(finAccountIcon(a), finAccountColor(a), { square: true }),
+        [a.parent_id != null ? parentName(a) : '', formatMoney(a.balance_cents, a.currency)].filter(Boolean).join(' · ')));
 }
 
 function finCategoryPicks(kind) {

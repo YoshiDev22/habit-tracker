@@ -760,7 +760,7 @@ class FinAccount(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     name: str
-    kind: str = Field(default="cash")            # cash | debit | credit
+    kind: str = Field(default="cash")            # cash | debit | credit | investment
     currency: str = Field(default="MXN")
     last4: Optional[str] = Field(default=None)   # nunca el número completo
     is_default: bool = Field(default=False)      # la de la alta rápida: solo una
@@ -780,7 +780,77 @@ class FinAccount(SQLModel, table=True):
     credit_limit_cents: Optional[int] = Field(default=None)
     statement_day: Optional[int] = Field(default=None)
     due_day: Optional[int] = Field(default=None)
+    # Solo crédito: la tasa de interés anual que cobra, de referencia (no se calcula nada con ella)
+    interest_rate_bp: Optional[int] = Field(default=None)
+    # Un apartado (ahorro dentro de la cuenta) cuelga de su cuenta madre: un solo
+    # nivel, de efectivo o débito, misma moneda y tipo. Mover dinero entre ellas
+    # es una transferencia. NULL = cuenta suelta.
+    parent_id: Optional[int] = Field(default=None, foreign_key="fin_accounts.id")
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinYieldRate(SQLModel, table=True):
+    """
+    La tasa anual que paga una cuenta (o un apartado) día a día, sin plazo,
+    desde `from_date` hasta la fila siguiente: un cambio de tasa del banco no
+    reescribe lo de antes. rate_bp = 0 es "desde aquí ya no gana". Con tope,
+    solo esa parte del saldo gana. El rendimiento no se guarda: se estima
+    (backend/finance_yield.py) y se anota con un movimiento source = "yield".
+    """
+    __tablename__ = "fin_yield_rates"
+    __table_args__ = (UniqueConstraint("account_id", "from_date", name="uq_fin_yield_rates_account_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    from_date: date_type
+    rate_bp: int                                  # 1500 = 15 % anual
+    cap_cents: Optional[int] = Field(default=None)
+    day_basis: int = Field(default=365)           # 365 o 360
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinTerm(SQLModel, table=True):
+    """
+    Una inversión a plazo fijo (CETES, un pagaré) que vive en una cuenta o
+    apartado: el dinero llega con una transferencia del usuario y no está
+    disponible hasta el vencimiento (start_date + days). Al vencer, el
+    rendimiento (capital × tasa × días ÷ base) se anota como ingreso con
+    source = "yield", y según on_maturity el total se queda, regresa a otra
+    cuenta o se reinvierte en un plazo nuevo. Lo anota backend/finance_yield.py
+    una sola vez: external_id "term-<id>" en el índice único de los movimientos.
+    Por eso un id nunca se reutiliza (AUTOINCREMENT): uno borrado deja sus
+    movimientos, y otro plazo con su id chocaría con ellos.
+    """
+    __tablename__ = "fin_terms"
+    __table_args__ = {"sqlite_autoincrement": True}
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id")
+    concept: str
+    principal_cents: int
+    start_date: date_type
+    days: int
+    rate_bp: int
+    day_basis: int = Field(default=360)           # CETES y pagarés cuentan años de 360 días
+    on_maturity: str = Field(default="stay")      # stay | return | renew
+    return_account_id: Optional[int] = Field(default=None, foreign_key="fin_accounts.id")
+    matured: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinNote(SQLModel, table=True):
+    """Una nota libre de Finanzas (p. ej. el prompt con el que una IA lee los
+    estados de cuenta). Texto del usuario: el panel de administración no la lee."""
+    __tablename__ = "fin_notes"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    title: str
+    body: str = Field(default="")
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+    updated_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
 class FinCategory(SQLModel, table=True):

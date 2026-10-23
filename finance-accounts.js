@@ -72,6 +72,17 @@ function finRenderAccountMenu() {
     document.getElementById('finMenuBalance').textContent = formatMoney(credit ? Math.abs(a.balance_cents)
         : a.balance_cents, a.currency);
     const more = [];
+    const pockets = finState.accounts.filter(p => p.is_active && p.parent_id === a.id);
+    if (pockets.length) {
+        const total = pockets.reduce((acc, p) => acc + p.balance_cents, a.balance_cents);
+        more.push(`Con ${pockets.length === 1 ? 'su apartado' : `sus ${pockets.length} apartados`}: ${formatMoney(total, a.currency)}`);
+    }
+    if (a.parent_id != null) {
+        const parent = finState.accounts.find(p => p.id === a.parent_id);
+        if (parent) more.push(`Apartado de ${parent.name}`);
+    }
+    if (a.yield_rate_bp) more.push(`Gana ${finRateText(a.yield_rate_bp)} anual`);
+    if (a.interest_rate_bp != null) more.push(`Tasa ${finRateText(a.interest_rate_bp)} anual`);
     if (a.available_cents != null) more.push(`Disponible ${formatMoney(a.available_cents, a.currency)}`);
     if (a.opening_date) more.push(`desde el ${finShortDate(a.opening_date)}`);
     document.getElementById('finMenuMore').textContent = more.join(' · ');
@@ -83,7 +94,12 @@ function finRenderAccountMenu() {
         history.textContent = `Antes del ${finShortDate(a.opening_date)}: ${n} (entró ${formatMoney(a.before_in_cents, a.currency)}, `
             + `salió ${formatMoney(a.before_out_cents, a.currency)}). Son historial: no cambian el saldo.`;
     }
-    const actions = (credit ? FIN_MENU_ACTIONS.credit : FIN_MENU_ACTIONS.base).map(([act, icon, label, color]) => {
+    const list = credit ? FIN_MENU_ACTIONS.credit : [...FIN_MENU_ACTIONS.base,
+        ['yield', 'trending-up', 'Rendimiento', '#00b894'],
+        ['term', 'landmark', 'Plazo fijo', '#2980b9'],
+        // Una cuenta suelta puede tener apartados; un apartado, no
+        ...(a.parent_id == null ? [['pocket', 'piggy-bank', 'Apartado', '#e67e22']] : [])];
+    const actions = list.map(([act, icon, label, color]) => {
         const button = el('button', 'fin-menu-action');
         button.type = 'button';
         button.dataset.menuAct = act;
@@ -100,6 +116,7 @@ function finRenderAccountMenu() {
 function finMenuPage(name) {
     document.getElementById('finMenuActions').hidden = Boolean(name);
     document.getElementById('finAdjustForm').hidden = name !== 'adjust';
+    document.getElementById('finYieldPage').hidden = name !== 'yield';
     document.getElementById('finMsiPage').hidden = name !== 'msi';
     document.getElementById('finStatementPage').hidden = name !== 'statement';
     document.getElementById('finMenuStatement').hidden = Boolean(name) || !finMenu.statement;
@@ -130,6 +147,14 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
         finPayCard(a);
     } else if (act === 'msi') {
         openFinMsi();
+    } else if (act === 'pocket') {
+        closeFinSheet(finAccountMenu);
+        openFinAccount(null, a.kind, { parentId: a.id });
+    } else if (act === 'yield') {
+        openFinYield();
+    } else if (act === 'term') {
+        closeFinSheet(finAccountMenu);
+        openFinTerm(null, a.id);
     }
 });
 
@@ -305,6 +330,393 @@ document.getElementById('finAdjustForm').addEventListener('submit', async (event
     } catch (error) {
         showError(errorEl, error.message);
     }
+});
+
+// ---------- Rendimiento diario ----------
+
+const finYield = { data: null };
+
+async function openFinYield() {
+    ['finYieldRecordError', 'finYieldRateError'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById('finYieldRateForm').reset();
+    document.getElementById('finYieldFrom').value = finToday();
+    document.getElementById('finYieldFrom').max = finToday();
+    finMenuPage('yield');
+    await finLoadYield();
+}
+
+async function finLoadYield() {
+    const a = finMenu.account;
+    try {
+        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield`);
+    } catch (error) {
+        showError(document.getElementById('finYieldRateError'), error.message);
+        return;
+    }
+    if (finMenu.account !== a) return;
+    finRenderYield();
+}
+
+// "15 %", "12.5 %"
+function finRateText(bp) {
+    return `${(bp / 100).toLocaleString('es-MX', { maximumFractionDigits: 2 })} %`;
+}
+
+function finRenderYield() {
+    const a = finMenu.account;
+    const y = finYield.data;
+    const money = cents => formatMoney(cents, a.currency);
+    const hasRate = y.rates.length > 0;
+    const earned = document.getElementById('finYieldEarned');
+    earned.hidden = !hasRate;
+    document.getElementById('finYieldRecordForm').hidden = !hasRate;
+    if (hasRate) {
+        const span = y.through < y.since ? 'Ganado sin anotar' : y.since === y.through
+            ? `Ganado ayer (${finShortDate(y.since)})` : `Ganado del ${finShortDate(y.since)} al ${finShortDate(y.through)}`;
+        document.getElementById('finYieldEarnedLabel').textContent = `${span}, estimado`;
+        document.getElementById('finYieldEarnedAmount').textContent = money(y.estimate_cents || 0);
+        document.getElementById('finYieldRecord').textContent = y.estimate_cents
+            ? `Anotar ${money(y.estimate_cents)}` : 'Anotar';
+    }
+    const list = document.getElementById('finYieldRates');
+    list.replaceChildren(...(hasRate ? [...y.rates].reverse().map(r => {
+        const row = el('li', 'fin-yield-rate');
+        row.dataset.rateId = String(r.id);
+        const text = [`${finRateText(r.rate_bp)} desde el ${finShortDate(r.from_date)}`];
+        if (r.cap_cents) text.push(`hasta ${money(r.cap_cents)}`);
+        if (r.day_basis === 360) text.push('año de 360 días');
+        const remove = el('button', 'link-btn fin-yield-remove', '×');
+        remove.type = 'button';
+        remove.setAttribute('aria-label', 'Quitar esta tasa');
+        row.append(el('span', '', text.join(' · ')), remove);
+        return row;
+    }) : [el('li', 'fin-hint', 'Sin tasa: esta cuenta no gana rendimiento.')]));
+}
+
+document.getElementById('finYieldRates').addEventListener('click', async (event) => {
+    const row = event.target.closest('[data-rate-id]');
+    if (!row || !event.target.closest('.fin-yield-remove')) return;
+    const a = finMenu.account;
+    try {
+        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield-rates/${row.dataset.rateId}`, { method: 'DELETE' });
+        finRenderYield();
+        finLoad();
+    } catch (error) {
+        showError(document.getElementById('finYieldRateError'), error.message);
+    }
+});
+
+document.getElementById('finYieldRateForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const a = finMenu.account;
+    const errorEl = document.getElementById('finYieldRateError');
+    errorEl.classList.add('hidden');
+    const rateText = document.getElementById('finYieldRate').value.trim().replace(',', '.').replace('%', '');
+    const rate = Number(rateText);
+    if (!rateText || !Number.isFinite(rate) || rate < 0 || rate > 100) return showError(errorEl, 'La tasa va de 0 a 100 %.');
+    const capText = document.getElementById('finYieldCap').value.trim();
+    const cap = capText ? parseMoneyCents(capText) : null;
+    if (capText && (cap == null || cap <= 0)) return showError(errorEl, 'El tope es un monto mayor que cero.');
+    const from = document.getElementById('finYieldFrom').value || finToday();
+    if (from > finToday()) return showError(errorEl, 'La tasa empieza hoy o antes.');
+    try {
+        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield-rates`, { method: 'PUT', json: {
+            from_date: from, rate_bp: Math.round(rate * 100), cap_cents: cap,
+            day_basis: Number(document.getElementById('finYieldBasis').value),
+        } });
+        document.getElementById('finYieldRateForm').reset();
+        document.getElementById('finYieldFrom').value = finToday();
+        finRenderYield();
+        finLoad();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+document.getElementById('finYieldRecordForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const a = finMenu.account;
+    const errorEl = document.getElementById('finYieldRecordError');
+    errorEl.classList.add('hidden');
+    const bankText = document.getElementById('finYieldBank').value.trim();
+    const bank = bankText ? parseMoneyCents(bankText) : null;
+    if (bankText && (bank == null || bank <= 0)) return showError(errorEl, 'Escribe el monto: solo números.');
+    try {
+        await apiFetch(`/api/finance/accounts/${a.id}/yield`, { method: 'POST', json: bank ? { amount_cents: bank } : {} });
+        document.getElementById('finYieldBank').value = '';
+        closeFinSheet(finAccountMenu);
+        await finLoad();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+// ---------- A plazo fijo ----------
+
+const finTermSheet = document.getElementById('finTermSheet');
+const finTermForm = { term: null };
+const FIN_ON_MATURITY = { stay: 'se queda ahí', return: 'regresa', renew: 'se reinvierte' };
+
+// Las cuentas donde vive un plazo: activas y que no son de crédito
+function finTermAccounts() {
+    return finActiveAccounts().filter(a => a.kind !== 'credit');
+}
+
+function finFillAccountSelect(select, accounts, selectedId) {
+    select.replaceChildren(...accounts.map(a => {
+        const option = el('option', '', a.name);
+        option.value = String(a.id);
+        return option;
+    }));
+    if (selectedId != null && accounts.some(a => a.id === selectedId)) select.value = String(selectedId);
+}
+
+function openFinTerm(term = null, accountId = null) {
+    finTermForm.term = term;
+    document.getElementById('finTermTitle').textContent = term ? term.concept : 'Nuevo plazo fijo';
+    document.getElementById('finTermConcept').value = term ? term.concept : '';
+    const select = document.getElementById('finTermAccount');
+    finFillAccountSelect(select, finTermAccounts(), term ? term.account_id : accountId);
+    // CETES o una casa de bolsa suelen ser su propia cuenta: se crea aquí mismo
+    const fresh = el('option', '', '＋ Nueva cuenta de inversión…');
+    fresh.value = 'new';
+    select.appendChild(fresh);
+    if (!term && accountId == null) {
+        const invest = finTermAccounts().find(a => a.kind === 'investment');
+        select.value = invest ? String(invest.id) : 'new';
+    }
+    document.getElementById('finTermNewName').value = '';
+    document.getElementById('finTermFromField').hidden = Boolean(term);
+    document.getElementById('finTermFrom').value = '';
+    document.getElementById('finTermPrincipal').value = term ? (term.principal_cents / 100).toFixed(2) : '';
+    document.getElementById('finTermRate').value = term ? String(term.rate_bp / 100) : '';
+    document.getElementById('finTermStart').value = term ? term.start_date : finToday();
+    document.getElementById('finTermDays').value = term ? String(term.days) : '28';
+    document.getElementById('finTermBasis').value = term ? String(term.day_basis) : '360';
+    document.getElementById('finTermOnMaturity').value = term ? term.on_maturity : 'stay';
+    document.getElementById('finTermDelete').hidden = !term;
+    document.getElementById('finTermError').classList.add('hidden');
+    finSyncTermForm(term ? term.return_account_id : null);
+    openFinSheet(finTermSheet);
+}
+
+// "Regresa a" solo al regresar, sin la cuenta del plazo y en su moneda; y lo que dará
+function finSyncTermForm(returnId) {
+    const isNew = document.getElementById('finTermAccount').value === 'new';
+    document.getElementById('finTermNewField').hidden = !isNew;
+    // Una cuenta nueva es de la moneda principal
+    const account = isNew ? { id: null, currency: finMainCurrency() }
+        : finAccount(Number(document.getElementById('finTermAccount').value));
+    const back = document.getElementById('finTermOnMaturity').value === 'return';
+    document.getElementById('finTermReturnField').hidden = !back;
+    const select = document.getElementById('finTermReturn');
+    const keep = returnId !== undefined ? returnId : Number(select.value) || null;
+    finFillAccountSelect(select, finActiveAccounts().filter(a => account && a.id !== account.id
+        && a.currency === account.currency && a.kind !== 'credit'), keep);
+    // De dónde sale el dinero: "Ya está ahí" o una cuenta de la misma moneda (la transferencia se anota al guardar)
+    const from = document.getElementById('finTermFrom');
+    const keepFrom = from.value;
+    const already = el('option', '', 'Ya está ahí: no muevas nada');
+    already.value = '';
+    from.replaceChildren(already, ...finActiveAccounts().filter(a => account && a.id !== account.id
+        && a.currency === account.currency && a.kind !== 'credit').map(a => {
+        const option = el('option', '', a.name);
+        option.value = String(a.id);
+        return option;
+    }));
+    if ([...from.options].some(o => o.value === keepFrom)) from.value = keepFrom;
+    const values = finTermValues();
+    const preview = document.getElementById('finTermPreview');
+    if (!account || !values) {
+        preview.textContent = '';
+        return;
+    }
+    const interest = Math.round(values.principal_cents * values.rate_bp * values.days / (10000 * values.day_basis));
+    const end = finAddDays(values.start_date, values.days);
+    preview.textContent = `Vence el ${finShortDate(end)} y da ${formatMoney(interest, account.currency)} `
+        + `(${formatMoney(values.principal_cents + interest, account.currency)} en total).`;
+}
+
+// Lo del formulario, o null si falta algo
+function finTermValues() {
+    const principal = parseMoneyCents(document.getElementById('finTermPrincipal').value.trim());
+    const rateText = document.getElementById('finTermRate').value.trim().replace(',', '.').replace('%', '');
+    const rate = Number(rateText);
+    const days = Number(document.getElementById('finTermDays').value);
+    const start = document.getElementById('finTermStart').value;
+    if (principal == null || principal <= 0 || !rateText || !Number.isFinite(rate) || rate < 0 || rate > 100
+        || !Number.isInteger(days) || days < 1 || days > 3650 || !start) return null;
+    return { principal_cents: principal, rate_bp: Math.round(rate * 100), days, start_date: start,
+        day_basis: Number(document.getElementById('finTermBasis').value) };
+}
+
+['finTermAccount', 'finTermOnMaturity'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => finSyncTermForm());
+});
+['finTermPrincipal', 'finTermRate', 'finTermDays', 'finTermStart', 'finTermBasis'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => finSyncTermForm());
+});
+
+document.getElementById('finTermForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const errorEl = document.getElementById('finTermError');
+    errorEl.classList.add('hidden');
+    const values = finTermValues();
+    if (!values) return showError(errorEl, 'Revisa monto, tasa (0 a 100 %), días (1 a 3650) y la fecha.');
+    const onMaturity = document.getElementById('finTermOnMaturity').value;
+    const body = {
+        ...values, account_id: Number(document.getElementById('finTermAccount').value),
+        concept: document.getElementById('finTermConcept').value.trim() || 'Plazo fijo', on_maturity: onMaturity,
+        return_account_id: onMaturity === 'return' ? Number(document.getElementById('finTermReturn').value) || null : null,
+    };
+    if (onMaturity === 'return' && !body.return_account_id) return showError(errorEl, 'Elige a qué cuenta regresa.');
+    const newName = document.getElementById('finTermNewName').value.trim();
+    const isNew = document.getElementById('finTermAccount').value === 'new';
+    if (isNew && !newName) return showError(errorEl, 'Escribe el nombre de la cuenta nueva (CETES, GBM, Bitso…).');
+    const term = finTermForm.term;
+    try {
+        if (isNew) {
+            // Primero la cuenta; si el plazo falla, la cuenta queda y se elige en la lista
+            const account = await apiFetch('/api/finance/accounts', { method: 'POST', json: {
+                name: newName, kind: 'investment', currency: finMainCurrency(), icon: 'trending-up',
+                color: FIN_PALETTE[(finState.accounts.length * 4 + 3) % FIN_PALETTE.length] } });
+            finState.accounts.push(account);
+            finFillAccountSelect(document.getElementById('finTermAccount'), finTermAccounts(), account.id);
+            body.account_id = account.id;
+        }
+        const fromId = term ? null : Number(document.getElementById('finTermFrom').value) || null;
+        const saved = await apiFetch(term ? `/api/finance/terms/${term.id}` : '/api/finance/terms',
+            { method: term ? 'PUT' : 'POST', json: body });
+        // Un plazo nuevo ya guardado se edita desde aquí si lo que sigue falla
+        finTermForm.term = saved;
+        if (fromId) {
+            await apiFetch('/api/finance/transactions', { method: 'POST', json: {
+                kind: 'transfer', account_id: fromId, to_account_id: body.account_id, amount_cents: body.principal_cents,
+                tx_date: body.start_date, concept: `A plazo: ${body.concept}`.slice(0, 200) } });
+        }
+        closeFinSheet(finTermSheet);
+        await finLoad();
+    } catch (error) {
+        showError(errorEl, finTermForm.term && !term
+            ? `El plazo se guardó, pero el dinero no se movió: ${error.message}` : error.message);
+    }
+});
+
+document.getElementById('finTermDelete').addEventListener('click', async () => {
+    const term = finTermForm.term;
+    if (!term) return;
+    const ok = await confirmDialog(`¿Borrar "${term.concept}"? Lo que ya anotó se queda en tus movimientos.`,
+        { confirmLabel: 'Borrar' });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/finance/terms/${term.id}`, { method: 'DELETE' });
+        closeFinSheet(finTermSheet);
+        await finLoad();
+    } catch (error) {
+        showError(document.getElementById('finTermError'), error.message);
+    }
+});
+
+// La pestaña Cuentas › Inversiones: los plazos fijos y las cuentas que ganan día a día
+async function finRenderInvestments(body) {
+    let terms = [];
+    try {
+        terms = (await apiFetch('/api/finance/terms')).terms;
+    } catch (error) {
+        body.replaceChildren(el('p', 'fin-hint', error.message));
+        return;
+    }
+    if (finState.accountsSub !== 'investments') return;
+    finState.terms = terms;
+    const blocks = [];
+    // Las cuentas de inversión (CETES, una casa de bolsa, un exchange), con su total
+    const invest = finActiveAccounts().filter(a => a.kind === 'investment');
+    const main = finMainCurrency();
+    const investHead = el('div', 'fin-accounts-head');
+    const investSum = invest.filter(a => a.currency === main).reduce((acc, a) => acc + a.balance_cents, 0);
+    investHead.append(el('span', '', 'Cuentas de inversión'), el('strong', '', finMoney(investSum, main)));
+    blocks.push(investHead);
+    if (!invest.length) blocks.push(el('p', 'fin-empty', 'Agrega aquí CETES, tu casa de bolsa o tu exchange: cada una con su saldo.'));
+    invest.forEach(a => blocks.push(finInvestmentRow(a)));
+    const addAccount = el('button', 'link-btn fin-add-account', '＋ Nueva cuenta de inversión');
+    addAccount.type = 'button';
+    addAccount.dataset.newAccount = 'investment';
+    blocks.push(addAccount);
+
+    const open = terms.filter(t => !t.matured);
+    const head = el('div', 'fin-accounts-head spaced');
+    head.append(el('span', '', 'Plazos fijos'));
+    blocks.push(head);
+    if (!open.length) blocks.push(el('p', 'fin-empty', 'Sin plazos abiertos.'));
+    open.forEach(t => {
+        const a = finAccount(t.account_id);
+        const currency = a ? a.currency : finMainCurrency();
+        const row = el('button', 'fin-account fin-term');
+        row.type = 'button';
+        row.dataset.termId = String(t.id);
+        const text = el('span', 'fin-account-text');
+        text.append(el('strong', '', t.concept),
+            el('span', 'fin-account-balance', formatMoney(t.principal_cents, currency)),
+            el('small', 'fin-account-sub', `${a ? a.name : ''} · ${finRateText(t.rate_bp)} · ${t.days} días · ${FIN_ON_MATURITY[t.on_maturity]}`));
+        const side = el('span', 'fin-account-side');
+        side.append(el('small', '', `Vence el ${finShortDate(t.maturity_date)}`),
+            el('span', 'fin-available', `+${formatMoney(t.interest_cents, currency)}`));
+        row.append(finBadge('landmark', a ? finAccountColor(a) : FIN_NEUTRAL, { size: 'md', square: true }), text, side);
+        blocks.push(row);
+    });
+    const add = el('button', 'link-btn fin-add-account', '＋ Nuevo plazo fijo');
+    add.type = 'button';
+    add.dataset.newTerm = '1';
+    blocks.push(add);
+    const done = terms.filter(t => t.matured).slice(0, 10);
+    if (done.length) {
+        const past = el('details', 'fin-terms-past');
+        past.appendChild(el('summary', '', `Vencidos (${done.length})`));
+        done.forEach(t => {
+            const a = finAccount(t.account_id);
+            past.appendChild(el('p', 'fin-hint', `${t.concept}: ${formatMoney(t.principal_cents, a ? a.currency : finMainCurrency())}`
+                + ` + ${formatMoney(t.interest_cents, a ? a.currency : finMainCurrency())}, venció el ${finShortDate(t.maturity_date)}`));
+        });
+        blocks.push(past);
+    }
+    // Las demás que ganan día a día (una cuenta del banco, sus apartados)
+    const daily = finActiveAccounts().filter(a => a.yield_rate_bp && a.kind !== 'investment');
+    const dailyHead = el('div', 'fin-accounts-head spaced');
+    dailyHead.appendChild(el('span', '', 'Rendimiento diario en tus cuentas'));
+    blocks.push(dailyHead);
+    if (!daily.length) {
+        blocks.push(el('p', 'fin-empty', 'Ninguna otra cuenta gana día a día. Ponle su tasa en el menú de la cuenta › Rendimiento.'));
+    }
+    daily.forEach(a => blocks.push(finInvestmentRow(a)));
+    body.replaceChildren(...blocks);
+}
+
+// Una cuenta en Inversiones: su saldo, su tasa, lo que está en plazos y lo ganado sin anotar
+function finInvestmentRow(a) {
+    const row = el('button', 'fin-account');
+    row.type = 'button';
+    row.dataset.accountId = String(a.id);
+    const text = el('span', 'fin-account-text');
+    text.append(el('strong', '', a.name), el('span', 'fin-account-balance', formatMoney(a.balance_cents, a.currency)));
+    const details = [];
+    if (a.yield_rate_bp) details.push(`Gana ${finRateText(a.yield_rate_bp)} anual`);
+    if (a.term_locked_cents) details.push(`${formatMoney(a.term_locked_cents, a.currency)} en plazos`);
+    if (details.length) text.appendChild(el('small', 'fin-account-sub', details.join(' · ')));
+    const side = el('span', 'fin-account-side');
+    if (a.yield_estimate_cents) {
+        side.append(el('small', '', 'Sin anotar'), el('span', 'fin-available', `+${formatMoney(a.yield_estimate_cents, a.currency)}`));
+    }
+    row.append(finBadge(finAccountIcon(a), finAccountColor(a), { size: 'md', square: true }), text, side);
+    return row;
+}
+
+document.getElementById('finAccountsBody').addEventListener('click', (event) => {
+    const term = event.target.closest('[data-term-id]');
+    if (term) {
+        openFinTerm((finState.terms || []).find(t => t.id === Number(term.dataset.termId)) || null);
+        return;
+    }
+    if (event.target.closest('[data-new-term]')) openFinTerm();
 });
 
 // ---------- Meses sin intereses de la deuda ----------

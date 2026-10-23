@@ -292,3 +292,20 @@ def test_personal_finance(api):
                 {"months": 3, "bank_cut": "2030-01-01", "bank_part": 1, "bank_pending_cents": 10 ** 13}):
         assert api.call("POST", "/api/finance/installments", {"account_id": cash["id"], "purchase_date": "2030-01-01",
                                                                "concept": "x", "total_cents": 100, **bad})[0] == 422, bad
+    # El rendimiento: tasa de 0 a 100 %, tope positivo, base 365 o 360
+    rate = {"from_date": "2020-01-01", "rate_bp": 1500}
+    api.call("PUT", f"{acc}/{cash['id']}/yield-rates", rate, expect=200)
+    for bad in ({"rate_bp": -1}, {"rate_bp": 10_001}, {"cap_cents": 0}, {"cap_cents": 10 ** 13}, {"day_basis": 366}):
+        assert api.call("PUT", f"{acc}/{cash['id']}/yield-rates", {**rate, **bad})[0] == 422, bad
+    for bad in ({"amount_cents": 0}, {"amount_cents": 10 ** 13}):
+        assert api.call("POST", f"{acc}/{cash['id']}/yield", bad)[0] == 422, bad
+    assert api.call("POST", acc, {"name": "Suelto", "parent_id": "uno"})[0] == 422
+    term = {"account_id": cash["id"], "principal_cents": 100, "start_date": "2030-01-01", "days": 28, "rate_bp": 1100}
+    api.call("POST", "/api/finance/terms", term, expect=201)
+    for bad in ({"concept": "x" * 81}, {"concept": ""}, {"principal_cents": 0}, {"principal_cents": 10 ** 13},
+                {"days": 0}, {"days": 3651}, {"rate_bp": -1}, {"rate_bp": 10_001}, {"day_basis": 100},
+                {"on_maturity": "x" * 5000}):
+        assert api.call("POST", "/api/finance/terms", {**term, **bad})[0] == 422, bad
+    api.call("POST", "/api/finance/notes", {"title": "x" * 80, "body": "y" * 10_000}, expect=201)
+    for bad in ({"title": "x" * 81}, {"title": ""}, {"body": "y" * 10_001}):
+        assert api.call("POST", "/api/finance/notes", {"title": "Nota", **bad})[0] == 422, bad

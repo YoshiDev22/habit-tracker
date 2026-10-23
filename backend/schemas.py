@@ -1419,7 +1419,9 @@ class FeedbackResponse(SQLModel):
 
 # ==================== Finanzas personales (épica 37) ====================
 
-FIN_ACCOUNT_KINDS = ("cash", "debit", "credit")
+# investment: una cuenta de inversión (CETES, una casa de bolsa, un exchange); se
+# porta como débito, pero se lista en Cuentas › Inversiones
+FIN_ACCOUNT_KINDS = ("cash", "debit", "credit", "investment")
 FIN_CATEGORY_KINDS = ("expense", "income")
 FIN_TX_KINDS = ("expense", "income", "transfer")
 # La quincenal (el 15 y el último día) es solo de Finanzas: el sueldo
@@ -1502,6 +1504,10 @@ class FinAccountCreate(SQLModel):
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
+    # Tasa de interés anual de la tarjeta, de referencia (en puntos base: 4500 = 45 %)
+    interest_rate_bp: Optional[int] = Field(default=None, ge=0, le=100_000)
+    # Un apartado de esa cuenta: toma su moneda y su tipo
+    parent_id: Optional[int] = None
 
     @field_validator("icon")
     @classmethod
@@ -1546,6 +1552,8 @@ class FinAccountUpdate(SQLModel):
     credit_limit_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     statement_day: Optional[int] = Field(default=None, ge=1, le=31)
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
+    interest_rate_bp: Optional[int] = Field(default=None, ge=0, le=100_000)
+    parent_id: Optional[int] = None            # null: vuelve a ser cuenta suelta
 
     @field_validator("icon")
     @classmethod
@@ -1598,10 +1606,116 @@ class FinAccountResponse(SQLModel):
     # negativo es deuda. Disponible: límite + saldo, solo con límite.
     balance_cents: int = 0
     available_cents: Optional[int] = None
+    parent_id: Optional[int] = None   # un apartado: la cuenta de la que cuelga
+    interest_rate_bp: Optional[int] = None   # crédito: la tasa anual, de referencia
+    # Con tasa de rendimiento: la de hoy y lo ganado sin anotar (desde yield_since hasta ayer)
+    yield_rate_bp: Optional[int] = None
+    yield_since: Optional[date_type] = None
+    yield_estimate_cents: Optional[int] = None
+    # En plazos fijos abiertos: cuánto no está disponible y hasta cuándo (el primero que vence)
+    term_locked_cents: int = 0
+    term_until: Optional[date_type] = None
 
 
 class FinAccountListResponse(SQLModel):
     accounts: List[FinAccountResponse]
+
+
+class FinYieldRateFields(SQLModel):
+    """Una tasa anual desde un día (la misma fecha la reemplaza). 0 = ya no gana."""
+    from_date: date_type
+    rate_bp: int = Field(ge=0, le=10_000)
+    cap_cents: Optional[int] = Field(default=None, ge=1, le=MAX_MONEY_CENTS)
+    day_basis: int = 365
+
+    @field_validator("day_basis")
+    @classmethod
+    def validate_day_basis(cls, v):
+        if v not in (365, 360):
+            raise ValueError("day_basis debe ser 365 o 360")
+        return v
+
+
+class FinYieldRateResponse(FinYieldRateFields):
+    id: int
+
+
+class FinYieldResponse(SQLModel):
+    account_id: int
+    rates: List[FinYieldRateResponse]
+    rate_bp: Optional[int] = None         # la de hoy
+    cap_cents: Optional[int] = None
+    since: Optional[date_type] = None
+    through: Optional[date_type] = None
+    estimate_cents: Optional[int] = None
+
+
+FIN_TERM_ON_MATURITY = ("stay", "return", "renew")
+
+
+class FinTermFields(SQLModel):
+    """Un plazo fijo. Al vencer: se queda en la cuenta (stay), regresa a otra
+    (return, con return_account_id) o se reinvierte (renew)."""
+    account_id: int
+    concept: str = Field(default="Plazo fijo", min_length=1, max_length=80)
+    principal_cents: int = Field(ge=1, le=MAX_MONEY_CENTS)
+    start_date: date_type
+    days: int = Field(ge=1, le=3650)
+    rate_bp: int = Field(ge=0, le=10_000)
+    day_basis: int = 360
+    on_maturity: str = "stay"
+    return_account_id: Optional[int] = None
+
+    @field_validator("day_basis")
+    @classmethod
+    def validate_day_basis(cls, v):
+        if v not in (365, 360):
+            raise ValueError("day_basis debe ser 365 o 360")
+        return v
+
+    @field_validator("on_maturity")
+    @classmethod
+    def validate_on_maturity(cls, v):
+        return _one_of(v, FIN_TERM_ON_MATURITY, "on_maturity")
+
+
+class FinTermResponse(FinTermFields):
+    id: int
+    maturity_date: date_type
+    interest_cents: int
+    matured: bool
+
+
+class FinTermListResponse(SQLModel):
+    terms: List[FinTermResponse]
+
+
+FIN_NOTE_BODY_MAX = 10_000
+
+
+class FinNoteFields(SQLModel):
+    title: str = Field(min_length=1, max_length=80)
+    body: str = Field(default="", max_length=FIN_NOTE_BODY_MAX)
+
+
+class FinNoteUpdate(SQLModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    body: Optional[str] = Field(default=None, max_length=FIN_NOTE_BODY_MAX)
+
+
+class FinNoteResponse(FinNoteFields):
+    id: int
+    updated_at: datetime
+
+
+class FinNoteListResponse(SQLModel):
+    notes: List[FinNoteResponse]
+
+
+class FinYieldRecord(SQLModel):
+    """Anotar el rendimiento: sin monto, el estimado; con monto, el del banco."""
+    amount_cents: Optional[int] = Field(default=None, ge=1, le=MAX_MONEY_CENTS)
+    tx_date: Optional[date_type] = None
 
 
 class FinCategoryCreate(SQLModel):

@@ -190,6 +190,12 @@ def test_personal_finance(seeded):
     _, line = api.call("POST", "/api/finance/budget/items", {"group_id": group["id"], "name": "Renta",
                                                              "amount_cents": 450_000}, expect=201)
     _, their_group = other.call("POST", "/api/finance/budget/groups", {"name": "Suyo"}, expect=201)
+    my_rate = api.call("PUT", f"/api/finance/accounts/{mine['id']}/yield-rates", {"from_date": "2020-01-01",
+                                                                                  "rate_bp": 1500}, expect=200)[1]["rates"][0]["id"]
+    term_body = {"account_id": mine["id"], "principal_cents": 100, "start_date": date.today().isoformat(), "days": 28,
+                 "rate_bp": 1100}
+    my_term = api.call("POST", "/api/finance/terms", term_body, expect=201)[1]["id"]
+    my_note = api.call("POST", "/api/finance/notes", {"title": "Mía", "body": "secreto"}, expect=201)[1]["id"]
 
     # Ni ver, ni tocar, ni usar mis cuentas, categorías, movimientos, fijos o presupuesto
     for method, path, body in [
@@ -226,6 +232,23 @@ def test_personal_finance(seeded):
         ("POST", "/api/finance/transactions", {**tx(theirs, 2, "x"), "category_id": None,
                                                "splits": [{"category_id": cat["id"], "amount_cents": 1},
                                                           {"category_id": their_cat["id"], "amount_cents": 1}]}),
+        # Ni colgar un apartado suyo de mi cuenta
+        ("POST", "/api/finance/accounts", {"name": "Apartado", "parent_id": mine["id"]}),
+        ("PATCH", f"/api/finance/accounts/{theirs['id']}", {"parent_id": mine["id"]}),
+        # Ni ver ni tocar el rendimiento de mis cuentas
+        ("GET", f"/api/finance/accounts/{mine['id']}/yield", None),
+        ("PUT", f"/api/finance/accounts/{mine['id']}/yield-rates", {"from_date": "2020-01-01", "rate_bp": 1}),
+        ("DELETE", f"/api/finance/accounts/{mine['id']}/yield-rates/{my_rate}", None),
+        ("DELETE", f"/api/finance/accounts/{theirs['id']}/yield-rates/{my_rate}", None),
+        ("POST", f"/api/finance/accounts/{mine['id']}/yield", {"amount_cents": 1}),
+        # Ni mis plazos fijos, ni poner uno en mi cuenta o que regrese a ella
+        ("PUT", f"/api/finance/terms/{my_term}", {**term_body, "account_id": theirs["id"]}),
+        ("DELETE", f"/api/finance/terms/{my_term}", None),
+        ("PATCH", f"/api/finance/notes/{my_note}", {"title": "hack"}),
+        ("DELETE", f"/api/finance/notes/{my_note}", None),
+        ("POST", "/api/finance/terms", term_body),
+        ("POST", "/api/finance/terms", {**term_body, "account_id": theirs["id"], "on_maturity": "return",
+                                        "return_account_id": mine["id"]}),
     ]:
         assert other.call(method, path, body)[0] == 404, (method, path)
     _, their_tx = other.call("POST", "/api/finance/transactions", tx(theirs, 1, "suyo", their_cat), expect=201)
@@ -236,6 +259,8 @@ def test_personal_finance(seeded):
     assert [t["concept"] for t in other.call("GET", "/api/finance/transactions", expect=200)[1]["transactions"]] == ["suyo"]
     assert other.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"] == []
     assert other.call("GET", "/api/finance/installments", expect=200)[1]["installments"] == []
+    assert other.call("GET", "/api/finance/notes", expect=200)[1]["notes"] == []
+    assert other.call("GET", "/api/finance/terms", expect=200)[1]["terms"] == []
     assert [g["name"] for g in other.call("GET", "/api/finance/budget", expect=200)[1]["groups"]] == ["Suyo"]
     assert other.call("GET", "/api/finance/budget", expect=200)[1]["items"] == []
     assert other.call("GET", f"/api/finance/transactions?account_id={mine['id']}", expect=200)[1]["transactions"] == []

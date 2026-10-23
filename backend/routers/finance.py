@@ -18,8 +18,11 @@ from backend.database import get_session
 from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, bank_statement, cut_on_or_after, cut_on_or_before, shift_cut, installment_parts,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
                              summary, user_period)
+from backend.finance_yield import (YIELD_CATEGORY, YIELD_CONCEPT, YIELD_SOURCE, account_rates, open_terms_by_account,
+                                   rate_on, rates_by_account, term_interest, term_maturity, yield_category,
+                                   yield_estimate)
 from backend.models import (FinAccount, FinBudgetItem, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
-                            FinStatement, FinTransaction, User, utc_now_naive)
+                            FinNote, FinStatement, FinTerm, FinTransaction, FinYieldRate, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
     FinInstallmentBill, FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
@@ -44,6 +47,17 @@ from backend.schemas import (
     FinTransactionListResponse,
     FinTransactionResponse,
     FinTransactionUpdate,
+    FinNoteFields,
+    FinNoteListResponse,
+    FinNoteResponse,
+    FinNoteUpdate,
+    FinTermFields,
+    FinTermListResponse,
+    FinTermResponse,
+    FinYieldRateFields,
+    FinYieldRateResponse,
+    FinYieldRecord,
+    FinYieldResponse,
 )
 from backend.series import SEMIMONTHLY_DAYS, next_date, period_bounds, skip_past
 
@@ -342,11 +356,18 @@ def _account_counts(session: Session, user_id: int) -> Dict[int, int]:
 
 
 def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dict[int, int],
-                      before: Optional[Dict[int, tuple]] = None) -> FinAccountResponse:
+                      before: Optional[Dict[int, tuple]] = None, earning: Optional[tuple] = None,
+                      terms: Optional[list] = None) -> FinAccountResponse:
     balance = balances.get(account.id, account.opening_balance_cents)
     credit = account.kind == "credit"
     before_count, before_in, before_out = (before or {}).get(account.id, (0, 0, 0))
+    rate, estimate = earning or (None, None)
     return FinAccountResponse(
+        term_locked_cents=sum(t.principal_cents for t in terms or []),
+        term_until=min((term_maturity(t) for t in terms), default=None) if terms else None,
+        yield_rate_bp=rate.rate_bp if rate else None,
+        yield_since=estimate["since"] if estimate else None,
+        yield_estimate_cents=estimate["estimate_cents"] if estimate else None,
         opening_date=account.opening_date, before_count=before_count, before_in_cents=before_in,
         before_out_cents=before_out,
         id=account.id, name=account.name, kind=account.kind, currency=account.currency, last4=account.last4,
@@ -355,6 +376,7 @@ def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dic
         opening_balance_cents=account.opening_balance_cents, credit_limit_cents=account.credit_limit_cents,
         statement_day=account.statement_day, due_day=account.due_day, balance_cents=balance,
         available_cents=account.credit_limit_cents + balance if credit and account.credit_limit_cents is not None else None,
+        parent_id=account.parent_id, interest_rate_bp=account.interest_rate_bp,
     )
 
 
@@ -366,9 +388,46 @@ def _opening_date(value: Optional[date_type], today: date_type) -> Optional[date
 
 
 def _credit_only(account: FinAccount) -> None:
-    """Límite, corte y pago son de una tarjeta de crédito: en otra, se vacían."""
+    """Límite, corte, pago y tasa son de una tarjeta de crédito: en otra, se vacían."""
     if account.kind != "credit":
-        account.credit_limit_cents = account.statement_day = account.due_day = None
+        account.credit_limit_cents = account.statement_day = account.due_day = account.interest_rate_bp = None
+
+
+def _children(session: Session, user_id: int, account_id: Optional[int]) -> List[FinAccount]:
+    """Los apartados de una cuenta."""
+    if account_id is None:
+        return []
+    return session.exec(select(FinAccount).where(FinAccount.user_id == user_id,
+                                                 FinAccount.parent_id == account_id)).all()
+
+
+def _set_parent(session: Session, user_id: int, account: FinAccount, parent_id: Optional[int],
+                tx_count: int = 0) -> None:
+    """Vuelve `account` un apartado de `parent_id` (o cuenta suelta con None). Un
+    apartado cuelga de una cuenta de efectivo o débito, activa y suelta (un solo
+    nivel), y toma su moneda y su tipo."""
+    if parent_id is None:
+        account.parent_id = None
+        return
+    parent = _own_account(session, user_id, parent_id)
+    if parent.id == account.id:
+        raise _unprocessable("Una cuenta no puede ser apartado de sí misma")
+    if parent.parent_id is not None:
+        raise _conflict(f"'{parent.name}' ya es un apartado: un apartado no tiene apartados")
+    if parent.kind == "credit":
+        raise _conflict("Una tarjeta de crédito no tiene apartados")
+    if not parent.is_active:
+        raise _conflict(f"'{parent.name}' está archivada")
+    if _children(session, user_id, account.id):
+        raise _conflict(f"'{account.name}' tiene apartados: no puede ser apartado de otra cuenta")
+    if account.kind == "credit":
+        raise _conflict("Una tarjeta de crédito no puede ser un apartado")
+    if account.currency != parent.currency and tx_count:
+        raise _conflict(f"'{account.name}' ya tiene movimientos en {account.currency}: "
+                        f"solo puede ser apartado de una cuenta en esa moneda")
+    account.parent_id = parent.id
+    account.kind = parent.kind
+    account.currency = parent.currency
 
 
 def _make_default(session: Session, user_id: int, account: FinAccount) -> None:
@@ -385,10 +444,18 @@ def list_accounts(session: Session = Depends(get_session), user: User = Depends(
     ensure_finance_setup(session, user.id)
     accounts = session.exec(select(FinAccount).where(FinAccount.user_id == user.id)
                             .order_by(FinAccount.order, FinAccount.id)).all()
+    today = _today(session, user)
+    # Lo que ya llegó (fijos y plazos vencidos) cuenta en el saldo
+    generate_due(session, user.id, today)
     counts = _account_counts(session, user.id)
-    balances = account_balances(session, user.id, _today(session, user))
+    balances = account_balances(session, user.id, today)
     before = history_before_opening(session, user.id)
-    return FinAccountListResponse(accounts=[_account_response(a, counts, balances, before) for a in accounts])
+    rates = rates_by_account(session, user.id)
+    earnings = {a.id: (rate_on(rates[a.id], today), yield_estimate(session, user.id, a, today, rates[a.id]))
+                for a in accounts if a.id in rates and a.is_active}
+    terms = open_terms_by_account(session, user.id)
+    return FinAccountListResponse(accounts=[_account_response(a, counts, balances, before, earnings.get(a.id),
+                                                              terms.get(a.id)) for a in accounts])
 
 
 @router.post("/accounts", response_model=FinAccountResponse, status_code=status.HTTP_201_CREATED)
@@ -405,7 +472,9 @@ def create_account(body: FinAccountCreate, session: Session = Depends(get_sessio
                          order=(last or 0) + 1, icon=body.icon, color=body.color,
                          opening_balance_cents=body.opening_balance_cents, opening_date=opening_date,
                          credit_limit_cents=body.credit_limit_cents,
-                         statement_day=body.statement_day, due_day=body.due_day)
+                         statement_day=body.statement_day, due_day=body.due_day,
+                         interest_rate_bp=body.interest_rate_bp)
+    _set_parent(session, user.id, account, body.parent_id)
     _credit_only(account)
     if body.is_default:
         _make_default(session, user.id, account)
@@ -442,12 +511,42 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
             raise _conflict(f"'{account.name}' la usa un fijo: cámbialo de cuenta o páusalo antes de archivarla")
     if changes.get("is_default") and not changes.get("is_active", account.is_active):
         raise _conflict("Una cuenta archivada no puede ser la de por defecto")
+    children = _children(session, user.id, account.id)
+    if changes.get("is_active") is False and any(c.is_active for c in children):
+        raise _conflict(f"'{account.name}' tiene apartados: archívalos antes")
+    if changes.get("is_active") is False and _term_uses(session, user.id, account.id, open_only=True):
+        raise _conflict(f"'{account.name}' tiene un plazo fijo abierto: espera a que venza o bórralo antes")
+    if changes.get("kind") == "credit" and account.kind != "credit" and _term_uses(session, user.id, account.id):
+        raise _conflict(f"'{account.name}' tiene plazos fijos: no puede ser tarjeta de crédito")
+    if changes.get("is_active") and account.parent_id is not None:
+        parent = session.get(FinAccount, account.parent_id)
+        if parent is not None and not parent.is_active:
+            raise _conflict(f"Primero reactiva '{parent.name}', la cuenta de este apartado")
+    if children and changes.get("kind", account.kind) == "credit":
+        raise _conflict(f"'{account.name}' tiene apartados: no puede ser tarjeta de crédito")
+    if changes.get("kind") == "credit" and account.kind != "credit" and account_rates(session, user.id, account.id):
+        raise _conflict(f"'{account.name}' tiene rendimiento: quítale la tasa antes de volverla tarjeta de crédito")
+    if children and changes.get("currency", account.currency) != account.currency:
+        raise _conflict(f"'{account.name}' tiene apartados: su moneda no cambia")
+    parent_change = "parent_id" in changes and changes["parent_id"] != account.parent_id
+    if account.parent_id is not None and not parent_change and (
+            changes.get("kind", account.kind) != account.kind
+            or changes.get("currency", account.currency) != account.currency):
+        raise _conflict("Un apartado toma el tipo y la moneda de su cuenta")
     if changes.pop("is_default", None):
         _make_default(session, user.id, account)
     if "opening_date" in changes:
         _opening_date(changes["opening_date"], _today(session, user))
+    parent_id = changes.pop("parent_id", account.parent_id)
     for field, value in changes.items():
         setattr(account, field, value)
+    if parent_change:
+        _set_parent(session, user.id, account, parent_id, counts.get(account.id, 0))
+    # Un cambio de tipo (efectivo ↔ débito) de la cuenta lo siguen sus apartados
+    for child in children:
+        if child.kind != account.kind:
+            child.kind = account.kind
+            session.add(child)
     _credit_only(account)
     session.add(account)
     session.commit()
@@ -471,11 +570,252 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
         raise _conflict(f"'{account.name}' tiene compras a meses: archívala en vez de borrarla")
     if account.is_default:
         raise _conflict(f"'{account.name}' es tu cuenta por defecto: elige otra antes de borrarla")
+    if _children(session, user.id, account.id):
+        raise _conflict(f"'{account.name}' tiene apartados: bórralos o sácalos antes")
+    if _term_uses(session, user.id, account.id):
+        raise _conflict(f"'{account.name}' la usa un plazo fijo: bórralo antes")
     for row in session.exec(select(FinStatement).where(FinStatement.user_id == user.id,
                                                        FinStatement.account_id == account.id)).all():
         session.delete(row)
+    for row in account_rates(session, user.id, account.id):
+        session.delete(row)
     session.delete(account)
     session.commit()
+
+
+# ==================== Notas ====================
+
+def _note_response(note: FinNote) -> FinNoteResponse:
+    return FinNoteResponse(id=note.id, title=note.title, body=note.body, updated_at=note.updated_at)
+
+
+def _own_note(session: Session, user_id: int, note_id: int) -> FinNote:
+    note = session.exec(select(FinNote).where(FinNote.id == note_id, FinNote.user_id == user_id)).first()
+    if not note:
+        raise _not_found("Nota")
+    return note
+
+
+@router.get("/notes", response_model=FinNoteListResponse)
+def list_notes(session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Las notas, la que se tocó al último primero."""
+    notes = session.exec(select(FinNote).where(FinNote.user_id == user.id)
+                         .order_by(FinNote.updated_at.desc(), FinNote.id.desc())).all()
+    return FinNoteListResponse(notes=[_note_response(n) for n in notes])
+
+
+@router.post("/notes", response_model=FinNoteResponse, status_code=status.HTTP_201_CREATED)
+def create_note(body: FinNoteFields, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    note = FinNote(user_id=user.id, title=_clean_name(body.title), body=body.body)
+    session.add(note)
+    session.commit()
+    session.refresh(note)
+    return _note_response(note)
+
+
+@router.patch("/notes/{note_id}", response_model=FinNoteResponse)
+def update_note(note_id: int, body: FinNoteUpdate, session: Session = Depends(get_session),
+                user: User = Depends(finance_user)):
+    note = _own_note(session, user.id, note_id)
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("title") is not None:
+        note.title = _clean_name(changes["title"])
+    if changes.get("body") is not None:
+        note.body = changes["body"]
+    note.updated_at = utc_now_naive()
+    session.add(note)
+    session.commit()
+    session.refresh(note)
+    return _note_response(note)
+
+
+@router.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_note(note_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    session.delete(_own_note(session, user.id, note_id))
+    session.commit()
+
+
+# ==================== A plazo fijo ====================
+
+def _term_uses(session: Session, user_id: int, account_id: int, open_only: bool = False) -> bool:
+    """Si algún plazo vive en la cuenta o regresa a ella."""
+    query = select(FinTerm.id).where(FinTerm.user_id == user_id, or_(FinTerm.account_id == account_id,
+                                                                    FinTerm.return_account_id == account_id))
+    if open_only:
+        query = query.where(FinTerm.matured == False)  # noqa: E712
+    return session.exec(query.limit(1)).first() is not None
+
+
+def _term_response(term: FinTerm) -> FinTermResponse:
+    return FinTermResponse(
+        id=term.id, account_id=term.account_id, concept=term.concept, principal_cents=term.principal_cents,
+        start_date=term.start_date, days=term.days, rate_bp=term.rate_bp, day_basis=term.day_basis,
+        on_maturity=term.on_maturity, return_account_id=term.return_account_id, matured=term.matured,
+        maturity_date=term_maturity(term),
+        interest_cents=term_interest(term.principal_cents, term.rate_bp, term.days, term.day_basis),
+    )
+
+
+def _check_term(session: Session, user_id: int, body: FinTermFields) -> None:
+    """Vive en una cuenta propia que no es de crédito; si regresa, a otra propia
+    de la misma moneda."""
+    account = _own_account(session, user_id, body.account_id)
+    if account.kind == "credit":
+        raise _conflict("Un plazo fijo no vive en una tarjeta de crédito")
+    if body.on_maturity == "return":
+        if body.return_account_id is None:
+            raise _unprocessable("Elige a qué cuenta regresa el dinero al vencer")
+        target = _own_account(session, user_id, body.return_account_id)
+        if target.id == account.id:
+            raise _unprocessable("Para que se quede en la cuenta, elige que se quede")
+        if target.currency != account.currency:
+            raise _conflict("El dinero solo regresa a una cuenta de la misma moneda")
+    elif body.return_account_id is not None:
+        raise _unprocessable("Solo un plazo que regresa lleva cuenta de regreso")
+
+
+def _own_term(session: Session, user_id: int, term_id: int) -> FinTerm:
+    term = session.exec(select(FinTerm).where(FinTerm.id == term_id, FinTerm.user_id == user_id)).first()
+    if not term:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plazo no encontrado")
+    return term
+
+
+@router.get("/terms", response_model=FinTermListResponse)
+def list_terms(session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Los plazos fijos: los abiertos primero (por vencimiento) y luego los vencidos."""
+    generate_due(session, user.id, _today(session, user))
+    terms = session.exec(select(FinTerm).where(FinTerm.user_id == user.id)).all()
+    terms.sort(key=lambda t: (t.matured, term_maturity(t) if not t.matured else -term_maturity(t).toordinal()))
+    return FinTermListResponse(terms=[_term_response(t) for t in terms])
+
+
+@router.post("/terms", response_model=FinTermResponse, status_code=status.HTTP_201_CREATED)
+def create_term(body: FinTermFields, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Un plazo fijo. El dinero lo mueve el usuario (una transferencia); si ya
+    venció, se anota al pedir los datos, como un fijo."""
+    _check_term(session, user.id, body)
+    term = FinTerm(user_id=user.id, **body.model_dump())
+    term.concept = term.concept.strip() or "Plazo fijo"
+    session.add(term)
+    session.commit()
+    session.refresh(term)
+    generate_due(session, user.id, _today(session, user))
+    session.refresh(term)
+    return _term_response(term)
+
+
+@router.put("/terms/{term_id}", response_model=FinTermResponse)
+def update_term(term_id: int, body: FinTermFields, session: Session = Depends(get_session),
+                user: User = Depends(finance_user)):
+    """Corrige un plazo abierto (uno vencido ya anotó lo suyo: 409)."""
+    term = _own_term(session, user.id, term_id)
+    if term.matured:
+        raise _conflict("Ese plazo ya venció y se anotó: corrige sus movimientos")
+    _check_term(session, user.id, body)
+    for field, value in body.model_dump().items():
+        setattr(term, field, value)
+    term.concept = term.concept.strip() or "Plazo fijo"
+    session.add(term)
+    session.commit()
+    generate_due(session, user.id, _today(session, user))
+    session.refresh(term)
+    return _term_response(term)
+
+
+@router.delete("/terms/{term_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_term(term_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Borra el plazo; lo que ya anotó se queda (son movimientos normales)."""
+    session.delete(_own_term(session, user.id, term_id))
+    session.commit()
+
+
+# ==================== Rendimiento diario ====================
+
+def _yield_response(session: Session, user: User, account: FinAccount) -> FinYieldResponse:
+    today = _today(session, user)
+    rates = account_rates(session, user.id, account.id)
+    current = rate_on(rates, today)
+    estimate = yield_estimate(session, user.id, account, today, rates) or {}
+    return FinYieldResponse(
+        account_id=account.id,
+        rates=[FinYieldRateResponse(id=r.id, from_date=r.from_date, rate_bp=r.rate_bp, cap_cents=r.cap_cents,
+                                    day_basis=r.day_basis) for r in rates],
+        rate_bp=current.rate_bp if current else None, cap_cents=current.cap_cents if current else None,
+        since=estimate.get("since"), through=estimate.get("through"), estimate_cents=estimate.get("estimate_cents"),
+    )
+
+
+def _yield_account(session: Session, user_id: int, account_id: int) -> FinAccount:
+    account = _own_account(session, user_id, account_id)
+    if account.kind == "credit":
+        raise _conflict("Una tarjeta de crédito no da rendimiento")
+    return account
+
+
+@router.get("/accounts/{account_id}/yield", response_model=FinYieldResponse)
+def get_account_yield(account_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Las tasas de la cuenta y lo ganado sin anotar, desde `since` hasta ayer."""
+    return _yield_response(session, user, _own_account(session, user.id, account_id))
+
+
+@router.put("/accounts/{account_id}/yield-rates", response_model=FinYieldResponse)
+def put_yield_rate(account_id: int, body: FinYieldRateFields, session: Session = Depends(get_session),
+                   user: User = Depends(finance_user)):
+    """Una tasa desde un día; si ya hay una ese día, la reemplaza."""
+    account = _yield_account(session, user.id, account_id)
+    if body.from_date > _today(session, user):
+        raise _unprocessable("La tasa empieza hoy o antes")
+    row = session.exec(select(FinYieldRate).where(FinYieldRate.user_id == user.id, FinYieldRate.account_id == account.id,
+                                                  FinYieldRate.from_date == body.from_date)).first()
+    row = row or FinYieldRate(user_id=user.id, account_id=account.id, from_date=body.from_date, rate_bp=0)
+    row.rate_bp, row.cap_cents, row.day_basis = body.rate_bp, body.cap_cents, body.day_basis
+    session.add(row)
+    session.commit()
+    return _yield_response(session, user, account)
+
+
+@router.delete("/accounts/{account_id}/yield-rates/{rate_id}", response_model=FinYieldResponse)
+def delete_yield_rate(account_id: int, rate_id: int, session: Session = Depends(get_session),
+                      user: User = Depends(finance_user)):
+    account = _own_account(session, user.id, account_id)
+    row = session.exec(select(FinYieldRate).where(FinYieldRate.id == rate_id, FinYieldRate.user_id == user.id,
+                                                  FinYieldRate.account_id == account.id)).first()
+    if not row:
+        raise _not_found("Tasa")
+    session.delete(row)
+    session.commit()
+    return _yield_response(session, user, account)
+
+
+@router.post("/accounts/{account_id}/yield", response_model=FinTransactionResponse, status_code=status.HTTP_201_CREATED)
+def record_yield(account_id: int, body: FinYieldRecord, session: Session = Depends(get_session),
+                 user: User = Depends(finance_user)):
+    """Anota el rendimiento: un ingreso en "Rendimientos" con el estimado, o con
+    lo que dice el banco. Cubre hasta el día anterior a su fecha: el siguiente
+    estimado empieza en ella."""
+    account = _yield_account(session, user.id, account_id)
+    today = _today(session, user)
+    tx_date = body.tx_date or today
+    if tx_date > today:
+        raise _unprocessable("El rendimiento se anota hoy o antes")
+    amount = body.amount_cents
+    if amount is None:
+        estimate = yield_estimate(session, user.id, account, today)
+        if estimate is None:
+            raise _unprocessable(f"'{account.name}' no tiene tasa de rendimiento")
+        amount = estimate["estimate_cents"]
+        if not amount:
+            raise _unprocessable("Aún no hay rendimiento que anotar: escribe el que dice tu banco")
+    category = yield_category(session, user.id)
+    if category is None:
+        raise _conflict(f"Ya tienes una categoría de gastos llamada '{YIELD_CATEGORY[0]}': renómbrala para anotar rendimientos")
+    tx = FinTransaction(user_id=user.id, account_id=account.id, kind="income", amount_cents=amount, tx_date=tx_date,
+                        category_id=category.id, concept=YIELD_CONCEPT, source=YIELD_SOURCE)
+    session.add(tx)
+    session.commit()
+    session.refresh(tx)
+    return _one_response(session, user.id, tx)
 
 
 # ==================== Categorías ====================

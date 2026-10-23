@@ -365,7 +365,8 @@ def summary(session: Session, user_id: int, day: date_type,
 
 def generate_due(session: Session, user_id: int, today: date_type) -> List[FinTransaction]:
     """Convierte en movimientos los cobros de los fijos que ya llegaron (en la
-    fecha local del usuario). Idempotente. Hace commit si generó algo."""
+    fecha local del usuario) y los vencimientos de los plazos fijos.
+    Idempotente. Hace commit si generó algo."""
     created: List[FinTransaction] = []
     for rc in session.exec(select(FinRecurring).where(
             FinRecurring.user_id == user_id, FinRecurring.paused == False)).all():  # noqa: E712
@@ -385,7 +386,10 @@ def generate_due(session: Session, user_id: int, today: date_type) -> List[FinTr
                 created.append(tx)
             rc.generated += 1
             session.add(rc)
-    if created or session.dirty:
+    # Los plazos fijos que vencieron (importado aquí: finance_yield importa este módulo)
+    from backend.finance_yield import mature_terms
+    created += mature_terms(session, user_id, today)
+    if created or session.dirty or session.new:
         try:
             session.commit()
         except IntegrityError:
