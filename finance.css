@@ -1718,6 +1718,44 @@
     margin-bottom: 8px;
 }
 
+.fin-import-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--bg-surface-2);
+}
+
+.fin-import-totals[hidden] {
+    display: none;
+}
+
+.fin-import-total dt {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.fin-import-total dd {
+    margin: 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-import-total.expense dd {
+    color: var(--danger-fg);
+}
+
+.fin-import-total.income dd {
+    color: var(--income-fg);
+}
+
+.fin-import-total.skipped dd {
+    color: var(--text-secondary);
+    text-decoration: line-through;
+}
+
 .fin-import-table {
     width: 100%;
     border-collapse: collapse;

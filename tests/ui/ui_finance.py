@@ -537,6 +537,9 @@ async def main():
         await b.wait_for("document.querySelectorAll('#finImportRows tr.duplicate').length === 1")
         summary_text = await b.js("document.getElementById('finImportSummary').textContent")
         check(summary_text.startswith("1 de 2"), f"the repeated row is skipped ({summary_text})")
+        totals = await b.js("document.getElementById('finImportTotals').textContent")
+        check("Cargos (1)$120.50" in totals and "Abonos (0)$0.00" in totals and "No se agregan (1)$250.00" in totals,
+              f"the preview adds up what goes in and what is left out ({totals})")
         # La vista previa se corrige antes de agregar: concepto, monto y categoría
         salud = [c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"] if c["name"] == "Salud"][0]
 
