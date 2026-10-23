@@ -586,7 +586,8 @@ function openFinAccount(account, kind = 'debit', { parentId = null } = {}) {
     const k = account ? account.kind : kind;
     finAccountForm.icon = account ? finAccountIcon(account) : FIN_KIND_ICONS[k];
     finAccountForm.color = account ? finAccountColor(account) : FIN_PALETTE[(finState.accounts.length * 4 + 3) % FIN_PALETTE.length];
-    document.getElementById('finAccountTitle').textContent = account ? account.name : (k === 'credit' ? 'Nueva tarjeta' : 'Nueva cuenta');
+    document.getElementById('finAccountTitle').textContent = account ? account.name
+        : k === 'credit' ? 'Nueva tarjeta' : k === 'investment' ? 'Nueva cuenta de inversión' : 'Nueva cuenta';
     document.getElementById('finAccName').value = account ? account.name : '';
     document.getElementById('finAccKind').value = k;
     const currency = document.getElementById('finAccCurrency');

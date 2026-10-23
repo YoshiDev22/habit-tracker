@@ -153,7 +153,9 @@ def test_daily_yield_is_estimated_and_recorded(api):
 
 def test_fixed_terms_mature_once(api):
     cash, debit, credit, cats = setup(api, "plazos@test.com")
-    _, cetes = api.call("POST", URL, {"name": "CETES", "kind": "debit"}, expect=201)
+    # CETES es su propia cuenta, de inversión: se porta como débito
+    _, cetes = api.call("POST", URL, {"name": "CETES", "kind": "investment"}, expect=201)
+    assert cetes["kind"] == "investment"
     api.call("POST", "/api/finance/transactions", tx(debit, 2_000_000, "Nómina", cats["Sueldo"], kind="income",
                                                      day=TODAY - timedelta(days=40)), expect=201)
     api.call("POST", "/api/finance/transactions", tx(debit, 1_000_000, "A CETES", kind="transfer", to=cetes,

@@ -760,7 +760,7 @@ class FinAccount(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     name: str
-    kind: str = Field(default="cash")            # cash | debit | credit
+    kind: str = Field(default="cash")            # cash | debit | credit | investment
     currency: str = Field(default="MXN")
     last4: Optional[str] = Field(default=None)   # nunca el número completo
     is_default: bool = Field(default=False)      # la de la alta rápida: solo una

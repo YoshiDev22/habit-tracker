@@ -1419,7 +1419,9 @@ class FeedbackResponse(SQLModel):
 
 # ==================== Finanzas personales (épica 37) ====================
 
-FIN_ACCOUNT_KINDS = ("cash", "debit", "credit")
+# investment: una cuenta de inversión (CETES, una casa de bolsa, un exchange); se
+# porta como débito, pero se lista en Cuentas › Inversiones
+FIN_ACCOUNT_KINDS = ("cash", "debit", "credit", "investment")
 FIN_CATEGORY_KINDS = ("expense", "income")
 FIN_TX_KINDS = ("expense", "income", "transfer")
 # La quincenal (el 15 y el último día) es solo de Finanzas: el sueldo

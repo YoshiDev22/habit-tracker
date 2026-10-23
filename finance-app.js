@@ -37,7 +37,7 @@ const FIN_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'juli
     'octubre', 'noviembre', 'diciembre'];
 const FIN_MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const FIN_WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const FIN_KIND_ICONS = { cash: 'banknote', debit: 'landmark', credit: 'credit-card' };
+const FIN_KIND_ICONS = { cash: 'banknote', debit: 'landmark', credit: 'credit-card', investment: 'trending-up' };
 const FIN_KIND_LABELS = { cash: 'Efectivo', debit: 'Débito', credit: 'Crédito' };
 // Las categorías de inicio guardadas antes de que hubiera iconos
 const FIN_DEFAULT_ICONS = {

@@ -475,7 +475,19 @@ function openFinTerm(term = null, accountId = null) {
     finTermForm.term = term;
     document.getElementById('finTermTitle').textContent = term ? term.concept : 'Nuevo plazo fijo';
     document.getElementById('finTermConcept').value = term ? term.concept : '';
-    finFillAccountSelect(document.getElementById('finTermAccount'), finTermAccounts(), term ? term.account_id : accountId);
+    const select = document.getElementById('finTermAccount');
+    finFillAccountSelect(select, finTermAccounts(), term ? term.account_id : accountId);
+    // CETES o una casa de bolsa suelen ser su propia cuenta: se crea aquí mismo
+    const fresh = el('option', '', '＋ Nueva cuenta de inversión…');
+    fresh.value = 'new';
+    select.appendChild(fresh);
+    if (!term && accountId == null) {
+        const invest = finTermAccounts().find(a => a.kind === 'investment');
+        select.value = invest ? String(invest.id) : 'new';
+    }
+    document.getElementById('finTermNewName').value = '';
+    document.getElementById('finTermFromField').hidden = Boolean(term);
+    document.getElementById('finTermFrom').value = '';
     document.getElementById('finTermPrincipal').value = term ? (term.principal_cents / 100).toFixed(2) : '';
     document.getElementById('finTermRate').value = term ? String(term.rate_bp / 100) : '';
     document.getElementById('finTermStart').value = term ? term.start_date : finToday();
@@ -490,13 +502,29 @@ function openFinTerm(term = null, accountId = null) {
 
 // "Regresa a" solo al regresar, sin la cuenta del plazo y en su moneda; y lo que dará
 function finSyncTermForm(returnId) {
-    const account = finAccount(Number(document.getElementById('finTermAccount').value));
+    const isNew = document.getElementById('finTermAccount').value === 'new';
+    document.getElementById('finTermNewField').hidden = !isNew;
+    // Una cuenta nueva es de la moneda principal
+    const account = isNew ? { id: null, currency: finMainCurrency() }
+        : finAccount(Number(document.getElementById('finTermAccount').value));
     const back = document.getElementById('finTermOnMaturity').value === 'return';
     document.getElementById('finTermReturnField').hidden = !back;
     const select = document.getElementById('finTermReturn');
     const keep = returnId !== undefined ? returnId : Number(select.value) || null;
     finFillAccountSelect(select, finActiveAccounts().filter(a => account && a.id !== account.id
         && a.currency === account.currency && a.kind !== 'credit'), keep);
+    // De dónde sale el dinero: "Ya está ahí" o una cuenta de la misma moneda (la transferencia se anota al guardar)
+    const from = document.getElementById('finTermFrom');
+    const keepFrom = from.value;
+    const already = el('option', '', 'Ya está ahí: no muevas nada');
+    already.value = '';
+    from.replaceChildren(already, ...finActiveAccounts().filter(a => account && a.id !== account.id
+        && a.currency === account.currency && a.kind !== 'credit').map(a => {
+        const option = el('option', '', a.name);
+        option.value = String(a.id);
+        return option;
+    }));
+    if ([...from.options].some(o => o.value === keepFrom)) from.value = keepFrom;
     const values = finTermValues();
     const preview = document.getElementById('finTermPreview');
     if (!account || !values) {
@@ -542,13 +570,35 @@ document.getElementById('finTermForm').addEventListener('submit', async (event) 
         return_account_id: onMaturity === 'return' ? Number(document.getElementById('finTermReturn').value) || null : null,
     };
     if (onMaturity === 'return' && !body.return_account_id) return showError(errorEl, 'Elige a qué cuenta regresa.');
+    const newName = document.getElementById('finTermNewName').value.trim();
+    const isNew = document.getElementById('finTermAccount').value === 'new';
+    if (isNew && !newName) return showError(errorEl, 'Escribe el nombre de la cuenta nueva (CETES, GBM, Bitso…).');
     const term = finTermForm.term;
     try {
-        await apiFetch(term ? `/api/finance/terms/${term.id}` : '/api/finance/terms', { method: term ? 'PUT' : 'POST', json: body });
+        if (isNew) {
+            // Primero la cuenta; si el plazo falla, la cuenta queda y se elige en la lista
+            const account = await apiFetch('/api/finance/accounts', { method: 'POST', json: {
+                name: newName, kind: 'investment', currency: finMainCurrency(), icon: 'trending-up',
+                color: FIN_PALETTE[(finState.accounts.length * 4 + 3) % FIN_PALETTE.length] } });
+            finState.accounts.push(account);
+            finFillAccountSelect(document.getElementById('finTermAccount'), finTermAccounts(), account.id);
+            body.account_id = account.id;
+        }
+        const fromId = term ? null : Number(document.getElementById('finTermFrom').value) || null;
+        const saved = await apiFetch(term ? `/api/finance/terms/${term.id}` : '/api/finance/terms',
+            { method: term ? 'PUT' : 'POST', json: body });
+        // Un plazo nuevo ya guardado se edita desde aquí si lo que sigue falla
+        finTermForm.term = saved;
+        if (fromId) {
+            await apiFetch('/api/finance/transactions', { method: 'POST', json: {
+                kind: 'transfer', account_id: fromId, to_account_id: body.account_id, amount_cents: body.principal_cents,
+                tx_date: body.start_date, concept: `A plazo: ${body.concept}`.slice(0, 200) } });
+        }
         closeFinSheet(finTermSheet);
         await finLoad();
     } catch (error) {
-        showError(errorEl, error.message);
+        showError(errorEl, finTermForm.term && !term
+            ? `El plazo se guardó, pero el dinero no se movió: ${error.message}` : error.message);
     }
 });
 
@@ -579,8 +629,22 @@ async function finRenderInvestments(body) {
     if (finState.accountsSub !== 'investments') return;
     finState.terms = terms;
     const blocks = [];
+    // Las cuentas de inversión (CETES, una casa de bolsa, un exchange), con su total
+    const invest = finActiveAccounts().filter(a => a.kind === 'investment');
+    const main = finMainCurrency();
+    const investHead = el('div', 'fin-accounts-head');
+    const investSum = invest.filter(a => a.currency === main).reduce((acc, a) => acc + a.balance_cents, 0);
+    investHead.append(el('span', '', 'Cuentas de inversión'), el('strong', '', finMoney(investSum, main)));
+    blocks.push(investHead);
+    if (!invest.length) blocks.push(el('p', 'fin-empty', 'Agrega aquí CETES, tu casa de bolsa o tu exchange: cada una con su saldo.'));
+    invest.forEach(a => blocks.push(finInvestmentRow(a)));
+    const addAccount = el('button', 'link-btn fin-add-account', '＋ Nueva cuenta de inversión');
+    addAccount.type = 'button';
+    addAccount.dataset.newAccount = 'investment';
+    blocks.push(addAccount);
+
     const open = terms.filter(t => !t.matured);
-    const head = el('div', 'fin-accounts-head');
+    const head = el('div', 'fin-accounts-head spaced');
     head.append(el('span', '', 'Plazos fijos'));
     blocks.push(head);
     if (!open.length) blocks.push(el('p', 'fin-empty', 'Sin plazos abiertos.'));
@@ -615,29 +679,35 @@ async function finRenderInvestments(body) {
         });
         blocks.push(past);
     }
-    // Las que ganan día a día: su tasa y lo ganado sin anotar
-    const daily = finActiveAccounts().filter(a => a.yield_rate_bp);
+    // Las demás que ganan día a día (una cuenta del banco, sus apartados)
+    const daily = finActiveAccounts().filter(a => a.yield_rate_bp && a.kind !== 'investment');
     const dailyHead = el('div', 'fin-accounts-head spaced');
-    dailyHead.appendChild(el('span', '', 'Rendimiento diario'));
+    dailyHead.appendChild(el('span', '', 'Rendimiento diario en tus cuentas'));
     blocks.push(dailyHead);
     if (!daily.length) {
-        blocks.push(el('p', 'fin-empty', 'Ninguna cuenta gana día a día. Ponle su tasa en el menú de la cuenta › Rendimiento.'));
+        blocks.push(el('p', 'fin-empty', 'Ninguna otra cuenta gana día a día. Ponle su tasa en el menú de la cuenta › Rendimiento.'));
     }
-    daily.forEach(a => {
-        const row = el('button', 'fin-account');
-        row.type = 'button';
-        row.dataset.accountId = String(a.id);
-        const text = el('span', 'fin-account-text');
-        text.append(el('strong', '', a.name), el('span', 'fin-account-balance', formatMoney(a.balance_cents, a.currency)),
-            el('small', 'fin-account-sub', `Gana ${finRateText(a.yield_rate_bp)} anual`));
-        const side = el('span', 'fin-account-side');
-        if (a.yield_estimate_cents) {
-            side.append(el('small', '', 'Sin anotar'), el('span', 'fin-available', `+${formatMoney(a.yield_estimate_cents, a.currency)}`));
-        }
-        row.append(finBadge(finAccountIcon(a), finAccountColor(a), { size: 'md', square: true }), text, side);
-        blocks.push(row);
-    });
+    daily.forEach(a => blocks.push(finInvestmentRow(a)));
     body.replaceChildren(...blocks);
+}
+
+// Una cuenta en Inversiones: su saldo, su tasa, lo que está en plazos y lo ganado sin anotar
+function finInvestmentRow(a) {
+    const row = el('button', 'fin-account');
+    row.type = 'button';
+    row.dataset.accountId = String(a.id);
+    const text = el('span', 'fin-account-text');
+    text.append(el('strong', '', a.name), el('span', 'fin-account-balance', formatMoney(a.balance_cents, a.currency)));
+    const details = [];
+    if (a.yield_rate_bp) details.push(`Gana ${finRateText(a.yield_rate_bp)} anual`);
+    if (a.term_locked_cents) details.push(`${formatMoney(a.term_locked_cents, a.currency)} en plazos`);
+    if (details.length) text.appendChild(el('small', 'fin-account-sub', details.join(' · ')));
+    const side = el('span', 'fin-account-side');
+    if (a.yield_estimate_cents) {
+        side.append(el('small', '', 'Sin anotar'), el('span', 'fin-available', `+${formatMoney(a.yield_estimate_cents, a.currency)}`));
+    }
+    row.append(finBadge(finAccountIcon(a), finAccountColor(a), { size: 'md', square: true }), text, side);
+    return row;
 }
 
 document.getElementById('finAccountsBody').addEventListener('click', (event) => {

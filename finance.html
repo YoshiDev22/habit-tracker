@@ -333,6 +333,7 @@
                     <select id="finAccKind">
                         <option value="cash">Efectivo</option>
                         <option value="debit">Débito</option>
+                        <option value="investment">Inversión</option>
                         <option value="credit">Crédito</option>
                     </select>
                 </label>
@@ -389,6 +390,14 @@
                 <label class="fin-field wide">Vive en
                     <select id="finTermAccount"></select>
                 </label>
+                <!-- "Nueva cuenta de inversión" en Vive en: se crea al guardar el plazo -->
+                <label class="fin-field wide" id="finTermNewField" hidden>Nombre de la cuenta nueva
+                    <input type="text" id="finTermNewName" maxlength="40" autocomplete="off" placeholder="CETES, GBM, Bitso…">
+                </label>
+                <!-- Solo al crear: la transferencia que mete el dinero al plazo, el día que empieza -->
+                <label class="fin-field wide" id="finTermFromField">El dinero sale de
+                    <select id="finTermFrom"></select>
+                </label>
                 <label class="fin-field">Monto invertido
                     <input type="text" id="finTermPrincipal" inputmode="decimal" autocomplete="off" placeholder="0.00">
                 </label>
@@ -418,8 +427,8 @@
                     <select id="finTermReturn"></select>
                 </label>
                 <p class="fin-hint wide" id="finTermPreview"></p>
-                <p class="fin-hint wide">El dinero lo mueves tú con una transferencia a esa cuenta. Al vencer, la app anota
-                    el rendimiento como ingreso y, si regresa, la transferencia de vuelta.</p>
+                <p class="fin-hint wide">Al vencer, la app anota el rendimiento como ingreso y, si regresa, la
+                    transferencia de vuelta.</p>
                 <div id="finTermError" class="form-error hidden wide"></div>
                 <div class="fin-form-actions wide">
                     <button type="button" class="link-btn" id="finTermDelete" hidden>Borrar</button>

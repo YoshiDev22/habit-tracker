@@ -403,6 +403,31 @@ async def main():
         daily = await b.js("[...document.querySelectorAll('#finAccountsBody [data-account-id]')].map(r => r.textContent)")
         check("CETES 28" in st and "+$42.78" in st and any("Banco digital" in d and "12 %" in d for d in daily),
               f"Inversiones lists the open term and the accounts that earn daily ({st}, {daily})")
+        # Un plazo en una cuenta que aún no existe (CETES es su propia cuenta): se crea al guardar
+        await b.js("document.querySelector('#finAccountsBody [data-new-term]').click()")
+        await b.wait_for("!document.getElementById('finTermSheet').classList.contains('hidden')")
+        st = await b.js("""({account: document.getElementById('finTermAccount').value,
+            newShown: !document.getElementById('finTermNewField').hidden})""")
+        check(st == {"account": "new", "newShown": True}, f"without an investment account, the term offers a new one ({st})")
+        await b.js("""document.getElementById('finTermNewName').value = 'CETES';
+            document.getElementById('finTermConcept').value = 'CETES 91';
+            document.getElementById('finTermPrincipal').value = '1000';
+            document.getElementById('finTermRate').value = '10.5';
+            document.getElementById('finTermDays').value = '91';
+            document.getElementById('finTermAccount').dispatchEvent(new Event('change'));""")
+        await b.js(f"""document.getElementById('finTermFrom').value = '{bank["id"]}';
+            document.getElementById('finTermSave').click()""")
+        terms = await wait_api("/api/finance/terms", lambda body: any(t["concept"] == "CETES 91" for t in body["terms"]))
+        cetes = next(a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"] if a["name"] == "CETES")
+        t = next(t for t in terms["terms"] if t["concept"] == "CETES 91")
+        cetes = await wait_api("/api/finance/accounts", lambda body: any(
+            a["name"] == "CETES" and a["balance_cents"] == 100_000 for a in body["accounts"]))
+        cetes = next(a for a in cetes["accounts"] if a["name"] == "CETES")
+        check(cetes["kind"] == "investment" and t["account_id"] == cetes["id"] and cetes["balance_cents"] == 100_000,
+              f"the new investment account is created with the term, and the money moves in ({cetes})")
+        heads = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finAccountsBody .fin-account strong')]
+            .map(s => s.textContent); return r.includes('CETES') ? r : null; })()""", lambda v: v)
+        check(heads.index("CETES") < heads.index("CETES 91"), f"Inversiones lists investment accounts first ({heads})")
         await b.shot("finance_investments", full=False)
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
 
