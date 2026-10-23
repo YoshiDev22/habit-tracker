@@ -4,6 +4,21 @@ Lo que ve quien usa Finanzas al entrar a la página después de una actualizaci�
 lateral › Novedades). Mismo formato que NOVEDADES.md (`backend/novedades.py`): corto, para quien la usa,
 nunca nada de despliegue. Se escribe en el mismo commit del bump de `FINANCE_VERSION`.
 
+## 0.6.0 — 2026-10-23
+### Nuevas funciones
+- **Apartados**: separa tu ahorro dentro de una cuenta (menú de la cuenta › Apartado); la cuenta
+  enseña su total y lo que tienes a la vista.
+- **Rendimientos**: ponle su tasa a una cuenta o apartado (menú › Rendimiento); la app calcula lo
+  ganado día a día y lo anotas con un toque, o con la cifra de tu banco.
+- **Plazos fijos y cuentas de inversión**: CETES, pagarés, tu casa de bolsa o tu exchange, en
+  Cuentas › Inversiones; al vencer un plazo, su rendimiento se anota solo.
+- **Notas**: lo que quieras a la mano (como el prompt con el que una IA lee tus estados de cuenta),
+  con el botón a la izquierda de la campana y *Copiar*.
+### Cambios
+- **Avisos pegados a la campana**: ya no salen desde abajo.
+- **Sumas al subir un estado de cuenta**: cargos, abonos y la diferencia, para cuadrarlos con tu
+  banco; y tus tarjetas guardan su tasa de interés, de referencia.
+
 ## 0.5.0 — 2026-10-19
 ### Nuevas funciones
 - **Ordena tu presupuesto**: con el lápiz de arriba, toca un grupo y luego otro para cambiarlos
