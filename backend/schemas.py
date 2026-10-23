@@ -1690,6 +1690,28 @@ class FinTermListResponse(SQLModel):
     terms: List[FinTermResponse]
 
 
+FIN_NOTE_BODY_MAX = 10_000
+
+
+class FinNoteFields(SQLModel):
+    title: str = Field(min_length=1, max_length=80)
+    body: str = Field(default="", max_length=FIN_NOTE_BODY_MAX)
+
+
+class FinNoteUpdate(SQLModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    body: Optional[str] = Field(default=None, max_length=FIN_NOTE_BODY_MAX)
+
+
+class FinNoteResponse(FinNoteFields):
+    id: int
+    updated_at: datetime
+
+
+class FinNoteListResponse(SQLModel):
+    notes: List[FinNoteResponse]
+
+
 class FinYieldRecord(SQLModel):
     """Anotar el rendimiento: sin monto, el estimado; con monto, el del banco."""
     amount_cents: Optional[int] = Field(default=None, ge=1, le=MAX_MONEY_CENTS)

@@ -840,6 +840,19 @@ class FinTerm(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
+class FinNote(SQLModel, table=True):
+    """Una nota libre de Finanzas (p. ej. el prompt con el que una IA lee los
+    estados de cuenta). Texto del usuario: el panel de administración no la lee."""
+    __tablename__ = "fin_notes"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    title: str
+    body: str = Field(default="")
+    created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+    updated_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
 class FinCategory(SQLModel, table=True):
     """Categoría de gasto o de ingreso. Las de inicio las crea backend/finance.py
     la primera vez; después son del usuario. Con movimientos no se borra."""

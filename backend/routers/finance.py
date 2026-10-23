@@ -22,7 +22,7 @@ from backend.finance_yield import (YIELD_CATEGORY, YIELD_CONCEPT, YIELD_SOURCE, 
                                    rate_on, rates_by_account, term_interest, term_maturity, yield_category,
                                    yield_estimate)
 from backend.models import (FinAccount, FinBudgetItem, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
-                            FinStatement, FinTerm, FinTransaction, FinYieldRate, User, utc_now_naive)
+                            FinNote, FinStatement, FinTerm, FinTransaction, FinYieldRate, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
     FinInstallmentBill, FinInstallmentCreate, FinInstallmentListResponse, FinInstallmentResponse, FinSplitFields,
@@ -47,6 +47,10 @@ from backend.schemas import (
     FinTransactionListResponse,
     FinTransactionResponse,
     FinTransactionUpdate,
+    FinNoteFields,
+    FinNoteListResponse,
+    FinNoteResponse,
+    FinNoteUpdate,
     FinTermFields,
     FinTermListResponse,
     FinTermResponse,
@@ -576,6 +580,58 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
     for row in account_rates(session, user.id, account.id):
         session.delete(row)
     session.delete(account)
+    session.commit()
+
+
+# ==================== Notas ====================
+
+def _note_response(note: FinNote) -> FinNoteResponse:
+    return FinNoteResponse(id=note.id, title=note.title, body=note.body, updated_at=note.updated_at)
+
+
+def _own_note(session: Session, user_id: int, note_id: int) -> FinNote:
+    note = session.exec(select(FinNote).where(FinNote.id == note_id, FinNote.user_id == user_id)).first()
+    if not note:
+        raise _not_found("Nota")
+    return note
+
+
+@router.get("/notes", response_model=FinNoteListResponse)
+def list_notes(session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Las notas, la que se tocó al último primero."""
+    notes = session.exec(select(FinNote).where(FinNote.user_id == user.id)
+                         .order_by(FinNote.updated_at.desc(), FinNote.id.desc())).all()
+    return FinNoteListResponse(notes=[_note_response(n) for n in notes])
+
+
+@router.post("/notes", response_model=FinNoteResponse, status_code=status.HTTP_201_CREATED)
+def create_note(body: FinNoteFields, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    note = FinNote(user_id=user.id, title=_clean_name(body.title), body=body.body)
+    session.add(note)
+    session.commit()
+    session.refresh(note)
+    return _note_response(note)
+
+
+@router.patch("/notes/{note_id}", response_model=FinNoteResponse)
+def update_note(note_id: int, body: FinNoteUpdate, session: Session = Depends(get_session),
+                user: User = Depends(finance_user)):
+    note = _own_note(session, user.id, note_id)
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("title") is not None:
+        note.title = _clean_name(changes["title"])
+    if changes.get("body") is not None:
+        note.body = changes["body"]
+    note.updated_at = utc_now_naive()
+    session.add(note)
+    session.commit()
+    session.refresh(note)
+    return _note_response(note)
+
+
+@router.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_note(note_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    session.delete(_own_note(session, user.id, note_id))
     session.commit()
 
 

@@ -722,6 +722,8 @@
                     <span data-icon="settings"></span>Configuración</button>
                 <button type="button" class="fin-drawer-item" data-go="data">
                     <span data-icon="arrow-left-right"></span>Datos</button>
+                <button type="button" class="fin-drawer-item" data-go="notes">
+                    <span data-icon="book-open"></span>Notas</button>
                 <button type="button" class="fin-drawer-item" data-go="news">
                     <span data-icon="sparkles"></span>Novedades</button>
                 <button type="button" class="fin-drawer-item" data-go="privacy">
@@ -861,6 +863,32 @@
                     sale en <em>Mi perfil › Descargar mis datos</em>.</p>
             </section>
             <div id="finDataError" class="form-error hidden"></div>
+            </div>
+
+            <!-- Notas: texto libre (p. ej. el prompt con el que una IA lee tus estados de cuenta) -->
+            <div class="settings-page fin-drawer-page" data-section="notes" data-title="Notas" data-parent="root">
+                <p class="fin-hint">Lo que quieras tener a la mano: el prompt con el que una IA saca tus movimientos,
+                    datos de tus cuentas, recordatorios. Solo tú las ves.</p>
+                <ul class="fin-notes" id="finNotesList"></ul>
+                <button type="button" class="link-btn fin-add-account" id="finNoteNew">＋ Nueva nota</button>
+                <div id="finNotesError" class="form-error hidden"></div>
+            </div>
+            <div class="settings-page fin-drawer-page" data-section="note" data-title="Nota" data-parent="notes">
+                <form class="fin-form" id="finNoteForm" novalidate>
+                    <label class="fin-field wide">Título
+                        <input type="text" id="finNoteTitle" maxlength="80" autocomplete="off" placeholder="Prompt de mis estados de cuenta">
+                    </label>
+                    <label class="fin-field wide">Texto
+                        <textarea id="finNoteBody" class="fin-note-body" rows="12" maxlength="10000"></textarea>
+                    </label>
+                    <p class="fin-hint wide" id="finNoteStatus"></p>
+                    <div id="finNoteError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" id="finNoteDelete" hidden>Borrar</button>
+                        <button type="button" class="link-btn" id="finNoteCopy">Copiar</button>
+                        <button type="submit" class="submit-btn" id="finNoteSave">Guardar</button>
+                    </div>
+                </form>
             </div>
 
             <!-- Las Novedades de Finanzas, todas -->

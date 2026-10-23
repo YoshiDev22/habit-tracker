@@ -42,6 +42,9 @@ def sow_marks(api):
     api.call("POST", "/api/finance/transactions", {**tx(card, 9876543, f"{MARK}-compra", fcat), "note": f"{MARK}-nota"},
              expect=201)
     api.call("POST", "/api/finance/transactions", tx(cash, 9876543, f"{MARK}-pago", kind="transfer", to=card), expect=201)
+    api.call("POST", "/api/finance/notes", {"title": f"{MARK}-nota-titulo", "body": f"{MARK}-nota-texto"}, expect=201)
+    api.call("POST", "/api/finance/terms", {"account_id": cash["id"], "concept": f"{MARK}-plazo", "principal_cents": 100,
+                                            "start_date": TODAY, "days": 28, "rate_bp": 1100}, expect=201)
     api.call("POST", "/api/feedback", {"text": f"Falla {MARK}-FEEDBACK <script>alert(1)</script>"}, expect=201)
 
 

@@ -54,6 +54,7 @@ function finDrawerShow(name, { animate = true } = {}) {
     if (FIN_SETTINGS_PAGES.includes(name)) finRenderSettingsPage(name);
     if (name === 'data') document.getElementById('finDataError').classList.add('hidden');
     if (name === 'news') finRenderNewsPage();
+    if (name === 'notes') finLoadNotes();
     if (name === 'privacy') {
         const frame = document.getElementById('finPrivacyFrame');
         if (!frame.getAttribute('src')) frame.setAttribute('src', '/privacidad');
@@ -104,6 +105,92 @@ window.addEventListener('keydown', (event) => {
     event.stopImmediatePropagation();
     finDrawerShow(finDrawerParent(finDrawerNav.current));
 }, true);
+
+// ---------- Notas ----------
+
+const finNotes = { list: [], editing: null };
+
+async function finLoadNotes() {
+    document.getElementById('finNotesError').classList.add('hidden');
+    try {
+        finNotes.list = (await apiFetch('/api/finance/notes')).notes;
+    } catch (error) {
+        showError(document.getElementById('finNotesError'), error.message);
+        return;
+    }
+    const list = document.getElementById('finNotesList');
+    list.replaceChildren(...(finNotes.list.length ? finNotes.list.map(n => {
+        const item = el('li');
+        const button = el('button', 'fin-note-item');
+        button.type = 'button';
+        button.dataset.noteId = String(n.id);
+        // El título y el principio del texto, en una línea
+        button.append(el('strong', '', n.title), el('small', '', n.body.split('\n')[0].slice(0, 90)));
+        item.appendChild(button);
+        return item;
+    }) : [el('li', 'fin-empty', 'Aún no tienes notas.')]));
+}
+
+function openFinNote(note) {
+    finNotes.editing = note;
+    document.getElementById('finNoteTitle').value = note ? note.title : '';
+    document.getElementById('finNoteBody').value = note ? note.body : '';
+    document.getElementById('finNoteDelete').hidden = !note;
+    document.getElementById('finNoteStatus').textContent = '';
+    document.getElementById('finNoteError').classList.add('hidden');
+    finDrawerShow('note');
+    if (!note) document.getElementById('finNoteTitle').focus();
+}
+
+document.getElementById('finNotesList').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-note-id]');
+    if (button) openFinNote(finNotes.list.find(n => n.id === Number(button.dataset.noteId)) || null);
+});
+document.getElementById('finNoteNew').addEventListener('click', () => openFinNote(null));
+
+document.getElementById('finNoteForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const errorEl = document.getElementById('finNoteError');
+    errorEl.classList.add('hidden');
+    const title = document.getElementById('finNoteTitle').value.trim();
+    if (!title) return showError(errorEl, 'Ponle un título a la nota.');
+    const json = { title, body: document.getElementById('finNoteBody').value };
+    const note = finNotes.editing;
+    try {
+        finNotes.editing = await apiFetch(note ? `/api/finance/notes/${note.id}` : '/api/finance/notes',
+            { method: note ? 'PATCH' : 'POST', json });
+        document.getElementById('finNoteDelete').hidden = false;
+        document.getElementById('finNoteStatus').textContent = 'Guardada.';
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+document.getElementById('finNoteCopy').addEventListener('click', async () => {
+    const status = document.getElementById('finNoteStatus');
+    try {
+        await navigator.clipboard.writeText(document.getElementById('finNoteBody').value);
+        status.textContent = 'Copiada: pégala donde la necesites.';
+    } catch (error) {
+        // Sin permiso del portapapeles: queda seleccionada para copiarla a mano
+        document.getElementById('finNoteBody').select();
+        status.textContent = 'Seleccionada: cópiala con Ctrl+C (o mantén presionado en el teléfono).';
+    }
+});
+
+document.getElementById('finNoteDelete').addEventListener('click', async () => {
+    const note = finNotes.editing;
+    if (!note) return;
+    const ok = await confirmDialog(`¿Borrar la nota "${note.title}"?`, { confirmLabel: 'Borrar' });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/finance/notes/${note.id}`, { method: 'DELETE' });
+        finNotes.editing = null;
+        finDrawerShow('notes');
+    } catch (error) {
+        showError(document.getElementById('finNoteError'), error.message);
+    }
+});
 
 // ---------- Exportar ----------
 

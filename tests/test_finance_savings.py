@@ -81,6 +81,21 @@ def test_a_pocket_with_movements_keeps_its_currency(api):
     assert status == 409 and "USD" in body["detail"]
 
 
+def test_notes(api):
+    setup(api, "notas@test.com")
+    prompt = "Extrae los movimientos del estado de cuenta.\nFormato: Fecha,Concepto,Cargo,Abono,Categoría"
+    _, note = api.call("POST", "/api/finance/notes", {"title": "Prompt de Gemini", "body": prompt}, expect=201)
+    assert note["body"] == prompt
+    _, other = api.call("POST", "/api/finance/notes", {"title": "Otra"}, expect=201)
+    # La que se tocó al último va primero
+    api.call("PATCH", f"/api/finance/notes/{note['id']}", {"body": prompt + "\nSin totales."}, expect=200)
+    notes = api.call("GET", "/api/finance/notes", expect=200)[1]["notes"]
+    assert [n["title"] for n in notes] == ["Prompt de Gemini", "Otra"] and notes[0]["body"].endswith("Sin totales.")
+    assert api.call("PATCH", f"/api/finance/notes/{note['id']}", {"title": "   "})[0] == 422
+    api.call("DELETE", f"/api/finance/notes/{other['id']}", expect=204)
+    assert [n["title"] for n in api.call("GET", "/api/finance/notes", expect=200)[1]["notes"]] == ["Prompt de Gemini"]
+
+
 def test_a_card_keeps_its_interest_rate_for_reference(api):
     cash, debit, credit, cats = setup(api, "tasa@test.com")
     _, card = api.call("POST", URL, {"name": "Oro", "kind": "credit", "interest_rate_bp": 4550}, expect=201)

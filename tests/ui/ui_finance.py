@@ -600,7 +600,7 @@ async def main():
         await b.js("document.getElementById('finMenuBtn').click()")
         await b.wait_for("!document.getElementById('finDrawer').classList.contains('hidden')")
         items = await b.js("[...document.querySelectorAll('#finDrawer .fin-drawer-item')].map(i => i.textContent.trim())")
-        check(items == ["Configuración", "Datos", "Novedades", "Aviso de privacidad", "Regresar a Habit Tracker"],
+        check(items == ["Configuración", "Datos", "Notas", "Novedades", "Aviso de privacidad", "Regresar a Habit Tracker"],
               f"the gear opens a side menu ({items})")
         await b.shot("finance_drawer", full=False)
         await b.js("document.querySelector('#finDrawer [data-go=\"data\"]').click()")
@@ -1078,6 +1078,21 @@ async def main():
         await b.js("document.querySelector('#finSettingsMenu [data-open=\"fixed\"]').click()")
         await fits("settings › fixed")
         await b.js("document.getElementById('finDrawerBack').click()")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        # Notas: una nueva se guarda y sale en la lista con el principio de su texto
+        await b.js("document.querySelector('#finDrawer [data-go=\"notes\"]').click()")
+        await b.wait_for("document.querySelector('#finNotesList li')")
+        await b.js("document.getElementById('finNoteNew').click()")
+        await b.js("""document.getElementById('finNoteTitle').value = 'Prompt de Gemini';
+            document.getElementById('finNoteBody').value = 'Extrae los movimientos\\nFecha,Concepto,Cargo';
+            document.getElementById('finNoteSave').click()""")
+        notes = await wait_api("/api/finance/notes", lambda body: body["notes"])
+        check(notes["notes"][0]["title"] == "Prompt de Gemini" and "Fecha,Concepto" in notes["notes"][0]["body"],
+              f"a note is saved from the side menu ({notes['notes']})")
+        await fits("notes")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        row = await b.wait_for("document.getElementById('finNotesList').textContent", lambda v: "Prompt" in v)
+        check("Extrae los movimientos" in row and "Fecha" not in row, f"the list shows the title and the first line ({row})")
         await b.js("document.getElementById('finDrawerBack').click()")
         await b.js("document.querySelector('#finDrawer [data-go=\"news\"]').click()")
         news = await b.js("document.getElementById('finNewsAll').textContent")

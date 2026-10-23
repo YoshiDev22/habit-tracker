@@ -700,6 +700,50 @@
     color: var(--income-fg);
 }
 
+/* Notas (panel lateral) */
+.fin-notes {
+    list-style: none;
+    margin: 8px 0;
+    padding: 0;
+}
+
+.fin-note-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 10px 6px;
+    border: none;
+    border-top: 1px solid var(--border-color);
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.fin-note-item:hover {
+    background: var(--bg-hover);
+}
+
+.fin-note-item small {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fin-note-body {
+    padding: 9px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    resize: vertical;
+    min-height: 200px;
+}
+
 .fin-terms-past {
     margin: 4px 8px 12px;
     color: var(--text-secondary);

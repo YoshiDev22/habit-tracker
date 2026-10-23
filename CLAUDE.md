@@ -218,7 +218,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
 `ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`, las de Finanzas (`FinAccount`, `FinCategory`,
 `FinTransaction`, `FinRecurring`, `FinSettings`, `FinSplit`, `FinInstallment`, `FinStatement`, `FinBudgetGroup`,
-`FinBudgetItem`, `FinYieldRate`, `FinTerm`),
+`FinBudgetItem`, `FinYieldRate`, `FinTerm`, `FinNote`),
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -635,8 +635,12 @@ Lo que no se ve en Swagger:
   anotan dos veces, y por eso `fin_terms` usa `AUTOINCREMENT`: un id reutilizado chocaría con lo anotado por uno
   borrado. Esos ingresos con `external_id` no cuentan como "último rendimiento diario". El dinero entra al
   plazo con una transferencia del usuario; la cuenta dice "No disponible … hasta el …" (`term_locked_cents`).
-  Cuentas › *Inversiones* lista los plazos y las cuentas con tasa; el menú de una cuenta lleva *Rendimiento*,
-  *Plazo fijo* y (suelta) *Apartado*.
+  Una cuenta `kind = "investment"` (CETES, una casa de bolsa, un exchange) se porta como débito y sale primero en
+  Cuentas › *Inversiones*, con los plazos y las demás cuentas con tasa; la hoja de un plazo puede crear esa cuenta
+  y anotar la transferencia que mete el dinero. El menú de una cuenta lleva *Rendimiento*, *Plazo fijo* y
+  (suelta) *Apartado*. Una tarjeta guarda su tasa de interés (`interest_rate_bp`, columna en `migrate.py`) solo
+  de referencia: nada se calcula con ella. **Notas** (`fin_notes`, `/notes`; panel lateral › Notas, en
+  `finance-data.js`): título (80) y texto (10 000) libres con *Copiar*; el panel de administración no las lee.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va

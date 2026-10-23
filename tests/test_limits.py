@@ -306,3 +306,6 @@ def test_personal_finance(api):
                 {"days": 0}, {"days": 3651}, {"rate_bp": -1}, {"rate_bp": 10_001}, {"day_basis": 100},
                 {"on_maturity": "x" * 5000}):
         assert api.call("POST", "/api/finance/terms", {**term, **bad})[0] == 422, bad
+    api.call("POST", "/api/finance/notes", {"title": "x" * 80, "body": "y" * 10_000}, expect=201)
+    for bad in ({"title": "x" * 81}, {"title": ""}, {"body": "y" * 10_001}):
+        assert api.call("POST", "/api/finance/notes", {"title": "Nota", **bad})[0] == 422, bad
