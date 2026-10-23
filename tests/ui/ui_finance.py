@@ -1093,6 +1093,31 @@ async def main():
         await b.js("document.getElementById('finDrawerBack').click()")
         row = await b.wait_for("document.getElementById('finNotesList').textContent", lambda v: "Prompt" in v)
         check("Extrae los movimientos" in row and "Fecha" not in row, f"the list shows the title and the first line ({row})")
+        # Las notas también a la mano, a la izquierda de la campana: su panel cuelga del botón
+        await b.js("closeFinDrawer()")
+        st = await b.js("""(() => { const n = document.getElementById('finNotesBtn'), bell = document.getElementById('finBellBtn');
+            return {before: n.nextElementSibling === bell, left: n.getBoundingClientRect().right <= bell.getBoundingClientRect().left}; })()""")
+        check(st == {"before": True, "left": True}, f"the notes button sits left of the bell ({st})")
+        await b.js("document.getElementById('finNotesBtn').click()")
+        await b.wait_for("document.querySelector('#finNotesPopBody [data-open-note]')")
+        place = await b.js("""(() => {
+            const btn = document.getElementById('finNotesBtn').getBoundingClientRect();
+            const panel = document.getElementById('finNotesPopPanel').getBoundingClientRect();
+            const cx = btn.left + btn.width / 2;
+            return {gap: panel.top - btn.bottom, left: panel.left, right: innerWidth - panel.right,
+                    under: panel.left <= cx && cx <= panel.right,
+                    text: document.getElementById('finNotesPopBody').textContent};
+        })()""")
+        check(0 <= place["gap"] <= 16 and place["left"] >= 15 and place["right"] >= 15 and place["under"]
+              and "Prompt de Gemini" in place["text"], f"the notes open under their button ({place})")
+        await fits("notes panel")
+        await b.shot("finance_notes_pop", full=False)
+        # Tocar una la abre en el panel lateral para editarla
+        await b.js("document.querySelector('#finNotesPopBody [data-open-note]').click()")
+        title = await b.wait_for("document.getElementById('finNoteTitle').value", lambda v: v)
+        check(title == "Prompt de Gemini" and await b.js("document.getElementById('finNotesPop').classList.contains('hidden')"),
+              f"a note opens in the side menu ({title})")
+        await b.js("finDrawerShow('notes', {animate: false})")
         await b.js("document.getElementById('finDrawerBack').click()")
         await b.js("document.querySelector('#finDrawer [data-go=\"news\"]').click()")
         news = await b.js("document.getElementById('finNewsAll').textContent")

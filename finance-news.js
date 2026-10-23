@@ -186,20 +186,9 @@ async function openFinNotices() {
     }
 }
 
-// El panel cuelga de la campana: justo debajo, con su borde derecho alineado al de ella
-// (o a 16 px de la orilla) y el piquito bajo su centro. La campana no siempre es lo último
-// de la barra (en Presupuesto y Categorías hay un ✎ a su derecha), por eso se mide.
+// El panel cuelga de la campana (finPlacePop() en finance-app.js)
 function finPlaceNotices() {
-    if (finNoticesSheet.classList.contains('hidden')) return;
-    const bell = document.getElementById('finBellBtn').getBoundingClientRect();
-    const panel = document.getElementById('finNoticesPanel');
-    // Sin salirse por la izquierda: en un teléfono el panel ocupa casi todo el ancho
-    const width = Math.min(360, window.innerWidth - 32);
-    const right = Math.min(Math.max(16, window.innerWidth - bell.right), window.innerWidth - width - 16);
-    panel.style.top = `${Math.round(bell.bottom + 10)}px`;
-    panel.style.right = `${Math.round(right)}px`;
-    const arrow = window.innerWidth - right - (bell.left + bell.width / 2) - 6;
-    panel.style.setProperty('--fin-pop-arrow', `${Math.round(Math.max(10, arrow))}px`);
+    finPlacePop(finNoticesSheet, document.getElementById('finBellBtn'), document.getElementById('finNoticesPanel'));
 }
 
 window.addEventListener('resize', finPlaceNotices);

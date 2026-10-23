@@ -658,3 +658,38 @@ fijo (CETES, pagarés). Hoy el rendimiento se ajusta a mano cada vez que se revi
 [`docs/specs/finanzas-apartados-rendimientos.md`](docs/specs/finanzas-apartados-rendimientos.md): apartados como
 cuentas hijas, el rendimiento diario como estimado con *Anotar rendimientos*, tope opcional, sin ISR.
 Lleva **migración** (`fin_accounts.parent_id`).
+
+## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.7)
+
+**Pedido el 2026-10-23.** Qué pasa con una tarjeta de crédito que se cancela en el banco. Hoy, con movimientos, solo
+se archiva (`is_active = false`): sale de Cuentas y Tarjetas y de "Todas las cuentas", y se reactiva en
+Configuración › Cuentas archivadas. Pero archivarla no dice nada de lo que quedó pendiente.
+
+**Por decidir.**
+- **Deuda pendiente.** Si al darla de baja aún debe algo (o tiene MSI por facturar), ¿se puede archivar? Lo
+  natural: avisar "aún debes $X" y dejarla visible como *En baja* hasta que llegue a cero, con su pago y su estado
+  de cuenta (los bancos siguen cobrando la deuda de una tarjeta cancelada).
+- **Saldo a favor.** Si quedó a favor, ofrecer la transferencia de regreso a una cuenta antes de archivarla.
+- **Sus fijos y MSI.** Un fijo que se cobra a esa tarjeta hoy impide archivarla (409): ¿ofrecer moverlo a otra?
+- **Cómo se ve.** Una marca *Dada de baja el …* (¿columna nueva con la fecha, o basta archivarla?). Su historial
+  sigue en Movimientos y en los reportes.
+- **Que no vuelva a usarse.** Que no salga al elegir cuenta en la hoja del monto ni en importar, pero sí al filtrar
+  Movimientos por cuenta.
+
+## 48 · P2 · Finanzas: buscar y filtrar Movimientos (Finanzas 0.7)
+
+**Pedido el 2026-10-23.** Una lupa arriba a la derecha que solo sale en Movimientos (como el ✎ de Categorías y
+Presupuesto) y abre una hoja *Buscar* con:
+- **Notas:** texto que busca en el concepto y la nota.
+- **Tipo de transacción:** Gasto, Ingreso y Transferencia (botones que se encienden; varios a la vez).
+- **Cuentas:** cada cuenta activa como botón con su icono, color y saldo, en dos columnas; varias a la vez.
+- **Gastos e Ingresos:** las categorías de cada tipo como píldoras con su icono y color; varias a la vez.
+- Arriba, **×** (quita los filtros) y **Hecho** (aplica). Mientras haya filtros, la lista lo dice ("3 filtros ·
+  Quitar"), como hoy "Solo Efectivo" (`accountFilter`), que pasaría a ser un caso de estos filtros.
+
+**Idea.** Filtrar en el navegador sobre lo cargado del periodo, y con *Siempre* o un rango buscar en todo; si hace
+falta, `GET /transactions` con `q`, `kinds`, `account_ids` y `category_ids` (una parte de un dividido cuenta en su
+categoría). Los totales del día y del periodo, solo de lo filtrado. Sin migración.
+
+**Por decidir.** Si los filtros se recuerdan en el dispositivo (`localStorage`) o se quitan al salir de
+Movimientos; si también ordena (monto, fecha).

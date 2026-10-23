@@ -192,6 +192,77 @@ document.getElementById('finNoteDelete').addEventListener('click', async () => {
     }
 });
 
+// ---------- Las notas junto a la campana ----------
+// Un panel que cuelga del botón, como el de los avisos: cada nota con su
+// primera línea y Copiar; tocarla la abre (y se edita) en el panel lateral.
+
+const finNotesPop = document.getElementById('finNotesPop');
+document.getElementById('finNotesBtn').appendChild(financeIcon('book-open', 20));
+
+function finPlaceNotesPop() {
+    finPlacePop(finNotesPop, document.getElementById('finNotesBtn'), document.getElementById('finNotesPopPanel'));
+}
+
+async function openFinNotesPop() {
+    const body = document.getElementById('finNotesPopBody');
+    try {
+        finNotes.list = (await apiFetch('/api/finance/notes')).notes;
+    } catch (error) {
+        body.replaceChildren(el('p', 'fin-hint', error.message));
+        finNotes.list = null;
+    }
+    if (finNotes.list) {
+        body.replaceChildren(...(finNotes.list.length ? finNotes.list.map(n => {
+            const row = el('div', 'fin-pop-note');
+            const open = el('button', 'fin-pop-note-open');
+            open.type = 'button';
+            open.dataset.openNote = String(n.id);
+            open.append(el('strong', '', n.title), el('small', '', n.body.split('\n')[0].slice(0, 90)));
+            const copy = el('button', 'link-btn', 'Copiar');
+            copy.type = 'button';
+            copy.dataset.copyNote = String(n.id);
+            copy.setAttribute('aria-label', `Copiar "${n.title}"`);
+            row.append(open, copy);
+            return row;
+        }) : [el('p', 'fin-hint', 'Aún no tienes notas. Guarda aquí, por ejemplo, el prompt con el que una IA lee tus estados de cuenta.')]));
+    }
+    openFinSheet(finNotesPop);
+    finPlaceNotesPop();
+    document.getElementById('finNotesPopPanel').focus();
+}
+
+// Abrir una nota (o una nueva) en el panel lateral, donde se edita
+function finNotesPopGo(note) {
+    closeFinSheet(finNotesPop);
+    openFinDrawer('notes');
+    openFinNote(note);
+}
+
+document.getElementById('finNotesPopBody').addEventListener('click', async (event) => {
+    const copy = event.target.closest('[data-copy-note]');
+    if (copy) {
+        const note = (finNotes.list || []).find(n => n.id === Number(copy.dataset.copyNote));
+        if (!note) return;
+        try {
+            await navigator.clipboard.writeText(note.body);
+            copy.textContent = 'Copiada';
+        } catch (error) {
+            // Sin permiso del portapapeles: se abre para copiarla a mano
+            finNotesPopGo(note);
+        }
+        return;
+    }
+    const open = event.target.closest('[data-open-note]');
+    if (open) finNotesPopGo((finNotes.list || []).find(n => n.id === Number(open.dataset.openNote)) || null);
+});
+document.getElementById('finNotesPopNew').addEventListener('click', () => finNotesPopGo(null));
+document.getElementById('finNotesBtn').addEventListener('click', openFinNotesPop);
+window.addEventListener('resize', finPlaceNotesPop);
+finSheetDismiss.set('finNotesPop', () => {
+    closeFinSheet(finNotesPop);
+    document.getElementById('finNotesBtn').focus();
+});
+
 // ---------- Exportar ----------
 
 const FIN_KIND_NAMES = { expense: 'Gasto', income: 'Ingreso', transfer: 'Transferencia' };

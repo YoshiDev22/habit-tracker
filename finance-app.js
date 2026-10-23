@@ -1260,6 +1260,21 @@ function openFinSheet(sheet) {
     document.body.classList.add('fin-sheet-open');
 }
 
+// Un panel que cuelga de un botón de la barra de arriba (la campana, las notas): justo
+// debajo, con su borde derecho alineado al del botón (o a 16 px de la orilla) y el
+// piquito bajo su centro. El botón no siempre es lo último de la barra, por eso se mide.
+function finPlacePop(sheet, button, panel) {
+    if (sheet.classList.contains('hidden')) return;
+    const box = button.getBoundingClientRect();
+    // Sin salirse por la izquierda: en un teléfono el panel ocupa casi todo el ancho
+    const width = Math.min(360, window.innerWidth - 32);
+    const right = Math.min(Math.max(16, window.innerWidth - box.right), window.innerWidth - width - 16);
+    panel.style.top = `${Math.round(box.bottom + 10)}px`;
+    panel.style.right = `${Math.round(right)}px`;
+    const arrow = window.innerWidth - right - (box.left + box.width / 2) - 6;
+    panel.style.setProperty('--fin-pop-arrow', `${Math.round(Math.max(10, arrow))}px`);
+}
+
 function closeFinSheet(sheet) {
     sheet.classList.add('hidden');
     const i = finSheets.indexOf(sheet);

@@ -85,6 +85,8 @@
                 <span class="fin-total-more" id="finTotalMore"></span>
             </div>
             <div class="fin-top-side end">
+                <!-- Tus notas, a la izquierda de la campana (finance-data.js) -->
+                <button type="button" class="fin-round-btn" id="finNotesBtn" aria-label="Notas" title="Notas"></button>
                 <!-- Los avisos de tu cuenta, los mismos de la app (finance-news.js) -->
                 <button type="button" class="fin-round-btn fin-bell" id="finBellBtn" aria-label="Avisos" title="Avisos">
                     <span class="fin-bell-count" id="finBellCount" hidden></span>
@@ -586,7 +588,19 @@
         <div class="fin-sheet-overlay" data-close-sheet></div>
         <div class="fin-pop-panel" id="finNoticesPanel" tabindex="-1">
             <h2 class="fin-pop-title" id="finNoticesTitle">Avisos</h2>
-            <div id="finNoticesBody"></div>
+            <div class="fin-pop-body" id="finNoticesBody"></div>
+        </div>
+    </div>
+
+    <!-- Las notas, a la mano junto a la campana (finance-data.js); se editan en el panel lateral -->
+    <div class="fin-sheet fin-pop hidden" id="finNotesPop" role="dialog" aria-modal="true" aria-labelledby="finNotesPopTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-pop-panel" id="finNotesPopPanel" tabindex="-1">
+            <h2 class="fin-pop-title" id="finNotesPopTitle">Notas</h2>
+            <div class="fin-pop-body" id="finNotesPopBody"></div>
+            <div class="fin-pop-foot">
+                <button type="button" class="link-btn" id="finNotesPopNew">＋ Nueva nota</button>
+            </div>
         </div>
     </div>
 
