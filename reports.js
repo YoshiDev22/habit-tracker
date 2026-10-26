@@ -971,6 +971,171 @@ window.appDataHooks.push(syncHabitsExport);
 window.modulesChangedHooks.push(syncHabitsExport);
 
 // ============================================
+// Copiar para IA
+// ============================================
+// El periodo que se ve, en Markdown, para pegarlo en la IA de cada quien. Lleva
+// las cifras ya calculadas por la app (las mismas de las tarjetas) para que la
+// IA no tenga que sumar: los minutos de cada día y de cada proyecto se reparten
+// por mayor resto, así suman exacto el total, y los % suman 100. Nada sale de
+// la app: solo se copia al portapapeles.
+
+const reportsCopyAiBtn = document.getElementById('reportsCopyAi');
+
+// Enteros que suman exacto `target`: el piso de cada valor y lo que falta a
+// los de mayor parte decimal
+function splitRounded(values, target) {
+    const floors = values.map(Math.floor);
+    let missing = target - floors.reduce((a, b) => a + b, 0);
+    values.map((v, i) => [v - floors[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => {
+        if (missing > 0) { floors[i] += 1; missing -= 1; }
+    });
+    return floors;
+}
+
+function minutesText(minutes) {
+    const h = Math.floor(minutes / 60), m = minutes % 60;
+    return h ? `${h} h ${m} min` : `${m} min`;
+}
+
+// Una celda de tabla Markdown: el texto del usuario no rompe la tabla
+function mdCell(value) {
+    return String(value ?? '').replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ');
+}
+
+function mdTable(header, rows) {
+    return [`| ${header.join(' | ')} |`, `| ${header.map(() => '---').join(' | ')} |`,
+        ...rows.map(r => `| ${r.map(mdCell).join(' | ')} |`)].join('\n');
+}
+
+function buildAiSummary(data) {
+    const { metrics, prevMetrics, completed, projects, habitReport } = data;
+    const { from, to } = reportsState;
+    const lines = [];
+    const total = metrics.total_seconds;
+    const totalMin = Math.round(total / 60);
+    const days = workingDays(metrics);
+    const through = metrics.through < metrics.date_to ? ` (en curso: datos hasta el ${metrics.through})` : '';
+    lines.push(`# Mis datos de Habit Tracker: ${formatRangeLabel()}`, '',
+        `Periodo: ${getDateKey(from)} a ${getDateKey(to)}${through}.`,
+        'Las cifras ya las calculó la app y cuadran entre sí: úsalas tal cual, sin volver a sumarlas.',
+        'Días de trabajo = los hábiles (lunes a viernes, sin festivos, días libres ni vacaciones) '
+        + 'más los de descanso en que registré tiempo.', '');
+
+    // ---- Tiempo
+    lines.push('## Tiempo', '',
+        `- Total: ${minutesText(totalMin)} (${totalMin} min)`,
+        `- Días de trabajo: ${days}; con tiempo: ${metrics.active_days}`,
+        `- Promedio por día de trabajo: ${days ? minutesText(Math.round(total / days / 60)) : '—'}`);
+    if (prevMetrics) {
+        const prevDays = workingDays(prevMetrics);
+        const prevMin = Math.round(prevMetrics.total_seconds / 60);
+        lines.push(`- Periodo anterior (${prevMetrics.date_from} a ${prevMetrics.date_to}): ${minutesText(prevMin)} `
+            + `(${prevMin} min) en ${prevDays} días de trabajo; `
+            + `${prevDays ? minutesText(Math.round(prevMetrics.total_seconds / prevDays / 60)) : '—'} por día de trabajo`);
+    }
+    if (metrics.unconfirmed_seconds) {
+        lines.push(`- Incluye ${minutesText(Math.round(metrics.unconfirmed_seconds / 60))} sin confirmar `
+            + '(cronómetros que llegaron al tope de 8 h)');
+    }
+    if (total) {
+        const reasons = new Map(metrics.non_working_days.map(d => [d.date, d.reason]));
+        const todayKey = getDateKey(new Date());
+        const dayMin = splitRounded(metrics.by_day.map(d => d.seconds / 60), totalMin);
+        lines.push('', '### Por día', '', mdTable(['Fecha', 'Día', 'Tipo', 'Minutos'],
+            metrics.by_day.map((d, i) => [d.date, WEEKDAY_SHORT[dateFromKey(d.date).getDay()],
+                (d.workday ? 'hábil' : (reasons.get(d.date) || 'fin de semana')) + (d.date === todayKey ? ' (hoy, en curso)' : ''),
+                dayMin[i]])));
+        const projMin = splitRounded(metrics.by_project.map(p => p.seconds / 60), totalMin);
+        const projPct = splitRounded(metrics.by_project.map(p => p.seconds * 100 / total), 100);
+        lines.push('', '### Por proyecto', '', mdTable(['Proyecto', 'Minutos', '%'],
+            metrics.by_project.map((p, i) => [p.name, projMin[i], projPct[i]])));
+        if (metrics.by_tag.length) {
+            lines.push('', '### Por etiqueta', '',
+                'Una sesión cuenta en cada etiqueta de su tarea: estas filas no se suman entre sí.', '',
+                mdTable(['Etiqueta', 'Minutos'], [...metrics.by_tag.map(t => [t.name, Math.round(t.seconds / 60)]),
+                    ...(metrics.untagged_seconds ? [['(sin etiqueta)', Math.round(metrics.untagged_seconds / 60)]] : [])]));
+        }
+        if (metrics.top_tasks.length) {
+            lines.push('', '### Tareas con más tiempo en el periodo', '',
+                'Solo las de más tiempo: no suman el total.', '',
+                mdTable(['Tarea', 'Proyecto', 'Minutos', 'Sesiones', 'Días'],
+                    metrics.top_tasks.map(t => [t.title, t.project || '', Math.round(t.seconds / 60), t.sessions, t.days])));
+        }
+    }
+
+    // ---- Tareas terminadas
+    const byId = new Map(projects.map(p => [p.id, p]));
+    lines.push('', `## Tareas terminadas (${completed.length})`, '');
+    if (completed.length) {
+        lines.push(mdTable(['Terminada', 'Tarea', 'Proyecto'],
+            [...completed].sort((a, b) => a.completed_at.localeCompare(b.completed_at)).map(t => {
+                const project = byId.get(t.project_id);
+                return [t.completed_at, t.title, project && !project.is_system ? project.name : 'Sin asignar'];
+            })));
+    } else {
+        lines.push('Ninguna.');
+    }
+
+    // ---- Hábitos (con el módulo encendido)
+    if (habitReport && habitReport.habits.length) {
+        // Los mismos días que tocaban que la tarjeta: sin descanso, vacaciones ni festivos
+        const target = Math.max(0, habitReport.days_elapsed - habitReport.rest_days_elapsed
+            - (habitReport.paused_days_elapsed || 0));
+        lines.push('', '## Hábitos', '',
+            `- Racha actual: ${habitReport.streak} días; récord: ${habitReport.best_streak}`,
+            `- Días que tocaban en el periodo: ${target} (sin descansos, vacaciones ni festivos)`,
+            `- Días con algún hábito: ${habitReport.active_days}`, '',
+            mdTable(['Hábito', 'Días hechos', 'Racha actual', 'Récord'],
+                habitReport.habits.map(h => [h.label, h.days_done, h.current_streak, h.best_streak])));
+    }
+    return lines.join('\n') + '\n';
+}
+
+// El portapapeles moderno pide un contexto seguro; si no está, el de siempre
+async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    if (!ok) throw new Error('copy failed');
+}
+
+async function copyReportForAi() {
+    const label = reportsCopyAiBtn.textContent;
+    const flash = (text) => {
+        reportsCopyAiBtn.textContent = text;
+        setTimeout(() => { reportsCopyAiBtn.textContent = label; }, 2500);
+    };
+    if (daysBetween(reportsState.from, reportsState.to) > METRICS_MAX_DAYS) {
+        flash(`Hasta ${METRICS_MAX_DAYS} días`);
+        return;
+    }
+    reportsCopyAiBtn.disabled = true;
+    reportsCopyAiBtn.textContent = 'Preparando…';
+    try {
+        // Se pide de nuevo: lo copiado es el periodo que se ve, al momento
+        await copyText(buildAiSummary(await fetchReportData()));
+        flash('Copiado ✓ Pégalo en tu IA');
+    } catch (error) {
+        console.error('Error al copiar para la IA:', error);
+        flash('No se pudo copiar');
+    } finally {
+        reportsCopyAiBtn.disabled = false;
+    }
+}
+
+reportsCopyAiBtn.addEventListener('click', copyReportForAi);
+
+// ============================================
 // Hooks
 // ============================================
 

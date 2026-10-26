@@ -470,7 +470,11 @@ La última pestaña. Es solo de lectura: aquí no se cambia nada, solo se ve lo 
 **El periodo**, arriba: **Semana** (de lunes a domingo), **2 semanas** (esta y la anterior, de
 lunes a domingo), **Mes** o **Personalizado** (eliges *Desde* y *Hasta*). Con **<** y **>** vas
 al periodo anterior o al siguiente. Los botones de exportar bajan el periodo que ves, así que
-con *2 semanas* sale un CSV de las dos.
+con *2 semanas* sale un CSV de las dos. **📋 Copiar para IA** copia un resumen del periodo (tiempo
+por día, proyecto y etiqueta, tareas terminadas y hábitos) para pegarlo en el chat de tu IA
+(ChatGPT, Claude…). Las cifras van ya calculadas y cuadran entre sí: los minutos de cada día y
+de cada proyecto suman el total y los porcentajes suman 100, así la IA no tiene que sumar. La app
+no envía nada: solo lo copia.
 
 **Qué cuenta**: solo el **tiempo de trabajo** (pomodoros de enfoque, cronómetro y registros a
 mano), nunca los descansos. Es el mismo criterio que las tarjetas y la Lista, así que las

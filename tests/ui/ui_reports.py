@@ -272,6 +272,23 @@ async def main():
         fn = await b.js("[reportsFrom.value, reportsTo.value]")
         check(fn == [(prev_mon - dt.timedelta(days=14)).isoformat(), (monday - dt.timedelta(days=8)).isoformat()],
               f"2 semanas: ‹ moves 14 days back ({fn})")
+        # Copiar para IA: the minutes of each day and project add up to the total, the % to 100
+        ai = await b.js("""(async () => {
+            const text = buildAiSummary(await fetchReportData());
+            const table = title => {
+                const part = (text.split(`### ${title}`)[1] || '').split('\\n#')[0];
+                return part.split('\\n').filter(l => /^\\| (?!---|Fecha|Proyecto)/.test(l))
+                    .map(l => l.split('|').slice(1, -1).map(c => c.trim()));
+            };
+            const total = Number(text.match(/- Total: .* \\((\\d+) min\\)/)[1]);
+            return {total, days: table('Por día').reduce((a, r) => a + Number(r[3]), 0),
+                    projects: table('Por proyecto').reduce((a, r) => a + Number(r[1]), 0),
+                    pct: table('Por proyecto').reduce((a, r) => a + Number(r[2]), 0),
+                    head: text.split('\\n')[0]};
+        })()""")
+        check(ai["total"] == 210 and ai["days"] == 210 and ai["projects"] == 210 and ai["pct"] == 100
+              and ai["head"].startswith("# Mis datos de Habit Tracker"),
+              f"Copiar para IA: days and projects add up to the total, % to 100 ({ai})")
         if STAGE >= 4:
             heat = await b.js("""(() => {
                 const card = [...document.querySelectorAll('.report-card')].find(c => c.querySelector('.report-heat'));
