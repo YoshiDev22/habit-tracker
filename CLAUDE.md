@@ -899,7 +899,7 @@ necesite salirse de una vista (popovers) va fuera del track, como `#habitPopover
 
 **Reportes** (`reports.js`) no guarda nada: pide de nuevo cada vez que se entra a la vista
 (y en `projectsChangedHooks` mientras se ve), con el rango en fechas locales. Semana de
-lunes a domingo; *2 semanas* (`fortnight`) es esa y la anterior, y solo semana y mes tienen
+lunes a domingo; *2 semanas* (`fortnight`) es esa y la anterior, ‹ › la corren 7 días (no 14), y solo semana y mes tienen
 reporte guardado. El resumen pide `GET /api/metrics` del periodo y del anterior para saber los
 días hábiles: promedia por **día de trabajo** (los hábiles transcurridos más los de descanso o
 festivos con tiempo: `workingDays()`, la misma regla que `working_days()` de `report_text.py`) y,

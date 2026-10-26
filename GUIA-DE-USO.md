@@ -469,7 +469,9 @@ La última pestaña. Es solo de lectura: aquí no se cambia nada, solo se ve lo 
 
 **El periodo**, arriba: **Semana** (de lunes a domingo), **2 semanas** (esta y la anterior, de
 lunes a domingo), **Mes** o **Personalizado** (eliges *Desde* y *Hasta*). Con **<** y **>** vas
-al periodo anterior o al siguiente. Los botones de exportar bajan el periodo que ves, así que
+al periodo anterior o al siguiente; en *2 semanas* se corren de semana en semana (de 19 oct–1 nov a
+12–25 oct). Si *Desde* queda después de *Hasta*, los campos se marcan en rojo y el periodo no cambia
+hasta corregirlo. Los botones de exportar bajan el periodo que ves, así que
 con *2 semanas* sale un CSV de las dos. **📋 Copiar para IA** copia un resumen del periodo (tiempo
 por día, proyecto y etiqueta, tareas terminadas y hábitos) para pegarlo en el chat de tu IA
 (ChatGPT, Claude…). Las cifras van ya calculadas y cuadran entre sí: los minutos de cada día y

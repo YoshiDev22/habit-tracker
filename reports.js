@@ -109,8 +109,11 @@ function setRange(kind, from, to) {
         btn.setAttribute('aria-pressed', String(btn.dataset.range === kind));
     });
     reportsCustom.classList.toggle('hidden', kind !== 'custom');
-    reportsFrom.value = getDateKey(from);
-    reportsTo.value = getDateKey(to);
+    // Solo si cambia: reasignar el valor de un <input type="date"> mientras se
+    // escribe reinicia el segmento ("12" quedaba en "2")
+    if (reportsFrom.value !== getDateKey(from)) reportsFrom.value = getDateKey(from);
+    if (reportsTo.value !== getDateKey(to)) reportsTo.value = getDateKey(to);
+    markCustomInvalid(false);
     reportsRangeLabel.textContent = formatRangeLabel();
     // Hacia delante solo mientras el periodo no llegue a hoy
     reportsNext.disabled = to >= startOfToday();
@@ -127,7 +130,9 @@ function shiftRange(direction) {
         setRange(kind, f, t);
         return;
     }
-    const length = daysBetween(from, to);
+    // 2 semanas se corre de semana en semana (19 oct–1 nov → 12–25 oct), así una
+    // quincena se ve a caballo entre otras dos; las demás, por su largo
+    const length = kind === 'fortnight' ? 7 : daysBetween(from, to);
     setRange(kind, addDays(from, direction * length), addDays(to, direction * length));
 }
 
@@ -148,11 +153,25 @@ reportsRangeBtns.forEach(btn => {
 reportsPrev.addEventListener('click', () => shiftRange(-1));
 reportsNext.addEventListener('click', () => shiftRange(1));
 
+// "Desde" después de "Hasta": se marca y no se aplica, sin mover nada
+function markCustomInvalid(invalid) {
+    [reportsFrom, reportsTo].forEach(input => input.setAttribute('aria-invalid', String(invalid)));
+    reportsCustom.title = invalid ? '"Desde" tiene que ser antes de "Hasta"' : '';
+}
+
+// Cada dígito que se escribe ya forma una fecha y dispara "change" (el "1" de
+// "12" es el día 1): una fecha a medias no se aplica ni se intercambia con la
+// otra, que es lo que mandaba ese "1" a "Desde"
 function onCustomDateChange() {
     if (!reportsFrom.value || !reportsTo.value) return;
-    let from = dateFromKey(reportsFrom.value);
-    let to = dateFromKey(reportsTo.value);
-    if (from > to) [from, to] = [to, from];
+    const from = dateFromKey(reportsFrom.value);
+    const to = dateFromKey(reportsTo.value);
+    // Un año a medio escribir ("0002") tampoco
+    if (from.getFullYear() < 2000 || to.getFullYear() < 2000) return;
+    if (from > to) {
+        markCustomInvalid(true);
+        return;
+    }
     setRange('custom', from, to);
 }
 

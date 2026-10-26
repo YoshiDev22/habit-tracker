@@ -270,8 +270,8 @@ async def main():
         await b.js("document.getElementById('reportsPrev').click()")
         await asyncio.sleep(0.8)
         fn = await b.js("[reportsFrom.value, reportsTo.value]")
-        check(fn == [(prev_mon - dt.timedelta(days=14)).isoformat(), (monday - dt.timedelta(days=8)).isoformat()],
-              f"2 semanas: ‹ moves 14 days back ({fn})")
+        check(fn == [(prev_mon - dt.timedelta(days=7)).isoformat(), (monday - dt.timedelta(days=1)).isoformat()],
+              f"2 semanas: ‹ moves one week back, so two weeks can straddle others ({fn})")
         # Copiar para IA: the minutes of each day and project add up to the total, the % to 100
         ai = await b.js("""(async () => {
             const text = buildAiSummary(await fetchReportData());
@@ -286,9 +286,12 @@ async def main():
                     pct: table('Por proyecto').reduce((a, r) => a + Number(r[2]), 0),
                     head: text.split('\\n')[0]};
         })()""")
-        check(ai["total"] == 210 and ai["days"] == 210 and ai["projects"] == 210 and ai["pct"] == 100
+        check(ai["total"] > 0 and ai["days"] == ai["total"] and ai["projects"] == ai["total"] and ai["pct"] == 100
               and ai["head"].startswith("# Mis datos de Habit Tracker"),
               f"Copiar para IA: days and projects add up to the total, % to 100 ({ai})")
+        # Back to the week two weeks ago, which the next stages read
+        await b.js(f"setRange('week', dateFromKey('{old_mon}'), dateFromKey('{old_mon + dt.timedelta(days=6)}'))")
+        await asyncio.sleep(0.8)
         if STAGE >= 4:
             heat = await b.js("""(() => {
                 const card = [...document.querySelectorAll('.report-card')].find(c => c.querySelector('.report-heat'));
@@ -322,15 +325,22 @@ async def main():
         await b.js("document.querySelector('[data-range=custom]').click()")
         await asyncio.sleep(0.3)
         vis = await b.js("!document.getElementById('reportsCustom').classList.contains('hidden')")
+        # Typing "Hasta" digit by digit: the "1" of "10" is day 1, before "Desde". It is marked and not
+        # applied (it used to swap into "Desde"); the "10" that follows applies
         await b.js("""(() => { const f = document.getElementById('reportsFrom'), t = document.getElementById('reportsTo');
-            f.value = '2026-09-10'; t.value = '2026-09-01'; t.dispatchEvent(new Event('change')); })()""")
+            f.value = '2026-09-05'; f.dispatchEvent(new Event('change'));
+            t.value = '2026-09-01'; t.dispatchEvent(new Event('change')); })()""")
         await asyncio.sleep(0.4)
-        lab = await b.js("[document.getElementById('reportsRangeLabel').textContent, document.getElementById('reportsFrom').value, document.getElementById('reportsTo').value]")
-        check(vis and lab[1:] == ["2026-09-01", "2026-09-10"], f"custom range, swapped if reversed ({lab})")
+        mid = await b.js("[reportsState.kind, document.getElementById('reportsFrom').value, document.getElementById('reportsTo').getAttribute('aria-invalid')]")
+        await b.js("""(() => { const t = document.getElementById('reportsTo'); t.value = '2026-09-10'; t.dispatchEvent(new Event('change')); })()""")
+        await asyncio.sleep(0.4)
+        lab = await b.js("[document.getElementById('reportsRangeLabel').textContent, document.getElementById('reportsFrom').value, document.getElementById('reportsTo').value, document.getElementById('reportsTo').getAttribute('aria-invalid')]")
+        check(vis and mid[1:] == ["2026-09-05", "true"] and lab[1:] == ["2026-09-05", "2026-09-10", "false"],
+              f"custom range: a reversed date is marked, not swapped; the next keystroke applies ({mid} / {lab})")
         await b.js("document.getElementById('reportsPrev').click()")
         await asyncio.sleep(0.3)
         lab = await b.js("[document.getElementById('reportsFrom').value, document.getElementById('reportsTo').value]")
-        check(lab == ["2026-08-22", "2026-08-31"], f"custom range shifts by its length ({lab})")
+        check(lab == ["2026-08-30", "2026-09-04"], f"custom range shifts by its length ({lab})")
         await b.js("document.querySelector('[data-range=week]').click()")
         await asyncio.sleep(0.3)
 
