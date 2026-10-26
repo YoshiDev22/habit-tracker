@@ -224,6 +224,16 @@ async def main():
             await b.wait_for("!document.getElementById('finAccountMenu').classList.contains('hidden')")
 
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        # La tasa de interés de la tarjeta, de referencia, en su hoja; la lista la enseña
+        await open_menu("Tarjeta")
+        await b.js("document.querySelector('[data-menu-act=\"edit\"]').click()")
+        await b.wait_for("!document.getElementById('finAccountSheet').classList.contains('hidden')")
+        await b.js("document.getElementById('finAccInterest').value = '45.5'; document.getElementById('finAccSave').click()")
+        card = await wait_api("/api/finance/accounts", lambda body: any(a["interest_rate_bp"] == 4550 for a in body["accounts"]))
+        side = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finAccountsBody .fin-account')]
+            .find(x => x.querySelector('strong').textContent === 'Tarjeta'); return r ? r.textContent : ''; })()""",
+                                lambda v: "Tasa" in v)
+        check("Tasa: 45.5 %" in side, f"a card keeps its interest rate for reference ({side})")
         await open_menu("Tarjeta")
         st = await b.js("""({acts: [...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct),
             label: document.getElementById('finMenuLabel').textContent,
@@ -261,7 +271,8 @@ async def main():
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
         await open_menu("Efectivo")
         acts = await b.js("[...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct)")
-        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer"], f"cash offers income and more ({acts})")
+        check(acts == ["edit", "adjust", "movements", "income", "expense", "transfer", "yield", "term", "pocket"],
+              f"cash offers income and more ({acts})")
         await b.shot("finance_account_menu", full=False)
         # Ingreso directo a Efectivo
         await b.js("document.querySelector('[data-menu-act=\"income\"]').click()")
@@ -312,7 +323,113 @@ async def main():
         await b.js("""[...document.querySelectorAll('#finTxList [data-opening-account]')]
             .find(x => x.textContent.includes('Nómina')).click()""")
         await b.wait_for("!document.getElementById('finAccountMenu').classList.contains('hidden')")
-        await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
+        # Un apartado, desde el menú de la cuenta: cuelga de ella y toma su tipo y su moneda
+        await b.js("document.querySelector('[data-menu-act=\"pocket\"]').click()")
+        await b.wait_for("!document.getElementById('finAccountSheet').classList.contains('hidden')")
+        st = await b.js("""({title: document.getElementById('finAccountTitle').textContent,
+            parent: document.getElementById('finAccParent').selectedOptions[0].textContent,
+            kindHidden: document.getElementById('finAccKind').closest('label').hidden})""")
+        check(st == {"title": "Nuevo apartado", "parent": "Nómina", "kindHidden": True},
+              f"Apartado opens a new pocket of that account ({st})")
+        await b.js("document.getElementById('finAccName').value = 'Viaje'")
+        await b.js("document.getElementById('finAccSave').click()")
+        pocket = await wait_api("/api/finance/accounts",
+                                lambda body: any(a["name"] == "Viaje" for a in body["accounts"]))
+        pocket = next(a for a in pocket["accounts"] if a["name"] == "Viaje")
+        nomina = next(a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"] if a["name"] == "Nómina")
+        check(pocket["parent_id"] == nomina["id"] and pocket["kind"] == "debit", f"the pocket hangs from Nómina ({pocket})")
+        api.call("POST", "/api/finance/transactions", {"kind": "transfer", "account_id": nomina["id"],
+                 "to_account_id": pocket["id"], "amount_cents": 50000, "tx_date": TODAY.isoformat(),
+                 "concept": "Al apartado"}, expect=201)
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("finLoad()")
+        st = await b.wait_for("""(() => {
+            const rows = [...document.querySelectorAll('#finAccountsBody .fin-account')];
+            const i = rows.findIndex(r => r.querySelector('strong').textContent === 'Nómina');
+            if (i < 0 || !rows[i + 1]) return null;
+            return {next: rows[i + 1].querySelector('strong').textContent, pocket: rows[i + 1].classList.contains('pocket'),
+                    text: rows[i].textContent};
+        })()""", lambda v: v and v["next"] == "Viaje")
+        check(st and st["pocket"] and "2,500.00" in st["text"] and "A la vista $2,000.00" in st["text"],
+              f"the pocket shows under its account, which shows its total and what is on hand ({st})")
+        await b.shot("finance_pockets", full=False)
+
+        # Rendimiento: la tasa desde el menú de la cuenta; lo ganado se estima y se anota
+        _, bank = api.call("POST", "/api/finance/accounts", {"name": "Banco digital", "kind": "debit",
+                           "opening_balance_cents": 1_000_000,
+                           "opening_date": (TODAY - timedelta(days=10)).isoformat()}, expect=201)
+        await b.js("finLoad()")
+        await b.wait_for("[...document.querySelectorAll('#finAccountsBody .fin-account strong')].some(s => s.textContent === 'Banco digital')")
+        await open_menu("Banco digital")
+        await b.js("document.querySelector('[data-menu-act=\"yield\"]').click()")
+        await b.wait_for("!document.getElementById('finYieldPage').hidden")
+        await b.js(f"""document.getElementById('finYieldRate').value = '12';
+            document.getElementById('finYieldFrom').value = '{(TODAY - timedelta(days=10)).isoformat()}';
+            document.querySelector('#finYieldRateForm [type=submit]').click()""")
+        y = await wait_api(f"/api/finance/accounts/{bank['id']}/yield", lambda body: body["rates"])
+        shown = await b.wait_for("document.getElementById('finYieldEarnedAmount').textContent", lambda v: v and v != "—")
+        expected = f"{y['estimate_cents'] / 100:,.2f}"
+        check(y["rates"][0]["rate_bp"] == 1200 and y["estimate_cents"] > 0 and expected in shown,
+              f"the rate is saved and the page shows what was earned ({y['estimate_cents']}, {shown})")
+        await b.shot("finance_yield", full=False)
+        await b.js("document.getElementById('finYieldRecord').click()")
+        recorded = await wait_api("/api/finance/transactions",
+                                  lambda body: any(t["source"] == "yield" for t in body["transactions"]))
+        rec = next(t for t in recorded["transactions"] if t["source"] == "yield")
+        check(rec["amount_cents"] == y["estimate_cents"] and rec["account_id"] == bank["id"] and rec["kind"] == "income",
+              f"Anotar records the estimate as income in that account ({rec})")
+
+        # Un plazo fijo desde el menú de la cuenta: la hoja dice cuándo vence y cuánto da
+        await b.wait_for("document.getElementById('finAccountMenu').classList.contains('hidden')")
+        await open_menu("Banco digital")
+        await b.js("document.querySelector('[data-menu-act=\"term\"]').click()")
+        await b.wait_for("!document.getElementById('finTermSheet').classList.contains('hidden')")
+        await b.js("""document.getElementById('finTermConcept').value = 'CETES 28';
+            const p = document.getElementById('finTermPrincipal'); p.value = '5000';
+            const r = document.getElementById('finTermRate'); r.value = '11';
+            r.dispatchEvent(new Event('input'))""")
+        st = await b.js("""({account: document.getElementById('finTermAccount').selectedOptions[0].textContent,
+            preview: document.getElementById('finTermPreview').textContent})""")
+        check(st["account"] == "Banco digital" and "$42.78" in st["preview"] and "$5,042.78" in st["preview"],
+              f"the term sheet starts on that account and previews the interest ({st})")
+        await b.js("document.getElementById('finTermSave').click()")
+        terms = await wait_api("/api/finance/terms", lambda body: body["terms"])
+        t = terms["terms"][0]
+        check((t["concept"], t["principal_cents"], t["rate_bp"], t["days"], t["day_basis"], t["account_id"]) ==
+              ("CETES 28", 500_000, 1100, 28, 360, bank["id"]), f"the term is saved ({t})")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"investments\"]').click()")
+        st = await b.wait_for("""(() => { const r = document.querySelector('#finAccountsBody [data-term-id]');
+            return r ? r.textContent : null; })()""", lambda v: v)
+        daily = await b.js("[...document.querySelectorAll('#finAccountsBody [data-account-id]')].map(r => r.textContent)")
+        check("CETES 28" in st and "+$42.78" in st and any("Banco digital" in d and "12 %" in d for d in daily),
+              f"Inversiones lists the open term and the accounts that earn daily ({st}, {daily})")
+        # Un plazo en una cuenta que aún no existe (CETES es su propia cuenta): se crea al guardar
+        await b.js("document.querySelector('#finAccountsBody [data-new-term]').click()")
+        await b.wait_for("!document.getElementById('finTermSheet').classList.contains('hidden')")
+        st = await b.js("""({account: document.getElementById('finTermAccount').value,
+            newShown: !document.getElementById('finTermNewField').hidden})""")
+        check(st == {"account": "new", "newShown": True}, f"without an investment account, the term offers a new one ({st})")
+        await b.js("""document.getElementById('finTermNewName').value = 'CETES';
+            document.getElementById('finTermConcept').value = 'CETES 91';
+            document.getElementById('finTermPrincipal').value = '1000';
+            document.getElementById('finTermRate').value = '10.5';
+            document.getElementById('finTermDays').value = '91';
+            document.getElementById('finTermAccount').dispatchEvent(new Event('change'));""")
+        await b.js(f"""document.getElementById('finTermFrom').value = '{bank["id"]}';
+            document.getElementById('finTermSave').click()""")
+        terms = await wait_api("/api/finance/terms", lambda body: any(t["concept"] == "CETES 91" for t in body["terms"]))
+        cetes = next(a for a in api.call("GET", "/api/finance/accounts", expect=200)[1]["accounts"] if a["name"] == "CETES")
+        t = next(t for t in terms["terms"] if t["concept"] == "CETES 91")
+        cetes = await wait_api("/api/finance/accounts", lambda body: any(
+            a["name"] == "CETES" and a["balance_cents"] == 100_000 for a in body["accounts"]))
+        cetes = next(a for a in cetes["accounts"] if a["name"] == "CETES")
+        check(cetes["kind"] == "investment" and t["account_id"] == cetes["id"] and cetes["balance_cents"] == 100_000,
+              f"the new investment account is created with the term, and the money moves in ({cetes})")
+        heads = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finAccountsBody .fin-account strong')]
+            .map(s => s.textContent); return r.includes('CETES') ? r : null; })()""", lambda v: v)
+        check(heads.index("CETES") < heads.index("CETES 91"), f"Inversiones lists investment accounts first ({heads})")
+        await b.shot("finance_investments", full=False)
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
 
         # El ojo oculta el total, y se recuerda
         await b.js("document.getElementById('finEyeBtn').click()")
@@ -455,6 +572,9 @@ async def main():
         await b.wait_for("document.querySelectorAll('#finImportRows tr.duplicate').length === 1")
         summary_text = await b.js("document.getElementById('finImportSummary').textContent")
         check(summary_text.startswith("1 de 2"), f"the repeated row is skipped ({summary_text})")
+        totals = await b.js("document.getElementById('finImportTotals').textContent")
+        check("Cargos (1)$120.50" in totals and "Abonos (0)$0.00" in totals and "No se agregan (1)$250.00" in totals,
+              f"the preview adds up what goes in and what is left out ({totals})")
         # La vista previa se corrige antes de agregar: concepto, monto y categoría
         salud = [c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"] if c["name"] == "Salud"][0]
 
@@ -480,7 +600,7 @@ async def main():
         await b.js("document.getElementById('finMenuBtn').click()")
         await b.wait_for("!document.getElementById('finDrawer').classList.contains('hidden')")
         items = await b.js("[...document.querySelectorAll('#finDrawer .fin-drawer-item')].map(i => i.textContent.trim())")
-        check(items == ["Configuración", "Datos", "Novedades", "Aviso de privacidad", "Regresar a Habit Tracker"],
+        check(items == ["Configuración", "Datos", "Notas", "Novedades", "Aviso de privacidad", "Regresar a Habit Tracker"],
               f"the gear opens a side menu ({items})")
         await b.shot("finance_drawer", full=False)
         await b.js("document.querySelector('#finDrawer [data-go=\"data\"]').click()")
@@ -868,6 +988,15 @@ async def main():
         check("Mantenimiento" in text and "bienvenida a Finanzas" in text and "Configuración › Módulos" not in text
               and "9.9.9" not in text and count == "2",
               f"the Finanzas bell shows what concerns it, not Habit Tracker's notices ({count}, {text})")
+        # El panel sale de la campana (justo debajo y sin salirse de la pantalla), no de abajo
+        place = await b.js("""(() => {
+            const bell = document.getElementById('finBellBtn').getBoundingClientRect();
+            const panel = document.getElementById('finNoticesPanel').getBoundingClientRect();
+            return {gap: panel.top - bell.bottom, left: panel.left, right: innerWidth - panel.right,
+                    under: panel.left <= bell.left + bell.width / 2 && bell.left + bell.width / 2 <= panel.right};
+        })()""")
+        check(0 <= place["gap"] <= 16 and place["left"] >= 15 and place["right"] >= 15 and place["under"],
+              f"the notices open right under the bell, inside the screen ({place})")
         await b.shot("finance_notices", full=False)
         await b.js("document.querySelector('#finNoticesSheet .fin-sheet-overlay').click()")
         after = api.call("GET", f"/api/notices?today={TODAY.isoformat()}", expect=200)[1]["notices"]
@@ -949,6 +1078,46 @@ async def main():
         await b.js("document.querySelector('#finSettingsMenu [data-open=\"fixed\"]').click()")
         await fits("settings › fixed")
         await b.js("document.getElementById('finDrawerBack').click()")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        # Notas: una nueva se guarda y sale en la lista con el principio de su texto
+        await b.js("document.querySelector('#finDrawer [data-go=\"notes\"]').click()")
+        await b.wait_for("document.querySelector('#finNotesList li')")
+        await b.js("document.getElementById('finNoteNew').click()")
+        await b.js("""document.getElementById('finNoteTitle').value = 'Prompt de Gemini';
+            document.getElementById('finNoteBody').value = 'Extrae los movimientos\\nFecha,Concepto,Cargo';
+            document.getElementById('finNoteSave').click()""")
+        notes = await wait_api("/api/finance/notes", lambda body: body["notes"])
+        check(notes["notes"][0]["title"] == "Prompt de Gemini" and "Fecha,Concepto" in notes["notes"][0]["body"],
+              f"a note is saved from the side menu ({notes['notes']})")
+        await fits("notes")
+        await b.js("document.getElementById('finDrawerBack').click()")
+        row = await b.wait_for("document.getElementById('finNotesList').textContent", lambda v: "Prompt" in v)
+        check("Extrae los movimientos" in row and "Fecha" not in row, f"the list shows the title and the first line ({row})")
+        # Las notas también a la mano, a la izquierda de la campana: su panel cuelga del botón
+        await b.js("closeFinDrawer()")
+        st = await b.js("""(() => { const n = document.getElementById('finNotesBtn'), bell = document.getElementById('finBellBtn');
+            return {before: n.nextElementSibling === bell, left: n.getBoundingClientRect().right <= bell.getBoundingClientRect().left}; })()""")
+        check(st == {"before": True, "left": True}, f"the notes button sits left of the bell ({st})")
+        await b.js("document.getElementById('finNotesBtn').click()")
+        await b.wait_for("document.querySelector('#finNotesPopBody [data-open-note]')")
+        place = await b.js("""(() => {
+            const btn = document.getElementById('finNotesBtn').getBoundingClientRect();
+            const panel = document.getElementById('finNotesPopPanel').getBoundingClientRect();
+            const cx = btn.left + btn.width / 2;
+            return {gap: panel.top - btn.bottom, left: panel.left, right: innerWidth - panel.right,
+                    under: panel.left <= cx && cx <= panel.right,
+                    text: document.getElementById('finNotesPopBody').textContent};
+        })()""")
+        check(0 <= place["gap"] <= 16 and place["left"] >= 15 and place["right"] >= 15 and place["under"]
+              and "Prompt de Gemini" in place["text"], f"the notes open under their button ({place})")
+        await fits("notes panel")
+        await b.shot("finance_notes_pop", full=False)
+        # Tocar una la abre en el panel lateral para editarla
+        await b.js("document.querySelector('#finNotesPopBody [data-open-note]').click()")
+        title = await b.wait_for("document.getElementById('finNoteTitle').value", lambda v: v)
+        check(title == "Prompt de Gemini" and await b.js("document.getElementById('finNotesPop').classList.contains('hidden')"),
+              f"a note opens in the side menu ({title})")
+        await b.js("finDrawerShow('notes', {animate: false})")
         await b.js("document.getElementById('finDrawerBack').click()")
         await b.js("document.querySelector('#finDrawer [data-go=\"news\"]').click()")
         news = await b.js("document.getElementById('finNewsAll').textContent")

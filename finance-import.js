@@ -223,10 +223,40 @@ function renderFinImport(account, checked) {
         else if (r.duplicate) tr.title = 'Ya hay uno igual (mismo día, monto y cuenta)';
         return tr;
     }));
+    renderFinImportTotals(rows.filter(r => !r.skip && (!r.duplicate || includeDupes)),
+        rows.filter(r => r.skip || (r.duplicate && !includeDupes)), currency);
     document.getElementById('finImportDupesOption').classList.toggle('hidden', dupes === 0);
     document.getElementById('finImportDupesLabel').textContent =
         `Agregar también ${dupes === 1 ? 'el que ya existe' : `los ${dupes} que ya existen`} (grises): marca esto solo si de verdad fueron dos compras iguales`;
     document.getElementById('finImportConfirm').disabled = valid === 0;
+}
+
+// Las sumas de lo que se agregará (cargos, abonos y la diferencia), para
+// cuadrarlas a la vista con el estado de cuenta antes de confirmar. Lo que se
+// salta va aparte, para que no se pierda de vista.
+function renderFinImportTotals(added, left, currency) {
+    const box = document.getElementById('finImportTotals');
+    box.hidden = !added.length && !left.length;
+    const sum = (list, kind) => list.filter(r => r.kind === kind).reduce((acc, r) => acc + (r.amount_cents || 0), 0);
+    const count = (list, kind) => list.filter(r => r.kind === kind).length;
+    const money = cents => formatMoney(cents, currency);
+    const out = sum(added, 'expense');
+    const inc = sum(added, 'income');
+    const line = (label, value, cls = '') => {
+        const row = el('div', `fin-import-total ${cls}`);
+        row.append(el('dt', '', label), el('dd', '', value));
+        return row;
+    };
+    const lines = [
+        line(`Cargos (${count(added, 'expense')})`, money(out), 'expense'),
+        line(`Abonos (${count(added, 'income')})`, money(inc), 'income'),
+        line('Diferencia', `${inc - out < 0 ? '−' : ''}${money(Math.abs(inc - out))}`, 'net'),
+    ];
+    if (left.length) {
+        const skipped = left.reduce((acc, r) => acc + (r.amount_cents || 0), 0);
+        lines.push(line(`No se agregan (${left.length})`, money(skipped), 'skipped'));
+    }
+    box.replaceChildren(...lines);
 }
 
 // Un CSV de ejemplo con las columnas que se reconocen, con fechas de este mes

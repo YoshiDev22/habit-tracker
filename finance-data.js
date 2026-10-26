@@ -54,6 +54,7 @@ function finDrawerShow(name, { animate = true } = {}) {
     if (FIN_SETTINGS_PAGES.includes(name)) finRenderSettingsPage(name);
     if (name === 'data') document.getElementById('finDataError').classList.add('hidden');
     if (name === 'news') finRenderNewsPage();
+    if (name === 'notes') finLoadNotes();
     if (name === 'privacy') {
         const frame = document.getElementById('finPrivacyFrame');
         if (!frame.getAttribute('src')) frame.setAttribute('src', '/privacidad');
@@ -104,6 +105,163 @@ window.addEventListener('keydown', (event) => {
     event.stopImmediatePropagation();
     finDrawerShow(finDrawerParent(finDrawerNav.current));
 }, true);
+
+// ---------- Notas ----------
+
+const finNotes = { list: [], editing: null };
+
+async function finLoadNotes() {
+    document.getElementById('finNotesError').classList.add('hidden');
+    try {
+        finNotes.list = (await apiFetch('/api/finance/notes')).notes;
+    } catch (error) {
+        showError(document.getElementById('finNotesError'), error.message);
+        return;
+    }
+    const list = document.getElementById('finNotesList');
+    list.replaceChildren(...(finNotes.list.length ? finNotes.list.map(n => {
+        const item = el('li');
+        const button = el('button', 'fin-note-item');
+        button.type = 'button';
+        button.dataset.noteId = String(n.id);
+        // El título y el principio del texto, en una línea
+        button.append(el('strong', '', n.title), el('small', '', n.body.split('\n')[0].slice(0, 90)));
+        item.appendChild(button);
+        return item;
+    }) : [el('li', 'fin-empty', 'Aún no tienes notas.')]));
+}
+
+function openFinNote(note) {
+    finNotes.editing = note;
+    document.getElementById('finNoteTitle').value = note ? note.title : '';
+    document.getElementById('finNoteBody').value = note ? note.body : '';
+    document.getElementById('finNoteDelete').hidden = !note;
+    document.getElementById('finNoteStatus').textContent = '';
+    document.getElementById('finNoteError').classList.add('hidden');
+    finDrawerShow('note');
+    if (!note) document.getElementById('finNoteTitle').focus();
+}
+
+document.getElementById('finNotesList').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-note-id]');
+    if (button) openFinNote(finNotes.list.find(n => n.id === Number(button.dataset.noteId)) || null);
+});
+document.getElementById('finNoteNew').addEventListener('click', () => openFinNote(null));
+
+document.getElementById('finNoteForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const errorEl = document.getElementById('finNoteError');
+    errorEl.classList.add('hidden');
+    const title = document.getElementById('finNoteTitle').value.trim();
+    if (!title) return showError(errorEl, 'Ponle un título a la nota.');
+    const json = { title, body: document.getElementById('finNoteBody').value };
+    const note = finNotes.editing;
+    try {
+        finNotes.editing = await apiFetch(note ? `/api/finance/notes/${note.id}` : '/api/finance/notes',
+            { method: note ? 'PATCH' : 'POST', json });
+        document.getElementById('finNoteDelete').hidden = false;
+        document.getElementById('finNoteStatus').textContent = 'Guardada.';
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+document.getElementById('finNoteCopy').addEventListener('click', async () => {
+    const status = document.getElementById('finNoteStatus');
+    try {
+        await navigator.clipboard.writeText(document.getElementById('finNoteBody').value);
+        status.textContent = 'Copiada: pégala donde la necesites.';
+    } catch (error) {
+        // Sin permiso del portapapeles: queda seleccionada para copiarla a mano
+        document.getElementById('finNoteBody').select();
+        status.textContent = 'Seleccionada: cópiala con Ctrl+C (o mantén presionado en el teléfono).';
+    }
+});
+
+document.getElementById('finNoteDelete').addEventListener('click', async () => {
+    const note = finNotes.editing;
+    if (!note) return;
+    const ok = await confirmDialog(`¿Borrar la nota "${note.title}"?`, { confirmLabel: 'Borrar' });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/finance/notes/${note.id}`, { method: 'DELETE' });
+        finNotes.editing = null;
+        finDrawerShow('notes');
+    } catch (error) {
+        showError(document.getElementById('finNoteError'), error.message);
+    }
+});
+
+// ---------- Las notas junto a la campana ----------
+// Un panel que cuelga del botón, como el de los avisos: cada nota con su
+// primera línea y Copiar; tocarla la abre (y se edita) en el panel lateral.
+
+const finNotesPop = document.getElementById('finNotesPop');
+document.getElementById('finNotesBtn').appendChild(financeIcon('book-open', 20));
+
+function finPlaceNotesPop() {
+    finPlacePop(finNotesPop, document.getElementById('finNotesBtn'), document.getElementById('finNotesPopPanel'));
+}
+
+async function openFinNotesPop() {
+    const body = document.getElementById('finNotesPopBody');
+    try {
+        finNotes.list = (await apiFetch('/api/finance/notes')).notes;
+    } catch (error) {
+        body.replaceChildren(el('p', 'fin-hint', error.message));
+        finNotes.list = null;
+    }
+    if (finNotes.list) {
+        body.replaceChildren(...(finNotes.list.length ? finNotes.list.map(n => {
+            const row = el('div', 'fin-pop-note');
+            const open = el('button', 'fin-pop-note-open');
+            open.type = 'button';
+            open.dataset.openNote = String(n.id);
+            open.append(el('strong', '', n.title), el('small', '', n.body.split('\n')[0].slice(0, 90)));
+            const copy = el('button', 'link-btn', 'Copiar');
+            copy.type = 'button';
+            copy.dataset.copyNote = String(n.id);
+            copy.setAttribute('aria-label', `Copiar "${n.title}"`);
+            row.append(open, copy);
+            return row;
+        }) : [el('p', 'fin-hint', 'Aún no tienes notas. Guarda aquí, por ejemplo, el prompt con el que una IA lee tus estados de cuenta.')]));
+    }
+    openFinSheet(finNotesPop);
+    finPlaceNotesPop();
+    document.getElementById('finNotesPopPanel').focus();
+}
+
+// Abrir una nota (o una nueva) en el panel lateral, donde se edita
+function finNotesPopGo(note) {
+    closeFinSheet(finNotesPop);
+    openFinDrawer('notes');
+    openFinNote(note);
+}
+
+document.getElementById('finNotesPopBody').addEventListener('click', async (event) => {
+    const copy = event.target.closest('[data-copy-note]');
+    if (copy) {
+        const note = (finNotes.list || []).find(n => n.id === Number(copy.dataset.copyNote));
+        if (!note) return;
+        try {
+            await navigator.clipboard.writeText(note.body);
+            copy.textContent = 'Copiada';
+        } catch (error) {
+            // Sin permiso del portapapeles: se abre para copiarla a mano
+            finNotesPopGo(note);
+        }
+        return;
+    }
+    const open = event.target.closest('[data-open-note]');
+    if (open) finNotesPopGo((finNotes.list || []).find(n => n.id === Number(open.dataset.openNote)) || null);
+});
+document.getElementById('finNotesPopNew').addEventListener('click', () => finNotesPopGo(null));
+document.getElementById('finNotesBtn').addEventListener('click', openFinNotesPop);
+window.addEventListener('resize', finPlaceNotesPop);
+finSheetDismiss.set('finNotesPop', () => {
+    closeFinSheet(finNotesPop);
+    document.getElementById('finNotesBtn').focus();
+});
 
 // ---------- Exportar ----------
 

@@ -9,6 +9,48 @@ indica. Va en 0.x mientras Finanzas esté en prueba por invitación.
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de `CLAUDE.md`.
 
+## [0.6.0] — 2026-10-26
+
+Apartados, rendimientos (diarios y a plazo fijo), cuentas de inversión y notas. Lleva migración.
+
+### Nuevo
+- **Apartados**: una cuenta de efectivo o débito puede tener apartados de ahorro (menú de la cuenta ›
+  *Apartado*). Un apartado toma el tipo y la moneda de su cuenta, y mover dinero entre ellos es una
+  transferencia. En Cuentas, la cuenta enseña su total y, debajo, *A la vista* y cada apartado. Una cuenta con
+  apartados no se vuelve tarjeta de crédito, ni cambia de moneda, ni se archiva o borra mientras los tenga.
+- **Rendimiento diario** (menú de la cuenta › *Rendimiento*): la tasa anual de una cuenta o apartado desde una
+  fecha, con tope opcional ("hasta $X") y año de 365 o 360 días. La app estima lo ganado día por día sobre el
+  saldo de cada día, y lo ganado también gana, hasta ayer. Nada entra solo al saldo: *Anotar* lo guarda como
+  ingreso en la categoría *Rendimientos* (se crea la primera vez), con el estimado o con la cifra del banco. Un
+  cambio de tasa vale desde su fecha; 0 % deja de ganar. La lista de cuentas dice lo ganado sin anotar.
+- **Plazos fijos** (menú de la cuenta › *Plazo fijo*, o Cuentas › Inversiones): monto, tasa, días y año de 360 o
+  365 días, con la vista previa de cuándo vence y cuánto da. Al vencer, el rendimiento se anota solo y el
+  dinero se queda, regresa a otra cuenta o se reinvierte; cada vencimiento se anota una sola vez. Mientras está
+  abierto, la cuenta dice cuánto no está disponible y hasta cuándo. Al crearlo, *El dinero sale de* anota la
+  transferencia que lo mete.
+- **Cuentas de inversión**: un tipo de cuenta nuevo, *Inversión* (CETES, una casa de bolsa, un exchange), que se
+  porta como débito. *Cuentas › Inversiones* (antes "Próximamente") enseña las cuentas de inversión con su
+  total, los plazos fijos (abiertos y vencidos) y las demás cuentas que ganan día a día. La hoja de un plazo
+  puede crear la cuenta de inversión ahí mismo.
+- **Notas**: en el panel lateral › *Notas* y en un botón a la izquierda de la campana. Cada una con título, texto
+  largo (hasta 10,000 caracteres) y *Copiar*; por ejemplo, el prompt con el que una IA lee tus estados de cuenta.
+- **Tasa de interés de una tarjeta**, de referencia: en la hoja de la tarjeta; sale en su menú y en Tarjetas. No se
+  calcula nada con ella.
+
+### Cambios
+- Los avisos de la campana se abren en un panel pegado a ella, no en una hoja que sube desde abajo.
+- *Subir estado de cuenta*: debajo de la vista previa salen las sumas de lo que se agregará (cargos, abonos y la
+  diferencia) y, aparte, lo que no entra, para cuadrarlo con el banco antes de confirmar.
+- Al elegir cuenta en la hoja del monto, un apartado dice de qué cuenta es.
+- El aviso de privacidad menciona los datos nuevos de Finanzas: apartados, cuentas de inversión, la tasa de una
+  tarjeta, tasas de rendimiento, plazos fijos y notas.
+
+### Para actualizar
+- Correr `python3 scripts/migrate.py` **antes** de reiniciar: agrega `fin_accounts.parent_id` y
+  `fin_accounts.interest_rate_bp`. Sin ella el servicio no arranca. Las tablas nuevas (`fin_yield_rates`,
+  `fin_terms`, `fin_notes`) se crean solas al arrancar.
+- Publicar el aviso 📢 del cambio en el aviso de privacidad.
+
 ## [0.5.0] — 2026-10-19
 
 El presupuesto en cuadrícula y con orden propio, y tarjetas de crédito más compactas. Sin migración.
@@ -114,6 +156,7 @@ Publicada con Habit Tracker 1.29.0. La primera versión, en prueba y por invitac
 - **Pegar un estado de cuenta** o un CSV, con vista previa y sin duplicar.
 - El **consentimiento expreso** para guardar datos financieros, la primera vez.
 
+[0.6.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.6.0
 [0.5.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.5.0
 [0.4.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.4.0
 [0.3.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.3.0

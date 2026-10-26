@@ -71,6 +71,7 @@ habit-tracker/
 │   ├── recurring_costs.py # Gastos repartidos (filas por proyecto) y recurrentes (sus cobros)
 │   ├── series.py          # La regla de la serie de cobros y el periodo (mes o quincena), sin base
 │   ├── finance.py         # Finanzas personales: lo de inicio, el resumen y los fijos (épica 37)
+│   ├── finance_yield.py   # Finanzas: rendimiento diario (estimado) y plazos fijos (vencimientos)
 │   ├── days.py            # Calendario de trabajo: huso, país y qué días son hábiles
 │   ├── holidays.py        # Festivos oficiales de Nager.Date, en caché por país y año
 │   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
@@ -217,7 +218,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
 `ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`, las de Finanzas (`FinAccount`, `FinCategory`,
 `FinTransaction`, `FinRecurring`, `FinSettings`, `FinSplit`, `FinInstallment`, `FinStatement`, `FinBudgetGroup`,
-`FinBudgetItem`),
+`FinBudgetItem`, `FinYieldRate`, `FinTerm`, `FinNote`),
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -616,6 +617,30 @@ Lo que no se ve en Swagger:
   `recurring_id` es un fijo (*Hacer fijo* crea el fijo con `POST /recurring` y lo enlaza; uno por renglón);
   sin él, una estimación. Borrar el fijo o la categoría deja el renglón sin ellos; borrar un grupo se lleva sus
   renglones, no sus fijos. Arriba van el ingreso y la tabla del plan, y debajo una cuadrícula con un grupo por tarjeta (en esa pestaña la página se ensancha, `body.fin-wide`; en un teléfono, dos por fila). Su ✎ de la barra de arriba (`#finBudgetEdit`) cambia de lugar dos grupos, o dos gastos (también de un grupo a otro) o dos ingresos, intercambiando su `order` por `PATCH`; con ratón (`(hover: hover) and (pointer: fine)`) también se arrastran, y cada uno toma uno de los órdenes que ya tenían (`finBudgetSaveOrder()`). En un grupo se agrega con *+ Agregar* (no todo es gasto: ahorro, inversión). Comparar con lo gastado de verdad (por la categoría del renglón) es lo siguiente.
+  **Apartados y rendimientos** (Finanzas 0.6, `docs/specs/finanzas-apartados-rendimientos.md`). Un
+  **apartado** es una cuenta con `parent_id` (columna en `migrate.py`): cuelga de una cuenta suelta de efectivo
+  o débito, un solo nivel, y toma su tipo y su moneda (`_set_parent()`); mover dinero entre ellas es una
+  transferencia. La cuenta con apartados no se vuelve de crédito, ni cambia de moneda, ni se archiva o borra
+  mientras los tenga (409). `finActiveAccounts()` pone cada apartado justo después de su cuenta, y Cuentas
+  enseña en la cuenta su total y *A la vista*. El **rendimiento diario** (`fin_yield_rates`, `backend/finance_yield.py`)
+  es una tasa anual desde una fecha (la misma fecha la reemplaza; 0 = deja de ganar), con tope y base 365/360
+  opcionales. **No se guarda ni entra solo al saldo**: `yield_estimate()` lo calcula día por día sobre el saldo de
+  cada día, compuesto (lo ganado también gana), en `Decimal` y redondeado una vez; va del último rendimiento
+  anotado (inclusive: lo anotado el día D cubre hasta D−1) hasta ayer. *Anotar* (`POST /accounts/{id}/yield`)
+  crea un ingreso `source = "yield"` en la categoría "Rendimientos" (`yield_category()`, perezosa) con el
+  estimado o la cifra del banco. Un **plazo fijo** (`fin_terms`, `/terms`) vive en una cuenta: capital × tasa
+  × días ÷ base (360 por defecto), y al vencer `mature_terms()` —dentro de `generate_due()`— anota el
+  rendimiento y, según `on_maturity`, la transferencia de regreso (`return`) o un plazo nuevo con capital +
+  rendimiento (`renew`). Sus movimientos llevan `external_id` `term-<id>` en el índice único, así que no se
+  anotan dos veces, y por eso `fin_terms` usa `AUTOINCREMENT`: un id reutilizado chocaría con lo anotado por uno
+  borrado. Esos ingresos con `external_id` no cuentan como "último rendimiento diario". El dinero entra al
+  plazo con una transferencia del usuario; la cuenta dice "No disponible … hasta el …" (`term_locked_cents`).
+  Una cuenta `kind = "investment"` (CETES, una casa de bolsa, un exchange) se porta como débito y sale primero en
+  Cuentas › *Inversiones*, con los plazos y las demás cuentas con tasa; la hoja de un plazo puede crear esa cuenta
+  y anotar la transferencia que mete el dinero. El menú de una cuenta lleva *Rendimiento*, *Plazo fijo* y
+  (suelta) *Apartado*. Una tarjeta guarda su tasa de interés (`interest_rate_bp`, columna en `migrate.py`) solo
+  de referencia: nada se calcula con ella. **Notas** (`fin_notes`, `/notes`; panel lateral › Notas, en
+  `finance-data.js`): título (80) y texto (10 000) libres con *Copiar*; el panel de administración no las lee.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va

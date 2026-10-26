@@ -215,7 +215,9 @@ def test_card_statement_and_installments(api):
 
     # La ruta: con hoy de verdad, y 409 sin días; una de débito no es tarjeta
     _, live = api.call("GET", f"/api/finance/accounts/{credit['id']}/statement", expect=200)
-    assert live["due_day"] == 25 and live["last_cut"] <= TODAY.isoformat()
+    # Antes del día de pago enseña el corte que pasó; ya vencido ese pago, el próximo (upcoming)
+    assert live["due_day"] == 25
+    assert (live["last_cut"] > TODAY.isoformat()) if live["upcoming"] else (live["last_cut"] <= TODAY.isoformat())
     assert api.call("GET", f"/api/finance/accounts/{debit['id']}/statement")[0] == 422
     _, other_card = api.call("POST", "/api/finance/accounts", {"name": "Otra", "kind": "credit"}, expect=201)
     assert api.call("GET", f"/api/finance/accounts/{other_card['id']}/statement")[0] == 409

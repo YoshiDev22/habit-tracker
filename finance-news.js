@@ -174,6 +174,8 @@ async function openFinNotices() {
         ? groups.flatMap(([title, list]) => [el('p', 'fin-stat-label fin-notice-group', title), ...list.map(finNoticeRow)])
         : [el('p', 'fin-hint', 'No tienes avisos.')]));
     openFinSheet(finNoticesSheet);
+    finPlaceNotices();
+    document.getElementById('finNoticesPanel').focus();
     // Abrir la campana lee solo sus avisos: los de Habit Tracker siguen sin leer en la app
     const unread = finNotices.list.filter(n => n.status === 'info' && !n.read).map(n => n.id);
     if (unread.length) {
@@ -183,6 +185,19 @@ async function openFinNotices() {
         await finLoadNotices();
     }
 }
+
+// El panel cuelga de la campana (finPlacePop() en finance-app.js)
+function finPlaceNotices() {
+    finPlacePop(finNoticesSheet, document.getElementById('finBellBtn'), document.getElementById('finNoticesPanel'));
+}
+
+window.addEventListener('resize', finPlaceNotices);
+
+// Al cerrarlo (fuera, Escape o la campana otra vez) el foco vuelve a la campana
+finSheetDismiss.set('finNoticesSheet', () => {
+    closeFinSheet(finNoticesSheet);
+    document.getElementById('finBellBtn').focus();
+});
 
 document.getElementById('finBellBtn').addEventListener('click', openFinNotices);
 document.addEventListener('visibilitychange', () => {

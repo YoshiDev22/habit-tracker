@@ -37,7 +37,7 @@ const FIN_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'juli
     'octubre', 'noviembre', 'diciembre'];
 const FIN_MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const FIN_WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const FIN_KIND_ICONS = { cash: 'banknote', debit: 'landmark', credit: 'credit-card' };
+const FIN_KIND_ICONS = { cash: 'banknote', debit: 'landmark', credit: 'credit-card', investment: 'trending-up' };
 const FIN_KIND_LABELS = { cash: 'Efectivo', debit: 'Débito', credit: 'Crédito' };
 // Las categorías de inicio guardadas antes de que hubiera iconos
 const FIN_DEFAULT_ICONS = {
@@ -132,8 +132,11 @@ function normalizeKeepAccents(text) {
     return String(text).trim().toLowerCase();
 }
 
+// Las activas, en su orden, con cada apartado justo después de su cuenta
 function finActiveAccounts() {
-    return finState.accounts.filter(a => a.is_active);
+    const active = finState.accounts.filter(a => a.is_active);
+    const loose = active.filter(a => a.parent_id == null || !active.some(p => p.id === a.parent_id));
+    return loose.flatMap(a => [a, ...active.filter(p => p.parent_id === a.id)]);
 }
 
 function finKindCategories(kind) {
@@ -970,12 +973,15 @@ function finRenderAccounts() {
     });
     const body = document.getElementById('finAccountsBody');
     const sub = finState.accountsSub;
-    if (sub === 'investments' || sub === 'debts') {
+    if (sub === 'investments') {
+        // Plazos fijos y rendimiento diario (finance-accounts.js)
+        finRenderInvestments(body);
+        return;
+    }
+    if (sub === 'debts') {
         const card = el('section', 'fin-card fin-soon');
-        card.append(el('h2', 'fin-card-title', sub === 'investments' ? 'Inversiones' : 'Deudas'),
-            el('p', 'fin-hint', sub === 'investments'
-                ? 'Próximamente: lo que aportas, el valor que actualizas y una ganancia estimada, sin revolverlo con tu saldo.'
-                : 'Próximamente: préstamos largos (carro, casa, negocio) con su pago y lo que falta, aparte del total de tus cuentas.'));
+        card.append(el('h2', 'fin-card-title', 'Deudas'), el('p', 'fin-hint',
+            'Próximamente: préstamos largos (carro, casa, negocio) con su pago y lo que falta, aparte del total de tus cuentas.'));
         body.replaceChildren(card);
         return;
     }
@@ -985,16 +991,32 @@ function finRenderAccounts() {
     const sum = accounts.filter(a => a.currency === main).reduce((acc, a) => acc + a.balance_cents, 0);
     head.append(el('span', '', sub === 'cards' ? 'Tarjetas de crédito' : 'Cuentas'),
         el('strong', sum < 0 ? 'negative' : '', finMoney(sum, main)));
+    // Los apartados, debajo de su cuenta; la cuenta enseña su total y lo que tiene a la vista
+    const pocketsOf = id => accounts.filter(p => p.parent_id === id);
     const rows = accounts.map(a => {
-        const row = el('button', 'fin-account');
+        const pockets = sub === 'cards' ? [] : pocketsOf(a.id);
+        const total = pockets.reduce((acc, p) => acc + p.balance_cents, a.balance_cents);
+        const isPocket = a.parent_id != null && accounts.some(p => p.id === a.parent_id);
+        const row = el('button', `fin-account${isPocket ? ' pocket' : ''}`);
         row.type = 'button';
         row.dataset.accountId = String(a.id);
         const text = el('span', 'fin-account-text');
-        const balance = el('span', `fin-account-balance${a.balance_cents < 0 ? ' negative' : a.balance_cents === 0 ? ' zero' : ''}`,
-            formatMoney(a.balance_cents, a.currency));
+        const balance = el('span', `fin-account-balance${total < 0 ? ' negative' : total === 0 ? ' zero' : ''}`,
+            formatMoney(total, a.currency));
         text.append(el('strong', '', a.name), balance);
+        if (pockets.length) text.appendChild(el('small', 'fin-account-sub', `A la vista ${formatMoney(a.balance_cents, a.currency)}`));
+        if (a.term_locked_cents) {
+            text.appendChild(el('small', 'fin-account-sub',
+                `No disponible ${formatMoney(a.term_locked_cents, a.currency)} hasta el ${finShortDate(a.term_until)}`));
+        }
+        // Lo ganado sin anotar: se anota desde el menú de la cuenta › Rendimiento
+        if (a.yield_estimate_cents) {
+            text.appendChild(el('small', 'fin-account-sub earning',
+                `+${formatMoney(a.yield_estimate_cents, a.currency)} de rendimiento sin anotar`));
+        }
         // Las tarjetas, compactas: su estado de cuenta va debajo
-        const badge = finBadge(finAccountIcon(a), finAccountColor(a), { size: sub === 'cards' ? 'md' : 'lg', square: true });
+        const badge = finBadge(finAccountIcon(a), finAccountColor(a),
+            { size: sub === 'cards' || isPocket ? 'md' : 'lg', square: true });
         if (a.is_default) badge.appendChild(el('span', 'fin-badge-star', '★'));
         const side = el('span', 'fin-account-side');
         if (a.available_cents != null && sub === 'cards') {
@@ -1005,8 +1027,9 @@ function finRenderAccounts() {
         } else if (a.available_cents != null) {
             side.append(el('small', '', 'Disponible'), el('span', 'fin-available', formatMoney(a.available_cents, a.currency)));
         }
-        if (sub === 'cards' && (a.statement_day || a.due_day)) {
-            side.appendChild(el('small', '', [a.statement_day ? `Corte: ${a.statement_day}` : '', a.due_day ? `Pago: ${a.due_day}` : '']
+        if (sub === 'cards' && (a.statement_day || a.due_day || a.interest_rate_bp != null)) {
+            side.appendChild(el('small', '', [a.statement_day ? `Corte: ${a.statement_day}` : '', a.due_day ? `Pago: ${a.due_day}` : '',
+                a.interest_rate_bp != null ? `Tasa: ${finRateText(a.interest_rate_bp)}` : '']
                 .filter(Boolean).join(' · ')));
         }
         row.append(badge, text, side);
@@ -1235,6 +1258,21 @@ function openFinSheet(sheet) {
     sheet.classList.remove('hidden');
     finSheets.push(sheet);
     document.body.classList.add('fin-sheet-open');
+}
+
+// Un panel que cuelga de un botón de la barra de arriba (la campana, las notas): justo
+// debajo, con su borde derecho alineado al del botón (o a 16 px de la orilla) y el
+// piquito bajo su centro. El botón no siempre es lo último de la barra, por eso se mide.
+function finPlacePop(sheet, button, panel) {
+    if (sheet.classList.contains('hidden')) return;
+    const box = button.getBoundingClientRect();
+    // Sin salirse por la izquierda: en un teléfono el panel ocupa casi todo el ancho
+    const width = Math.min(360, window.innerWidth - 32);
+    const right = Math.min(Math.max(16, window.innerWidth - box.right), window.innerWidth - width - 16);
+    panel.style.top = `${Math.round(box.bottom + 10)}px`;
+    panel.style.right = `${Math.round(right)}px`;
+    const arrow = window.innerWidth - right - (box.left + box.width / 2) - 6;
+    panel.style.setProperty('--fin-pop-arrow', `${Math.round(Math.max(10, arrow))}px`);
 }
 
 function closeFinSheet(sheet) {
