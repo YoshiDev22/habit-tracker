@@ -9,6 +9,42 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.33.0] — 2026-10-26
+
+Reportes compara el tiempo por día de trabajo, suma una vista de 2 semanas y copia el periodo para
+pegarlo en cualquier IA; el reporte mensual de hábitos cuadra semana a semana.
+
+### Nuevo
+- **2 semanas en Reportes**: esta semana y la anterior, de lunes a domingo; ‹ › saltan de 14 en 14
+  días. *⬇ Tiempo CSV* y *⬇ Hábitos CSV* bajan ese rango. No hay reporte guardado de 2 semanas,
+  así que ahí no sale su botón.
+- **📋 Copiar para IA**: copia el periodo que ves en Markdown (tiempo por día, proyecto y etiqueta,
+  las tareas con más tiempo, las terminadas y los hábitos) para pegarlo en el chat de tu IA. Las
+  cifras van ya calculadas y cuadran: los minutos de cada día y de cada proyecto suman el total y
+  los porcentajes suman 100, así la IA no tiene que sumar. La app no envía nada: solo lo copia.
+
+### Cambios
+- **Días de trabajo** en lugar de días de calendario: los hábiles (lunes a viernes, sin festivos,
+  días libres ni vacaciones) más los de descanso o festivos en que sí registraste tiempo. Un sábado
+  trabajado cuenta, y un día hábil sin tiempo también.
+- **Resumen de Reportes**: *promedio por día de trabajo* y *días de trabajo con tiempo*. Antes el
+  promedio dividía entre todos los días, fines de semana incluidos.
+- **Comparar con el periodo anterior**: con el periodo en curso, o con otro número de días de
+  trabajo, se compara el tiempo **por día de trabajo** ("+45m por día de trabajo vs. la semana
+  anterior"), no el total, que a media semana siempre salía menor.
+- **Reporte mensual de tiempo**: *Comparación* dice las horas y los días de trabajo de cada mes y
+  los compara por día de trabajo; el cierre ("subiste de…") también.
+- **Reporte mensual de hábitos**: la comparación con el mes anterior da los días con algo hecho de
+  los que contaban en cada mes ("18 de 26 frente a 20 de 30").
+
+### Correcciones
+- **Cumplimiento por semana del reporte mensual de hábitos**: un hábito contaba en las semanas de
+  antes de existir, así que esas semanas salían más bajas y no cuadraban con el total del mes.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app. Los reportes
+ya guardados no cambian; regenerar uno lo deja con las reglas nuevas.
+
 ## [1.32.0] — 2026-10-19
 
 La app escribe el reporte y la IA solo propone los siguientes pasos y el tip: menos fallos, nada
@@ -1077,6 +1113,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.33.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.33.0
 [1.32.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.32.0
 [1.31.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.1
 [1.31.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.0

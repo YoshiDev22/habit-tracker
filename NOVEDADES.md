@@ -4,6 +4,18 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.33.0 — 2026-10-26
+### Nuevas funciones
+- **Reportes: 2 semanas**: junto a Semana y Mes, ve esta semana y la anterior juntas; los CSV
+  bajan las dos.
+- **Copiar para IA**: en Reportes, copia el periodo con las cifras ya calculadas y pégalo en el
+  chat de tu IA (ChatGPT, Claude…).
+### Cambios
+- **Promedio por día de trabajo**: cuentan tus días hábiles y también el sábado o festivo en que
+  trabajaste. A media semana o a medio mes, la comparación ya no sale siempre "menos".
+- **Hábitos del mes**: el cumplimiento de cada semana cuadra con el del mes, aunque hayas creado un
+  hábito a mitad de mes.
+
 ## 1.32.0 — 2026-10-19
 ### Cambios
 - **Reportes con IA más confiables**: la app escribe el reporte y la IA solo propone los pasos
