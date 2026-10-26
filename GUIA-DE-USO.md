@@ -467,8 +467,10 @@ cuesta además de tus horas: licencias, materiales, servicios, tokens de IA…
 
 La última pestaña. Es solo de lectura: aquí no se cambia nada, solo se ve lo que hiciste.
 
-**El periodo**, arriba: **Semana** (de lunes a domingo), **Mes** o **Personalizado** (eliges
-*Desde* y *Hasta*). Con **<** y **>** vas al periodo anterior o al siguiente.
+**El periodo**, arriba: **Semana** (de lunes a domingo), **2 semanas** (esta y la anterior, de
+lunes a domingo), **Mes** o **Personalizado** (eliges *Desde* y *Hasta*). Con **<** y **>** vas
+al periodo anterior o al siguiente. Los botones de exportar bajan el periodo que ves, así que
+con *2 semanas* sale un CSV de las dos.
 
 **Qué cuenta**: solo el **tiempo de trabajo** (pomodoros de enfoque, cronómetro y registros a
 mano), nunca los descansos. Es el mismo criterio que las tarjetas y la Lista, así que las
@@ -476,8 +478,12 @@ cifras cuadran entre sí.
 
 Las tarjetas, en orden:
 
-- **Resumen**: tiempo total, promedio por día, días con tiempo y tareas terminadas, y cuánto
-  cambió respecto al periodo anterior.
+- **Resumen**: tiempo total, promedio por día de trabajo, días con tiempo y tareas terminadas, y
+  cuánto cambió respecto al periodo anterior. Los **días de trabajo** son los hábiles (lunes a
+  viernes, sin festivos, días libres ni vacaciones) más los de descanso en que sí registraste
+  tiempo: si trabajas un sábado, cuenta. Con el periodo en curso, o con otro número de días de
+  trabajo que el anterior, se compara el tiempo **por día de trabajo**, no el total: a media
+  semana, el total siempre sale menor.
 - **Hábitos**: tu racha, tu récord, tus escudos y cómo te fue con cada hábito en el periodo.
   Si apagaste *Hábitos y metas* en tu perfil, esta tarjeta no sale.
 - **Tiempo por día**: una barra por día. Pasa el dedo o el ratón por encima para ver la

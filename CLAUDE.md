@@ -867,7 +867,12 @@ necesite salirse de una vista (popovers) va fuera del track, como `#habitPopover
 
 **Reportes** (`reports.js`) no guarda nada: pide de nuevo cada vez que se entra a la vista
 (y en `projectsChangedHooks` mientras se ve), con el rango en fechas locales. Semana de
-lunes a domingo. Solo cuenta sesiones `focus`, igual que tarjetas y Lista, así que sus
+lunes a domingo; *2 semanas* (`fortnight`) es esa y la anterior, y solo semana y mes tienen
+reporte guardado. El resumen pide `GET /api/metrics` del periodo y del anterior para saber los
+días hábiles: promedia por **día de trabajo** (los hábiles transcurridos más los de descanso o
+festivos con tiempo: `workingDays()`, la misma regla que `working_days()` de `report_text.py`) y,
+con el periodo en curso o con otro número de días de trabajo, compara por día de trabajo y no el
+total (igual que el reporte mensual guardado). Solo cuenta sesiones `focus`, igual que tarjetas y Lista, así que sus
 cifras deben cuadrar con ellas. El mapa por hora usa el huso **actual** del navegador sobre
 `started_at` UTC: sesiones registradas desde otro huso se verían corridas. Si algún día
 importa, guardar el offset en una columna nueva vía `scripts/migrate.py`. Endpoints propios: `GET /api/habits/report` y los filtros

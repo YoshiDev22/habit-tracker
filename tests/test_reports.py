@@ -170,7 +170,37 @@ def test_projection_and_comparison(api):
     post(api, project, task, before, 9, 60)
     _, rep = api.call("POST", "/api/reports", {"kind": "month", "period_start": month_start.isoformat(),
                                                "today": TODAY.isoformat()}, expect=200)
-    assert rep["text"]["comparison"] == "Frente al mes anterior (1.0 h): 1.0 h más (100 %)."
+    # Por día de trabajo: cada mes con sus hábiles más los días con tiempo que no lo eran
+    m = rep["metrics"]
+    n = m["workdays"] + m["active_days"] - m["active_workdays"]
+    prev_n = m["previous"]["workdays"] + m["previous"]["active_days"] - m["previous"]["active_workdays"]
+    avg, prev_avg = round(7200 / n), round(3600 / prev_n)
+    change = (avg - prev_avg) / prev_avg
+    assert rep["text"]["comparison"] == (
+        f"Frente al mes anterior (1.0 h en {prev_n} días de trabajo): registraste 2.0 h en {n} días de trabajo. "
+        f"Por día de trabajo, {hours(avg)} frente a {hours(prev_avg)} ({round(abs(change) * 100)} % más).")
+
+
+def test_month_comparison_uses_working_days():
+    """Un mes en curso se compara por día de trabajo: con la mitad de los días,
+    el mismo ritmo no sale como "menos" que el mes anterior completo. Un día de
+    descanso con tiempo cuenta como de trabajo; uno sin tiempo, no."""
+    from backend.report_text import _closing, _comparison
+    days = ([{"date": f"2026-10-{i:02d}", "status": "worked", "workday": True} for i in range(1, 10)]
+            + [{"date": "2026-10-11", "status": "today", "workday": True, "seconds": 0},
+               {"date": "2026-10-12", "status": "off", "workday": False, "seconds": 3 * 3600},
+               {"date": "2026-10-13", "status": "off", "workday": False, "seconds": 0}]
+            + [{"date": f"2026-10-{i:02d}", "status": "pending", "workday": True} for i in range(12, 22)])
+    m = {"date_from": "2026-10-01", "date_to": "2026-10-31", "through": "2026-10-11",
+         "total_seconds": 10 * 3 * 3600, "workdays": 10, "active_workdays": 9, "night_sessions": [],
+         "days_detail": days, "top_tasks": [], "unconfirmed_seconds": 0, "missing_workdays": [], "active_days": 10,
+         "previous": {"total_seconds": 20 * 3 * 3600, "workdays": 19, "active_days": 19, "active_workdays": 18}}
+    text = _comparison("month", m)
+    assert text == ("Frente al mes anterior (60.0 h en 20 días de trabajo): llevas 30.0 h en 10 días de trabajo. "
+                    "Por día de trabajo, casi lo mismo: 3.0 h frente a 3.0 h.")
+    # Con más ritmo por día hábil, el cierre lo dice aunque el total aún sea menor
+    m["total_seconds"] = 10 * 4 * 3600
+    assert _closing("month", m)["well_done"] == "Subiste de 3.0 h a 4.0 h por día de trabajo."
 
 
 def test_timer_script(api, capsys):

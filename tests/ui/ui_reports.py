@@ -114,6 +114,13 @@ async def main():
     _, prev_sessions = call("GET", f"/api/pomodoro?date_from={prev_mon}&date_to={prev_mon + dt.timedelta(days=6)}", expect=200)
     prev_total = sum(s["duration_seconds"] for s in prev_sessions["sessions"] if s["mode"] == "focus")
 
+    def elapsed_workdays(start):
+        """Like workingDays() in reports.js: workdays until yesterday, plus any day with time."""
+        _, mt = call("GET", f"/api/metrics?date_from={start}&date_to={start + dt.timedelta(days=6)}&today={today}", expect=200)
+        return sum(1 for d in mt["by_day"] if d["seconds"] > 0 or (d["workday"] and d["date"] < today.isoformat())), mt
+    workdays, week_metrics = elapsed_workdays(monday)
+    prev_workdays, _ = elapsed_workdays(prev_mon)
+
     b = Browser()
     await b.start()
     try:
@@ -151,15 +158,28 @@ async def main():
             h, m = divmod(week_total // 60, 60)
             exp_total = f"{h}h {m}m" if h else f"{m}m"
             check(s2["stats"][0] == [exp_total, "tiempo total"], f"summary total matches the sessions ({s2['stats'][0]} / {exp_total})")
+            # This week is still running: it is compared per working day, not by its total
+            js_round = lambda x: int(x + 0.5)
+
+            def formatted(seconds):   # formatDuration() of projects.js
+                hh, mm = divmod(seconds // 60, 60)
+                return f"{hh}h {mm}m" if hh else f"{mm}m"
+            diff = (js_round(week_total / workdays) - js_round(prev_total / prev_workdays)
+                    if workdays and prev_workdays else week_total - prev_total)
+            per_day = " por día de trabajo" if workdays and prev_workdays else ""
             if prev_total == 0:
                 exp_compare = "Sin tiempo registrado en la semana anterior"
-            elif abs(week_total - prev_total) < 60:
-                exp_compare = "Igual que la semana anterior"
+            elif abs(diff) < 60:
+                exp_compare = ("Mismo ritmo por día de trabajo que la semana anterior" if per_day
+                               else "Igual que la semana anterior")
             else:
-                exp_compare = ("+" if week_total > prev_total else "−") + "{} vs. la semana anterior"
-                h, m = divmod(abs(week_total - prev_total) // 60, 60)
-                exp_compare = exp_compare.format(f"{h}h {m}m" if h else f"{m}m")
+                h, m = divmod(abs(diff) // 60, 60)
+                exp_compare = f"{'+' if diff > 0 else '−'}{f'{h}h {m}m' if h else f'{m}m'}{per_day} vs. la semana anterior"
             check(s2["compare"] == exp_compare, f"comparison with last week ({s2['compare']} / {exp_compare})")
+            exp_avg = [formatted(js_round(week_total / workdays)) if workdays else "—", "promedio por día de trabajo"]
+            check(s2["stats"][1] == exp_avg, f"average per working day ({s2['stats'][1]} / {exp_avg})")
+            check(s2["stats"][2] == [f"{week_metrics['active_days']} de {workdays}", "días de trabajo con tiempo"],
+                  f"working days with time ({s2['stats'][2]})")
             check(s2["bars"] == len({s['session_date'] for s in week_sessions['sessions'] if s['mode'] == 'focus'}) and s2["rest"] == 2,
                   f"one bar per day with time, Sat+Sun marked as rest ({s2['bars']} bars, {s2['rest']} rest)")
             check(s2["labels"][:7] == ["L", "M", "X", "J", "V", "S", "D"], f"week axis starts on Monday ({s2['labels'][:7]})")
@@ -237,9 +257,21 @@ async def main():
         check(lab == old_mon.isoformat(), f"two weeks back ({lab})")
         if STAGE >= 2:
             s2 = await b.js(STATS_JS)
-            check(s2["stats"][0] == ["3h 30m", "tiempo total"] and s2["stats"][2][0] == "3 de 7",
-                  f"two weeks back: breaks excluded, 3 of 7 days ({s2['stats']})")
-            check(s2["stats"][1][0] == "30m", f"average over the 7 days ({s2['stats'][1]})")
+            # Tue, Wed and Thu: 3 of the week's 5 working days (no holidays offline, no weekend time)
+            check(s2["stats"][0] == ["3h 30m", "tiempo total"] and s2["stats"][2][0] == "3 de 5",
+                  f"two weeks back: breaks excluded, 3 of 5 working days ({s2['stats']})")
+            check(s2["stats"][1][0] == "42m", f"average over the 5 working days ({s2['stats'][1]})")
+        # 2 semanas: this week and the previous one, Monday to Sunday
+        await b.js("document.querySelector('[data-range=fortnight]').click()")
+        await asyncio.sleep(0.8)
+        fn = await b.js("[reportsState.kind, reportsFrom.value, reportsTo.value, savedReportBtn.hidden]")
+        check(fn == ["fortnight", prev_mon.isoformat(), (monday + dt.timedelta(days=6)).isoformat(), True],
+              f"2 semanas: last week and this one, no saved-report button ({fn})")
+        await b.js("document.getElementById('reportsPrev').click()")
+        await asyncio.sleep(0.8)
+        fn = await b.js("[reportsFrom.value, reportsTo.value]")
+        check(fn == [(prev_mon - dt.timedelta(days=14)).isoformat(), (monday - dt.timedelta(days=8)).isoformat()],
+              f"2 semanas: ‹ moves 14 days back ({fn})")
         if STAGE >= 4:
             heat = await b.js("""(() => {
                 const card = [...document.querySelectorAll('.report-card')].find(c => c.querySelector('.report-heat'));

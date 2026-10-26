@@ -1051,13 +1051,14 @@ function savedFor(kind, start) {
 
 function savedForCurrentRange(subject = 'time') {
     const { kind, from } = reportsState;
-    if (kind === 'custom' || !from) return null;
+    if ((kind !== 'week' && kind !== 'month') || !from) return null;
     return savedFor(kindFor(subject, kind), getDateKey(from));
 }
 
 // Lo llama setRange() de reports.js en cada cambio de periodo
 function syncSavedReportButton() {
-    const custom = reportsState.kind === 'custom';
+    // Solo hay reportes guardados de una semana o un mes
+    const custom = reportsState.kind !== 'week' && reportsState.kind !== 'month';
     savedReportBtn.hidden = custom;
     savedReportBtn.textContent = `${savedForCurrentRange('time') ? 'Ver' : 'Generar'} reporte de tiempo`;
     savedHabitsReportBtn.hidden = custom || !moduleEnabled('habits');
@@ -1078,7 +1079,7 @@ async function openOrGenerate(kind, periodStart, scope) {
 [[savedReportBtn, 'time'], [savedHabitsReportBtn, 'habits']].forEach(([button, subject]) => {
     button.addEventListener('click', () => {
         const { kind, from } = reportsState;
-        if (kind === 'custom') return;
+        if (kind !== 'week' && kind !== 'month') return;
         openOrGenerate(kindFor(subject, kind), getDateKey(from), 'reports');
     });
 });

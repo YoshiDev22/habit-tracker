@@ -227,6 +227,34 @@ def _observations(kind: str, m: dict) -> List[str]:
     return out[:MAX_ITEMS]
 
 
+def _work_days_word(n: int) -> str:
+    return f"{n} {'día' if n == 1 else 'días'} de trabajo"
+
+
+def working_days(m: dict) -> int:
+    """Los días de trabajo ya transcurridos: los hábiles (sin los que faltan ni
+    hoy si aún no tiene tiempo) más los de descanso o festivos en que sí hubo
+    tiempo: quien trabaja un sábado lo cuenta. Reportes de antes de
+    days_detail: los hábiles hasta hoy."""
+    days = m.get("days_detail")
+    if days is None:
+        return m.get("workdays") or 0
+    return sum(1 for d in days if d["status"] in ("worked", "missing") or (d["status"] == "off" and d["seconds"]))
+
+
+def previous_working_days(prev: dict) -> int:
+    """Lo mismo del periodo anterior (siempre terminado): sus días hábiles más
+    los días con tiempo que no lo eran (active_days − active_workdays)."""
+    extra = (prev.get("active_days") or 0) - (prev.get("active_workdays") or 0)
+    return (prev.get("workdays") or 0) + max(0, extra)
+
+
+def per_working_day(total: int, days: int) -> Optional[int]:
+    """Las horas del periodo entre sus días de trabajo: dos meses (o un mes en
+    curso y uno terminado) solo se comparan así, no por su total."""
+    return round(total / days) if days else None
+
+
 def _comparison(kind: str, m: dict) -> str:
     if kind != "month":
         return ""
@@ -235,11 +263,19 @@ def _comparison(kind: str, m: dict) -> str:
     if not prev.get("total_seconds"):
         return (f"No hay tiempo registrado el mes anterior, así que no hay con qué comparar. "
                 f"{_cap(name)} queda como línea base.")
-    before = prev["total_seconds"]
-    diff = m["total_seconds"] - before
-    pct = round(abs(diff) * 100 / before)
-    word = "más" if diff >= 0 else "menos"
-    return f"Frente al mes anterior ({hours(before)}): {hours(abs(diff))} {word} ({pct} %)."
+    before, now = prev["total_seconds"], m["total_seconds"]
+    n, prev_n = working_days(m), previous_working_days(prev)
+    avg, prev_avg = per_working_day(now, n), per_working_day(before, prev_n)
+    verb = "llevas" if m["through"] < m["date_to"] else "registraste"
+    text = (f"Frente al mes anterior ({hours(before)} en {_work_days_word(prev_n)}): "
+            f"{verb} {hours(now)} en {_work_days_word(n)}.")
+    if avg is None or not prev_avg:
+        return text
+    change = (avg - prev_avg) / prev_avg
+    if abs(change) < SIMILAR_RATIO:
+        return text + f" Por día de trabajo, casi lo mismo: {hours(avg)} frente a {hours(prev_avg)}."
+    return (text + f" Por día de trabajo, {hours(avg)} frente a {hours(prev_avg)} "
+            f"({round(abs(change) * 100)} % {'más' if change > 0 else 'menos'}).")
 
 
 def _next_steps(kind: str, m: dict) -> List[str]:
@@ -274,11 +310,14 @@ def _next_steps(kind: str, m: dict) -> List[str]:
 def _closing(kind: str, m: dict) -> dict:
     prev = m.get("previous") or {}
     total = m["total_seconds"]
-    elapsed_workdays = m["workdays"]
-    if elapsed_workdays and m["active_workdays"] >= elapsed_workdays:
+    workdays = m["workdays"]
+    # Por día de trabajo: con el periodo en curso, el total siempre era menor que el anterior
+    avg = per_working_day(total, working_days(m))
+    prev_avg = per_working_day(prev.get("total_seconds") or 0, previous_working_days(prev))
+    if workdays and m["active_workdays"] >= workdays:
         well = "registraste todos los días hábiles."
-    elif prev.get("total_seconds") and total >= prev["total_seconds"] * (1 + SIMILAR_RATIO):
-        well = f"subiste de {hours(prev['total_seconds'])} a {hours(total)}."
+    elif avg and prev_avg and avg >= prev_avg * (1 + SIMILAR_RATIO):
+        well = f"subiste de {hours(prev_avg)} a {hours(avg)} por día de trabajo."
     elif not m["night_sessions"]:
         well = f"{THIS_PERIOD[kind]} no te desvelaste."
     else:

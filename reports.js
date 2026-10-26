@@ -12,7 +12,7 @@ const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'jul
 const MONTH_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 const reportsState = {
-    kind: 'week',       // week | month | custom
+    kind: 'week',       // week | fortnight (2 semanas, lunes a domingo) | month | custom
     from: null,         // Date local, a medianoche
     to: null,           // Date local, incluido
     requestId: 0,       // descarta respuestas de un rango que ya no se ve
@@ -29,6 +29,7 @@ const reportsFrom = document.getElementById('reportsFrom');
 const reportsTo = document.getElementById('reportsTo');
 const reportsRangeBtns = document.querySelectorAll('[data-range]');
 const reportsExportBtn = document.getElementById('reportsExport');
+const METRICS_MAX_DAYS = 400;   // el tope de GET /api/metrics (MAX_METRICS_DAYS)
 
 // ============================================
 // Fechas
@@ -62,6 +63,11 @@ function rangeFor(kind, anchor) {
     if (kind === 'month') {
         const from = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
         return { from, to: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0) };
+    }
+    if (kind === 'fortnight') {
+        // La semana de `anchor` y la anterior; ‹ › saltan de 14 en 14 días
+        const from = addDays(startOfWeek(anchor), -7);
+        return { from, to: addDays(from, 13) };
     }
     const from = startOfWeek(anchor);
     return { from, to: addDays(from, 6) };
@@ -193,7 +199,14 @@ async function fetchReportData() {
     const prev = previousRange();
     const tagQuery = [...reportsState.tagIds].map(id => `&tag_ids=${id}`).join('');
     const completedQuery = (f, t) => `/api/tasks?completed_from=${getDateKey(f)}&completed_to=${getDateKey(t)}`;
-    const [sessions, prevSessions, projectsData, tagSummary, completed, prevCompleted, habitReport] = await Promise.all([
+    const todayKey = getDateKey(new Date());
+    // Qué días eran hábiles (festivos, días libres y vacaciones fuera) lo sabe el
+    // backend: el resumen promedia y compara por día de trabajo, como el reporte guardado
+    const workdaysOf = (f, t) => (daysBetween(f, t) <= METRICS_MAX_DAYS
+        ? apiFetch(`/api/metrics?${rangeQuery(f, t)}&today=${todayKey}`)
+        : null);
+    const [sessions, prevSessions, projectsData, tagSummary, completed, prevCompleted, habitReport,
+        metrics, prevMetrics] = await Promise.all([
         fetchFocusSessions(from, to),
         fetchFocusSessions(prev.from, prev.to),
         // Con los archivados: su tiempo del rango también cuenta
@@ -203,12 +216,14 @@ async function fetchReportData() {
         apiFetch(completedQuery(prev.from, prev.to)),
         // Con el módulo Hábitos apagado no se pide ni se pinta su tarjeta
         moduleEnabled('habits')
-            ? apiFetch(`/api/habits/report?${rangeQuery(from, to)}&today=${getDateKey(new Date())}`)
+            ? apiFetch(`/api/habits/report?${rangeQuery(from, to)}&today=${todayKey}`)
             : null,
+        workdaysOf(from, to),
+        workdaysOf(prev.from, prev.to),
     ]);
     return {
         sessions, prevSessions, projects: projectsData.projects, tagSummary,
-        completed: completed.tasks, prevCompleted: prevCompleted.tasks, habitReport,
+        completed: completed.tasks, prevCompleted: prevCompleted.tasks, habitReport, metrics, prevMetrics,
     };
 }
 
@@ -259,18 +274,39 @@ function renderReports(data) {
 
 function previousPeriodName() {
     if (reportsState.kind === 'week') return 'la semana anterior';
+    if (reportsState.kind === 'fortnight') return 'las 2 semanas anteriores';
     if (reportsState.kind === 'month') return 'el mes anterior';
     return 'el periodo anterior';
 }
 
-function comparisonText(total, prevTotal) {
+// Días de trabajo ya transcurridos: los hábiles hasta ayer (y hoy si ya tiene
+// tiempo) más los de descanso o festivos en que sí hubo tiempo, como
+// working_days() de backend/report_text.py. null sin métricas.
+function workingDays(metrics) {
+    if (!metrics) return null;
+    const todayKey = getDateKey(new Date());
+    return metrics.by_day.filter(d => d.seconds > 0 || (d.workday && d.date < todayKey)).length;
+}
+
+// Con el periodo en curso, o con otro número de días de trabajo que el anterior,
+// los totales no se comparan: se compara el tiempo por día de trabajo. { text, up }
+function comparisonText(total, prevTotal, workdays, prevWorkdays) {
     if (prevTotal === 0) {
-        return total > 0 ? `Sin tiempo registrado en ${previousPeriodName()}` : '';
+        return { text: total > 0 ? `Sin tiempo registrado en ${previousPeriodName()}` : '', up: true };
     }
-    const diff = total - prevTotal;
-    if (Math.abs(diff) < 60) return `Igual que ${previousPeriodName()}`;
+    const partial = reportsState.to >= startOfToday();
+    const perDay = workdays && prevWorkdays && (partial || workdays !== prevWorkdays);
+    const diff = perDay
+        ? Math.round(total / workdays) - Math.round(prevTotal / prevWorkdays)
+        : total - prevTotal;
+    if (Math.abs(diff) < 60) {
+        return { text: perDay ? `Mismo ritmo por día de trabajo que ${previousPeriodName()}` : `Igual que ${previousPeriodName()}`, up: true };
+    }
     const sign = diff > 0 ? '+' : '−';
-    return `${sign}${formatDuration(Math.abs(diff))} vs. ${previousPeriodName()}`;
+    return {
+        text: `${sign}${formatDuration(Math.abs(diff))}${perDay ? ' por día de trabajo' : ''} vs. ${previousPeriodName()}`,
+        up: diff > 0,
+    };
 }
 
 function summaryStat(value, label) {
@@ -279,23 +315,33 @@ function summaryStat(value, label) {
     return stat;
 }
 
-function renderSummary({ sessions, prevSessions, completed, prevCompleted }) {
+function renderSummary({ sessions, prevSessions, completed, prevCompleted, metrics, prevMetrics }) {
     const total = sumSeconds(sessions);
     const prevTotal = sumSeconds(prevSessions);
-    const days = elapsedDays();
-    const activeDays = new Set(sessions.map(s => s.session_date)).size;
+    const workdays = workingDays(metrics);
+    const prevWorkdays = workingDays(prevMetrics);
 
     const grid = el('div', 'report-stats');
-    grid.append(
-        summaryStat(formatDuration(total), 'tiempo total'),
-        summaryStat(days ? formatDuration(Math.round(total / days)) : '—', 'promedio por día'),
-        summaryStat(`${activeDays}${days ? ` de ${days}` : ''}`, 'días con tiempo'),
-        summaryStat(String(completed.length), completed.length === 1 ? 'tarea terminada' : 'tareas terminadas'),
-    );
+    grid.appendChild(summaryStat(formatDuration(total), 'tiempo total'));
+    if (workdays !== null) {
+        // Un día hábil sin tiempo cuenta (tocaba); uno de descanso, solo si se trabajó
+        grid.append(
+            summaryStat(workdays ? formatDuration(Math.round(total / workdays)) : '—', 'promedio por día de trabajo'),
+            summaryStat(`${metrics.active_days} de ${workdays}`, 'días de trabajo con tiempo'),
+        );
+    } else {
+        // Un rango personalizado de más de METRICS_MAX_DAYS: días de calendario
+        const days = elapsedDays();
+        grid.append(
+            summaryStat(days ? formatDuration(Math.round(total / days)) : '—', 'promedio por día'),
+            summaryStat(`${new Set(sessions.map(s => s.session_date)).size}${days ? ` de ${days}` : ''}`, 'días con tiempo'),
+        );
+    }
+    grid.appendChild(summaryStat(String(completed.length), completed.length === 1 ? 'tarea terminada' : 'tareas terminadas'));
 
-    const comparison = comparisonText(total, prevTotal);
-    const note = comparison
-        ? el('p', `report-compare ${total >= prevTotal ? 'up' : 'down'}`, comparison)
+    const comparison = comparisonText(total, prevTotal, workdays, prevWorkdays);
+    const note = comparison.text
+        ? el('p', `report-compare ${comparison.up ? 'up' : 'down'}`, comparison.text)
         : null;
     const diffTasks = completed.length - prevCompleted.length;
     const tasksNote = (completed.length || prevCompleted.length) && diffTasks !== 0
@@ -377,7 +423,8 @@ function renderHabits({ habitReport }) {
     const skipped = report.rest_days_elapsed + (report.paused_days_elapsed || 0);
     const note = skipped > 0
         ? el('p', 'report-note', report.paused_days_elapsed > 0
-            ? 'Los días de descanso y de vacaciones no cuentan en el total de días.'
+            // paused_days_elapsed trae también los festivos que se descansan (_frozen_days)
+            ? 'Los días de descanso, de vacaciones y los festivos no cuentan en el total de días.'
             : 'Los días de descanso no cuentan en el total de días.')
         : null;
     return reportCard('Hábitos', streak, list, note);
