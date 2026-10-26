@@ -66,6 +66,8 @@ def test_habits_month_has_weeks(api):
     weeks = rep["metrics"]["by_week"]
     assert weeks[0]["start"] == start.isoformat()
     assert sum(w["done"] for w in weeks) == rep["metrics"]["done_total"]
+    # Lectura es de hoy: sus días de antes no cuentan en ninguna semana, como en el total del mes
+    assert sum(w["possible"] for w in weeks if not w["pending"]) == rep["metrics"]["possible_total"]
 
 
 def test_habits_and_time_reports_of_a_period_coexist(api):

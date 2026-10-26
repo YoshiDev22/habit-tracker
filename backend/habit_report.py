@@ -145,6 +145,8 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
         rates = [(_pct(by_wd_done[i], by_wd_possible[i]), i) for i in range(7) if by_wd_possible[i]]
         items.append({
             "key": habit.key, "label": habit.label, "icon": habit.icon, "color": habit.color,
+            # Desde qué día cuenta: las semanas del mes (weeks_of_month) usan la misma regla
+            "counted_from": since.isoformat(),
             "active": habit.is_active, "days_done": done, "days_possible": possible_n,
             "pct": _pct(done, possible_n), "missed_days": missed,
             "current_streak": walk.current, "best_streak": walk.best,
@@ -212,9 +214,11 @@ def habit_metrics(session: Session, user: User, start: date_type, end: date_type
 
 
 def weeks_of_month(m: dict) -> List[dict]:
-    """Las semanas (lunes a domingo) del mes, recortadas al mes: cumplimiento de cada una."""
+    """Las semanas (lunes a domingo) del mes, recortadas al mes: cumplimiento de
+    cada una, con la regla del total del mes (un hábito cuenta desde que existe),
+    así las semanas cuadran con él."""
     weeks: List[dict] = []
-    keys = [h["key"] for h in m["habits"]]
+    since = {h["key"]: h.get("counted_from", "") for h in m["habits"]}
     for day in m["days"]:
         d = date_type.fromisoformat(day["date"])
         if not weeks or d.weekday() == 0:
@@ -224,7 +228,9 @@ def weeks_of_month(m: dict) -> List[dict]:
         if day["status"] == "pending":
             continue
         week["pending"] = False
-        for key in keys:
+        for key, counted_from in since.items():
+            if day["date"] < counted_from:
+                continue
             if key in day["done"]:
                 week["done"] += 1
                 week["possible"] += 1
@@ -362,8 +368,12 @@ def _comparison(period: str, m: dict) -> str:
     prev = m.get("previous") or {}
     if period != "month" or prev.get("completion_pct") is None:
         return ""
+    # Cada mes con sus días que contaban: un mes en curso, o con más descansos o
+    # festivos, tiene menos, y comparar solo los días hechos lo hacía parecer peor
+    days = (f"{m['active_days']} de {m['counted_days']} días con algo hecho"
+            f"{' hasta hoy' if m['through'] < m['date_to'] else ''}")
     return (f"Contra el mes anterior: {m['completion_pct']} % de cumplimiento frente a {prev['completion_pct']} %, "
-            f"y {_days_word(m['active_days'])} con algo hecho frente a {prev['active_days']}.")
+            f"y {days} frente a {prev['active_days']} de {prev['counted_days']}.")
 
 
 def _next_steps(period: str, m: dict) -> List[str]:
