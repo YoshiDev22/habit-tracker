@@ -9,7 +9,7 @@ indica. Va en 0.x mientras Finanzas esté en prueba por invitación.
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de `CLAUDE.md`.
 
-## [0.6.0] — 2026-10-23
+## [0.6.0] — 2026-10-26
 
 Apartados, rendimientos (diarios y a plazo fijo), cuentas de inversión y notas. Lleva migración.
 

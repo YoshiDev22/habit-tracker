@@ -18,7 +18,7 @@ import re
 from datetime import date
 
 # Cambia con el texto: va en el mismo commit que lo cambie (y el aviso 📢 se publica aparte)
-UPDATED = date(2026, 10, 23)
+UPDATED = date(2026, 10, 26)
 MONTHS = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
           "octubre", "noviembre", "diciembre")
 TEMPLATE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "privacidad.html")
