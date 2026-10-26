@@ -4,6 +4,12 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.33.1 — 2026-10-26
+### Cambios
+- **Fechas personalizadas en Reportes**: al escribir *Hasta*, el número ya no brinca a *Desde*. Si
+  *Desde* queda después de *Hasta*, los campos se marcan en rojo hasta que lo corrijas.
+- **2 semanas, de semana en semana**: ‹ › mueven el rango una semana (de 19 oct–1 nov a 12–25 oct).
+
 ## 1.33.0 — 2026-10-26
 ### Nuevas funciones
 - **Reportes: 2 semanas**: junto a Semana y Mes, ve esta semana y la anterior juntas; los CSV

@@ -9,6 +9,23 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.33.1] — 2026-10-26
+
+Las fechas personalizadas de Reportes se escriben sin pelear con los campos, y 2 semanas avanza de
+semana en semana.
+
+### Correcciones
+- **Escribir una fecha personalizada**: al teclear el día de *Hasta* ("12"), el primer dígito ya
+  formaba una fecha anterior a *Desde* (el día 1) y la app las intercambiaba, así que ese "1"
+  terminaba en *Desde*. Ahora un rango al revés se marca en rojo y no se aplica hasta corregirlo, el
+  campo no se reescribe mientras escribes y un año a medio escribir se ignora.
+- **‹ › en 2 semanas** corren el rango 7 días en lugar de 14 (19 oct–1 nov → 12–25 oct → 5–18 oct),
+  para ver dos semanas a caballo entre otras. La comparación sigue siendo contra las 2 semanas justo
+  anteriores.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app.
+
 ## [1.33.0] — 2026-10-26
 
 Reportes compara el tiempo por día de trabajo, suma una vista de 2 semanas y copia el periodo para
@@ -1113,6 +1130,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.33.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.33.1
 [1.33.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.33.0
 [1.32.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.32.0
 [1.31.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.31.1
