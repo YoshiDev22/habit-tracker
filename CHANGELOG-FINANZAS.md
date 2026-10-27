@@ -9,6 +9,31 @@ indica. Va en 0.x mientras Finanzas esté en prueba por invitación.
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de `CLAUDE.md`.
 
+## [0.7.0] — 2026-10-27
+
+Buscar en Movimientos, la cuenta que se propone al anotar y una página de Rendimiento más clara. Sin migración.
+
+### Nuevo
+- **Buscar en Movimientos**: una lupa arriba a la derecha, solo en Movimientos, abre *Buscar*: texto (en el concepto,
+  la categoría o el monto, sin importar acentos ni mayúsculas), tipo (gasto, ingreso, transferencia), cuentas y
+  categorías de gasto e ingreso, varias a la vez. Busca en el periodo que ves (*Buscar en todo* cambia a *Siempre*).
+  Arriba de la lista, qué filtras, cuántos movimientos son y cuánto suman en gastos e ingresos. *Movimientos* del menú
+  de una cuenta es este mismo filtro.
+- **La cuenta de siempre**: al anotar, la hoja propone la cuenta que más usaste en los últimos movimientos de esa
+  categoría (si hay empate, la más reciente) y se adapta sola, sin nada que configurar. Una categoría sin historial
+  propone la última cuenta con la que anotaste; cambiar de categoría en la hoja cambia la cuenta mientras no hayas
+  elegido una a mano.
+- **Editar una tasa de rendimiento**, también su fecha.
+
+### Cambios
+- *Rendimiento*: con tasa, cada una es una línea con ✎ (editar) y × (quitar, con confirmación); el formulario solo se
+  abre al editar o al agregar otra desde una fecha, y se cierra al guardar.
+
+### Correcciones
+- *Anotar* (rendimiento) decía el estimado aunque escribieras la cifra del banco; ahora dice la tuya.
+- Al anotar varios movimientos seguidos, el botón para guardar tardaba en responder después de cada uno.
+- *Meses sin intereses* de una tarjeta podía abrir con la fecha de corte vacía si se abría muy rápido.
+
 ## [0.6.0] — 2026-10-26
 
 Apartados, rendimientos (diarios y a plazo fijo), cuentas de inversión y notas. Lleva migración.
@@ -156,6 +181,7 @@ Publicada con Habit Tracker 1.29.0. La primera versión, en prueba y por invitac
 - **Pegar un estado de cuenta** o un CSV, con vista previa y sin duplicar.
 - El **consentimiento expreso** para guardar datos financieros, la primera vez.
 
+[0.7.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.7.0
 [0.6.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.6.0
 [0.5.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.5.0
 [0.4.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.4.0

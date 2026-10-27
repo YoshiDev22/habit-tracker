@@ -1766,10 +1766,15 @@ class FinCategoryResponse(SQLModel):
     order: int
     tx_count: int = 0
     icon: Optional[str] = None
+    # La cuenta que la hoja del monto propone para ella (la más usada en sus últimos movimientos)
+    usual_account_id: Optional[int] = None
 
 
 class FinCategoryListResponse(SQLModel):
     categories: List[FinCategoryResponse]
+    # La última cuenta de un gasto y de un ingreso: lo que se propone sin categoría con historial
+    last_expense_account_id: Optional[int] = None
+    last_income_account_id: Optional[int] = None
 
 
 FIN_MAX_SPLITS = 20

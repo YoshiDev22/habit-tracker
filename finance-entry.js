@@ -181,7 +181,7 @@ function openFinEntry({ kind = 'expense', categoryId = null, tx = null, toAccoun
     // primera cuenta que no sea de crédito
     const defaultAccount = accountId ? finAccount(accountId) : kind === 'transfer'
         ? accounts.find(a => a.kind !== 'credit' && a.id !== toAccountId) || accounts.find(a => a.id !== toAccountId)
-        : accounts.find(a => a.is_default) || accounts[0];
+        : finSuggestedAccount(kind, categoryId);
     const s = finState.summary;
     const today = finToday();
     Object.assign(finEntry, {
@@ -199,6 +199,9 @@ function openFinEntry({ kind = 'expense', categoryId = null, tx = null, toAccoun
         payOptions,
         splits: tx && tx.splits && tx.splits.length ? tx.splits.map(p => ({ ...p })) : null,
         picking: null,
+        // Elegida a mano (o fija: la del menú de una cuenta, la de un movimiento que se edita):
+        // cambiar de categoría ya no la cambia
+        accountPicked: Boolean(tx || accountId),
     });
     document.getElementById('finEntryNotes').value = tx && tx.concept !== finEntryDefaultConcept() ? tx.concept : '';
     document.getElementById('finEntryDelete').hidden = !tx;
@@ -206,6 +209,17 @@ function openFinEntry({ kind = 'expense', categoryId = null, tx = null, toAccoun
     finRenderEntry();
     finRenderAmount();
     openFinSheet(finEntrySheet);
+}
+
+// La cuenta que se propone, sin preguntar nada: la que sueles usar con esa categoría (la
+// calcula el servidor con tus últimos movimientos de ella); si no tiene historial, la última
+// con la que anotaste un gasto o un ingreso; y si no, la principal. Se adapta sola.
+function finSuggestedAccount(kind, categoryId) {
+    const category = categoryId ? finCategory(categoryId) : null;
+    const last = (finState.lastAccounts || {})[kind];
+    const accounts = finActiveAccounts();
+    return [category && category.usual_account_id, last].map(id => id && finAccount(id)).find(a => a && a.is_active)
+        || accounts.find(a => a.is_default) || accounts[0];
 }
 
 // El concepto que se guarda si no se escribe nota: el nombre de la categoría
@@ -363,6 +377,7 @@ document.getElementById('finPickerGrid').addEventListener('click', (event) => {
         const accountSide = (k === 'income' && side === 'to') || (k !== 'income' && side === 'from');
         if (accountSide) {
             finEntry.accountId = id;
+            finEntry.accountPicked = true;
             if (finEntry.toAccountId === id) finEntry.toAccountId = null;
         } else {
             // Una cuenta como destino: es una transferencia
@@ -377,6 +392,11 @@ document.getElementById('finPickerGrid').addEventListener('click', (event) => {
         if (k === 'transfer') {
             finEntry.kind = 'expense';
             finEntry.toAccountId = null;
+        }
+        // Otra categoría: su cuenta de siempre, mientras no hayas elegido una
+        if (!finEntry.accountPicked) {
+            const suggested = finSuggestedAccount(finEntry.kind, finEntry.categoryId);
+            if (suggested) finEntry.accountId = suggested.id;
         }
     }
     closeFinSheet(finPicker);
@@ -566,6 +586,8 @@ async function saveFinEntry() {
             }
         }
         closeFinSheet(finEntrySheet);
+        // Listo para el siguiente ya: anotar varios seguidos no espera a que se recargue la página
+        ok.disabled = false;
         await finLoad();
     } catch (error) {
         showError(errorEl, error.message);

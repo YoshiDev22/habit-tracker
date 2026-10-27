@@ -186,6 +186,8 @@ async def main():
         # La tarjeta dice cuánto pagar para no generar intereses, y se paga desde ahí
         await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        # La hoja se cierra antes de que la página termine de recargar: esperar el saldo nuevo
+        await b.wait_for("(finAccount(%d) || {}).balance_cents" % card["id"], lambda v: v == -30000)
         statement = api.call("GET", f"/api/finance/accounts/{card['id']}/statement", expect=200)[1]
         shown = await b.wait_for("(document.querySelector('.fin-statement-pay strong') || {}).textContent",
                                  lambda v: v and ("$" in v or v == "Pagado"))
@@ -312,6 +314,45 @@ async def main():
         await b.js("document.getElementById('finTxFilterClear').click()")
         rows = await b.js("document.querySelectorAll('#finTxList [data-tx-id]').length")
         check(rows == len(transactions()), f"the x shows every account again ({rows})")
+        # La hoja del monto propone la cuenta que se usa con esa categoría (Gasolina fue con Tarjeta)
+        await b.js("finLoad()")
+        st = await b.wait_for(f"finSuggestedAccount('expense', {cats['Transporte']['id']}).name", lambda v: v == "Tarjeta")
+        check(st == "Tarjeta", f"a category suggests the account it is used with ({st})")
+        # La lupa, solo en Movimientos: texto (sin acentos ni mayúsculas), tipo y categoría
+        check(await b.js("!document.getElementById('finSearchBtn').hidden"), "the magnifier shows in Movimientos")
+
+        async def search(setup_js, shot=None):
+            await b.js("document.getElementById('finSearchBtn').click()")
+            await b.wait_for("!document.getElementById('finSearchSheet').classList.contains('hidden')")
+            await b.js(setup_js)
+            if shot:
+                await b.shot(shot, full=False)
+            await b.js("document.getElementById('finSearchDone').click()")
+            return await b.js("""({rows: [...document.querySelectorAll('#finTxList [data-tx-id]')].map(r => Number(r.dataset.txId)),
+                label: document.getElementById('finTxFilterLabel').textContent,
+                sum: document.getElementById('finTxFilterSum').textContent,
+                pressed: document.getElementById('finSearchBtn').getAttribute('aria-pressed')})""")
+
+        st = await search("""const t = document.getElementById('finSearchText'); t.value = 'GASOLÍNA';
+            t.dispatchEvent(new Event('input', {bubbles: true}))""")
+        gas = [t["id"] for t in transactions() if t["concept"] == "Gasolina"]
+        check(sorted(st["rows"]) == sorted(gas) and st["label"] == "“GASOLÍNA”" and "−$70.00" in st["sum"]
+              and st["pressed"] == "true", f"searching text finds the concept and sums it ({st}, {gas})")
+        st = await search("""document.getElementById('finSearchText').value = '';
+            document.getElementById('finSearchText').dispatchEvent(new Event('input', {bubbles: true}));
+            document.querySelector('#finSearchKinds [data-value="income"]').click()""")
+        income = [t["id"] for t in transactions() if t["kind"] == "income"]
+        check(sorted(st["rows"]) == sorted(income) and st["label"] == "Ingreso", f"filtering by kind ({st}, {income})")
+        transport = cats["Transporte"]["id"]
+        st = await search(f"""document.querySelector('#finSearchKinds [data-value="income"]').click();
+            document.querySelector('#finSearchExpense [data-value="{transport}"]').click()""", shot="finance_search_sheet")
+        moved = [t["id"] for t in transactions() if t["category_id"] == transport]
+        check(sorted(st["rows"]) == sorted(moved) and st["label"] == "Transporte", f"filtering by category ({st}, {moved})")
+        await b.shot("finance_search", full=False)
+        await b.js("document.getElementById('finTxFilterClear').click()")
+        st = await b.js("""({rows: document.querySelectorAll('#finTxList [data-tx-id]').length,
+            bar: document.getElementById('finTxFilter').hidden, pressed: document.getElementById('finSearchBtn').getAttribute('aria-pressed')})""")
+        check(st == {"rows": len(transactions()), "bar": True, "pressed": "false"}, f"the x clears the search ({st})")
         # El saldo con el que empieza una cuenta sale en su día, sin contar como ingreso
         api.call("POST", "/api/finance/accounts", {"name": "Nómina", "kind": "debit", "currency": "MXN",
                                                    "opening_balance_cents": 250000,
@@ -372,6 +413,25 @@ async def main():
         check(y["rates"][0]["rate_bp"] == 1200 and y["estimate_cents"] > 0 and expected in shown,
               f"the rate is saved and the page shows what was earned ({y['estimate_cents']}, {shown})")
         await b.shot("finance_yield", full=False)
+        # Guardada, la tasa es una línea con ✎ y ×; el formulario se cierra
+        st = await b.wait_for("""({form: document.getElementById('finYieldRateForm').hidden,
+            add: !document.getElementById('finYieldAdd').hidden,
+            rows: [...document.querySelectorAll('#finYieldRates .fin-yield-rate')].map(r => r.textContent)})""",
+                              lambda v: v["form"])
+        check(st["add"] and len(st["rows"]) == 1 and st["rows"][0].startswith("12 % desde"),
+              f"a saved rate is one line and the form closes ({st})")
+        await b.js("document.querySelector('#finYieldRates .fin-yield-edit').click()")
+        st = await b.js("""({form: !document.getElementById('finYieldRateForm').hidden,
+            rate: document.getElementById('finYieldRate').value, save: document.getElementById('finYieldSave').textContent})""")
+        check(st == {"form": True, "rate": "12", "save": "Guardar cambios"}, f"✎ opens the rate to edit ({st})")
+        await b.js("document.getElementById('finYieldCancel').click()")
+        # Anotar dice la cifra del banco cuando se escribe
+        await set_value("#finYieldBank", "123.45")
+        label = await b.js("document.getElementById('finYieldRecord').textContent")
+        check(label == "Anotar $123.45", f"Anotar shows the bank's figure ({label})")
+        await set_value("#finYieldBank", "")
+        label = await b.js("document.getElementById('finYieldRecord').textContent")
+        check(expected in label, f"without it, Anotar shows the estimate again ({label})")
         await b.js("document.getElementById('finYieldRecord').click()")
         recorded = await wait_api("/api/finance/transactions",
                                   lambda body: any(t["source"] == "yield" for t in body["transactions"]))
@@ -495,8 +555,9 @@ async def main():
         await set_value("#finEntryNotes", "Laptop")
         await keys(["ok"])
         await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
-        plans = [p for p in api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
-                 if p["transaction_id"]]
+        # El plan va en su propia petición, después de la compra: esperarlo
+        plans = [p for p in (await wait_api("/api/finance/installments", lambda body: any(
+            p["transaction_id"] for p in body["installments"])))["installments"] if p["transaction_id"]]
         check(len(plans) == 1 and plans[0]["months"] == 12 and plans[0]["concept"] == "Laptop"
               and plans[0]["monthly_cents"] == 10000, f"the purchase is planned in 12 months ({plans})")
 
@@ -921,8 +982,10 @@ async def main():
         await b.js(f"document.querySelector('[data-budget-item=\"{items['Renta']['id']}\"]').click()")
         await b.wait_for(".fin-budget-row.picked".join(["!!document.querySelector('", "')"]))
         await b.js(f"document.querySelector('[data-budget-item=\"{items['Streaming']['id']}\"]').click()")
+        # Son dos PATCH (uno por gasto): esperar a los dos, no al primero
         moved = await wait_api("/api/finance/budget", lambda body: any(
-            i["name"] == "Renta" and i["group_id"] == items["Streaming"]["group_id"] for i in body["items"]))
+            i["name"] == "Renta" and i["group_id"] == items["Streaming"]["group_id"] for i in body["items"]) and any(
+            i["name"] == "Streaming" and i["group_id"] == items["Renta"]["group_id"] for i in body["items"]))
         after = {i["name"]: i for i in moved["items"]}
         check(after["Streaming"]["group_id"] == items["Renta"]["group_id"]
               and after["Renta"]["order"] == items["Streaming"]["order"],
@@ -945,7 +1008,9 @@ async def main():
             fire(from, 'dragstart'); fire(to, 'dragover'); fire(to, 'drop'); fire(from, 'dragend'); })"""
         await b.js(f"""{drag}(document.querySelector('[data-budget-group-card="{order[2]}"]'),
             document.querySelector('[data-budget-group-card="{order[0]}"]'))""")
-        dragged = await wait_api("/api/finance/budget", lambda body: body["groups"][0]["id"] == order[2])
+        # Varios PATCH (uno por grupo que cambia): esperar el orden completo
+        dragged = await wait_api("/api/finance/budget", lambda body: [g["id"] for g in body["groups"]] == [
+            order[2], order[0], order[1]])
         new_order = [g["id"] for g in dragged["groups"]]
         check(new_order == [order[2], order[0], order[1]], f"dragging a group puts it in that place ({order} -> {new_order})")
         internet = next(i for i in dragged["items"] if i["name"] == "Internet")

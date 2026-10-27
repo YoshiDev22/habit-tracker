@@ -27,7 +27,8 @@ const finState = {
     ringKind: 'expense',    // qué categorías rodean el anillo
     ringEditing: false,     // ✎: tocar dos categorías las cambia de lugar
     ringPick: null,         // la primera que se tocó
-    accountFilter: null,    // Movimientos de una sola cuenta (desde su menú)
+    // Lo que filtra Movimientos (la lupa, finance-search.js; o una cuenta desde su menú). Solo en la sesión
+    txFilter: { q: '', kinds: new Set(), accounts: new Set(), categories: new Set() },
     hideTotal: false,       // 👁: el total de arriba, oculto (finance_hide_total)
     openStatements: new Set(),  // tarjetas con el detalle del estado de cuenta abierto (en la sesión)
 };
@@ -257,6 +258,8 @@ async function finLoad() {
         Object.assign(finState, {
             summary, transactions: list.transactions, accounts: accounts.accounts,
             categories: categories.categories, recurring: recurring.recurring, installments: plans.installments,
+            // La última cuenta de un gasto y de un ingreso (la hoja del monto la propone, finance-entry.js)
+            lastAccounts: { expense: categories.last_expense_account_id, income: categories.last_income_account_id },
         });
     } catch (error) {
         if (error.status !== 401) finShowError(error.message || 'No se pudo cargar Finanzas.');
@@ -432,8 +435,9 @@ function finSetTab(tab, { save = true } = {}) {
     if (save) {
         try { localStorage.setItem('finance_tab', tab); } catch (e) { /* sin localStorage */ }
     }
-    // El ✎ de ordenar, arriba, solo en Categorías; al salir, termina de ordenar
+    // El ✎ de ordenar, arriba, solo en Categorías; al salir, termina de ordenar. La lupa, en Movimientos
     document.getElementById('finRingEdit').hidden = tab !== 'categories';
+    document.getElementById('finSearchBtn').hidden = tab !== 'transactions';
     if (tab !== 'categories') {
         finState.ringEditing = false;
         finState.ringPick = null;
@@ -688,11 +692,13 @@ function finBillRow({ plan, bill }) {
     return row;
 }
 
-function finBillsInPeriod(only) {
+// `keep(accountId)` dice si la cuenta entra en el filtro de cuentas (sin él, todas)
+function finBillsInPeriod(keep) {
+    keep = keep || (() => true);
     const s = finState.summary;
     const out = [];
     (finState.installments || []).forEach(plan => {
-        if (only && plan.account_id !== only.id) return;
+        if (!keep(plan.account_id)) return;
         if (!finAccount(plan.account_id)) return;
         plan.bills.forEach(bill => {
             if (!s || (bill.cut >= s.date_from && bill.cut <= s.date_to)) out.push({ plan, bill });
@@ -717,36 +723,46 @@ function finUpcomingRow(rc) {
     return row;
 }
 
-function finUpcomingInPeriod(only) {
+function finUpcomingInPeriod(keep) {
+    keep = keep || (() => true);
     const s = finState.summary;
     const today = finToday();
     return (finState.recurring || []).filter(rc => rc.next_date && !rc.paused && rc.next_date > today
-        && (!only || rc.account_id === only.id) && (!s || (rc.next_date >= s.date_from && rc.next_date <= s.date_to)));
+        && keep(rc.account_id) && (!s || (rc.next_date >= s.date_from && rc.next_date <= s.date_to)));
 }
 
-function finOpeningsInPeriod(only) {
+function finOpeningsInPeriod(keep) {
+    keep = keep || (() => true);
     const s = finState.summary;
     return finState.accounts.filter(a => a.opening_date && a.opening_balance_cents
-        && (!only || a.id === only.id) && (!s || (a.opening_date >= s.date_from && a.opening_date <= s.date_to)));
+        && keep(a.id) && (!s || (a.opening_date >= s.date_from && a.opening_date <= s.date_to)));
 }
 
 function finRenderList() {
     const list = document.getElementById('finTxList');
-    const only = finState.accountFilter ? finAccount(finState.accountFilter) : null;
-    if (!only) finState.accountFilter = null;
-    document.getElementById('finTxFilter').hidden = !only;
-    if (only) {
-        document.getElementById('finTxFilterLabel').textContent = `Solo ${only.name}`;
-        document.getElementById('finTxFilterClear').replaceChildren(financeIcon('x', 18));
-    }
-    const txs = only ? finState.transactions.filter(t => t.account_id === only.id || t.to_account_id === only.id)
-        : finState.transactions;
-    const openings = finOpeningsInPeriod(only);
-    const bills = finBillsInPeriod(only);
-    const upcoming = finUpcomingInPeriod(only);
+    const f = finState.txFilter;
+    // Una cuenta borrada mientras tanto sale del filtro
+    [...f.accounts].forEach(id => { if (!finAccount(id)) f.accounts.delete(id); });
+    const active = finFilterActive(f);
+    const txs = active ? finState.transactions.filter(t => finTxMatches(t, f)) : finState.transactions;
+    finRenderFilterBar(txs);
+    // Saldos iniciales, mensualidades y programados no son movimientos: con texto, tipo o
+    // categoría no salen; con solo cuentas, los de esas cuentas
+    const keep = finFilterNarrows(f) ? () => false : id => !f.accounts.size || f.accounts.has(id);
+    const openings = finOpeningsInPeriod(keep);
+    const bills = finBillsInPeriod(keep);
+    const upcoming = finUpcomingInPeriod(keep);
     if (!txs.length && !openings.length && !bills.length && !upcoming.length) {
-        list.replaceChildren(el('p', 'fin-empty', only ? `Sin movimientos de ${only.name} en este periodo.`
-            : 'Sin movimientos en este periodo. Toca una categoría o ＋ Agregar.'));
+        const empty = el('p', 'fin-empty', !active ? 'Sin movimientos en este periodo. Toca una categoría o ＋ Agregar.'
+            : f.accounts.size === 1 && !finFilterNarrows(f) ? `Sin movimientos de ${finAccount([...f.accounts][0]).name} en este periodo.`
+                : 'Nada coincide con la búsqueda en este periodo.');
+        list.replaceChildren(empty);
+        if (active && finState.range.mode !== 'all') {
+            const all = el('button', 'link-btn', 'Buscar en todo (Siempre)');
+            all.type = 'button';
+            all.addEventListener('click', () => finSetRange({ mode: 'all' }));
+            list.appendChild(all);
+        }
         return;
     }
     const byDay = new Map();
@@ -773,10 +789,7 @@ function finRenderList() {
     list.replaceChildren(...groups);
 }
 
-document.getElementById('finTxFilterClear').addEventListener('click', () => {
-    finState.accountFilter = null;
-    finRenderList();
-});
+document.getElementById('finTxFilterClear').addEventListener('click', () => finApplyFilter(finEmptyFilter()));
 
 document.getElementById('finEyeBtn').addEventListener('click', () => {
     finState.hideTotal = !finState.hideTotal;
@@ -1256,6 +1269,10 @@ document.getElementById('finAccountsBody').addEventListener('click', (event) => 
 
 function openFinSheet(sheet) {
     sheet.classList.remove('hidden');
+    // Una vez en la pila aunque se abra dos veces (doble toque): si no, al cerrarla quedaba
+    // en la pila y la página se quedaba como si hubiera una hoja abierta
+    const i = finSheets.indexOf(sheet);
+    if (i > -1) finSheets.splice(i, 1);
     finSheets.push(sheet);
     document.body.classList.add('fin-sheet-open');
 }
