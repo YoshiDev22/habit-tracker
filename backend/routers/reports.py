@@ -19,8 +19,8 @@ from backend.models import Report, User, utc_now_naive
 from backend.cost_report import money
 from backend.report_ai import ai_preview, ai_usage as usage_of, calls_today, write_with_ai
 from backend.report_kinds import AI_POOL, subject_of
-from backend.reports import (AiTextFailed, previous_summary, generate_report, is_period_start, period_bounds,
-                             previous_period)
+from backend.reports import (previous_summary, generate_report, is_period_start, period_bounds, previous_period,
+                             rules_text)
 from backend.routers.auth import require_module, user_modules
 from backend.schemas import ReportCreate, ReportListResponse, ReportResponse, ReportSummary
 
@@ -31,6 +31,10 @@ router = APIRouter(tags=["reports"])
 # cambiar nada. Se ajusta con REPORT_COOLDOWN_SECONDS en backend/.env; el
 # timer no pasa por aquí.
 DEFAULT_COOLDOWN_SECONDS = 30
+
+# "Rehacer sugerencias con IA" no dio nada usable. No 502: Cloudflare cambia el 502 del origen por su
+# página de error, y el navegador perdía el motivo ("Error de red"). Un 4xx pasa tal cual.
+AI_FAILED = status.HTTP_424_FAILED_DEPENDENCY
 
 
 def cooldown_seconds() -> int:
@@ -118,13 +122,8 @@ def create_report(body: ReportCreate, session: Session = Depends(get_session),
     start, _ = period_bounds(body.kind, body.period_start)
     _check_cooldown(session.exec(select(Report).where(
         Report.user_id == current_user.id, Report.kind == body.kind, Report.period_start == start)).first())
-    try:
-        report = generate_report(session, current_user, body.kind, body.period_start, today, use_ai=body.use_ai)
-    except AiTextFailed as error:
-        reason = str(error)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=f"La IA no pudo escribir el texto ({reason[:1].lower()}{reason[1:]}). "
-                                   "El reporte no cambió.") from None
+    # Si la IA falla, se guarda con los pasos de las reglas y el motivo en text_note
+    report = generate_report(session, current_user, body.kind, body.period_start, today, use_ai=body.use_ai)
     return _full(report)
 
 
@@ -175,7 +174,7 @@ def preview_ai(today: Optional[date_type] = None, session: Session = Depends(get
         "used_today": calls_today(session, current_user.id),
         "training_warning": bool(config and config.uses_training_free_tier),
         "sample": label,
-        **ai_preview(kind, metrics),
+        **ai_preview(kind, metrics, rules_text(kind, metrics)),
     }
 
 
@@ -192,9 +191,11 @@ def get_report(report_id: int, session: Session = Depends(get_session),
 def rewrite_with_ai(report_id: int, session: Session = Depends(get_session),
                     current_user: User = Depends(get_current_user)):
     """
-    "Reescribir con IA": el texto de un reporte guardado, de nuevo y con la IA,
-    sobre las mismas cifras (no las recalcula). Si la IA falla, el reporte se
-    queda como estaba y el error dice por qué.
+    "Rehacer sugerencias con IA": los pasos y el tip de un reporte guardado, de
+    nuevo y con la IA, sobre las mismas cifras (no las recalcula). El resto del
+    texto vuelve a salir de las reglas, también en un reporte de antes de la 1.32
+    que la IA escribió entero. Si la IA falla, el reporte se queda como estaba y
+    el error dice por qué.
     """
     report = session.exec(select(Report).where(Report.id == report_id, Report.user_id == current_user.id)).first()
     if report is None:
@@ -207,9 +208,10 @@ def rewrite_with_ai(report_id: int, session: Session = Depends(get_session),
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                             detail="La IA no está configurada en este servidor")
     try:
-        text, model = write_with_ai(session, current_user, report.kind, report.metrics, config)
+        text, model = write_with_ai(session, current_user, report.kind, report.metrics, config,
+                                    rules_text(report.kind, report.metrics))
     except AiError as error:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from None
+        raise HTTPException(status_code=AI_FAILED, detail=str(error)) from None
     report.text = text
     report.text_source, report.text_model, report.text_note = "ai", model, None
     # El texto es nuevo: la hora que enseña el reporte es la de esta escritura

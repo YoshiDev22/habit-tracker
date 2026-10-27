@@ -10,7 +10,7 @@ from backend.models import User
 from backend.reports import missing_reports
 from test_finance import maker_on
 from test_metrics import MON, TUE, WED, THU, FRI, SAT, SUN, post
-from test_report_ai import PLAIN, grant, provider  # noqa: F401  (fixture)
+from test_report_ai import GOOD, grant, provider  # noqa: F401  (fixture)
 
 TODAY = date.today()
 
@@ -66,6 +66,8 @@ def test_habits_month_has_weeks(api):
     weeks = rep["metrics"]["by_week"]
     assert weeks[0]["start"] == start.isoformat()
     assert sum(w["done"] for w in weeks) == rep["metrics"]["done_total"]
+    # Lectura es de hoy: sus días de antes no cuentan en ninguna semana, como en el total del mes
+    assert sum(w["possible"] for w in weeks if not w["pending"]) == rep["metrics"]["possible_total"]
 
 
 def test_habits_and_time_reports_of_a_period_coexist(api):
@@ -147,7 +149,7 @@ def test_costs_summary_by_dates(api):
 def test_time_and_habits_share_a_counter_costs_has_its_own(api, provider, monkeypatch):  # noqa: F811
     monkeypatch.setenv("AI_COSTS_DAILY_LIMIT", "1")
     monkeypatch.setenv("REPORT_COOLDOWN_SECONDS", "0")
-    provider["reply"] = json.dumps(PLAIN, ensure_ascii=False)
+    provider["reply"] = json.dumps(GOOD, ensure_ascii=False)
     costs_setup(api, "ia-costos@test.com")
     habits_week(api, "ia-costos@test.com")
     grant("ia-costos@test.com")
@@ -155,9 +157,9 @@ def test_time_and_habits_share_a_counter_costs_has_its_own(api, provider, monkey
     assert generate(api, "habits-week", MON)["text_source"] == "ai"
     first = generate(api, "costs-month", TODAY.replace(day=1))
     assert first["text_source"] == "ai"
-    status, err = api.call("POST", "/api/reports", {"kind": "costs-month", "period_start": TODAY.replace(day=1).isoformat(),
-                                                    "today": TODAY.isoformat()})
-    assert status == 502 and "costos" in err["detail"]
+    # Al tope de costos: se guarda con los pasos de las reglas y dice por qué
+    capped = generate(api, "costs-month", TODAY.replace(day=1))
+    assert capped["text_source"] == "rules" and "costos" in capped["text_note"]
 
     _, time_usage = api.call("GET", "/api/reports/ai-usage?subject=habits", expect=200)
     _, costs_usage = api.call("GET", "/api/reports/ai-usage?subject=costs", expect=200)
@@ -169,13 +171,14 @@ def test_time_and_habits_share_a_counter_costs_has_its_own(api, provider, monkey
     assert "total_cost_amount" in json.dumps(provider["sent"][1])
 
 
-def test_ai_may_leave_the_warning_empty(api, provider):  # noqa: F811
-    """Hábitos y costos piden «data_cleanup» vacío si no hay nada que advertir."""
-    provider["reply"] = json.dumps({**PLAIN, "data_cleanup": ""}, ensure_ascii=False)
+def test_costs_take_the_ai_steps_over_the_rules(api, provider):  # noqa: F811
+    """En costos también: la IA escribe los pasos y el tip; las cifras, las reglas."""
+    provider["reply"] = json.dumps(GOOD, ensure_ascii=False)
     costs_setup(api, "vacio@test.com")
     grant("vacio@test.com")
     rep = generate(api, "costs-month", TODAY.replace(day=1))
-    assert rep["text_source"] == "ai" and rep["text"]["data_cleanup"] == ""
+    assert rep["text_source"] == "ai" and rep["text"]["next_steps"] == GOOD["next_steps"]
+    assert rep["text"]["summary"] and provider["sent"][0]["already_written"]["summary"] == rep["text"]["summary"]
 
 
 def test_days_before_any_habit_do_not_count(api):

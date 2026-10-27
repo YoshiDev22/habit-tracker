@@ -34,6 +34,8 @@ sobre v1.19.0 (Fases 1 a 4 de la 24 terminadas; 25 cerrada; 27, 28 y 29 nuevas) 
 | 37 | P2 | Finanzas personales: gastos del correo, Telegram y a mano, con avisos de ritmo | épica, después de la 1.27; fase 1 hecha en `feat/finanzas` |
 | 40 | P3 | Recurrente con fecha de fin que no se ve terminado | por observar |
 | 43 | P3 | Menús de la app más sencillos: un panel lateral como el de Finanzas | pedido |
+| 49 | P3 | Comparar el modelo de IA de los reportes (GPT-OSS contra Haiku) | para después: se queda GPT-OSS |
+| 50 | P2 | Grupos de proyectos | plan listo, para la 1.34.0 |
 
 ---
 
@@ -677,3 +679,25 @@ su saldo no es cero, la app pregunta qué hacer** en vez de archivarla así:
   sigue en Movimientos y en los reportes.
 - **Que no vuelva a usarse.** Que no salga al elegir cuenta en la hoja del monto ni en importar, pero sí al filtrar
   Movimientos por cuenta.
+
+## 49 · P3 · Comparar el modelo de IA de los reportes (GPT-OSS contra Haiku)
+
+**Decidido el 2026-10-26: se queda GPT-OSS 120B** (Workers AI, `@cf/openai/gpt-oss-120b`). Desde la 1.32 la IA
+solo escribe los pasos y el tip, y con eso pasa el validador. La comparación queda para después, para no gastar
+cuota de más.
+
+**Cuando se retome.** Un script de una sola vez en el VPS (no va en el repo) pide a cada modelo los pasos y el tip
+de reportes guardados reales, igual que la app, y enseña cuántas viñetas descarta `validate_suggestions()`. Haiku
+va por AI Gateway con la llave guardada ahí (BYOK). A este volumen el precio no decide, sino la calidad.
+
+**Si se cambia de modelo:** `AI_BASE_URL`, `AI_MODEL` y `AI_API_KEY` en `backend/.env`; `PRIVACY_AI` debe nombrar
+al proveedor (y el cambio del aviso se anuncia con 📢); si el modelo rechaza `temperature`, hacerla opcional en
+`backend/ai.py` con su prueba.
+
+## 50 · P2 · Grupos de proyectos
+
+**Plan en [docs/specs/grupos-de-proyectos.md](docs/specs/grupos-de-proyectos.md)** (2026-10-26). Un grupo es un
+proyecto con hijos (`projects.parent_id`, con migración): un nivel, un solo grupo por proyecto, con tiempo y
+gastos propios ("General") y el total sumado. Para la 1.34.0: base, Proyectos, Reportes y Costos. Para después:
+repartir un gasto con el grupo como parte y por cantidad (sin inventario), y la idea de Costos como página propia
+hacia el punto de equilibrio.

@@ -160,9 +160,10 @@ def rules_text(kind: str, metrics: dict) -> dict:
 
 def write_text(session: Session, user: User, report: Report, use_ai: bool) -> Report:
     """
-    Pone el texto del reporte a partir de sus cifras: el de la IA si la cuenta
-    la tiene encendida y responde bien; si no, el de las reglas, con el motivo
-    en text_note cuando la IA debía escribirlo. No hace commit.
+    Pone el texto del reporte a partir de sus cifras: el de las reglas y, si la
+    cuenta tiene la IA encendida y responde bien, con sus pasos y su tip en lugar
+    de los de las reglas (text_source "ai"). Si la IA debía escribirlos y falló,
+    queda todo con reglas y el motivo en text_note. No hace commit.
     """
     report.text = rules_text(report.kind, report.metrics)
     report.text_source, report.text_model, report.text_note = "rules", None, None
@@ -173,15 +174,12 @@ def write_text(session: Session, user: User, report: Report, use_ai: bool) -> Re
         report.text_note = "La IA no está configurada en este servidor"
         return report
     try:
-        report.text, report.text_model = write_with_ai(session, user, report.kind, report.metrics, config)
+        report.text, report.text_model = write_with_ai(session, user, report.kind, report.metrics, config,
+                                                       report.text)
         report.text_source = "ai"
     except AiError as error:
         report.text_note = str(error)
     return report
-
-
-class AiTextFailed(Exception):
-    """Regenerar a mano con la IA falló: el reporte guardado no se tocó."""
 
 
 def generate_report(session: Session, user: User, kind: str, period_start: date_type,
@@ -190,12 +188,9 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     Calcula y guarda el reporte del periodo que empieza en `period_start`. Si
     ya existía, lo reemplaza (mismo id): así se corrige un reporte después de
     arreglar registros, y el timer no duplica. Con la IA encendida, ella
-    escribe el texto (write_text).
-
-    Al regenerar a mano uno que ya existe, si la IA debía escribirlo y falló,
-    no se guarda nada (ni cifras, ni texto, ni fecha) y se lanza AiTextFailed:
-    la fecha de "generado" dice siempre cuándo salió bien. Uno nuevo, o el del
-    timer, se guarda con el texto de reglas y el motivo en text_note.
+    escribe los pasos y el tip (write_text); si falla, se guarda con los de las
+    reglas y el motivo en text_note, también al regenerar a mano (desde la 1.32:
+    antes no se guardaba nada, cuando la IA escribía el texto entero).
     """
     start, end = period_bounds(kind, period_start)
     metrics = report_metrics(session, user, kind, start, end, today)
@@ -208,9 +203,6 @@ def generate_report(session: Session, user: User, kind: str, period_start: date_
     write_text(session, user, draft, use_ai)
     report = session.exec(select(Report).where(
         Report.user_id == user.id, Report.kind == kind, Report.period_start == start)).first()
-    if (report is not None and trigger == "manual" and draft.text_source == "rules" and draft.text_note
-            and ai_config() is not None):
-        raise AiTextFailed(draft.text_note)
     if report is None:
         report = Report(user_id=user.id, kind=kind, period_start=start, period_end=end, through=start)
     report.through = metrics_through

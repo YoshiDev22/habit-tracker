@@ -102,7 +102,10 @@ def chat_completion(config: AiConfig, system: str, user: str, max_tokens: int = 
         if error.code in (401, 403):
             raise AiError(f"El proveedor de IA rechazó la clave ({error.code})") from None
         raise AiError(f"El proveedor de IA respondió con un error ({error.code})") from None
-    except (urllib.error.URLError, TimeoutError, OSError):
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        # Al leer, el timeout llega solo; al conectar, envuelto en URLError
+        if isinstance(error, TimeoutError) or isinstance(getattr(error, "reason", None), TimeoutError):
+            raise AiError(f"El proveedor de IA no respondió en {config.timeout} s") from None
         raise AiError("No se pudo conectar con el proveedor de IA") from None
     except ValueError:
         raise AiError("El proveedor de IA no respondió JSON") from None

@@ -24,7 +24,6 @@ const savedBack = document.getElementById('savedReportBack');
 const savedReportBtn = document.getElementById('savedReportBtn');
 const savedRegenerate = document.getElementById('savedReportRegenerate');
 const savedRewrite = document.getElementById('savedReportRewrite');
-const savedRules = document.getElementById('savedReportRules');
 const savedStatus = document.getElementById('savedReportStatus');
 const savedAiUsage = document.getElementById('savedReportAiUsage');
 const PRINT_CHART_WIDTH = 680;   // ancho de las gráficas al imprimir: el de una hoja, no el de la pantalla
@@ -79,10 +78,11 @@ function savedMetaText(report) {
     return parts.join(' · ');
 }
 
-// "✨ Texto de IA" o "Texto de reglas": que se vea de un vistazo quién escribió el texto
+// "✨ Sugerencias de IA" o "Texto de reglas": que se vea de un vistazo si la IA escribió los
+// pasos y el tip (desde la 1.32 es lo único que escribe; lo demás sale de las reglas)
 function sourceBadge(report) {
     const ai = report.text_source === 'ai';
-    const badge = el('span', `saved-source ${ai ? 'ai' : 'rules'}`, ai ? '✨ Texto de IA' : 'Texto de reglas');
+    const badge = el('span', `saved-source ${ai ? 'ai' : 'rules'}`, ai ? '✨ Sugerencias de IA' : 'Texto de reglas');
     if (ai && report.text_model) badge.title = report.text_model;
     return badge;
 }
@@ -886,24 +886,28 @@ async function refreshAiUsage(subject = 'time') {
     }
 }
 
+// Solo rehace los pasos y el tip: las cifras se recalculan con Regenerar
+function rewriteLabel(report) {
+    return report.text_source === 'ai' ? 'Rehacer sugerencias con IA' : 'Pedir sugerencias a la IA';
+}
+
 function showSavedReport(report) {
     savedState.current = report;
     savedState.readyAt = Date.now() + (report.regenerate_in || 0) * 1000;
     savedTitle.textContent = reportTitle(report.kind);
     savedMeta.replaceChildren(document.createTextNode(`${savedMetaText(report)} `), sourceBadge(report));
     savedActions.hidden = false;
-    savedRules.hidden = true;
     savedRewrite.hidden = !aiOn();
-    savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir el texto con IA otra vez' : 'Reescribir el texto con IA';
+    savedRewrite.textContent = rewriteLabel(report);
     savedBack.hidden = !savedState.fromList;
     savedList.replaceChildren();
     savedList.hidden = true;
     document.body.classList.add('saved-report-open');
     renderSavedReport(report);
-    // Por qué no lo escribió la IA, si le tocaba (límite, error, sin configurar)
+    // Por qué las sugerencias no son de la IA, si le tocaba (límite, error, sin configurar)
     if (report.text_note) {
         const note = report.text_note;
-        showSavedError(`El texto salió de las reglas: ${note.charAt(0).toLowerCase()}${note.slice(1)}.`);
+        showSavedError(`Las sugerencias salieron de las reglas: ${note.charAt(0).toLowerCase()}${note.slice(1)}.`);
     }
     savedModal.querySelector('.modal-content').scrollTop = 0;
     refreshAiUsage(kindSubject(report.kind));
@@ -995,10 +999,10 @@ async function openSavedReportById(id) {
     }
 }
 
-// Genera (o regenera) el reporte de un periodo y lo muestra
 // Genera el reporte de un periodo. Si ya hay uno abierto (Regenerar), se queda
-// a la vista mientras tanto, y si falla (p. ej. la espera) no se pierde.
-async function generateSavedReport(kind, periodStart, useAi = true) {
+// a la vista mientras tanto, y si falla (p. ej. la espera) no se pierde. Si la IA
+// falla, el servidor lo guarda igual con las sugerencias de reglas y dice por qué.
+async function generateSavedReport(kind, periodStart) {
     const regenerating = Boolean(savedState.current);
     showSavedError(null);
     if (regenerating) {
@@ -1011,18 +1015,13 @@ async function generateSavedReport(kind, periodStart, useAi = true) {
     try {
         const report = await apiFetch('/api/reports', {
             method: 'POST',
-            json: { kind, period_start: periodStart, today: getDateKey(new Date()), use_ai: useAi },
+            json: { kind, period_start: periodStart, today: getDateKey(new Date()) },
         });
         showSavedReport(report);
         showSavedStatus(`Reporte generado ✓ ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
     } catch (error) {
         if (error.status === 429) showSavedStatus(error.message);
         else showSavedError(error.message);
-        // La IA falló al regenerar: el reporte de antes sigue igual (su fecha también)
-        if (error.status === 502 && regenerating) {
-            savedRules.hidden = false;
-            refreshAiUsage(kindSubject(kind));
-        }
     } finally {
         savedState.busy = false;
         savedRegenerate.disabled = false;
@@ -1052,13 +1051,14 @@ function savedFor(kind, start) {
 
 function savedForCurrentRange(subject = 'time') {
     const { kind, from } = reportsState;
-    if (kind === 'custom' || !from) return null;
+    if ((kind !== 'week' && kind !== 'month') || !from) return null;
     return savedFor(kindFor(subject, kind), getDateKey(from));
 }
 
 // Lo llama setRange() de reports.js en cada cambio de periodo
 function syncSavedReportButton() {
-    const custom = reportsState.kind === 'custom';
+    // Solo hay reportes guardados de una semana o un mes
+    const custom = reportsState.kind !== 'week' && reportsState.kind !== 'month';
     savedReportBtn.hidden = custom;
     savedReportBtn.textContent = `${savedForCurrentRange('time') ? 'Ver' : 'Generar'} reporte de tiempo`;
     savedHabitsReportBtn.hidden = custom || !moduleEnabled('habits');
@@ -1079,7 +1079,7 @@ async function openOrGenerate(kind, periodStart, scope) {
 [[savedReportBtn, 'time'], [savedHabitsReportBtn, 'habits']].forEach(([button, subject]) => {
     button.addEventListener('click', () => {
         const { kind, from } = reportsState;
-        if (kind === 'custom') return;
+        if (kind !== 'week' && kind !== 'month') return;
         openOrGenerate(kindFor(subject, kind), getDateKey(from), 'reports');
     });
 });
@@ -1131,12 +1131,6 @@ savedRegenerate.addEventListener('click', () => {
     generateSavedReport(report.kind, report.period_start);
 });
 
-savedRules.addEventListener('click', () => {
-    const report = savedState.current;
-    if (!report || blockedByCooldown()) return;
-    generateSavedReport(report.kind, report.period_start, false);
-});
-
 savedRewrite.addEventListener('click', async () => {
     const report = savedState.current;
     if (!report || blockedByCooldown()) return;
@@ -1146,10 +1140,10 @@ savedRewrite.addEventListener('click', async () => {
     savedRewrite.textContent = 'Escribiendo…';
     try {
         showSavedReport(await apiFetch(`/api/reports/${report.id}/rewrite`, { method: 'POST' }));
-        showSavedStatus(`Texto reescrito ✓ ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
+        showSavedStatus(`Sugerencias rehechas ✓ ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`);
     } catch (error) {
         // El reporte se queda como estaba
-        savedRewrite.textContent = report.text_source === 'ai' ? 'Reescribir el texto con IA otra vez' : 'Reescribir el texto con IA';
+        savedRewrite.textContent = rewriteLabel(report);
         if (error.status === 429) showSavedStatus(error.message);
         else showSavedError(error.message);
         refreshAiUsage(kindSubject(report.kind));
@@ -1165,6 +1159,15 @@ savedRewrite.addEventListener('click', async () => {
 function renderForPrint(printing) {
     if (!savedState.current || savedState.printing === printing) return;
     savedState.printing = printing;
+    // El navegador pone document.title arriba de cada hoja y lo propone como nombre
+    // del PDF: el del reporte, no el reloj del pomodoro (que no lo toca mientras)
+    document.body.classList.toggle('printing-report', printing);
+    if (printing) {
+        savedState.pageTitle = document.title;
+        document.title = `${reportTitle(savedState.current.kind)} · ${savedPeriodLabel(savedState.current)}`;
+    } else {
+        document.title = savedState.pageTitle;
+    }
     renderSavedReport(savedState.current);
 }
 

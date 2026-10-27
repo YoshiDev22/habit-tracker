@@ -910,7 +910,7 @@ function renderPomoUI() {
         document.body.classList.add('has-pomodoro-bar');
         pomodoroBarProgress.style.width = '0%';
         pomodoroBarLabel.textContent = barMessage.text;
-        document.title = 'Habit Tracker';
+        setPageTitle('Habit Tracker');
     } else if (isActive) {
         pomodoroBar.classList.remove('hidden');
         document.body.classList.add('has-pomodoro-bar');
@@ -921,14 +921,20 @@ function renderPomoUI() {
         pomodoroBarPauseBtn.textContent = pomoState.status === 'paused' ? '▶' : '⏸';
         pomodoroBarPauseBtn.setAttribute('aria-label', pomoState.status === 'paused' ? 'Reanudar' : 'Pausar');
 
-        document.title = `⏱ ${clock} — Habit Tracker`;
+        setPageTitle(`⏱ ${clock} — Habit Tracker`);
     } else {
         pomodoroBar.classList.add('hidden');
         document.body.classList.remove('has-pomodoro-bar');
-        document.title = 'Habit Tracker';
+        setPageTitle('Habit Tracker');
     }
 
     syncTimerMarks(clock);
+}
+
+// Mientras se imprime un reporte el título es el suyo (saved-reports.js): el
+// navegador lo pone arriba de cada hoja
+function setPageTitle(text) {
+    if (!document.body.classList.contains('printing-report')) document.title = text;
 }
 
 // Todo elemento con data-timer-task="<id>" (tarjeta del tablero, fila de la

@@ -170,7 +170,37 @@ def test_projection_and_comparison(api):
     post(api, project, task, before, 9, 60)
     _, rep = api.call("POST", "/api/reports", {"kind": "month", "period_start": month_start.isoformat(),
                                                "today": TODAY.isoformat()}, expect=200)
-    assert rep["text"]["comparison"] == "Frente al mes anterior (1.0 h): 1.0 h más (100 %)."
+    # Por día de trabajo: cada mes con sus hábiles más los días con tiempo que no lo eran
+    m = rep["metrics"]
+    n = m["workdays"] + m["active_days"] - m["active_workdays"]
+    prev_n = m["previous"]["workdays"] + m["previous"]["active_days"] - m["previous"]["active_workdays"]
+    avg, prev_avg = round(7200 / n), round(3600 / prev_n)
+    change = (avg - prev_avg) / prev_avg
+    assert rep["text"]["comparison"] == (
+        f"Frente al mes anterior (1.0 h en {prev_n} días de trabajo): registraste 2.0 h en {n} días de trabajo. "
+        f"Por día de trabajo, {hours(avg)} frente a {hours(prev_avg)} ({round(abs(change) * 100)} % más).")
+
+
+def test_month_comparison_uses_working_days():
+    """Un mes en curso se compara por día de trabajo: con la mitad de los días,
+    el mismo ritmo no sale como "menos" que el mes anterior completo. Un día de
+    descanso con tiempo cuenta como de trabajo; uno sin tiempo, no."""
+    from backend.report_text import _closing, _comparison
+    days = ([{"date": f"2026-10-{i:02d}", "status": "worked", "workday": True} for i in range(1, 10)]
+            + [{"date": "2026-10-11", "status": "today", "workday": True, "seconds": 0},
+               {"date": "2026-10-12", "status": "off", "workday": False, "seconds": 3 * 3600},
+               {"date": "2026-10-13", "status": "off", "workday": False, "seconds": 0}]
+            + [{"date": f"2026-10-{i:02d}", "status": "pending", "workday": True} for i in range(12, 22)])
+    m = {"date_from": "2026-10-01", "date_to": "2026-10-31", "through": "2026-10-11",
+         "total_seconds": 10 * 3 * 3600, "workdays": 10, "active_workdays": 9, "night_sessions": [],
+         "days_detail": days, "top_tasks": [], "unconfirmed_seconds": 0, "missing_workdays": [], "active_days": 10,
+         "previous": {"total_seconds": 20 * 3 * 3600, "workdays": 19, "active_days": 19, "active_workdays": 18}}
+    text = _comparison("month", m)
+    assert text == ("Frente al mes anterior (60.0 h en 20 días de trabajo): llevas 30.0 h en 10 días de trabajo. "
+                    "Por día de trabajo, casi lo mismo: 3.0 h frente a 3.0 h.")
+    # Con más ritmo por día hábil, el cierre lo dice aunque el total aún sea menor
+    m["total_seconds"] = 10 * 4 * 3600
+    assert _closing("month", m)["well_done"] == "Subiste de 3.0 h a 4.0 h por día de trabajo."
 
 
 def test_timer_script(api, capsys):
@@ -198,3 +228,33 @@ def test_timer_script(api, capsys):
     assert generate_reports.main(["--email", "script@test.com", "--today", TODAY.isoformat()]) == 0
     assert "0 report(s) generated." in capsys.readouterr().out
     assert generate_reports.main(["--email", "nadie@test.com"]) == 1
+
+
+def test_habit_steps_anchor_a_weak_habit_to_the_most_constant_one():
+    from backend.habit_report import _next_steps
+
+    def habit(label, done, possible, icon=""):
+        return {"label": label, "icon": icon, "days_done": done, "days_possible": possible,
+                "pct": round(done * 100 / possible), "best_weekday": None, "weak_weekday": None}
+    m = {"habits": [habit("Proyectos", 4, 5, "💻"), habit("Ejercicio", 0, 5, "💪"), habit("Dieta", 0, 5, "🥗")],
+         "missed_days": []}
+    steps = _next_steps("week", m)
+    assert steps[:2] == ["💪 Ejercicio: hazlo justo después de 💻 Proyectos, que ya haces 4 de 5 días.",
+                         "🥗 Dieta: hazlo justo después de 💻 Proyectos, que ya haces 4 de 5 días."]
+    # Sin un hábito constante al cual atarlos, dos frases distintas (antes, la misma dos veces)
+    m["habits"] = [habit("Ejercicio", 1, 5), habit("Dieta", 0, 5)]
+    first, second = _next_steps("week", m)[:2]
+    assert first.startswith("Dieta: átalo") and second.startswith("Ejercicio: hazlo a la misma hora")
+
+
+def test_time_steps_are_never_empty_with_time_logged():
+    from backend.report_text import _next_steps
+    m = {"to_review": {"unconfirmed": 0, "long_sessions": [], "overlaps": [], "inconsistent": []},
+         "missing_workdays": [], "top_tasks": [], "night_sessions": [], "pomodoros": 0, "pomodoros_cut": 0,
+         "total_seconds": 7200, "untagged_seconds": 0,
+         "by_project": [{"name": "Tesis", "seconds": 5400, "pct": 75}, {"name": "VPS", "seconds": 1800, "pct": 25}]}
+    assert _next_steps("week", m) == ["Ponle una meta de horas a Tesis para la próxima semana (llevó 1.5 h "
+                                      "esta semana) y revisa en el próximo reporte si la cumpliste."]
+    # Con algo que corregir, eso va primero y no se agrega la meta
+    m["missing_workdays"] = ["2026-10-13"]
+    assert len(_next_steps("week", m)) == 1 and "anótalos a mano" in _next_steps("week", m)[0]
