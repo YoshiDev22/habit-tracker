@@ -91,6 +91,9 @@
                 <button type="button" class="fin-round-btn fin-bell" id="finBellBtn" aria-label="Avisos" title="Avisos">
                     <span class="fin-bell-count" id="finBellCount" hidden></span>
                 </button>
+                <!-- Solo en Movimientos: buscar y filtrar (finance-search.js) -->
+                <button type="button" class="fin-round-btn fin-search-btn" id="finSearchBtn" aria-pressed="false" hidden
+                        aria-label="Buscar en movimientos" title="Buscar"></button>
                 <!-- Solo en Presupuesto, con grupos: cambiar de lugar grupos y gastos -->
                 <button type="button" class="fin-round-btn" id="finBudgetEdit" aria-pressed="false" hidden
                         aria-label="Ordenar el presupuesto" title="Ordenar el presupuesto"></button>
@@ -145,9 +148,13 @@
                 <button type="button" class="link-btn" id="finImportBtn">Subir estado de cuenta</button>
                 <button type="button" class="submit-btn fin-add-btn" id="finAddBtn">＋ Agregar</button>
             </div>
+            <!-- Lo que filtra la lupa (o "Solo Efectivo" desde el menú de una cuenta), con sus sumas -->
             <div class="fin-filter" id="finTxFilter" hidden>
-                <span id="finTxFilterLabel"></span>
-                <button type="button" class="fin-row-btn" id="finTxFilterClear" aria-label="Ver todas las cuentas"></button>
+                <span class="fin-filter-text">
+                    <span id="finTxFilterLabel"></span>
+                    <small id="finTxFilterSum"></small>
+                </span>
+                <button type="button" class="fin-row-btn" id="finTxFilterClear" aria-label="Quitar los filtros" title="Quitar los filtros"></button>
             </div>
             <div id="finTxList"></div>
         </section>
@@ -256,6 +263,32 @@
                     <span class="fin-tile-icon fin-tile-text">15</span>
                     <span>Quincena</span><small id="finRangePeriodLabel"></small></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Buscar en Movimientos: texto, tipo, cuentas y categorías (finance-search.js) -->
+    <div class="fin-sheet hidden" id="finSearchSheet" role="dialog" aria-modal="true" aria-labelledby="finSearchTitle">
+        <div class="fin-sheet-overlay" data-close-sheet></div>
+        <div class="fin-sheet-panel">
+            <div class="fin-search-head">
+                <button type="button" class="fin-row-btn" id="finSearchClear" aria-label="Quitar los filtros" title="Quitar los filtros"></button>
+                <h2 class="fin-sheet-title" id="finSearchTitle">Buscar</h2>
+                <button type="button" class="link-btn" id="finSearchDone">Hecho</button>
+            </div>
+            <label class="fin-field">Notas
+                <input type="search" id="finSearchText" maxlength="80" autocomplete="off" enterkeyhint="search"
+                       placeholder="Concepto, categoría o monto">
+            </label>
+            <p class="fin-stat-label fin-search-label">Tipo de transacción</p>
+            <div class="fin-search-chips" id="finSearchKinds"></div>
+            <p class="fin-stat-label fin-search-label">Cuentas</p>
+            <div class="fin-search-accounts" id="finSearchAccounts"></div>
+            <p class="fin-stat-label fin-search-label">Gastos</p>
+            <div class="fin-search-chips" id="finSearchExpense"></div>
+            <p class="fin-stat-label fin-search-label">Ingresos</p>
+            <div class="fin-search-chips" id="finSearchIncome"></div>
+            <p class="fin-hint fin-search-scope"><span id="finSearchScope"></span>
+                <button type="button" class="link-btn" id="finSearchAll">Buscar en todo</button></p>
         </div>
     </div>
 
@@ -515,9 +548,12 @@
                         <button type="submit" class="submit-btn" id="finYieldRecord">Anotar</button>
                     </div>
                 </form>
-                <p class="fin-stat-label fin-yield-rates-title">Tasas</p>
+                <!-- Con tasa: una línea por tasa con ✎ y ×; el formulario se abre al editar o agregar -->
+                <p class="fin-stat-label fin-yield-rates-title" id="finYieldRatesTitle">Tasa</p>
                 <ul class="fin-yield-rates" id="finYieldRates"></ul>
-                <form class="fin-form" id="finYieldRateForm" novalidate>
+                <button type="button" class="link-btn fin-yield-add" id="finYieldAdd" hidden>+ Cambiar la tasa desde una fecha</button>
+                <form class="fin-form fin-yield-rate-form" id="finYieldRateForm" novalidate>
+                    <p class="fin-stat-label wide" id="finYieldFormTitle" hidden></p>
                     <label class="fin-field">Tasa anual (%)
                         <input type="text" id="finYieldRate" inputmode="decimal" autocomplete="off" placeholder="15">
                     </label>
@@ -537,10 +573,13 @@
                         solo esa parte del saldo gana. Un cambio de tasa vale desde su día; 0 % deja de ganar.</p>
                     <div id="finYieldRateError" class="form-error hidden wide"></div>
                     <div class="fin-form-actions wide">
-                        <button type="button" class="link-btn" data-menu-back>Regresar</button>
-                        <button type="submit" class="submit-btn">Guardar tasa</button>
+                        <button type="button" class="link-btn" id="finYieldCancel">Cancelar</button>
+                        <button type="submit" class="submit-btn" id="finYieldSave">Guardar tasa</button>
                     </div>
                 </form>
+                <div class="fin-form-actions">
+                    <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                </div>
             </div>
 
             <!-- Meses sin intereses que ya traía la deuda (sin compra anotada) -->
@@ -1044,5 +1083,6 @@
     <script src="finance-data.js"></script>
     <script src="finance-budget.js"></script>
     <script src="finance-news.js"></script>
+    <script src="finance-search.js"></script>
 </body>
 </html>

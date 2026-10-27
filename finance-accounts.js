@@ -134,7 +134,9 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
         openFinAdjust();
     } else if (act === 'movements') {
         closeFinSheet(finAccountMenu);
-        finState.accountFilter = a.id;
+        finState.txFilter = finEmptyFilter();
+        finState.txFilter.accounts.add(a.id);
+        finSyncSearchBtn();
         finSetTab('transactions');
     } else if (act === 'income' || act === 'expense') {
         closeFinSheet(finAccountMenu);
@@ -334,13 +336,13 @@ document.getElementById('finAdjustForm').addEventListener('submit', async (event
 
 // ---------- Rendimiento diario ----------
 
-const finYield = { data: null };
+const finYield = { data: null, editing: null };   // editing: null (cerrado), 'new' o el id de una tasa
 
 async function openFinYield() {
     ['finYieldRecordError', 'finYieldRateError'].forEach(id => document.getElementById(id).classList.add('hidden'));
-    document.getElementById('finYieldRateForm').reset();
-    document.getElementById('finYieldFrom').value = finToday();
-    document.getElementById('finYieldFrom').max = finToday();
+    document.getElementById('finYieldBank').value = '';
+    finYield.editing = null;
+    finYield.data = null;
     finMenuPage('yield');
     await finLoadYield();
 }
@@ -362,43 +364,109 @@ function finRateText(bp) {
     return `${(bp / 100).toLocaleString('es-MX', { maximumFractionDigits: 2 })} %`;
 }
 
+// Lo que dice Anotar: la cifra que escribió (la del banco) o, sin ella, el estimado
+function finYieldSyncRecord() {
+    const y = finYield.data;
+    if (!y) return;
+    const bankText = document.getElementById('finYieldBank').value.trim();
+    const bank = bankText ? parseMoneyCents(bankText) : null;
+    const cents = bankText ? (bank > 0 ? bank : null) : (y.estimate_cents || null);
+    const button = document.getElementById('finYieldRecord');
+    button.textContent = cents ? `Anotar ${formatMoney(cents, finMenu.account.currency)}` : 'Anotar';
+    // Sin estimado y sin cifra no hay nada que anotar
+    button.disabled = !bankText && !y.estimate_cents;
+}
+
 function finRenderYield() {
     const a = finMenu.account;
     const y = finYield.data;
     const money = cents => formatMoney(cents, a.currency);
     const hasRate = y.rates.length > 0;
-    const earned = document.getElementById('finYieldEarned');
-    earned.hidden = !hasRate;
+    // Sin tasa, el formulario está abierto: es lo único que se puede hacer
+    if (!hasRate && finYield.editing === null) finYield.editing = 'new';
+    document.getElementById('finYieldEarned').hidden = !hasRate;
     document.getElementById('finYieldRecordForm').hidden = !hasRate;
     if (hasRate) {
         const span = y.through < y.since ? 'Ganado sin anotar' : y.since === y.through
             ? `Ganado ayer (${finShortDate(y.since)})` : `Ganado del ${finShortDate(y.since)} al ${finShortDate(y.through)}`;
         document.getElementById('finYieldEarnedLabel').textContent = `${span}, estimado`;
         document.getElementById('finYieldEarnedAmount').textContent = money(y.estimate_cents || 0);
-        document.getElementById('finYieldRecord').textContent = y.estimate_cents
-            ? `Anotar ${money(y.estimate_cents)}` : 'Anotar';
+        finYieldSyncRecord();
     }
+    document.getElementById('finYieldRatesTitle').textContent = y.rates.length > 1 ? 'Tasas' : 'Tasa';
     const list = document.getElementById('finYieldRates');
-    list.replaceChildren(...(hasRate ? [...y.rates].reverse().map(r => {
-        const row = el('li', 'fin-yield-rate');
+    list.hidden = !hasRate;
+    list.replaceChildren(...[...y.rates].reverse().map(r => {
+        const row = el('li', `fin-yield-rate${finYield.editing === r.id ? ' editing' : ''}`);
         row.dataset.rateId = String(r.id);
         const text = [`${finRateText(r.rate_bp)} desde el ${finShortDate(r.from_date)}`];
         if (r.cap_cents) text.push(`hasta ${money(r.cap_cents)}`);
         if (r.day_basis === 360) text.push('año de 360 días');
-        const remove = el('button', 'link-btn fin-yield-remove', '×');
-        remove.type = 'button';
-        remove.setAttribute('aria-label', 'Quitar esta tasa');
-        row.append(el('span', '', text.join(' · ')), remove);
+        const buttons = el('span', 'fin-yield-rate-btns');
+        [['fin-yield-edit', 'pencil', 'Editar esta tasa'], ['fin-yield-remove', 'x', 'Quitar esta tasa']].forEach(([cls, icon, label]) => {
+            const button = el('button', `fin-row-btn ${cls}`);
+            button.type = 'button';
+            button.setAttribute('aria-label', label);
+            button.title = label;
+            button.appendChild(financeIcon(icon, 16));
+            buttons.appendChild(button);
+        });
+        row.append(el('span', '', text.join(' · ')), buttons);
         return row;
-    }) : [el('li', 'fin-hint', 'Sin tasa: esta cuenta no gana rendimiento.')]));
+    }));
+    finYieldRenderForm();
 }
+
+// El formulario de la tasa: cerrado mientras ya hay tasa, abierto al editar una o agregar otra
+function finYieldRenderForm() {
+    const y = finYield.data;
+    const hasRate = y.rates.length > 0;
+    const editing = finYield.editing;
+    const form = document.getElementById('finYieldRateForm');
+    form.hidden = editing === null;
+    document.getElementById('finYieldAdd').hidden = editing !== null || !hasRate;
+    document.getElementById('finYieldCancel').hidden = !hasRate;
+    const rate = typeof editing === 'number' ? y.rates.find(r => r.id === editing) : null;
+    const title = document.getElementById('finYieldFormTitle');
+    title.hidden = !hasRate;
+    title.textContent = rate ? 'Editar la tasa' : 'Nueva tasa, desde una fecha';
+    document.getElementById('finYieldSave').textContent = rate ? 'Guardar cambios' : 'Guardar tasa';
+    if (form.hidden) return;
+    document.getElementById('finYieldRate').value = rate ? String(rate.rate_bp / 100) : '';
+    document.getElementById('finYieldFrom').value = rate ? rate.from_date : finToday();
+    document.getElementById('finYieldFrom').max = finToday();
+    document.getElementById('finYieldCap').value = rate && rate.cap_cents ? String(rate.cap_cents / 100) : '';
+    document.getElementById('finYieldBasis').value = String(rate ? rate.day_basis : 365);
+}
+
+function finYieldEdit(editing) {
+    finYield.editing = editing;
+    document.getElementById('finYieldRateError').classList.add('hidden');
+    finRenderYield();
+    if (editing !== null) document.getElementById('finYieldRate').focus();
+}
+
+document.getElementById('finYieldBank').addEventListener('input', finYieldSyncRecord);
+document.getElementById('finYieldAdd').addEventListener('click', () => finYieldEdit('new'));
+document.getElementById('finYieldCancel').addEventListener('click', () => finYieldEdit(null));
 
 document.getElementById('finYieldRates').addEventListener('click', async (event) => {
     const row = event.target.closest('[data-rate-id]');
-    if (!row || !event.target.closest('.fin-yield-remove')) return;
+    if (!row) return;
+    const id = Number(row.dataset.rateId);
+    if (event.target.closest('.fin-yield-edit')) {
+        finYieldEdit(finYield.editing === id ? null : id);
+        return;
+    }
+    if (!event.target.closest('.fin-yield-remove')) return;
     const a = finMenu.account;
+    const rate = finYield.data.rates.find(r => r.id === id);
+    const ok = await confirmDialog(`¿Quitar ${finRateText(rate.rate_bp)} desde el ${finShortDate(rate.from_date)}? Lo ya anotado no cambia.`,
+        { title: 'Quitar la tasa', confirmLabel: 'Quitar', danger: true });
+    if (!ok) return;
     try {
-        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield-rates/${row.dataset.rateId}`, { method: 'DELETE' });
+        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield-rates/${id}`, { method: 'DELETE' });
+        if (finYield.editing === id) finYield.editing = null;
         finRenderYield();
         finLoad();
     } catch (error) {
@@ -419,13 +487,16 @@ document.getElementById('finYieldRateForm').addEventListener('submit', async (ev
     if (capText && (cap == null || cap <= 0)) return showError(errorEl, 'El tope es un monto mayor que cero.');
     const from = document.getElementById('finYieldFrom').value || finToday();
     if (from > finToday()) return showError(errorEl, 'La tasa empieza hoy o antes.');
+    const body = { from_date: from, rate_bp: Math.round(rate * 100), cap_cents: cap,
+        day_basis: Number(document.getElementById('finYieldBasis').value) };
+    const editing = finYield.editing;
+    const path = `/api/finance/accounts/${a.id}/yield-rates`;
     try {
-        finYield.data = await apiFetch(`/api/finance/accounts/${a.id}/yield-rates`, { method: 'PUT', json: {
-            from_date: from, rate_bp: Math.round(rate * 100), cap_cents: cap,
-            day_basis: Number(document.getElementById('finYieldBasis').value),
-        } });
-        document.getElementById('finYieldRateForm').reset();
-        document.getElementById('finYieldFrom').value = finToday();
+        finYield.data = typeof editing === 'number'
+            ? await apiFetch(`${path}/${editing}`, { method: 'PATCH', json: body })
+            : await apiFetch(path, { method: 'PUT', json: body });
+        // Guardada: el formulario se cierra y queda la línea de la tasa
+        finYield.editing = null;
         finRenderYield();
         finLoad();
     } catch (error) {

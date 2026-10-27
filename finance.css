@@ -799,6 +799,29 @@
     font-size: 0.9rem;
 }
 
+.fin-yield-rates[hidden],
+.fin-yield-rate-form[hidden] {
+    display: none;
+}
+
+.fin-yield-rate.editing {
+    font-weight: 600;
+}
+
+.fin-yield-rate-btns {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.fin-yield-add {
+    margin: 0 0 12px;
+}
+
+.fin-yield-add[hidden] {
+    display: none;
+}
+
 .fin-account-balance {
     font-size: 1.05rem;
     font-variant-numeric: tabular-nums;
@@ -2048,6 +2071,121 @@
 }
 
 .fin-filter[hidden] {
+    display: none;
+}
+
+.fin-filter-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 4px 0;
+}
+
+.fin-filter-text small {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-filter-text small:empty {
+    display: none;
+}
+
+/* --- Buscar en Movimientos (finance-search.js) --- */
+
+/* La lupa con filtros: un punto, como el de la campana */
+.fin-search-btn {
+    position: relative;
+}
+
+.fin-search-btn.active {
+    color: var(--accent);
+}
+
+.fin-search-btn.active::after {
+    content: '';
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.fin-search-head {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.fin-search-head .fin-sheet-title {
+    margin: 0;
+}
+
+.fin-search-label {
+    margin: 16px 0 6px;
+}
+
+.fin-search-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fin-search-chip.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.fin-search-chip .fin-badge {
+    flex: none;
+}
+
+/* Cada cuenta, en dos columnas, con su saldo */
+.fin-search-accounts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.fin-search-account {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 8px;
+    border-radius: 12px;
+    text-align: left;
+    min-width: 0;
+}
+
+.fin-search-account .fin-badge {
+    grid-row: span 2;
+    align-self: center;
+}
+
+.fin-search-account span,
+.fin-search-account small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fin-search-account small {
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+}
+
+.fin-search-scope {
+    margin-top: 16px;
+}
+
+.fin-search-scope [hidden] {
     display: none;
 }
 

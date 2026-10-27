@@ -145,6 +145,7 @@ habit-tracker/
 ├── finance-import.js      # Finanzas: pegar el estado de cuenta o un CSV, con vista previa
 ├── finance-data.js        # Finanzas: el panel lateral (la inicial, arriba a la izquierda) y Datos (exportar a CSV, importar varias cuentas)
 ├── finance-budget.js      # Finanzas: el presupuesto del mes (ingreso, grupos con su %, renglones estimados o fijos)
+├── finance-search.js      # Finanzas: la lupa de Movimientos (texto, tipo, cuentas y categorías) y su barra de filtros
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -624,7 +625,9 @@ Lo que no se ve en Swagger:
   mientras los tenga (409). `finActiveAccounts()` pone cada apartado justo después de su cuenta, y Cuentas
   enseña en la cuenta su total y *A la vista*. El **rendimiento diario** (`fin_yield_rates`, `backend/finance_yield.py`)
   es una tasa anual desde una fecha (la misma fecha la reemplaza; 0 = deja de ganar), con tope y base 365/360
-  opcionales. **No se guarda ni entra solo al saldo**: `yield_estimate()` lo calcula día por día sobre el saldo de
+  opcionales; `PATCH /accounts/{id}/yield-rates/{rate_id}` la corrige, fecha incluida (409 si choca con otra de ese día).
+  En la página, cada tasa es una línea con ✎ y ×, y el formulario solo se abre al editar o agregar otra; *Anotar* dice
+  la cifra que se escribió (la del banco) o, sin ella, el estimado. **No se guarda ni entra solo al saldo**: `yield_estimate()` lo calcula día por día sobre el saldo de
   cada día, compuesto (lo ganado también gana), en `Decimal` y redondeado una vez; va del último rendimiento
   anotado (inclusive: lo anotado el día D cubre hasta D−1) hasta ayer. *Anotar* (`POST /accounts/{id}/yield`)
   crea un ingreso `source = "yield"` en la categoría "Rendimientos" (`yield_category()`, perezosa) con el
@@ -641,6 +644,13 @@ Lo que no se ve en Swagger:
   (suelta) *Apartado*. Una tarjeta guarda su tasa de interés (`interest_rate_bp`, columna en `migrate.py`) solo
   de referencia: nada se calcula con ella. **Notas** (`fin_notes`, `/notes`; panel lateral › Notas, en
   `finance-data.js`): título (80) y texto (10 000) libres con *Copiar*; el panel de administración no las lee.
+  **Buscar en Movimientos** (Finanzas 0.7, `finance-search.js`): la lupa de arriba, solo en Movimientos, abre la hoja
+  *Buscar* (texto en concepto, categoría o monto, sin acentos ni mayúsculas; tipo; cuentas; categorías de gasto e
+  ingreso). Filtra **en el navegador** lo cargado del periodo que se ve (para todo, *Siempre*); dentro de un grupo vale
+  cualquiera y entre grupos todos, y una parte de un dividido cuenta en su categoría. Vive en `finState.txFilter`, solo
+  en la sesión; *Movimientos* del menú de una cuenta es ese filtro con una cuenta ("Solo Efectivo"). La barra de la
+  lista dice qué filtra, cuántos movimientos y sus gastos e ingresos; con texto, tipo o categoría no salen saldos
+  iniciales, mensualidades ni programados. Sin API nueva.
   Los iconos son de una lista cerrada (`FINANCE_ICONS` y `FIN_ICONS` en `schemas.py`, los mismos);
   las categorías de inicio guardadas antes de los iconos los toman por nombre (`FIN_DEFAULT_ICONS`).
 - **Pestaña Costos** (`costs.js`): la vista `'costs'`, entre Tableros y Reportes (Reportes va
