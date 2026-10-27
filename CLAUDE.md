@@ -589,7 +589,11 @@ Lo que no se ve en Swagger:
   calculadora (`finEvaluate()`: + − × ÷ con precedencia, sin `eval`). Su 📅 abre la fecha (Ayer, Hoy o
   el calendario) y la **periodicidad**; Enter guarda, también escribiendo la nota: con una, no se crea el movimiento sino el fijo con esa fecha
   como primer cobro (quincena: el día elegido y su pareja, `finOtherPayDay()`). Editar un movimiento
-  es la misma hoja, sin periodicidad. "¿Cada cuándo cobras?" y luego "¿Cuánto cobras?" (el fijo de
+  es la misma hoja, sin periodicidad. **La cuenta que propone se adapta sola**, sin ajustes: la más usada en los
+  últimos `USUAL_WINDOW` (5) movimientos de esa categoría, empate a la más reciente, por orden de captura (`usual_account_id`
+  de `GET /categories`, `_usual_accounts()` en `routers/finance.py`); sin historial, la última de un gasto o un ingreso
+  (`last_*_account_id`); y si no, la principal (`finSuggestedAccount()`). Cambiar de categoría en la hoja cambia la
+  cuenta mientras no se haya elegido una a mano. "¿Cada cuándo cobras?" y luego "¿Cuánto cobras?" (el fijo de
   ingreso "Sueldo", `finSalaryFixed()`), con *Dejar para después* y una línea discreta mientras no
   haya. *Subir estado de cuenta* (`finance-import.js`, `rowsToFinance()`; un archivo CSV o filas pegadas, en la misma ventana): lo que ya existe en esa
   cuenta sale tachado y un abono a una tarjeta de crédito se salta. *¿Qué formato acepta?* lo explica y

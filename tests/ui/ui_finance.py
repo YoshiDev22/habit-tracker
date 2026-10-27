@@ -186,6 +186,8 @@ async def main():
         # La tarjeta dice cuánto pagar para no generar intereses, y se paga desde ahí
         await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        # La hoja se cierra antes de que la página termine de recargar: esperar el saldo nuevo
+        await b.wait_for("(finAccount(%d) || {}).balance_cents" % card["id"], lambda v: v == -30000)
         statement = api.call("GET", f"/api/finance/accounts/{card['id']}/statement", expect=200)[1]
         shown = await b.wait_for("(document.querySelector('.fin-statement-pay strong') || {}).textContent",
                                  lambda v: v and ("$" in v or v == "Pagado"))
@@ -312,6 +314,10 @@ async def main():
         await b.js("document.getElementById('finTxFilterClear').click()")
         rows = await b.js("document.querySelectorAll('#finTxList [data-tx-id]').length")
         check(rows == len(transactions()), f"the x shows every account again ({rows})")
+        # La hoja del monto propone la cuenta que se usa con esa categoría (Gasolina fue con Tarjeta)
+        await b.js("finLoad()")
+        st = await b.wait_for(f"finSuggestedAccount('expense', {cats['Transporte']['id']}).name", lambda v: v == "Tarjeta")
+        check(st == "Tarjeta", f"a category suggests the account it is used with ({st})")
         # La lupa, solo en Movimientos: texto (sin acentos ni mayúsculas), tipo y categoría
         check(await b.js("!document.getElementById('finSearchBtn').hidden"), "the magnifier shows in Movimientos")
 
@@ -549,8 +555,9 @@ async def main():
         await set_value("#finEntryNotes", "Laptop")
         await keys(["ok"])
         await b.wait_for("document.getElementById('finEntry').classList.contains('hidden')")
-        plans = [p for p in api.call("GET", "/api/finance/installments", expect=200)[1]["installments"]
-                 if p["transaction_id"]]
+        # El plan va en su propia petición, después de la compra: esperarlo
+        plans = [p for p in (await wait_api("/api/finance/installments", lambda body: any(
+            p["transaction_id"] for p in body["installments"])))["installments"] if p["transaction_id"]]
         check(len(plans) == 1 and plans[0]["months"] == 12 and plans[0]["concept"] == "Laptop"
               and plans[0]["monthly_cents"] == 10000, f"the purchase is planned in 12 months ({plans})")
 
@@ -975,8 +982,10 @@ async def main():
         await b.js(f"document.querySelector('[data-budget-item=\"{items['Renta']['id']}\"]').click()")
         await b.wait_for(".fin-budget-row.picked".join(["!!document.querySelector('", "')"]))
         await b.js(f"document.querySelector('[data-budget-item=\"{items['Streaming']['id']}\"]').click()")
+        # Son dos PATCH (uno por gasto): esperar a los dos, no al primero
         moved = await wait_api("/api/finance/budget", lambda body: any(
-            i["name"] == "Renta" and i["group_id"] == items["Streaming"]["group_id"] for i in body["items"]))
+            i["name"] == "Renta" and i["group_id"] == items["Streaming"]["group_id"] for i in body["items"]) and any(
+            i["name"] == "Streaming" and i["group_id"] == items["Renta"]["group_id"] for i in body["items"]))
         after = {i["name"]: i for i in moved["items"]}
         check(after["Streaming"]["group_id"] == items["Renta"]["group_id"]
               and after["Renta"]["order"] == items["Streaming"]["order"],
@@ -999,7 +1008,9 @@ async def main():
             fire(from, 'dragstart'); fire(to, 'dragover'); fire(to, 'drop'); fire(from, 'dragend'); })"""
         await b.js(f"""{drag}(document.querySelector('[data-budget-group-card="{order[2]}"]'),
             document.querySelector('[data-budget-group-card="{order[0]}"]'))""")
-        dragged = await wait_api("/api/finance/budget", lambda body: body["groups"][0]["id"] == order[2])
+        # Varios PATCH (uno por grupo que cambia): esperar el orden completo
+        dragged = await wait_api("/api/finance/budget", lambda body: [g["id"] for g in body["groups"]] == [
+            order[2], order[0], order[1]])
         new_order = [g["id"] for g in dragged["groups"]]
         check(new_order == [order[2], order[0], order[1]], f"dragging a group puts it in that place ({order} -> {new_order})")
         internet = next(i for i in dragged["items"] if i["name"] == "Internet")

@@ -260,3 +260,48 @@ def test_a_pocket_earns_its_own_rate(api):
     assert abs(mine["Banco"]["yield_estimate_cents"] - (five + compound(400_000 + five, 1200, 5))) <= 1
     assert abs(mine["Ahorro"]["yield_estimate_cents"] - compound(600_000, 1500, 5)) <= 1
     assert mine["Ahorro"]["yield_since"] == days_ago(10)
+
+
+def test_each_category_suggests_the_account_you_use_with_it(api):
+    """Nada que configurar: la hoja del monto propone la cuenta más usada en los últimos
+    movimientos de esa categoría (empate, la más reciente), y sin historial, la última."""
+    cash, debit, credit, cats = setup(api, "habitual@test.com")
+    cat_url = "/api/finance/categories"
+
+    def usual():
+        body = api.call("GET", cat_url, expect=200)[1]
+        by_name = {c["name"]: c["usual_account_id"] for c in body["categories"]}
+        return by_name, body["last_expense_account_id"], body["last_income_account_id"]
+
+    by_name, last_expense, last_income = usual()
+    assert set(by_name.values()) == {None} and last_expense is None and last_income is None
+
+    def add(account, category, **kw):
+        api.call("POST", "/api/finance/transactions", tx(account, 100, "x", cats[category], **kw), expect=201)
+
+    for _ in range(3):
+        add(credit, "Súper")
+    add(cash, "Súper")   # una vez en efectivo no cambia la costumbre
+    by_name, last_expense, _ = usual()
+    assert by_name["Súper"] == credit["id"] and last_expense == cash["id"]
+    add(cash, "Súper")
+    add(cash, "Súper")   # de los últimos 5, 3 en efectivo: ya cambió
+    assert usual()[0]["Súper"] == cash["id"]
+
+    add(debit, "Transporte")
+    add(cash, "Transporte")  # empate: la más reciente
+    add(debit, "Sueldo", kind="income")
+    by_name, _, last_income = usual()
+    assert by_name["Transporte"] == cash["id"] and by_name["Sueldo"] == debit["id"] and last_income == debit["id"]
+
+    # Un dividido cuenta en cada una de sus categorías
+    api.call("POST", "/api/finance/transactions", {**tx(credit, 300, "Farmacia y cine"), "category_id": None,
+             "splits": [{"category_id": cats["Salud"]["id"], "amount_cents": 200},
+                        {"category_id": cats["Ocio"]["id"], "amount_cents": 100}]}, expect=201)
+    by_name, last_expense, _ = usual()
+    assert by_name["Salud"] == by_name["Ocio"] == credit["id"] == last_expense
+
+    # Una cuenta archivada ya no se propone
+    api.call("PATCH", f"{URL}/{credit['id']}", {"is_active": False}, expect=200)
+    by_name, last_expense, _ = usual()
+    assert by_name["Salud"] is None and by_name["Súper"] == cash["id"] and last_expense == cash["id"]

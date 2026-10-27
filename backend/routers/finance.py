@@ -867,19 +867,65 @@ def _recurring_count(session: Session, user_id: int, account_id: Optional[int] =
     return session.exec(query).one()
 
 
-def _category_response(category: FinCategory, counts: Dict[int, int]) -> FinCategoryResponse:
+# La cuenta que la hoja del monto propone para una categoría: la más usada en sus últimos
+# USUAL_WINDOW movimientos (empate, la más reciente). "Recientes" por orden de captura (id),
+# no por fecha: capturar hoy un gasto de hace un mes es lo que acabas de hacer.
+USUAL_WINDOW = 5
+USUAL_SCAN = 2000
+
+
+def _usual_accounts(session: Session, user_id: int) -> Tuple[Dict[int, int], Dict[str, int]]:
+    """({categoría: cuenta habitual}, {"expense"|"income": la última cuenta usada}),
+    solo con cuentas activas. Una parte de un dividido cuenta en su categoría."""
+    active = set(session.exec(select(FinAccount.id).where(FinAccount.user_id == user_id,
+                                                          FinAccount.is_active == True)).all())  # noqa: E712
+    rows = session.exec(select(FinTransaction.id, FinTransaction.account_id, FinTransaction.kind,
+                               FinTransaction.category_id)
+                        .where(FinTransaction.user_id == user_id, FinTransaction.kind.in_(("expense", "income")))
+                        .order_by(FinTransaction.id.desc()).limit(USUAL_SCAN)).all()
+    split_ids = [tx_id for tx_id, _, _, category_id in rows if category_id is None]
+    parts: Dict[int, List[int]] = {}
+    if split_ids:
+        for tx_id, category_id in session.exec(select(FinSplit.transaction_id, FinSplit.category_id)
+                                               .where(FinSplit.user_id == user_id,
+                                                      FinSplit.transaction_id.in_(split_ids))).all():
+            parts.setdefault(tx_id, []).append(category_id)
+    recent: Dict[int, List[int]] = {}
+    last: Dict[str, int] = {}
+    for tx_id, account_id, kind, category_id in rows:
+        if account_id not in active:
+            continue
+        last.setdefault(kind, account_id)
+        for cat in ([category_id] if category_id is not None else parts.get(tx_id, [])):
+            seen = recent.setdefault(cat, [])
+            if len(seen) < USUAL_WINDOW:
+                seen.append(account_id)
+    usual = {}
+    for cat, seen in recent.items():
+        # max() se queda con el primero de los empatados: el más reciente
+        usual[cat] = max(seen, key=lambda acc: (seen.count(acc), -seen.index(acc)))
+    return usual, last
+
+
+def _category_response(category: FinCategory, counts: Dict[int, int],
+                       usual: Optional[Dict[int, int]] = None) -> FinCategoryResponse:
     return FinCategoryResponse(id=category.id, name=category.name, color=category.color, kind=category.kind,
-                               order=category.order, tx_count=counts.get(category.id, 0), icon=category.icon)
+                               order=category.order, tx_count=counts.get(category.id, 0), icon=category.icon,
+                               usual_account_id=(usual or {}).get(category.id))
 
 
 @router.get("/categories", response_model=FinCategoryListResponse)
 def list_categories(session: Session = Depends(get_session), user: User = Depends(finance_user)):
-    """Las categorías de gasto y de ingreso, en su orden. La primera vez, las de inicio."""
+    """Las categorías de gasto y de ingreso, en su orden. La primera vez, las de inicio.
+    Cada una trae su cuenta habitual, y la lista la última cuenta de un gasto y de un ingreso."""
     ensure_finance_setup(session, user.id)
     categories = session.exec(select(FinCategory).where(FinCategory.user_id == user.id)
                               .order_by(FinCategory.order, FinCategory.id)).all()
     counts = _category_counts(session, user.id)
-    return FinCategoryListResponse(categories=[_category_response(c, counts) for c in categories])
+    usual, last = _usual_accounts(session, user.id)
+    return FinCategoryListResponse(categories=[_category_response(c, counts, usual) for c in categories],
+                                   last_expense_account_id=last.get("expense"),
+                                   last_income_account_id=last.get("income"))
 
 
 @router.post("/categories", response_model=FinCategoryResponse, status_code=status.HTTP_201_CREATED)

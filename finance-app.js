@@ -258,6 +258,8 @@ async function finLoad() {
         Object.assign(finState, {
             summary, transactions: list.transactions, accounts: accounts.accounts,
             categories: categories.categories, recurring: recurring.recurring, installments: plans.installments,
+            // La última cuenta de un gasto y de un ingreso (la hoja del monto la propone, finance-entry.js)
+            lastAccounts: { expense: categories.last_expense_account_id, income: categories.last_income_account_id },
         });
     } catch (error) {
         if (error.status !== 401) finShowError(error.message || 'No se pudo cargar Finanzas.');
@@ -1267,6 +1269,10 @@ document.getElementById('finAccountsBody').addEventListener('click', (event) => 
 
 function openFinSheet(sheet) {
     sheet.classList.remove('hidden');
+    // Una vez en la pila aunque se abra dos veces (doble toque): si no, al cerrarla quedaba
+    // en la pila y la página se quedaba como si hubiera una hoja abierta
+    const i = finSheets.indexOf(sheet);
+    if (i > -1) finSheets.splice(i, 1);
     finSheets.push(sheet);
     document.body.classList.add('fin-sheet-open');
 }

@@ -49,6 +49,9 @@ async function finLoadMenuStatement() {
         const st = await apiFetch(`/api/finance/accounts/${a.id}/statement`);
         if (finMenu.account !== a) return;
         finMenu.statement = st;
+        // Si ya se abrió Meses sin intereses, su corte de partida llega ahora (si no lo escribió)
+        const cut = document.getElementById('finMsiCut');
+        if (!document.getElementById('finMsiPage').hidden && !cut.value) cut.value = st.upcoming ? st.prev_cut : st.last_cut;
         pay.textContent = st.remaining_cents
             ? `Pagar ${formatMoney(st.remaining_cents, a.currency)} antes del ${finShortDate(st.due_date)}`
             : st.upcoming ? `Nada por pagar; corte el ${finShortDate(st.last_cut)}` : 'Pagado';
