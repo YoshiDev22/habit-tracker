@@ -4,6 +4,17 @@ Lo que ve quien usa Finanzas al entrar a la página después de una actualizaci�
 lateral › Novedades). Mismo formato que NOVEDADES.md (`backend/novedades.py`): corto, para quien la usa,
 nunca nada de despliegue. Se escribe en el mismo commit del bump de `FINANCE_VERSION`.
 
+## 0.7.0 — 2026-10-27
+### Nuevas funciones
+- **Buscar en Movimientos**: con la lupa de arriba, filtra por texto, tipo, cuenta o categoría;
+  arriba de la lista ves cuántos son y cuánto suman.
+- **La cuenta de siempre**: al anotar, la app propone la cuenta que sueles usar con esa categoría
+  y se va adaptando sola.
+### Cambios
+- **Rendimiento más claro**: cada tasa es una línea con ✎ para editarla; *Anotar* dice la cifra
+  de tu banco cuando la escribes.
+- **Anotar varios seguidos**: el botón para guardar responde al momento.
+
 ## 0.6.0 — 2026-10-26
 ### Nuevas funciones
 - **Apartados**: separa tu ahorro dentro de una cuenta (menú de la cuenta › Apartado); la cuenta
