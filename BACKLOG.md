@@ -701,3 +701,10 @@ proyecto con hijos (`projects.parent_id`, con migración): un nivel, un solo gru
 gastos propios ("General") y el total sumado. Para la 1.34.0: base, Proyectos, Reportes y Costos. Para después:
 repartir un gasto con el grupo como parte y por cantidad (sin inventario), y la idea de Costos como página propia
 hacia el punto de equilibrio.
+
+## 51 · P3 · Finanzas: la versión al pie del panel lateral (Finanzas 0.8)
+
+**Pedido el 2026-10-27.** Al abrir el panel lateral (la inicial, arriba a la izquierda), la versión de Finanzas hasta
+abajo y centrada, discreta ("Finanzas 0.7.0"), como la versión en el menú de la app. Sale de `GET /api/version`
+(`finance_version`, que ya trae) o de la que se guardó al abrir la página (`finCheckUpdate()`). Solo en la página
+principal del panel, no en sus páginas internas. Sin migración.
