@@ -238,6 +238,8 @@ def test_personal_finance(seeded):
         # Ni ver ni tocar el rendimiento de mis cuentas
         ("GET", f"/api/finance/accounts/{mine['id']}/yield", None),
         ("PUT", f"/api/finance/accounts/{mine['id']}/yield-rates", {"from_date": "2020-01-01", "rate_bp": 1}),
+        ("PATCH", f"/api/finance/accounts/{mine['id']}/yield-rates/{my_rate}", {"from_date": "2020-01-01", "rate_bp": 1}),
+        ("PATCH", f"/api/finance/accounts/{theirs['id']}/yield-rates/{my_rate}", {"from_date": "2020-01-01", "rate_bp": 1}),
         ("DELETE", f"/api/finance/accounts/{mine['id']}/yield-rates/{my_rate}", None),
         ("DELETE", f"/api/finance/accounts/{theirs['id']}/yield-rates/{my_rate}", None),
         ("POST", f"/api/finance/accounts/{mine['id']}/yield", {"amount_cents": 1}),

@@ -166,6 +166,26 @@ def test_daily_yield_is_estimated_and_recorded(api):
     assert api.call("PATCH", f"{URL}/{bank['id']}", {"kind": "credit"})[0] == 409
 
 
+def test_a_yield_rate_is_corrected_in_place(api):
+    """✎ en una tasa: cambia su tasa, su tope o su fecha, sin dejar la vieja."""
+    setup(api, "corregir@test.com")
+    _, bank = api.call("POST", URL, {"name": "Banco", "kind": "debit", "opening_balance_cents": 1_000_000,
+                                     "opening_date": days_ago(10)}, expect=201)
+    y = f"{URL}/{bank['id']}/yield-rates"
+    first = api.call("PUT", y, {"from_date": days_ago(10), "rate_bp": 1200}, expect=200)[1]["rates"][0]
+    later = api.call("PUT", y, {"from_date": days_ago(5), "rate_bp": 1500}, expect=200)[1]["rates"][1]
+
+    _, body = api.call("PATCH", f"{y}/{later['id']}", {"from_date": days_ago(3), "rate_bp": 1400,
+                                                       "cap_cents": 50_000_000}, expect=200)
+    assert [(r["id"], r["from_date"], r["rate_bp"], r["cap_cents"]) for r in body["rates"]] == [
+        (first["id"], days_ago(10), 1200, None), (later["id"], days_ago(3), 1400, 50_000_000)]
+    # Sin chocar con otra del mismo día, ni empezar mañana
+    assert api.call("PATCH", f"{y}/{later['id']}", {"from_date": days_ago(10), "rate_bp": 1})[0] == 409
+    assert api.call("PATCH", f"{y}/{later['id']}", {"from_date": (TODAY + timedelta(days=1)).isoformat(),
+                                                    "rate_bp": 1})[0] == 422
+    assert api.call("PATCH", f"{y}/999999", {"from_date": days_ago(1), "rate_bp": 1})[0] == 404
+
+
 def test_fixed_terms_mature_once(api):
     cash, debit, credit, cats = setup(api, "plazos@test.com")
     # CETES es su propia cuenta, de inversión: se porta como débito

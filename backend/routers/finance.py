@@ -775,6 +775,28 @@ def put_yield_rate(account_id: int, body: FinYieldRateFields, session: Session =
     return _yield_response(session, user, account)
 
 
+@router.patch("/accounts/{account_id}/yield-rates/{rate_id}", response_model=FinYieldResponse)
+def update_yield_rate(account_id: int, rate_id: int, body: FinYieldRateFields, session: Session = Depends(get_session),
+                      user: User = Depends(finance_user)):
+    """Corrige una tasa, también su fecha (sin chocar con otra del mismo día)."""
+    account = _yield_account(session, user.id, account_id)
+    row = session.exec(select(FinYieldRate).where(FinYieldRate.id == rate_id, FinYieldRate.user_id == user.id,
+                                                  FinYieldRate.account_id == account.id)).first()
+    if not row:
+        raise _not_found("Tasa")
+    if body.from_date > _today(session, user):
+        raise _unprocessable("La tasa empieza hoy o antes")
+    clash = session.exec(select(FinYieldRate).where(FinYieldRate.user_id == user.id, FinYieldRate.account_id == account.id,
+                                                    FinYieldRate.from_date == body.from_date,
+                                                    FinYieldRate.id != row.id)).first()
+    if clash:
+        raise _conflict("Ya hay otra tasa desde ese día: cámbiala a ella o quítala")
+    row.from_date, row.rate_bp, row.cap_cents, row.day_basis = body.from_date, body.rate_bp, body.cap_cents, body.day_basis
+    session.add(row)
+    session.commit()
+    return _yield_response(session, user, account)
+
+
 @router.delete("/accounts/{account_id}/yield-rates/{rate_id}", response_model=FinYieldResponse)
 def delete_yield_rate(account_id: int, rate_id: int, session: Session = Depends(get_session),
                       user: User = Depends(finance_user)):
