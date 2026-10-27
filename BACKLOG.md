@@ -630,7 +630,7 @@ la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es
 y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
 
 
-## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.7)
+## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.8)
 
 **Pedido el 2026-10-19.** Que la tarjeta lo diga cuando la fecha límite de pago esté cerca y aún quede algo por
 pagar, y que la campana de Finanzas lo avise.
@@ -647,21 +647,31 @@ de anticipación (3 o 5; por defecto 5) y *Avisarme en la campana* (por defecto 
 guardan en **dos columnas nuevas de `fin_settings`** (NULL = por defecto), así que lleva **migración**
 (`migrate.py` antes de reiniciar). La campana de Habit Tracker pide sus avisos sin el de Finanzas, y su conteo no lo
 incluye. Se pensó para salir con la 46 (apartados y rendimientos, cerrada en Finanzas 0.6); el 2026-10-23 se
-dejó para la siguiente versión. Lleva su propia migración.
+dejó para la siguiente versión, y el 2026-10-27 pasó a la 0.8 (con la 47). Lleva su propia migración.
 
 **Por decidir.** Si también avisa el día de corte.
 
-## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.7)
+## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.8)
 
 **Pedido el 2026-10-23.** Qué pasa con una tarjeta de crédito que se cancela en el banco. Hoy, con movimientos, solo
 se archiva (`is_active = false`): sale de Cuentas y Tarjetas y de "Todas las cuentas", y se reactiva en
 Configuración › Cuentas archivadas. Pero archivarla no dice nada de lo que quedó pendiente.
 
+**Lo que hay hoy (revisado el 2026-10-27).** El servidor ya deja archivar una tarjeta con deuda y anotar pagos a una
+cuenta archivada; el problema es de pantalla: archivada, su deuda desaparece de "Todas las cuentas" y de Tarjetas, y
+no hay dónde pagarla.
+
+**Decidido (2026-10-27).** Para cancelar una tarjeta, el banco pide que esté en cero. Así que **antes de archivarla, si
+su saldo no es cero, la app pregunta qué hacer** en vez de archivarla así:
+- **Con deuda:** cómo se pagó: desde otra cuenta (una transferencia a la tarjeta desde la que elija, en efectivo
+  incluido) por lo que falta, y con eso queda en cero.
+- **Con saldo a favor:** a dónde va: una transferencia de la tarjeta a la cuenta que elija.
+- Con eso anotado (saldo en cero), se archiva. Sin migración; la fecha *Dada de baja el …* sí pediría una columna
+  (si se quiere, va en la migración de la 45).
+
 **Por decidir.**
-- **Deuda pendiente.** Si al darla de baja aún debe algo (o tiene MSI por facturar), ¿se puede archivar? Lo
-  natural: avisar "aún debes $X" y dejarla visible como *En baja* hasta que llegue a cero, con su pago y su estado
-  de cuenta (los bancos siguen cobrando la deuda de una tarjeta cancelada).
-- **Saldo a favor.** Si quedó a favor, ofrecer la transferencia de regreso a una cuenta antes de archivarla.
+- **MSI por facturar.** Si quedan mensualidades por cobrar, ¿se liquidan con el pago (el banco las cobra todas al
+  cancelar) o la tarjeta sigue *En baja* hasta la última?
 - **Sus fijos y MSI.** Un fijo que se cobra a esa tarjeta hoy impide archivarla (409): ¿ofrecer moverlo a otra?
 - **Cómo se ve.** Una marca *Dada de baja el …* (¿columna nueva con la fecha, o basta archivarla?). Su historial
   sigue en Movimientos y en los reportes.
