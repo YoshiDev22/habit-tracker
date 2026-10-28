@@ -194,6 +194,8 @@ async def main():
         check(statement["remaining_cents"] == 30000 and "300.00" in (shown or ""),
               f"the card says what to pay before its due date ({shown}, {statement['remaining_cents']})")
         await b.shot("finance_statement", full=False)
+        # El botón lleva la deuda de cuando se pintó: esperar el repintado con la de ahora
+        await b.wait_for("(document.querySelector('[data-pay-card]') || {dataset: {}}).dataset.payDebt", lambda v: v == "30000")
         await b.js("document.querySelector('[data-pay-card]').click()")
         await b.wait_for("!document.getElementById('finEntry').classList.contains('hidden')")
         st = await b.js("""({kind: document.getElementById('finEntryKind').textContent,
@@ -486,8 +488,9 @@ async def main():
         check(cetes["kind"] == "investment" and t["account_id"] == cetes["id"] and cetes["balance_cents"] == 100_000,
               f"the new investment account is created with the term, and the money moves in ({cetes})")
         heads = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finAccountsBody .fin-account strong')]
-            .map(s => s.textContent); return r.includes('CETES') ? r : null; })()""", lambda v: v)
-        check(heads.index("CETES") < heads.index("CETES 91"), f"Inversiones lists investment accounts first ({heads})")
+            .map(s => s.textContent); return r.includes('CETES') && r.includes('CETES 91') ? r : null; })()""", lambda v: v)
+        heads = heads or []
+        check("CETES 91" in heads and heads.index("CETES") < heads.index("CETES 91"), f"Inversiones lists investment accounts first ({heads})")
         await b.shot("finance_investments", full=False)
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
 
@@ -1054,6 +1057,8 @@ async def main():
                                 "Enciéndelo en ⚙️ Configuración › Módulos.")).lastrowid
             conn.execute("INSERT INTO notices (user_id, kind, ref, created_at) VALUES (?, 'message', ?, ?)",
                          (uid, str(mid), f"{TODAY.isoformat()} 12:00:00"))
+        # Las tarjetas de antes pueden tener su pago cerca según el día: aquí solo cuentan estos avisos
+        api.call("PUT", "/api/finance/reminder-settings", {"due_days": 5, "due_bell": False}, expect=200)
         await b.js("finLoadNotices()")
         count = await b.wait_for("document.getElementById('finBellCount').textContent", lambda v: v)
         await b.js("document.getElementById('finBellBtn').click()")
@@ -1077,6 +1082,41 @@ async def main():
         check(all(n["read"] for n in after if n["kind"] in ("announcement", "message"))
               and any(n["kind"] == "novedades" and not n["read"] for n in after),
               "opening it reads only its own notices; Habit Tracker's stay unread in the app")
+
+        # El pago de una tarjeta que se acerca: la tarjeta en alerta y, en la campana, con Pagar
+        api.call("PUT", "/api/finance/reminder-settings", {"due_days": 5, "due_bell": True}, expect=200)
+        cut, due = TODAY - timedelta(days=10), TODAY + timedelta(days=3)
+        _, soon = api.call("POST", "/api/finance/accounts", {
+            "name": "Por vencer", "kind": "credit", "statement_day": min(cut.day, 28), "due_day": due.day,
+            "opening_balance_cents": -80_000, "opening_date": (TODAY - timedelta(days=20)).isoformat()}, expect=201)
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        await b.js("finLoad()")
+        alert = await b.wait_for(f"""(() => {{ const box = document.querySelector('[data-statement-for="{soon['id']}"]');
+            const main = box && box.querySelector('.fin-statement-main');
+            return main ? {{soon: main.classList.contains('due-soon'),
+                text: (main.querySelector('.fin-due-soon') || {{}}).textContent}} : null; }})()""", lambda v: v)
+        check(alert == {"soon": True, "text": "Vence en 3 días"}, f"a card whose payment is close turns red and says when ({alert})")
+        await b.js(f"""document.querySelector('[data-statement-for="{soon['id']}"]').scrollIntoView({{block: 'center'}})""")
+        await b.shot("finance_card_due", full=False)
+        await b.js("document.getElementById('finBellBtn').click()")
+        await b.wait_for("!!document.querySelector('#finNoticesBody [data-notice-pay]')")
+        row = await b.js("document.querySelector('#finNoticesBody [data-notice-pay]').closest('.fin-notice').textContent")
+        check("Pago de Por vencer" in row and "800.00" in row, f"the bell reminds the card payment ({row})")
+        await b.js("document.querySelector('#finNoticesBody [data-notice-pay]').click()")
+        await b.wait_for("!document.getElementById('finEntry').classList.contains('hidden')")
+        st = await b.js("""({kind: document.getElementById('finEntryKind').textContent, to: document.getElementById('finBandToName').textContent,
+            expr: document.getElementById('finEntryExpr').textContent})""")
+        check(st["kind"] == "Transferencia" and st["to"] == "Por vencer" and "800" in st["expr"],
+              f"Pagar in the bell opens the payment to that card ({st})")
+        await b.js("closeFinSheet(finEntrySheet)")
+        # Configuración › Avisos: se guarda al cambiar
+        await b.js("openFinSettings('notices')")
+        await b.wait_for("document.getElementById('finDueDays').value === '5' && document.getElementById('finDueBell').checked")
+        await set_value("#finDueDays", "3")
+        saved = await wait_api("/api/finance/reminder-settings", lambda body: body["due_days"] == 3)
+        check(saved == {"due_days": 3, "due_bell": True}, f"the notice settings save on change ({saved})")
+        await b.js("closeFinDrawer()")
 
         # En computadora, el panel no se ensancha al abrir una opción, y nada se sale de lado
         await b.viewport(1280, 900, mobile=False)

@@ -266,6 +266,8 @@ async function finLoad() {
         return;
     }
     finRender();
+    // Un pago o un cambio puede resolver un aviso: la campana, al día (no la primera vez: la pide finStart)
+    if (typeof finNotices !== 'undefined' && finNotices.lastLoad) finLoadNotices();
 }
 
 function finShowError(message) {
@@ -1092,6 +1094,10 @@ async function finLoadStatements(cards) {
     }));
 }
 
+function finDueText(days) {
+    return days === 0 ? 'Vence hoy' : days === 1 ? 'Vence mañana' : `Vence en ${days} días`;
+}
+
 function finStatementView(card, st, plans) {
     const money = cents => formatMoney(cents, card.currency);
     const lines = [];
@@ -1103,6 +1109,11 @@ function finStatementView(card, st, plans) {
     pay.append(el('span', 'fin-stat-label', label),
         el('strong', st.remaining_cents ? '' : 'paid',
             st.remaining_cents ? money(st.remaining_cents) : (st.upcoming ? 'Nada por ahora' : 'Pagado')));
+    // El pago se acerca y queda algo: la tarjeta en color de alerta (los días, en Configuración › Avisos)
+    if (st.due_soon) {
+        main.classList.add('due-soon');
+        pay.prepend(el('span', 'fin-due-soon', finDueText(st.due_in_days)));
+    }
     main.appendChild(pay);
     if (st.remaining_cents) {
         const button = el('button', 'submit-btn fin-pay-btn', 'Pagar');

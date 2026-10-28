@@ -631,28 +631,6 @@ la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es
 **Por decidir.** Con qué número empieza (lo publicado hasta hoy salió dentro de Habit Tracker 1.27.0 a 1.28.0)
 y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
 
-
-## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.8)
-
-**Pedido el 2026-10-19.** Que la tarjeta lo diga cuando la fecha límite de pago esté cerca y aún quede algo por
-pagar, y que la campana de Finanzas lo avise.
-
-**Idea.** Con lo que ya calcula `card_statement()` (`due_date` y `remaining_cents`): en *Cuentas › Tarjetas*,
-una línea en la tarjeta ("Vence en 3 días", "Vence hoy") y, en la campana, un aviso **pendiente** calculado de los
-datos, como `missed_day` (`backend/notices.py`): se crea al pedir los avisos y queda `done` en cuanto lo que falta
-pagar llega a cero, así que nunca dice algo que ya no es cierto. Se suma a `FIN_BELL_KINDS` y **no** sale en la
-campana de Habit Tracker.
-
-**Decidido (2026-10-19).** La tarjeta cambia a color de alerta y dice "Vence en 3 días" / "Vence mañana" /
-"Vence hoy". En el panel lateral, *Configuración › Avisos* (página nueva, lista para otros avisos): con cuántos días
-de anticipación (3 o 5; por defecto 5) y *Avisarme en la campana* (por defecto sí; apagada, solo el color). Se
-guardan en **dos columnas nuevas de `fin_settings`** (NULL = por defecto), así que lleva **migración**
-(`migrate.py` antes de reiniciar). La campana de Habit Tracker pide sus avisos sin el de Finanzas, y su conteo no lo
-incluye. Se pensó para salir con la 46 (apartados y rendimientos, cerrada en Finanzas 0.6); el 2026-10-23 se
-dejó para la siguiente versión, y el 2026-10-27 pasó a la 0.8 (con la 47). Lleva su propia migración.
-
-**Decidido (2026-10-28):** no avisa el día de corte, solo el pago.
-
 ## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.8)
 
 **Pedido el 2026-10-23.** Qué pasa con una tarjeta de crédito que se cancela en el banco. Hoy, con movimientos, solo
@@ -682,7 +660,7 @@ su saldo no es cero, la app pregunta qué hacer** en vez de archivarla así:
   lo recuerda con un aviso **pendiente** calculado de los datos (como el del pago de la 45): sale mientras haya un fijo
   pausado en una cuenta dada de baja y se resuelve solo al cambiarle la cuenta (o borrarlo).
 - **Cómo se ve (decidido 2026-10-28):** *Dada de baja el …*, con la fecha. Lleva una columna nueva en
-  `fin_accounts`, que va en la migración de la 45. Su historial sigue en Movimientos y en los reportes.
+  `fin_accounts` (migración de la 0.8, con las del aviso del pago). Su historial sigue en Movimientos y en los reportes.
 - **Que no vuelva a usarse:** no sale al elegir cuenta en la hoja del monto ni al importar (ya pasa con las
   archivadas), pero sí en la lupa de Movimientos para filtrar su historial.
 

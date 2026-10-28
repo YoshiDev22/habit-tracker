@@ -1048,3 +1048,7 @@ class FinSettings(SQLModel, table=True):
     # Cuándo aceptó cómo se tratan sus datos financieros (UTC naive). Sin él, la
     # API de Finanzas no guarda ni enseña nada (finance_user)
     consent_at: Optional[datetime] = Field(default=None)
+    # El aviso del pago de una tarjeta (Finanzas 0.8): con cuántos días antes (3 o 5) y si
+    # también sale en la campana. NULL = por defecto (5 días, sí)
+    due_notice_days: Optional[int] = Field(default=None)
+    due_notice_bell: Optional[bool] = Field(default=None)

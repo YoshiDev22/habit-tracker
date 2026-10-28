@@ -132,14 +132,15 @@ setInterval(finCheckUpdate, FIN_UPDATE_EVERY_MS);
 
 const finNoticesSheet = document.getElementById('finNoticesSheet');
 const finNotices = { list: [], unread: 0, lastLoad: 0 };
-// Los anuncios para todas las cuentas (un mantenimiento) y los mensajes del panel
-// para la tuya; los avisos propios de Finanzas (p. ej. un pago por vencer) irán aquí
-const FIN_BELL_KINDS = ['announcement', 'message'];
+// Los anuncios para todas las cuentas (un mantenimiento), los mensajes del panel para
+// la tuya y los propios de Finanzas (el pago de una tarjeta que se acerca, que solo
+// pide esta página: `finance=true`)
+const FIN_BELL_KINDS = ['announcement', 'message', 'card_due'];
 
 async function finLoadNotices() {
     finNotices.lastLoad = Date.now();
     try {
-        const data = await apiFetch(`/api/notices?today=${finToday()}`);
+        const data = await apiFetch(`/api/notices?today=${finToday()}&finance=true`);
         finNotices.list = data.notices.filter(n => FIN_BELL_KINDS.includes(n.kind));
         finNotices.unread = finNotices.list.filter(n => n.status === 'pending' || (n.status === 'info' && !n.read)).length;
     } catch (error) {
@@ -164,6 +165,13 @@ function finNoticeRow(notice) {
     const text = notice.access_module === 'finance' ? FIN_WELCOME : notice;
     row.append(el('strong', '', text.title));
     if (text.detail) row.appendChild(el('p', 'fin-hint', text.detail));
+    // El pago de una tarjeta: pagarlo desde aquí
+    if (notice.kind === 'card_due' && notice.status === 'pending') {
+        const pay = el('button', 'submit-btn fin-pay-btn', 'Pagar');
+        pay.type = 'button';
+        pay.dataset.noticePay = String(notice.account_id);
+        row.appendChild(pay);
+    }
     return row;
 }
 
@@ -204,6 +212,13 @@ finSheetDismiss.set('finNoticesSheet', () => {
 });
 
 document.getElementById('finBellBtn').addEventListener('click', openFinNotices);
+document.getElementById('finNoticesBody').addEventListener('click', (event) => {
+    const pay = event.target.closest('[data-notice-pay]');
+    if (!pay) return;
+    const card = finAccount(Number(pay.dataset.noticePay));
+    closeFinSheet(finNoticesSheet);
+    if (card) finPayCard(card);   // finance-accounts.js: con lo que pide su estado de cuenta
+});
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && Date.now() - finNotices.lastLoad > 60 * 1000) finLoadNotices();
 });

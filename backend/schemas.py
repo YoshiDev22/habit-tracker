@@ -2017,6 +2017,10 @@ class FinStatementResponse(SQLModel):
     # escribió el usuario); estimated_cents, el que calculó la app
     from_bank: bool = False
     estimated_cents: int = 0
+    # El aviso del pago (Finanzas 0.8): días que faltan para due_date y si ya toca avisar
+    # (queda algo por pagar y faltan los días que eligió o menos)
+    due_in_days: Optional[int] = None
+    due_soon: bool = False
 
 
 class FinStatementOverride(SQLModel):
@@ -2114,6 +2118,22 @@ class FinRecurringListResponse(SQLModel):
 class FinSettingsResponse(SQLModel):
     # None mientras el usuario no conteste "¿Cada cuándo cobras?": se mide por mes
     period: Optional[str] = None
+
+
+FIN_DUE_NOTICE_DAYS = (3, 5)
+
+
+class FinNoticeSettings(SQLModel):
+    """El aviso del pago de una tarjeta: con cuántos días antes y si sale en la campana."""
+    due_days: int = 5
+    due_bell: bool = True
+
+    @field_validator("due_days")
+    @classmethod
+    def validate_due_days(cls, v):
+        if v not in FIN_DUE_NOTICE_DAYS:
+            raise ValueError("due_days es 3 o 5")
+        return v
 
 
 class FinConsentResponse(SQLModel):

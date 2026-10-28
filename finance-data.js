@@ -26,7 +26,7 @@ function finInitial() {
 // Las páginas del panel: la portada (root), Configuración y sus cuatro páginas,
 // Datos y el aviso. Cada una sabe a cuál vuelve ‹ (data-parent)
 const finDrawerNav = { current: 'root' };
-const FIN_SETTINGS_PAGES = ['period', 'categories', 'fixed', 'archived'];
+const FIN_SETTINGS_PAGES = ['period', 'categories', 'fixed', 'notices', 'archived'];
 
 function finDrawerPages() {
     return [...finDrawerPanel.querySelectorAll('.fin-drawer-page')];

@@ -880,6 +880,18 @@
     background: var(--bg-surface-2);
 }
 
+/* El pago se acerca y queda algo por pagar */
+.fin-statement-main.due-soon {
+    background: var(--danger-bg);
+    box-shadow: inset 0 0 0 1px var(--danger-fg);
+}
+
+.fin-due-soon {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--danger-fg);
+}
+
 .fin-statement-pay {
     display: flex;
     flex-direction: column;

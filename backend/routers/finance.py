@@ -17,7 +17,7 @@ from backend.auth import get_current_user
 from backend.database import get_session
 from backend.finance import (account_balances, account_currencies, first_transaction_date, history_before_opening, card_statement, bank_statement, cut_on_or_after, cut_on_or_before, shift_cut, installment_parts,
                              installment_bills, splits_by_transaction, ensure_finance_setup, generate_due, last_charge, settings_row,
-                             summary, user_period)
+                             summary, user_period, due_notice_settings)
 from backend.finance_yield import (YIELD_CATEGORY, YIELD_CONCEPT, YIELD_SOURCE, account_rates, open_terms_by_account,
                                    rate_on, rates_by_account, term_interest, term_maturity, yield_category,
                                    yield_estimate)
@@ -39,6 +39,7 @@ from backend.schemas import (
     FinRecurringListResponse,
     FinRecurringResponse,
     FinRecurringUpdate,
+    FinNoticeSettings,
     FinSettingsResponse,
     FinSettingsUpdate,
     FinSummaryResponse,
@@ -320,6 +321,25 @@ def put_finance_settings(body: FinSettingsUpdate, session: Session = Depends(get
     session.add(row)
     session.commit()
     return FinSettingsResponse(period=row.period)
+
+
+# ==================== Avisos ====================
+
+@router.get("/reminder-settings", response_model=FinNoticeSettings)
+def get_notice_settings(session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """El aviso del pago de una tarjeta: con cuántos días antes y si sale en la campana."""
+    days, bell = due_notice_settings(session, user.id)
+    return FinNoticeSettings(due_days=days, due_bell=bell)
+
+
+@router.put("/reminder-settings", response_model=FinNoticeSettings)
+def put_notice_settings(body: FinNoticeSettings, session: Session = Depends(get_session),
+                        user: User = Depends(finance_user)):
+    row = settings_row(session, user.id) or FinSettings(user_id=user.id)
+    row.due_notice_days, row.due_notice_bell = body.due_days, body.due_bell
+    session.add(row)
+    session.commit()
+    return FinNoticeSettings(due_days=body.due_days, due_bell=body.due_bell)
 
 
 # ==================== Resumen ====================

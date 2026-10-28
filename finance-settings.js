@@ -38,8 +38,38 @@ function finRenderSettingsPage(name) {
     if (name === 'period') finRenderPeriodPage();
     else if (name === 'categories') finRenderCategoriesPage();
     else if (name === 'fixed') finRenderFixedPage();
+    else if (name === 'notices') finRenderNoticesPage();
     else if (name === 'archived') finRenderArchivedPage();
 }
+
+// ---------- Avisos: el pago de una tarjeta ----------
+
+async function finRenderNoticesPage() {
+    document.getElementById('finNoticeSaved').textContent = '';
+    try {
+        const s = await apiFetch('/api/finance/reminder-settings');
+        document.getElementById('finDueDays').value = String(s.due_days);
+        document.getElementById('finDueBell').checked = s.due_bell;
+    } catch (error) {
+        showError(finSettingsError, error.message);
+    }
+}
+
+// Se guarda al cambiar, sin botón
+document.getElementById('finNoticeForm').addEventListener('change', async () => {
+    const saved = document.getElementById('finNoticeSaved');
+    finSettingsError.classList.add('hidden');
+    try {
+        await apiFetch('/api/finance/reminder-settings', { method: 'PUT', json: {
+            due_days: Number(document.getElementById('finDueDays').value),
+            due_bell: document.getElementById('finDueBell').checked,
+        } });
+        saved.textContent = 'Guardado.';
+        finLoad();
+    } catch (error) {
+        showError(finSettingsError, error.message);
+    }
+});
 
 // Un cambio en Ajustes: el error, si lo hay, y todo al día
 async function finSettingsAction(request) {

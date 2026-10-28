@@ -35,15 +35,27 @@ def _current_version() -> Optional[str]:
     return APP_VERSION if any(v["version"] == APP_VERSION for v in NOVEDADES) else None
 
 
+def _finance_on(session: Session, user: User) -> bool:
+    """Con Finanzas encendida y su consentimiento dado (sin él, nada de Finanzas sale)."""
+    from backend.finance import settings_row
+    from backend.routers.auth import user_modules
+    module = user_modules(session, user.id)["finance"]
+    if not (module["allowed"] and module["enabled"]):
+        return False
+    row = settings_row(session, user.id)
+    return bool(row and row.consent_at)
+
+
 @router.get("")
-def get_notices(today: Optional[date_type] = None, session: Session = Depends(get_session),
+def get_notices(today: Optional[date_type] = None, finance: bool = False, session: Session = Depends(get_session),
                 current_user: User = Depends(get_current_user)) -> dict:
     """Los avisos de la cuenta: pendientes (por confirmar, día sin anotar),
     informativos (reporte listo, Novedades) y hechos recientes, más cuántos
     piden atención (pendientes + informativos sin leer). `today` es la fecha
-    local del cliente: el día sin anotar es su "ayer"."""
+    local del cliente: el día sin anotar es su "ayer". `finance=true` (la campana
+    de la página de Finanzas) suma sus avisos, como el pago de una tarjeta."""
     return list_notices(session, current_user, resolve_client_today(today), _habits_on(session, current_user),
-                        _current_version())
+                        _current_version(), finance and _finance_on(session, current_user))
 
 
 @router.post("/read", status_code=status.HTTP_204_NO_CONTENT)
