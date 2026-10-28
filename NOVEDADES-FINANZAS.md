@@ -4,6 +4,15 @@ Lo que ve quien usa Finanzas al entrar a la página después de una actualizaci�
 lateral › Novedades). Mismo formato que NOVEDADES.md (`backend/novedades.py`): corto, para quien la usa,
 nunca nada de despliegue. Se escribe en el mismo commit del bump de `FINANCE_VERSION`.
 
+## 0.8.0 — 2026-10-28
+### Nuevas funciones
+- **Aviso del pago de tu tarjeta**: cuando se acerca la fecha límite y aún debes algo, la tarjeta se
+  pone roja y la campana te lo recuerda con *Pagar*; elige 3 o 5 días en Configuración › Avisos.
+- **Dar de baja una tarjeta**: desde su menú; anota desde dónde la pagaste (o a dónde va el saldo a
+  favor) y qué pasa con sus fijos, y queda archivada con su fecha.
+### Cambios
+- **La versión de Finanzas**, al pie del panel lateral.
+
 ## 0.7.0 — 2026-10-27
 ### Nuevas funciones
 - **Buscar en Movimientos**: con la lupa de arriba, filtra por texto, tipo, cuenta o categoría;
