@@ -651,7 +651,7 @@ guardan en **dos columnas nuevas de `fin_settings`** (NULL = por defecto), así 
 incluye. Se pensó para salir con la 46 (apartados y rendimientos, cerrada en Finanzas 0.6); el 2026-10-23 se
 dejó para la siguiente versión, y el 2026-10-27 pasó a la 0.8 (con la 47). Lleva su propia migración.
 
-**Por decidir.** Si también avisa el día de corte.
+**Decidido (2026-10-28):** no avisa el día de corte, solo el pago.
 
 ## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.8)
 
@@ -668,17 +668,17 @@ su saldo no es cero, la app pregunta qué hacer** en vez de archivarla así:
 - **Con deuda:** cómo se pagó: desde otra cuenta (una transferencia a la tarjeta desde la que elija, en efectivo
   incluido) por lo que falta, y con eso queda en cero.
 - **Con saldo a favor:** a dónde va: una transferencia de la tarjeta a la cuenta que elija.
-- Con eso anotado (saldo en cero), se archiva. Sin migración; la fecha *Dada de baja el …* sí pediría una columna
-  (si se quiere, va en la migración de la 45).
-
-**Por decidir.**
-- **MSI por facturar.** Si quedan mensualidades por cobrar, ¿se liquidan con el pago (el banco las cobra todas al
-  cancelar) o la tarjeta sigue *En baja* hasta la última?
-- **Sus fijos y MSI.** Un fijo que se cobra a esa tarjeta hoy impide archivarla (409): ¿ofrecer moverlo a otra?
-- **Cómo se ve.** Una marca *Dada de baja el …* (¿columna nueva con la fecha, o basta archivarla?). Su historial
-  sigue en Movimientos y en los reportes.
-- **Que no vuelva a usarse.** Que no salga al elegir cuenta en la hoja del monto ni en importar, pero sí al filtrar
-  Movimientos por cuenta.
+- Con eso anotado (saldo en cero), se archiva.
+- **MSI (decidido 2026-10-28):** una compra a meses ya cuenta completa en el saldo desde el día que se hace, así que
+  en cero sus mensualidades ya están pagadas: sus planes se dan por terminados y Movimientos deja de enseñar las
+  mensualidades después de la fecha de baja.
+- **Fijos (decidido 2026-10-28):** si un fijo se cobra a esa tarjeta, la app recomienda pasarlo a otra cuenta (elige
+  cuál) o **dejarlo para después**: se pausa (no se anota en una tarjeta cancelada), la tarjeta se archiva y en
+  Configuración › Fijos queda marcado "su tarjeta se dio de baja" hasta cambiarle la cuenta.
+- **Cómo se ve (decidido 2026-10-28):** *Dada de baja el …*, con la fecha. Lleva una columna nueva en
+  `fin_accounts`, que va en la migración de la 45. Su historial sigue en Movimientos y en los reportes.
+- **Que no vuelva a usarse:** no sale al elegir cuenta en la hoja del monto ni al importar (ya pasa con las
+  archivadas), pero sí en la lupa de Movimientos para filtrar su historial.
 
 ## 49 · P3 · Comparar el modelo de IA de los reportes (GPT-OSS contra Haiku)
 
