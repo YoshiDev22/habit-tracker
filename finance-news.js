@@ -135,7 +135,7 @@ const finNotices = { list: [], unread: 0, lastLoad: 0 };
 // Los anuncios para todas las cuentas (un mantenimiento), los mensajes del panel para
 // la tuya y los propios de Finanzas (el pago de una tarjeta que se acerca, que solo
 // pide esta página: `finance=true`)
-const FIN_BELL_KINDS = ['announcement', 'message', 'card_due'];
+const FIN_BELL_KINDS = ['announcement', 'message', 'card_due', 'fixed_cancelled'];
 
 async function finLoadNotices() {
     finNotices.lastLoad = Date.now();
@@ -171,6 +171,13 @@ function finNoticeRow(notice) {
         pay.type = 'button';
         pay.dataset.noticePay = String(notice.account_id);
         row.appendChild(pay);
+    }
+    // Un fijo pausado al dar de baja su tarjeta: a Fijos, para cambiarle la cuenta
+    if (notice.kind === 'fixed_cancelled' && notice.status === 'pending') {
+        const go = el('button', 'link-btn', 'Cambiarle la cuenta');
+        go.type = 'button';
+        go.dataset.noticeFixed = String(notice.recurring_id);
+        row.appendChild(go);
     }
     return row;
 }
@@ -213,6 +220,11 @@ finSheetDismiss.set('finNoticesSheet', () => {
 
 document.getElementById('finBellBtn').addEventListener('click', openFinNotices);
 document.getElementById('finNoticesBody').addEventListener('click', (event) => {
+    if (event.target.closest('[data-notice-fixed]')) {
+        closeFinSheet(finNoticesSheet);
+        openFinSettings('fixed');
+        return;
+    }
     const pay = event.target.closest('[data-notice-pay]');
     if (!pay) return;
     const card = finAccount(Number(pay.dataset.noticePay));

@@ -631,39 +631,6 @@ la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es
 **Por decidir.** Con qué número empieza (lo publicado hasta hoy salió dentro de Habit Tracker 1.27.0 a 1.28.0)
 y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
 
-## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.8)
-
-**Pedido el 2026-10-23.** Qué pasa con una tarjeta de crédito que se cancela en el banco. Hoy, con movimientos, solo
-se archiva (`is_active = false`): sale de Cuentas y Tarjetas y de "Todas las cuentas", y se reactiva en
-Configuración › Cuentas archivadas. Pero archivarla no dice nada de lo que quedó pendiente.
-
-**Lo que hay hoy (revisado el 2026-10-27).** El servidor ya deja archivar una tarjeta con deuda y anotar pagos a una
-cuenta archivada; el problema es de pantalla: archivada, su deuda desaparece de "Todas las cuentas" y de Tarjetas, y
-no hay dónde pagarla.
-
-**Decidido (2026-10-27).** Para cancelar una tarjeta, el banco pide que esté en cero. Así que **antes de archivarla, si
-su saldo no es cero, la app pregunta qué hacer** en vez de archivarla así:
-- **Con deuda:** cómo se pagó: desde otra cuenta (una transferencia a la tarjeta desde la que elija, en efectivo
-  incluido) por lo que falta, y con eso queda en cero.
-- **Con saldo a favor:** a dónde va: una transferencia de la tarjeta a la cuenta que elija.
-- Con eso anotado (saldo en cero), se archiva.
-- **La fecha de baja la pone el usuario (decidido 2026-10-28):** puede no abrir la app el día que la cancela, así que
-  elige cuándo (hoy por defecto, o un día pasado), y el pago o el traspaso del saldo a favor llevan también su fecha.
-- **MSI (decidido 2026-10-28):** una compra a meses ya cuenta completa en el saldo desde el día que se hace, y las
-  mensualidades **nunca** son movimientos (solo se enseñan): en cero, la deuda de los MSI ya está pagada. Sus planes se
-  dan por terminados y Movimientos deja de enseñar las mensualidades después de la fecha de baja, **sin tocar el
-  saldo**. Prueba obligada: compra de 10k a 10 meses, 6k pagados, 4k transferidos después y la baja unos días más
-  tarde: el saldo queda en 0, nada suma ni resta los 4 meses que el plan no llegó a pedir, y el resumen no cambia.
-- **Fijos (decidido 2026-10-28):** si un fijo se cobra a esa tarjeta, la app recomienda pasarlo a otra cuenta (elige
-  cuál) o **dejarlo para después**: se pausa (no se anota en una tarjeta cancelada), la tarjeta se archiva y en
-  Configuración › Fijos queda marcado "su tarjeta se dio de baja" hasta cambiarle la cuenta, y la campana de Finanzas
-  lo recuerda con un aviso **pendiente** calculado de los datos (como el del pago de la 45): sale mientras haya un fijo
-  pausado en una cuenta dada de baja y se resuelve solo al cambiarle la cuenta (o borrarlo).
-- **Cómo se ve (decidido 2026-10-28):** *Dada de baja el …*, con la fecha. Lleva una columna nueva en
-  `fin_accounts` (migración de la 0.8, con las del aviso del pago). Su historial sigue en Movimientos y en los reportes.
-- **Que no vuelva a usarse:** no sale al elegir cuenta en la hoja del monto ni al importar (ya pasa con las
-  archivadas), pero sí en la lupa de Movimientos para filtrar su historial.
-
 ## 49 · P3 · Comparar el modelo de IA de los reportes (GPT-OSS contra Haiku)
 
 **Decidido el 2026-10-26: se queda GPT-OSS 120B** (Workers AI, `@cf/openai/gpt-oss-120b`). Desde la 1.32 la IA

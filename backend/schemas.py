@@ -1608,6 +1608,7 @@ class FinAccountResponse(SQLModel):
     available_cents: Optional[int] = None
     parent_id: Optional[int] = None   # un apartado: la cuenta de la que cuelga
     interest_rate_bp: Optional[int] = None   # crédito: la tasa anual, de referencia
+    cancelled_on: Optional[date_type] = None  # una tarjeta dada de baja: el día
     # Con tasa de rendimiento: la de hoy y lo ganado sin anotar (desde yield_since hasta ayer)
     yield_rate_bp: Optional[int] = None
     yield_since: Optional[date_type] = None
@@ -2021,6 +2022,24 @@ class FinStatementResponse(SQLModel):
     # (queda algo por pagar y faltan los días que eligió o menos)
     due_in_days: Optional[int] = None
     due_soon: bool = False
+
+
+FIN_FIXED_ON_CANCEL = ("move", "pause")
+
+
+class FinCardCancel(SQLModel):
+    """Dar de baja una tarjeta: el día, y cómo queda en cero. Con deuda, desde qué cuenta
+    se pagó (y cuándo); con saldo a favor, a cuál va. Sus fijos, a otra cuenta o en pausa."""
+    cancelled_on: date_type
+    settle_account_id: Optional[int] = None
+    settle_date: Optional[date_type] = None
+    fixed_action: Optional[str] = None
+    fixed_account_id: Optional[int] = None
+
+    @field_validator("fixed_action")
+    @classmethod
+    def validate_fixed_action(cls, v):
+        return v if v is None else _one_of(v, FIN_FIXED_ON_CANCEL, "fixed_action")
 
 
 class FinStatementOverride(SQLModel):

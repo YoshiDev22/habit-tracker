@@ -39,6 +39,7 @@ from backend.schemas import (
     FinRecurringListResponse,
     FinRecurringResponse,
     FinRecurringUpdate,
+    FinCardCancel,
     FinNoticeSettings,
     FinSettingsResponse,
     FinSettingsUpdate,
@@ -396,7 +397,7 @@ def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dic
         opening_balance_cents=account.opening_balance_cents, credit_limit_cents=account.credit_limit_cents,
         statement_day=account.statement_day, due_day=account.due_day, balance_cents=balance,
         available_cents=account.credit_limit_cents + balance if credit and account.credit_limit_cents is not None else None,
-        parent_id=account.parent_id, interest_rate_bp=account.interest_rate_bp,
+        parent_id=account.parent_id, interest_rate_bp=account.interest_rate_bp, cancelled_on=account.cancelled_on,
     )
 
 
@@ -568,10 +569,83 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
             child.kind = account.kind
             session.add(child)
     _credit_only(account)
+    if account.is_active:
+        account.cancelled_on = None   # reactivarla deshace la baja
     session.add(account)
     session.commit()
     session.refresh(account)
     return _account_response(account, counts, account_balances(session, user.id, _today(session, user)),
+                             history_before_opening(session, user.id))
+
+
+def _money_text(cents: int) -> str:
+    return f"${cents / 100:,.2f}"
+
+
+@router.post("/accounts/{account_id}/cancel", response_model=FinAccountResponse)
+def cancel_card(account_id: int, body: FinCardCancel, session: Session = Depends(get_session),
+                user: User = Depends(finance_user)):
+    """Da de baja una tarjeta, como pide el banco: en cero. Si debe, anota el pago desde
+    la cuenta que se eligió (con su fecha); si tiene saldo a favor, la transferencia a
+    la cuenta donde va. Sus fijos pasan a otra cuenta o se pausan. Luego se archiva con
+    el día de la baja. Sus MSI ya contaron completos en el saldo: en cero están pagados,
+    y nada de ellos se vuelve a sumar ni restar."""
+    card = _credit_card(session, user.id, account_id)
+    if not card.is_active:
+        raise _conflict(f"'{card.name}' ya está archivada")
+    if card.is_default:
+        raise _conflict(f"'{card.name}' es tu cuenta por defecto: elige otra antes de darla de baja")
+    today = _today(session, user)
+    if body.cancelled_on > today:
+        raise _unprocessable("La baja es de hoy o de antes")
+    settle_date = body.settle_date or body.cancelled_on
+    if settle_date > today:
+        raise _unprocessable("El pago es de hoy o de antes")
+    if card.opening_date is not None and settle_date < card.opening_date:
+        raise _unprocessable(f"El pago no puede ser antes del saldo inicial de '{card.name}' "
+                             f"({card.opening_date.isoformat()})")
+    balance = account_balances(session, user.id, today).get(card.id, card.opening_balance_cents)
+    if balance:
+        if body.settle_account_id is None:
+            raise _conflict(f"Aún debes {_money_text(-balance)}: elige desde qué cuenta lo pagaste" if balance < 0
+                            else f"Tiene {_money_text(balance)} a favor: elige a qué cuenta va")
+        other = _own_account(session, user.id, body.settle_account_id)
+        if other.id == card.id or not other.is_active:
+            raise _unprocessable("Elige otra cuenta activa")
+        if other.currency != card.currency:
+            raise _conflict("Solo se transfiere entre cuentas de la misma moneda: la app no convierte entre monedas")
+        paying = balance < 0
+        session.add(FinTransaction(
+            user_id=user.id, kind="transfer", amount_cents=abs(balance), tx_date=settle_date,
+            account_id=other.id if paying else card.id, to_account_id=card.id if paying else other.id,
+            concept=f"Pago al dar de baja {card.name}" if paying else f"Saldo a favor de {card.name}"))
+    fixed = session.exec(select(FinRecurring).where(FinRecurring.user_id == user.id,
+                                                   FinRecurring.account_id == card.id,
+                                                   FinRecurring.paused == False)).all()  # noqa: E712
+    if fixed:
+        if body.fixed_action is None:
+            raise _conflict(f"La usa{'n' if len(fixed) > 1 else ''} {_plural(len(fixed), 'fijo', 'fijos')}: pásalos a "
+                            "otra cuenta o déjalos para después")
+        if body.fixed_action == "move":
+            if body.fixed_account_id is None:
+                raise _unprocessable("Elige a qué cuenta pasan los fijos")
+            target = _own_account(session, user.id, body.fixed_account_id)
+            if target.id == card.id or not target.is_active:
+                raise _unprocessable("Elige otra cuenta activa para los fijos")
+            if target.currency != card.currency:
+                raise _conflict("Los fijos pasan a una cuenta de la misma moneda")
+        for rc in fixed:
+            if body.fixed_action == "move":
+                rc.account_id = target.id
+            else:
+                rc.paused = True   # se reanudan al cambiarles la cuenta (la campana lo recuerda)
+            session.add(rc)
+    card.is_active = False
+    card.cancelled_on = body.cancelled_on
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return _account_response(card, _account_counts(session, user.id), account_balances(session, user.id, today),
                              history_before_opening(session, user.id))
 
 
@@ -1124,6 +1198,10 @@ def update_recurring(recurring_id: int, body: FinRecurringUpdate, session: Sessi
     if "note" in changes:
         changes["note"] = _clean_note(changes["note"])
     resuming = rc.paused and changes.get("paused") is False
+    if not changes.get("paused", rc.paused):
+        target = _own_account(session, user.id, changes.get("account_id", rc.account_id))
+        if not target.is_active:
+            raise _conflict(f"'{target.name}' ya no está activa: cámbiale la cuenta al fijo para reanudarlo")
     for field, value in changes.items():
         setattr(rc, field, value)
     if reanchor:
@@ -1336,14 +1414,19 @@ def clear_bank_statement(account_id: int, cut_date: date_type, session: Session 
 
 
 def _installment_response(inst: FinInstallment, account: FinAccount, today: date_type) -> FinInstallmentResponse:
-    bills = installment_bills(inst, account.statement_day)
+    bills = all_bills = installment_bills(inst, account.statement_day)
+    # Una tarjeta dada de baja quedó en cero: lo que faltaba se pagó con ella, así que el
+    # plan termina ese día (las mensualidades de después ya no se enseñan)
+    if account.cancelled_on is not None:
+        bills = [(cut, cents) for cut, cents in bills if cut <= account.cancelled_on]
+        today = min(today, account.cancelled_on)
     done = [cents for cut, cents in bills if cut <= today]
-    upcoming = [cut for cut, _ in bills if cut > today]
+    upcoming = [] if account.cancelled_on is not None else [cut for cut, _ in bills if cut > today]
     return FinInstallmentResponse(
         id=inst.id, account_id=inst.account_id, transaction_id=inst.transaction_id, concept=inst.concept,
         total_cents=inst.total_cents, currency=account.currency, months=inst.months,
-        purchase_date=inst.purchase_date, first_statement=inst.first_statement, monthly_cents=bills[0][1],
-        billed=len(done), remaining_cents=inst.total_cents - sum(done),
+        purchase_date=inst.purchase_date, first_statement=inst.first_statement, monthly_cents=all_bills[0][1],
+        billed=len(done), remaining_cents=0 if account.cancelled_on is not None else inst.total_cents - sum(done),
         next_statement=upcoming[0] if upcoming else None,
         bills=[FinInstallmentBill(cut=cut, part=k + 1, amount_cents=cents) for k, (cut, cents) in enumerate(bills)],
     )

@@ -656,6 +656,16 @@ Lo que no se ve en Swagger:
   `"<id>:<fecha límite>"`): **solo** con `GET /api/notices?finance=true` (la página de Finanzas, con el módulo y el
   consentimiento); sin él no sale ni cuenta en el círculo rojo de Habit Tracker. Pagado o pasado, hecho; con la
   campana apagada, desaparece. *Pagar* en el aviso usa `finPayCard()` (`finance-accounts.js`).
+  **Dar de baja una tarjeta** (Finanzas 0.8, menú de la tarjeta › *Dar de baja*; `POST /accounts/{id}/cancel`): el
+  banco pide que esté en cero, así que con deuda pide desde qué cuenta se pagó y con saldo a favor a cuál va, y anota
+  esa transferencia con su fecha (no antes de su saldo inicial); sus fijos activos pasan a otra cuenta (`move`) o se
+  pausan (`pause`), y luego se archiva con `fin_accounts.cancelled_on` (columna en `migrate.py`; la elige el usuario,
+  hoy o antes). Reactivarla la borra. Las compras a meses ya contaron completas en el saldo y sus mensualidades nunca son
+  movimientos: en cero están pagadas, así que `_installment_response()` corta sus `bills` en la fecha de baja y deja
+  `remaining_cents` en 0, **sin tocar el saldo ni el resumen** (`test_finance_cancel.py`). Un fijo pausado en una tarjeta
+  dada de baja no se reanuda ahí (409), sale en Fijos como "su tarjeta se dio de baja" y en la campana de Finanzas es
+  el pendiente `fixed_cancelled` hasta cambiarle la cuenta. Archivadas dicen "Dada de baja el …", y la lupa de
+  Movimientos sigue ofreciéndola para buscar su historial.
   **Buscar en Movimientos** (Finanzas 0.7, `finance-search.js`): la lupa de arriba, solo en Movimientos, abre la hoja
   *Buscar* (texto en concepto, categoría o monto, sin acentos ni mayúsculas; tipo; cuentas; categorías de gasto e
   ingreso). Filtra **en el navegador** lo cargado del periodo que se ve (para todo, *Siempre*); dentro de un grupo vale

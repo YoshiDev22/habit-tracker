@@ -418,7 +418,9 @@ function finFixedText(rc) {
         ? ` (${finDayText(rc.first_day)} y ${finDayText(rc.second_day)})` : '';
     const parts = [`${formatMoney(rc.amount_cents, rc.currency)} ${FIN_FREQUENCY_LABELS[rc.frequency]}${days}`];
     if (account) parts.push(account.name);
-    if (rc.paused) parts.push('en pausa');
+    // Pausado al dar de baja su tarjeta: hasta cambiarle la cuenta (la campana lo recuerda)
+    if (rc.paused && account && account.cancelled_on) parts.push('su tarjeta se dio de baja: cámbiale la cuenta');
+    else if (rc.paused) parts.push('en pausa');
     else if (rc.next_date) parts.push(`siguiente: ${finShortDate(rc.next_date)}`);
     else parts.push('terminado');
     return parts.join(' · ');
@@ -549,7 +551,9 @@ function finRenderArchivedPage() {
         const row = el('li', 'fin-config-row');
         row.dataset.accountId = String(a.id);
         const text = el('span', 'fin-config-text');
-        text.append(el('strong', '', a.name), el('small', '', `${a.tx_count} movimientos · ${formatMoney(a.balance_cents, a.currency)}`));
+        text.append(el('strong', '', a.name), el('small', '', [
+            a.cancelled_on ? `Dada de baja el ${finShortDate(a.cancelled_on)}` : '',
+            `${a.tx_count} movimientos`, formatMoney(a.balance_cents, a.currency)].filter(Boolean).join(' · ')));
         const restore = el('button', 'link-btn fin-restore', 'Reactivar');
         restore.type = 'button';
         row.append(finBadge(finAccountIcon(a), finAccountColor(a), { square: true }), text, restore);

@@ -782,6 +782,9 @@ class FinAccount(SQLModel, table=True):
     due_day: Optional[int] = Field(default=None)
     # Solo crédito: la tasa de interés anual que cobra, de referencia (no se calcula nada con ella)
     interest_rate_bp: Optional[int] = Field(default=None)
+    # Una tarjeta dada de baja en el banco (Finanzas 0.8): el día que la canceló. Queda
+    # archivada en cero; sus MSI dejan de enseñarse después de ese día
+    cancelled_on: Optional[date_type] = Field(default=None)
     # Un apartado (ahorro dentro de la cuenta) cuelga de su cuenta madre: un solo
     # nivel, de efectivo o débito, misma moneda y tipo. Mover dinero entre ellas
     # es una transferencia. NULL = cuenta suelta.

@@ -106,6 +106,8 @@ MIGRATIONS = [
     # El aviso del pago de una tarjeta (Finanzas 0.8): días de anticipación y si sale en la campana
     {"table": "fin_settings", "column": "due_notice_days", "type": "INTEGER", "new_table": True},
     {"table": "fin_settings", "column": "due_notice_bell", "type": "BOOLEAN", "new_table": True},
+    # Una tarjeta dada de baja (Finanzas 0.8): el día que se canceló
+    {"table": "fin_accounts", "column": "cancelled_on", "type": "DATE", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

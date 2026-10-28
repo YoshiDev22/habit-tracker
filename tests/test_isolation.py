@@ -253,6 +253,15 @@ def test_personal_finance(seeded):
                                         "return_account_id": mine["id"]}),
     ]:
         assert other.call(method, path, body)[0] == 404, (method, path)
+    # Ni dar de baja mi tarjeta, ni pagar la suya (o sus fijos) desde una cuenta mía al darla de baja
+    today = date.today().isoformat()
+    assert other.call("POST", f"/api/finance/accounts/{card['id']}/cancel", {"cancelled_on": today})[0] == 404
+    _, their_card = other.call("POST", "/api/finance/accounts", {"name": "Suya", "kind": "credit"}, expect=201)
+    _, their_buy = other.call("POST", "/api/finance/transactions", tx(their_card, 5, "suya", their_cat), expect=201)
+    assert other.call("POST", f"/api/finance/accounts/{their_card['id']}/cancel",
+                      {"cancelled_on": today, "settle_account_id": mine["id"]})[0] == 404
+    other.call("DELETE", f"/api/finance/transactions/{their_buy['id']}", expect=204)
+    other.call("DELETE", f"/api/finance/accounts/{their_card['id']}", expect=204)
     _, their_tx = other.call("POST", "/api/finance/transactions", tx(theirs, 1, "suyo", their_cat), expect=201)
     assert other.call("PATCH", f"/api/finance/transactions/{their_tx['id']}", {"account_id": mine["id"]})[0] == 404
 

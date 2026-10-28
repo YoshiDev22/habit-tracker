@@ -1700,6 +1700,43 @@
     margin: 8px 0;
 }
 
+/* --- Dar de baja una tarjeta --- */
+
+.fin-cancel-group {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--bg-surface-2);
+}
+
+.fin-cancel-group[hidden] {
+    display: none;
+}
+
+.fin-cancel-question {
+    margin: 0 0 6px;
+    font-weight: 600;
+}
+
+.fin-cancel-fields {
+    margin: 0;
+}
+
+.fin-cancel-group .fin-check {
+    align-items: center;
+}
+
+.fin-cancel-group .fin-check span {
+    flex: 1;
+}
+
+.fin-cancel-group .fin-cancel-move span {
+    flex: none;
+}
+
+.fin-cancel-group select {
+    max-width: 100%;
+}
+
 /* --- Ajustes --- */
 
 .fin-settings-modal {

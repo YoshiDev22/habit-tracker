@@ -242,7 +242,7 @@ async def main():
         st = await b.js("""({acts: [...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct),
             label: document.getElementById('finMenuLabel').textContent,
             form: document.getElementById('finAccountSheet').classList.contains('hidden')})""")
-        check(st["acts"] == ["edit", "adjust", "movements", "pay", "expense", "msi"] and st["label"] == "A favor" and st["form"],
+        check(st["acts"] == ["edit", "adjust", "movements", "pay", "expense", "msi", "cancel"] and st["label"] == "A favor" and st["form"],
               f"a card opens its menu, with what it has in favor after paying more ({st})")
         await b.shot("finance_card_menu", full=False)
         # Meses sin intereses copiados del estado de cuenta: $300 en 3, el pago 2 de 3
@@ -1116,6 +1116,48 @@ async def main():
         await set_value("#finDueDays", "3")
         saved = await wait_api("/api/finance/reminder-settings", lambda body: body["due_days"] == 3)
         check(saved == {"due_days": 3, "due_bell": True}, f"the notice settings save on change ({saved})")
+        await b.js("closeFinDrawer()")
+
+        # Dar de baja esa tarjeta: pregunta desde dónde se pagó lo que debe y qué hacer con su fijo
+        cats_now = {c["name"]: c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]}
+        _, fixed_on_card = api.call("POST", "/api/finance/recurring", {
+            "kind": "expense", "account_id": soon["id"], "category_id": cats_now["Suscripciones"]["id"],
+            "concept": "Música", "amount_cents": 9_900, "frequency": "monthly",
+            "start_date": (TODAY + timedelta(days=12)).isoformat()}, expect=201)
+        await b.js("finLoad()")
+        await b.wait_for("(finState.recurring || []).some(r => r.concept === 'Música')")
+        await open_menu("Por vencer")
+        await b.js("document.querySelector('[data-menu-act=\"cancel\"]').click()")
+        await b.wait_for("!document.getElementById('finCancelPage').hidden")
+        st = await b.js("""({settle: document.getElementById('finCancelSettleText').textContent,
+            fixed: document.getElementById('finCancelFixedText').textContent,
+            account: document.getElementById('finCancelSettleAccount').selectedOptions[0].textContent})""")
+        check(st["settle"] == "Aún debes $800.00. ¿Desde qué cuenta lo pagaste?" and "Música" in st["fixed"],
+              f"Dar de baja asks how the debt was paid and what to do with its fixed charge ({st})")
+        await b.shot("finance_card_cancel", full=False)
+        await b.js("document.querySelector('input[name=\"finCancelFixedAction\"][value=\"pause\"]').click()")
+        await b.js("document.getElementById('finCancelSave').click()")
+        await b.wait_for("!document.getElementById('confirmModal').classList.contains('hidden')")
+        await b.js("document.getElementById('confirmModalConfirmBtn').click()")
+        gone = await wait_api("/api/finance/accounts", lambda body: any(
+            a["id"] == soon["id"] and not a["is_active"] for a in body["accounts"]))
+        gone = next(a for a in gone["accounts"] if a["id"] == soon["id"])
+        paused = next(r for r in api.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"]
+                      if r["id"] == fixed_on_card["id"])
+        check(gone["cancelled_on"] == TODAY.isoformat() and gone["balance_cents"] == 0 and paused["paused"],
+              f"the card is paid off, archived with its date, and its fixed charge waits ({gone['balance_cents']}, {paused['paused']})")
+        await b.wait_for("document.getElementById('finAccountMenu').classList.contains('hidden')")
+        await b.js("document.getElementById('finBellBtn').click()")
+        await b.wait_for("!!document.querySelector('#finNoticesBody [data-notice-fixed]')")
+        await b.js("document.querySelector('#finNoticesBody [data-notice-fixed]').click()")
+        fixed_text = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finFixedList li')]
+            .find(x => x.textContent.includes('Música')); return r ? r.textContent : null; })()""", lambda v: v)
+        check("su tarjeta se dio de baja" in fixed_text,
+              f"the bell reminds the paused fixed charge and leads to Fijos ({fixed_text})")
+        await b.js("openFinSettings('archived')")
+        archived = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finArchivedList li')]
+            .find(x => x.textContent.includes('Por vencer')); return r ? r.textContent : null; })()""", lambda v: v)
+        check("Dada de baja el" in archived, f"archived accounts say when a card was cancelled ({archived})")
         await b.js("closeFinDrawer()")
 
         # En computadora, el panel no se ensancha al abrir una opción, y nada se sale de lado

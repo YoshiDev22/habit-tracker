@@ -20,7 +20,8 @@ referencia):
 Los de Finanzas (Finanzas 0.8) solo salen en la campana de la página de Finanzas
 (`finance=True`), nunca en la de Habit Tracker ni en su círculo rojo: el pago de una
 tarjeta que se acerca (`card_due`, ref = "<id de la tarjeta>:<fecha límite>"),
-pendiente mientras quede algo por pagar de ese corte.
+pendiente mientras quede algo por pagar de ese corte, y un fijo que quedó en pausa al dar
+de baja su tarjeta (`fixed_cancelled`, ref = id del fijo), pendiente hasta cambiarle la cuenta.
 
 El círculo rojo cuenta los pendientes más los informativos sin leer. Lo que no
 es pendiente se borra a los 60 días.
@@ -34,9 +35,9 @@ from sqlmodel import Session, select
 from backend.models import (AccountMessage, Announcement, Feedback, HabitEntry, Notice, PomodoroSession, Report, User,
                             utc_now_naive)
 
-PENDING_KINDS = ("review", "missed_day", "card_due")
+PENDING_KINDS = ("review", "missed_day", "card_due", "fixed_cancelled")
 # Solo en la campana de Finanzas
-FINANCE_KINDS = ("card_due",)
+FINANCE_KINDS = ("card_due", "fixed_cancelled")
 INFO_KINDS = ("report_ready", "novedades", "announcement", "feedback_closed", "message")
 KEEP_DAYS = 60
 SUBJECT_TITLE = {"time": "tiempo", "habits": "hábitos", "costs": "costos"}
@@ -79,9 +80,14 @@ def sync_pending(session: Session, user: User, today: date_type, habits_on: bool
 
 
 def sync_finance(session: Session, user: User, today: date_type) -> None:
-    """Crea el aviso del pago de cada tarjeta que ya toca avisar (si sale en la campana)."""
+    """Crea el aviso del pago de cada tarjeta que ya toca avisar (si sale en la campana)
+    y el de cada fijo que quedó en pausa en una tarjeta dada de baja."""
     from backend.finance import card_statement, due_notice_settings
-    from backend.models import FinAccount
+    from backend.models import FinAccount, FinRecurring
+    for rc_id in session.exec(select(FinRecurring.id).join(FinAccount, FinAccount.id == FinRecurring.account_id)
+                              .where(FinRecurring.user_id == user.id, FinRecurring.paused == True,  # noqa: E712
+                                     FinAccount.cancelled_on != None)).all():  # noqa: E711
+        add_notice(session, user.id, "fixed_cancelled", str(rc_id))
     _, bell = due_notice_settings(session, user.id)
     if not bell:
         return
@@ -128,6 +134,23 @@ def _describe_card_due(session: Session, notice: Notice, base: Dict, today: date
             "amount_cents": st.remaining_cents}
 
 
+def _describe_fixed_cancelled(session: Session, notice: Notice, base: Dict) -> Optional[Dict]:
+    """Un fijo pausado al dar de baja su tarjeta: pendiente mientras siga ahí."""
+    from backend.models import FinAccount, FinRecurring
+    rc = session.exec(select(FinRecurring).where(FinRecurring.user_id == notice.user_id,
+                                                 FinRecurring.id == int(notice.ref))).first()
+    if rc is None:
+        return None
+    account = session.get(FinAccount, rc.account_id)
+    title = f"Fijo sin cuenta: {rc.concept}"
+    if account is not None and account.cancelled_on is not None and rc.paused:
+        status = "dismissed" if notice.dismissed_at else "pending"
+        return {**base, "status": status, "title": title, "recurring_id": rc.id,
+                "detail": f"Se pausó al dar de baja {account.name}. Cámbiale la cuenta para que se siga anotando."}
+    return {**base, "status": "done", "title": title, "recurring_id": rc.id,
+            "detail": "Ya tiene otra cuenta." if account is None or account.cancelled_on is None else "Ya no está en pausa."}
+
+
 def _day_has_habit(session: Session, user_id: int, day: date_type) -> bool:
     entry = session.exec(select(HabitEntry).where(
         HabitEntry.user_id == user_id, HabitEntry.entry_date == day)).first()
@@ -156,6 +179,8 @@ def describe(session: Session, notice: Notice, today: Optional[date_type] = None
                 "detail": ("Ese día no anotaste ningún hábito. Si sí lo hiciste, márcalo y tu racha vuelve."
                            if status == "pending" else "Ya anotaste ese día." if done else "Lo descartaste."),
                 "date": notice.ref}
+    if notice.kind == "fixed_cancelled":
+        return _describe_fixed_cancelled(session, notice, base)
     if notice.kind == "card_due":
         return _describe_card_due(session, notice, base, today or date_type.today())
     if notice.kind == "report_ready":
