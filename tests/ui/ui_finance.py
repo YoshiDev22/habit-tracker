@@ -194,6 +194,8 @@ async def main():
         check(statement["remaining_cents"] == 30000 and "300.00" in (shown or ""),
               f"the card says what to pay before its due date ({shown}, {statement['remaining_cents']})")
         await b.shot("finance_statement", full=False)
+        # El botón lleva la deuda de cuando se pintó: esperar el repintado con la de ahora
+        await b.wait_for("(document.querySelector('[data-pay-card]') || {dataset: {}}).dataset.payDebt", lambda v: v == "30000")
         await b.js("document.querySelector('[data-pay-card]').click()")
         await b.wait_for("!document.getElementById('finEntry').classList.contains('hidden')")
         st = await b.js("""({kind: document.getElementById('finEntryKind').textContent,
@@ -240,7 +242,7 @@ async def main():
         st = await b.js("""({acts: [...document.querySelectorAll('#finMenuActions [data-menu-act]')].map(a => a.dataset.menuAct),
             label: document.getElementById('finMenuLabel').textContent,
             form: document.getElementById('finAccountSheet').classList.contains('hidden')})""")
-        check(st["acts"] == ["edit", "adjust", "movements", "pay", "expense", "msi"] and st["label"] == "A favor" and st["form"],
+        check(st["acts"] == ["edit", "adjust", "movements", "pay", "expense", "msi", "cancel"] and st["label"] == "A favor" and st["form"],
               f"a card opens its menu, with what it has in favor after paying more ({st})")
         await b.shot("finance_card_menu", full=False)
         # Meses sin intereses copiados del estado de cuenta: $300 en 3, el pago 2 de 3
@@ -486,8 +488,9 @@ async def main():
         check(cetes["kind"] == "investment" and t["account_id"] == cetes["id"] and cetes["balance_cents"] == 100_000,
               f"the new investment account is created with the term, and the money moves in ({cetes})")
         heads = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finAccountsBody .fin-account strong')]
-            .map(s => s.textContent); return r.includes('CETES') ? r : null; })()""", lambda v: v)
-        check(heads.index("CETES") < heads.index("CETES 91"), f"Inversiones lists investment accounts first ({heads})")
+            .map(s => s.textContent); return r.includes('CETES') && r.includes('CETES 91') ? r : null; })()""", lambda v: v)
+        heads = heads or []
+        check("CETES 91" in heads and heads.index("CETES") < heads.index("CETES 91"), f"Inversiones lists investment accounts first ({heads})")
         await b.shot("finance_investments", full=False)
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
 
@@ -663,12 +666,21 @@ async def main():
         items = await b.js("[...document.querySelectorAll('#finDrawer .fin-drawer-item')].map(i => i.textContent.trim())")
         check(items == ["Configuración", "Datos", "Notas", "Novedades", "Aviso de privacidad", "Regresar a Habit Tracker"],
               f"the gear opens a side menu ({items})")
+        # Al pie de la portada, la versión de Finanzas, centrada; en una página, no
+        finance_version = (Path(__file__).resolve().parents[2] / "FINANCE_VERSION").read_text().strip()
+        st = await b.js("""(() => { const v = document.getElementById('finDrawerVersion'), p = document.getElementById('finDrawerPanel');
+            const r = v.getBoundingClientRect(), q = p.getBoundingClientRect();
+            return {text: v.textContent, shown: !v.hidden, align: getComputedStyle(v).textAlign,
+                    bottom: Math.round(q.bottom - r.bottom)}; })()""")
+        check(st["text"] == f"Finanzas {finance_version}" and st["shown"] and st["align"] == "center" and st["bottom"] < 60,
+              f"the side menu shows the Finanzas version at its foot, centered ({st})")
         await b.shot("finance_drawer", full=False)
         await b.js("document.querySelector('#finDrawer [data-go=\"data\"]').click()")
         st = await b.wait_for("""(() => { const page = document.querySelector('#finDrawer [data-section="data"]');
             return page.classList.contains('active') ? {title: document.getElementById('finDrawerPageTitle').textContent,
                 open: !document.getElementById('finDrawer').classList.contains('hidden')} : null; })()""", lambda v: v)
         check(st and st["title"] == "Datos" and st["open"], f"Datos opens inside the side menu, with its title ({st})")
+        check(await b.js("document.getElementById('finDrawerVersion').hidden"), "the version only shows on the menu's front page")
         await b.js("document.getAnimations().forEach(a => a.finish())")
         await b.shot("finance_drawer_data", full=False)
         lines = await b.js("finExportLines(finState.transactions)")
@@ -1045,6 +1057,8 @@ async def main():
                                 "Enciéndelo en ⚙️ Configuración › Módulos.")).lastrowid
             conn.execute("INSERT INTO notices (user_id, kind, ref, created_at) VALUES (?, 'message', ?, ?)",
                          (uid, str(mid), f"{TODAY.isoformat()} 12:00:00"))
+        # Las tarjetas de antes pueden tener su pago cerca según el día: aquí solo cuentan estos avisos
+        api.call("PUT", "/api/finance/reminder-settings", {"due_days": 5, "due_bell": False}, expect=200)
         await b.js("finLoadNotices()")
         count = await b.wait_for("document.getElementById('finBellCount').textContent", lambda v: v)
         await b.js("document.getElementById('finBellBtn').click()")
@@ -1068,6 +1082,83 @@ async def main():
         check(all(n["read"] for n in after if n["kind"] in ("announcement", "message"))
               and any(n["kind"] == "novedades" and not n["read"] for n in after),
               "opening it reads only its own notices; Habit Tracker's stay unread in the app")
+
+        # El pago de una tarjeta que se acerca: la tarjeta en alerta y, en la campana, con Pagar
+        api.call("PUT", "/api/finance/reminder-settings", {"due_days": 5, "due_bell": True}, expect=200)
+        cut, due = TODAY - timedelta(days=10), TODAY + timedelta(days=3)
+        _, soon = api.call("POST", "/api/finance/accounts", {
+            "name": "Por vencer", "kind": "credit", "statement_day": min(cut.day, 28), "due_day": due.day,
+            "opening_balance_cents": -80_000, "opening_date": (TODAY - timedelta(days=20)).isoformat()}, expect=201)
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+        await b.js("finLoad()")
+        alert = await b.wait_for(f"""(() => {{ const box = document.querySelector('[data-statement-for="{soon['id']}"]');
+            const main = box && box.querySelector('.fin-statement-main');
+            return main ? {{soon: main.classList.contains('due-soon'),
+                text: (main.querySelector('.fin-due-soon') || {{}}).textContent}} : null; }})()""", lambda v: v)
+        check(alert == {"soon": True, "text": "Vence en 3 días"}, f"a card whose payment is close turns red and says when ({alert})")
+        await b.js(f"""document.querySelector('[data-statement-for="{soon['id']}"]').scrollIntoView({{block: 'center'}})""")
+        await b.shot("finance_card_due", full=False)
+        await b.js("document.getElementById('finBellBtn').click()")
+        await b.wait_for("!!document.querySelector('#finNoticesBody [data-notice-pay]')")
+        row = await b.js("document.querySelector('#finNoticesBody [data-notice-pay]').closest('.fin-notice').textContent")
+        check("Pago de Por vencer" in row and "800.00" in row, f"the bell reminds the card payment ({row})")
+        await b.js("document.querySelector('#finNoticesBody [data-notice-pay]').click()")
+        await b.wait_for("!document.getElementById('finEntry').classList.contains('hidden')")
+        st = await b.js("""({kind: document.getElementById('finEntryKind').textContent, to: document.getElementById('finBandToName').textContent,
+            expr: document.getElementById('finEntryExpr').textContent})""")
+        check(st["kind"] == "Transferencia" and st["to"] == "Por vencer" and "800" in st["expr"],
+              f"Pagar in the bell opens the payment to that card ({st})")
+        await b.js("closeFinSheet(finEntrySheet)")
+        # Configuración › Avisos: se guarda al cambiar
+        await b.js("openFinSettings('notices')")
+        await b.wait_for("document.getElementById('finDueDays').value === '5' && document.getElementById('finDueBell').checked")
+        await set_value("#finDueDays", "3")
+        saved = await wait_api("/api/finance/reminder-settings", lambda body: body["due_days"] == 3)
+        check(saved == {"due_days": 3, "due_bell": True}, f"the notice settings save on change ({saved})")
+        await b.js("closeFinDrawer()")
+
+        # Dar de baja esa tarjeta: pregunta desde dónde se pagó lo que debe y qué hacer con su fijo
+        cats_now = {c["name"]: c for c in api.call("GET", "/api/finance/categories", expect=200)[1]["categories"]}
+        _, fixed_on_card = api.call("POST", "/api/finance/recurring", {
+            "kind": "expense", "account_id": soon["id"], "category_id": cats_now["Suscripciones"]["id"],
+            "concept": "Música", "amount_cents": 9_900, "frequency": "monthly",
+            "start_date": (TODAY + timedelta(days=12)).isoformat()}, expect=201)
+        await b.js("finLoad()")
+        await b.wait_for("(finState.recurring || []).some(r => r.concept === 'Música')")
+        await open_menu("Por vencer")
+        await b.js("document.querySelector('[data-menu-act=\"cancel\"]').click()")
+        await b.wait_for("!document.getElementById('finCancelPage').hidden")
+        st = await b.js("""({settle: document.getElementById('finCancelSettleText').textContent,
+            fixed: document.getElementById('finCancelFixedText').textContent,
+            account: document.getElementById('finCancelSettleAccount').selectedOptions[0].textContent})""")
+        check(st["settle"] == "Aún debes $800.00. ¿Desde qué cuenta lo pagaste?" and "Música" in st["fixed"],
+              f"Dar de baja asks how the debt was paid and what to do with its fixed charge ({st})")
+        await b.shot("finance_card_cancel", full=False)
+        await b.js("document.querySelector('input[name=\"finCancelFixedAction\"][value=\"pause\"]').click()")
+        await b.js("document.getElementById('finCancelSave').click()")
+        await b.wait_for("!document.getElementById('confirmModal').classList.contains('hidden')")
+        await b.js("document.getElementById('confirmModalConfirmBtn').click()")
+        gone = await wait_api("/api/finance/accounts", lambda body: any(
+            a["id"] == soon["id"] and not a["is_active"] for a in body["accounts"]))
+        gone = next(a for a in gone["accounts"] if a["id"] == soon["id"])
+        paused = next(r for r in api.call("GET", "/api/finance/recurring", expect=200)[1]["recurring"]
+                      if r["id"] == fixed_on_card["id"])
+        check(gone["cancelled_on"] == TODAY.isoformat() and gone["balance_cents"] == 0 and paused["paused"],
+              f"the card is paid off, archived with its date, and its fixed charge waits ({gone['balance_cents']}, {paused['paused']})")
+        await b.wait_for("document.getElementById('finAccountMenu').classList.contains('hidden')")
+        await b.js("document.getElementById('finBellBtn').click()")
+        await b.wait_for("!!document.querySelector('#finNoticesBody [data-notice-fixed]')")
+        await b.js("document.querySelector('#finNoticesBody [data-notice-fixed]').click()")
+        fixed_text = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finFixedList li')]
+            .find(x => x.textContent.includes('Música')); return r ? r.textContent : null; })()""", lambda v: v)
+        check("su tarjeta se dio de baja" in fixed_text,
+              f"the bell reminds the paused fixed charge and leads to Fijos ({fixed_text})")
+        await b.js("openFinSettings('archived')")
+        archived = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finArchivedList li')]
+            .find(x => x.textContent.includes('Por vencer')); return r ? r.textContent : null; })()""", lambda v: v)
+        check("Dada de baja el" in archived, f"archived accounts say when a card was cancelled ({archived})")
+        await b.js("closeFinDrawer()")
 
         # En computadora, el panel no se ensancha al abrir una opción, y nada se sale de lado
         await b.viewport(1280, 900, mobile=False)

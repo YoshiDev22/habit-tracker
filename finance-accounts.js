@@ -24,6 +24,7 @@ const FIN_MENU_ACTIONS = {
         ['pay', 'arrow-up', 'Pagar', '#27ae60'],
         ['expense', 'arrow-down', 'Compra', '#e84393'],
         ['msi', 'calendar-days', 'Meses sin intereses', '#5c6bc0'],
+        ['cancel', 'archive', 'Dar de baja', '#95a5a6'],
     ],
 };
 
@@ -120,6 +121,7 @@ function finMenuPage(name) {
     document.getElementById('finMenuActions').hidden = Boolean(name);
     document.getElementById('finAdjustForm').hidden = name !== 'adjust';
     document.getElementById('finYieldPage').hidden = name !== 'yield';
+    document.getElementById('finCancelPage').hidden = name !== 'cancel';
     document.getElementById('finMsiPage').hidden = name !== 'msi';
     document.getElementById('finStatementPage').hidden = name !== 'statement';
     document.getElementById('finMenuStatement').hidden = Boolean(name) || !finMenu.statement;
@@ -152,6 +154,8 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
         finPayCard(a);
     } else if (act === 'msi') {
         openFinMsi();
+    } else if (act === 'cancel') {
+        openFinCancel();
     } else if (act === 'pocket') {
         closeFinSheet(finAccountMenu);
         openFinAccount(null, a.kind, { parentId: a.id });
@@ -518,6 +522,94 @@ document.getElementById('finYieldRecordForm').addEventListener('submit', async (
     try {
         await apiFetch(`/api/finance/accounts/${a.id}/yield`, { method: 'POST', json: bank ? { amount_cents: bank } : {} });
         document.getElementById('finYieldBank').value = '';
+        closeFinSheet(finAccountMenu);
+        await finLoad();
+    } catch (error) {
+        showError(errorEl, error.message);
+    }
+});
+
+// ---------- Dar de baja una tarjeta ----------
+
+// Las cuentas activas a las que puede ir el dinero (o los fijos): otras, de su moneda
+function finCancelTargets(card) {
+    return finActiveAccounts().filter(a => a.id !== card.id && a.currency === card.currency);
+}
+
+function finFillAccountSelect(select, accounts, preferred) {
+    select.replaceChildren(...accounts.map(a => {
+        const option = el('option', '', a.name);
+        option.value = String(a.id);
+        return option;
+    }));
+    const pick = accounts.find(a => a.id === preferred) || accounts.find(a => a.kind !== 'credit') || accounts[0];
+    if (pick) select.value = String(pick.id);
+}
+
+function openFinCancel() {
+    const card = finMenu.account;
+    const today = finToday();
+    const money = cents => formatMoney(cents, card.currency);
+    document.getElementById('finCancelError').classList.add('hidden');
+    const date = document.getElementById('finCancelDate');
+    date.value = today;
+    date.max = today;
+    const settleDate = document.getElementById('finCancelSettleDate');
+    settleDate.value = today;
+    settleDate.max = today;
+    if (card.opening_date) settleDate.min = card.opening_date;
+    const targets = finCancelTargets(card);
+    // En cero no pregunta nada: el banco ya la puede cancelar
+    const balance = card.balance_cents;
+    document.getElementById('finCancelSettle').hidden = !balance;
+    document.getElementById('finCancelSettleText').textContent = balance < 0
+        ? `Aún debes ${money(-balance)}. ¿Desde qué cuenta lo pagaste?`
+        : `Tiene ${money(balance)} a favor. ¿A qué cuenta va?`;
+    finFillAccountSelect(document.getElementById('finCancelSettleAccount'), targets, finState.lastAccounts && finState.lastAccounts.expense);
+    // Sus fijos que siguen activos
+    const fixed = (finState.recurring || []).filter(rc => rc.account_id === card.id && !rc.paused);
+    document.getElementById('finCancelFixed').hidden = !fixed.length;
+    document.getElementById('finCancelFixedText').textContent = fixed.length === 1
+        ? `La usa un fijo: ${fixed[0].concept}.` : `La usan ${fixed.length} fijos: ${fixed.map(rc => rc.concept).join(', ')}.`;
+    finFillAccountSelect(document.getElementById('finCancelFixedAccount'), targets, null);
+    document.querySelector('input[name="finCancelFixedAction"][value="move"]').checked = targets.length > 0;
+    document.querySelector('input[name="finCancelFixedAction"][value="pause"]').checked = !targets.length;
+    // Los MSI que faltan ya están en la deuda: se avisa que quedan pagados
+    const plans = (finState.installments || []).filter(p => p.account_id === card.id && p.remaining_cents > 0);
+    document.getElementById('finCancelMsi').hidden = !plans.length;
+    finMenuPage('cancel');
+}
+
+// Elegir la cuenta de los fijos es elegir pasarlos
+document.getElementById('finCancelFixedAccount').addEventListener('change', () => {
+    document.querySelector('input[name="finCancelFixedAction"][value="move"]').checked = true;
+});
+
+document.getElementById('finCancelForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const card = finMenu.account;
+    const errorEl = document.getElementById('finCancelError');
+    errorEl.classList.add('hidden');
+    const cancelledOn = document.getElementById('finCancelDate').value;
+    if (!cancelledOn || cancelledOn > finToday()) return showError(errorEl, 'La baja es de hoy o de antes.');
+    const body = { cancelled_on: cancelledOn };
+    if (card.balance_cents) {
+        body.settle_account_id = Number(document.getElementById('finCancelSettleAccount').value) || null;
+        body.settle_date = document.getElementById('finCancelSettleDate').value || cancelledOn;
+        if (!body.settle_account_id) return showError(errorEl, 'Elige la cuenta.');
+    }
+    if (!document.getElementById('finCancelFixed').hidden) {
+        body.fixed_action = document.querySelector('input[name="finCancelFixedAction"]:checked').value;
+        if (body.fixed_action === 'move') {
+            body.fixed_account_id = Number(document.getElementById('finCancelFixedAccount').value) || null;
+            if (!body.fixed_account_id) return showError(errorEl, 'Elige a qué cuenta pasan los fijos.');
+        }
+    }
+    const ok = await confirmDialog(`¿Dar de baja ${card.name} el ${finShortDate(cancelledOn)}? Se archiva; puedes reactivarla `
+        + 'en Configuración › Cuentas archivadas.', { title: 'Dar de baja', confirmLabel: 'Dar de baja', danger: true });
+    if (!ok) return;
+    try {
+        await apiFetch(`/api/finance/accounts/${card.id}/cancel`, { method: 'POST', json: body });
         closeFinSheet(finAccountMenu);
         await finLoad();
     } catch (error) {

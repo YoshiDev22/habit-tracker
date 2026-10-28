@@ -124,13 +124,16 @@ function openFinSearch() {
     document.getElementById('finSearchText').value = d.q;
     document.getElementById('finSearchKinds').replaceChildren(...FIN_SEARCH_KINDS.map(([kind, label, icon]) =>
         finSearchToggle('kinds', kind, d.kinds.has(kind), label, [financeIcon(icon, 16)])));
-    // Las activas, y las de un filtro que ya no lo esté (una archivada desde entonces)
-    const accounts = [...finActiveAccounts(), ...finState.accounts.filter(a => !a.is_active && d.accounts.has(a.id))];
+    // Las activas, las tarjetas dadas de baja (su historial se sigue buscando) y las de un
+    // filtro que ya no lo estén (una archivada desde entonces)
+    const accounts = [...finActiveAccounts(),
+        ...finState.accounts.filter(a => !a.is_active && (a.cancelled_on || d.accounts.has(a.id)))];
     document.getElementById('finSearchAccounts').replaceChildren(...accounts.map(a => {
         const button = finSearchToggle('accounts', a.id, d.accounts.has(a.id), a.name,
             [finBadge(finAccountIcon(a), finAccountColor(a), { size: 'sm', square: true })]);
         button.classList.add('fin-search-account');
-        button.appendChild(el('small', '', formatMoney(a.balance_cents, a.currency)));
+        button.appendChild(el('small', '', a.cancelled_on ? `Dada de baja el ${finShortDate(a.cancelled_on)}`
+            : formatMoney(a.balance_cents, a.currency)));
         return button;
     }));
     ['expense', 'income'].forEach(kind => {

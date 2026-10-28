@@ -9,6 +9,34 @@ indica. Va en 0.x mientras Finanzas esté en prueba por invitación.
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de `CLAUDE.md`.
 
+## [0.8.0] — 2026-10-28
+
+El aviso del pago de una tarjeta, dar de baja una tarjeta en cero y la versión en el panel lateral. Lleva migración.
+
+### Nuevo
+- **Aviso del pago de una tarjeta**: mientras quede algo por pagar para no generar intereses y falten 5 días o menos
+  (o 3), la tarjeta se pone en color de alerta en *Cuentas › Tarjetas* y dice "Vence en 3 días", "Vence mañana" o
+  "Vence hoy". La campana de Finanzas lo recuerda con *Pagar* y el aviso se quita solo al pagar; no sale en la campana
+  de Habit Tracker. En *Configuración › Avisos*, 3 o 5 días y si también avisa en la campana (se guarda al cambiarlo).
+- **Dar de baja una tarjeta** (menú de la tarjeta › *Dar de baja*): el banco pide que esté en cero, así que con deuda
+  pregunta desde qué cuenta se pagó y con saldo a favor a cuál va, y anota esa transferencia con su fecha. La fecha de
+  baja es la que elijas (hoy o antes). Sus fijos pasan a otra cuenta o se pausan para después: en *Fijos* dicen "su
+  tarjeta se dio de baja" y la campana los recuerda hasta cambiarles la cuenta. La tarjeta queda archivada con *Dada de
+  baja el …*; su historial sigue en Movimientos y en la lupa. Reactivarla deshace la baja.
+- **La versión de Finanzas** al pie del panel lateral, centrada.
+
+### Cambios
+- Las compras a meses de una tarjeta dada de baja quedan pagadas con ella: sus mensualidades dejan de salir en
+  Movimientos después de la fecha de baja, sin cambiar el saldo ni tus gastos (la compra ya contó completa el día que
+  la hiciste).
+- Un fijo pausado en una cuenta archivada no se reanuda ahí: primero se le cambia la cuenta.
+- El aviso de privacidad menciona la fecha de baja de una tarjeta y los días del aviso del pago.
+
+### Para actualizar
+- Correr `python3 scripts/migrate.py` **antes** de reiniciar: agrega `fin_settings.due_notice_days`,
+  `fin_settings.due_notice_bell` y `fin_accounts.cancelled_on`. Sin ella el servicio no arranca.
+- Publicar el aviso 📢 del cambio en el aviso de privacidad.
+
 ## [0.7.0] — 2026-10-27
 
 Buscar en Movimientos, la cuenta que se propone al anotar y una página de Rendimiento más clara. Sin migración.
@@ -181,6 +209,7 @@ Publicada con Habit Tracker 1.29.0. La primera versión, en prueba y por invitac
 - **Pegar un estado de cuenta** o un CSV, con vista previa y sin duplicar.
 - El **consentimiento expreso** para guardar datos financieros, la primera vez.
 
+[0.8.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.8.0
 [0.7.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.7.0
 [0.6.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.6.0
 [0.5.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.5.0

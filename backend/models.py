@@ -782,6 +782,9 @@ class FinAccount(SQLModel, table=True):
     due_day: Optional[int] = Field(default=None)
     # Solo crédito: la tasa de interés anual que cobra, de referencia (no se calcula nada con ella)
     interest_rate_bp: Optional[int] = Field(default=None)
+    # Una tarjeta dada de baja en el banco (Finanzas 0.8): el día que la canceló. Queda
+    # archivada en cero; sus MSI dejan de enseñarse después de ese día
+    cancelled_on: Optional[date_type] = Field(default=None)
     # Un apartado (ahorro dentro de la cuenta) cuelga de su cuenta madre: un solo
     # nivel, de efectivo o débito, misma moneda y tipo. Mover dinero entre ellas
     # es una transferencia. NULL = cuenta suelta.
@@ -1048,3 +1051,7 @@ class FinSettings(SQLModel, table=True):
     # Cuándo aceptó cómo se tratan sus datos financieros (UTC naive). Sin él, la
     # API de Finanzas no guarda ni enseña nada (finance_user)
     consent_at: Optional[datetime] = Field(default=None)
+    # El aviso del pago de una tarjeta (Finanzas 0.8): con cuántos días antes (3 o 5) y si
+    # también sale en la campana. NULL = por defecto (5 días, sí)
+    due_notice_days: Optional[int] = Field(default=None)
+    due_notice_bell: Optional[bool] = Field(default=None)

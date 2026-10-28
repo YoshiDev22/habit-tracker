@@ -631,55 +631,6 @@ la inicial (1.29) o lo extiende; y qué pasa con el ⚙️ de la app, que hoy es
 **Por decidir.** Con qué número empieza (lo publicado hasta hoy salió dentro de Habit Tracker 1.27.0 a 1.28.0)
 y si su `ExecStart` se reinicia aparte en un deploy que solo toca el panel.
 
-
-## 45 · P2 · Finanzas: avisar cuando se acerca el pago de una tarjeta (Finanzas 0.8)
-
-**Pedido el 2026-10-19.** Que la tarjeta lo diga cuando la fecha límite de pago esté cerca y aún quede algo por
-pagar, y que la campana de Finanzas lo avise.
-
-**Idea.** Con lo que ya calcula `card_statement()` (`due_date` y `remaining_cents`): en *Cuentas › Tarjetas*,
-una línea en la tarjeta ("Vence en 3 días", "Vence hoy") y, en la campana, un aviso **pendiente** calculado de los
-datos, como `missed_day` (`backend/notices.py`): se crea al pedir los avisos y queda `done` en cuanto lo que falta
-pagar llega a cero, así que nunca dice algo que ya no es cierto. Se suma a `FIN_BELL_KINDS` y **no** sale en la
-campana de Habit Tracker.
-
-**Decidido (2026-10-19).** La tarjeta cambia a color de alerta y dice "Vence en 3 días" / "Vence mañana" /
-"Vence hoy". En el panel lateral, *Configuración › Avisos* (página nueva, lista para otros avisos): con cuántos días
-de anticipación (3 o 5; por defecto 5) y *Avisarme en la campana* (por defecto sí; apagada, solo el color). Se
-guardan en **dos columnas nuevas de `fin_settings`** (NULL = por defecto), así que lleva **migración**
-(`migrate.py` antes de reiniciar). La campana de Habit Tracker pide sus avisos sin el de Finanzas, y su conteo no lo
-incluye. Se pensó para salir con la 46 (apartados y rendimientos, cerrada en Finanzas 0.6); el 2026-10-23 se
-dejó para la siguiente versión, y el 2026-10-27 pasó a la 0.8 (con la 47). Lleva su propia migración.
-
-**Por decidir.** Si también avisa el día de corte.
-
-## 47 · P2 · Finanzas: tarjetas dadas de baja (Finanzas 0.8)
-
-**Pedido el 2026-10-23.** Qué pasa con una tarjeta de crédito que se cancela en el banco. Hoy, con movimientos, solo
-se archiva (`is_active = false`): sale de Cuentas y Tarjetas y de "Todas las cuentas", y se reactiva en
-Configuración › Cuentas archivadas. Pero archivarla no dice nada de lo que quedó pendiente.
-
-**Lo que hay hoy (revisado el 2026-10-27).** El servidor ya deja archivar una tarjeta con deuda y anotar pagos a una
-cuenta archivada; el problema es de pantalla: archivada, su deuda desaparece de "Todas las cuentas" y de Tarjetas, y
-no hay dónde pagarla.
-
-**Decidido (2026-10-27).** Para cancelar una tarjeta, el banco pide que esté en cero. Así que **antes de archivarla, si
-su saldo no es cero, la app pregunta qué hacer** en vez de archivarla así:
-- **Con deuda:** cómo se pagó: desde otra cuenta (una transferencia a la tarjeta desde la que elija, en efectivo
-  incluido) por lo que falta, y con eso queda en cero.
-- **Con saldo a favor:** a dónde va: una transferencia de la tarjeta a la cuenta que elija.
-- Con eso anotado (saldo en cero), se archiva. Sin migración; la fecha *Dada de baja el …* sí pediría una columna
-  (si se quiere, va en la migración de la 45).
-
-**Por decidir.**
-- **MSI por facturar.** Si quedan mensualidades por cobrar, ¿se liquidan con el pago (el banco las cobra todas al
-  cancelar) o la tarjeta sigue *En baja* hasta la última?
-- **Sus fijos y MSI.** Un fijo que se cobra a esa tarjeta hoy impide archivarla (409): ¿ofrecer moverlo a otra?
-- **Cómo se ve.** Una marca *Dada de baja el …* (¿columna nueva con la fecha, o basta archivarla?). Su historial
-  sigue en Movimientos y en los reportes.
-- **Que no vuelva a usarse.** Que no salga al elegir cuenta en la hoja del monto ni en importar, pero sí al filtrar
-  Movimientos por cuenta.
-
 ## 49 · P3 · Comparar el modelo de IA de los reportes (GPT-OSS contra Haiku)
 
 **Decidido el 2026-10-26: se queda GPT-OSS 120B** (Workers AI, `@cf/openai/gpt-oss-120b`). Desde la 1.32 la IA
@@ -701,3 +652,42 @@ proyecto con hijos (`projects.parent_id`, con migración): un nivel, un solo gru
 gastos propios ("General") y el total sumado. Para la 1.34.0: base, Proyectos, Reportes y Costos. Para después:
 repartir un gasto con el grupo como parte y por cantidad (sin inventario), y la idea de Costos como página propia
 hacia el punto de equilibrio.
+
+## 52 · P2 · Finanzas: Deudas en el Resumen y en Cuentas › Deudas (Finanzas 0.9)
+
+**Pedido el 2026-10-28.** Una compra a meses cuenta completa como gasto el día que se hace, y el pago de una tarjeta es
+una transferencia, que el Resumen nunca cuenta como gasto: así no se cuenta doble, pero en los meses siguientes las
+gráficas no enseñan que se sigue pagando esa deuda. Ver cuánto se paga de deudas, **sin sumarlo a los gastos**.
+
+**Decidido (2026-10-28).**
+- **Resumen › *Deudas* del periodo**, en un apartado propio: *Pagos a tarjetas* (las transferencias que llegaron a una
+  tarjeta de crédito en el periodo, por tarjeta) y *Mensualidades de MSI* (las que pedían los cortes del periodo, de
+  `installment_bills()`), con la nota "No se suma a tus gastos: la compra ya se contó el día que la hiciste". Nunca
+  entra al total de gastos ni a las categorías.
+- **Cuentas › Deudas** (hoy "Próximamente"): cada tarjeta con lo que debe, lo que paga al mes de MSI y hasta cuándo
+  (el último corte de sus planes), y el total de lo que queda. Es el arranque de la sección Deudas.
+- Descartado por ahora: repartir las compras a meses mes a mes dentro de los gastos (cambiaría los totales según un
+  interruptor y confunde).
+
+- **Tipos de deuda:** al crear una se elige el tipo (tarjeta de crédito, préstamo personal, préstamo de una persona
+  conocida, crédito bancario, hipotecario, otro). El tipo cambia el icono y lo que pide: una tarjeta, corte y pago; un
+  préstamo, mensualidad, plazo y, si cobra, su tasa.
+
+**Préstamos: cuándo un pago es gasto (decidido 2026-10-28).** Un préstamo es una cuenta de deuda con lo que se debe
+como saldo inicial (como la deuda inicial de una tarjeta), que no es un gasto. Al crearlo, la app pregunta si **lo que
+se pagó con él ya está anotado como gasto**:
+- **Ya está anotado** (como una compra con tarjeta): sus pagos son transferencias que solo bajan la deuda.
+- **No está anotado** (por ejemplo, algo comprado antes de usar la app): se elige la **categoría de sus pagos**, y cada
+  pago cuenta como gasto en esa categoría **y** baja la deuda, en un solo movimiento (se cuenta una vez). Así el gasto
+  sale mes a mes donde corresponde, y la deuda en Deudas.
+- Con tasa, la parte de interés de cada pago es gasto (categoría *Intereses*) y el resto baja la deuda.
+- Prueba obligada: en ningún caso un mismo peso cuenta dos veces entre gastos, saldo de la deuda y Resumen › Deudas.
+
+**Exportar (propuesta).** En *Datos › Exportar*, un CSV de deudas: cada una con lo que queda y sus pagos con fecha. El
+CSV de movimientos ya trae cada pago. El apartado del Resumen entraría en un reporte de Finanzas cuando lo haya.
+
+**Compartir una deuda (decidido 2026-10-28), en dos pasos:**
+1. *Compartir* en la deuda arma un resumen para mandar (texto o PDF): lo pagado, lo que falta, cuántos pagos van y el
+   último. No abre acceso a nadie: quien lo usa decide qué manda y cuándo.
+2. Después, si hace falta, un enlace de solo lectura de **esa** deuda (nada más de la cuenta), que se puede apagar y
+   caduca. Cambia el aviso de privacidad (lo de una cuenta queda a la vista de otra persona): va con su 📢.

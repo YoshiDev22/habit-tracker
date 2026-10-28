@@ -73,6 +73,17 @@ def settings_row(session: Session, user_id: int) -> Optional[FinSettings]:
     return session.exec(select(FinSettings).where(FinSettings.user_id == user_id)).first()
 
 
+DUE_NOTICE_DAYS = 5   # por defecto: avisar del pago de una tarjeta 5 días antes
+
+
+def due_notice_settings(session: Session, user_id: int) -> tuple:
+    """(días de anticipación, si sale en la campana) del aviso del pago de una tarjeta."""
+    row = settings_row(session, user_id)
+    days = row.due_notice_days if row and row.due_notice_days else DUE_NOTICE_DAYS
+    bell = True if not row or row.due_notice_bell is None else row.due_notice_bell
+    return days, bell
+
+
 def user_period(session: Session, user_id: int) -> str:
     """month | biweekly. Sin respuesta todavía, el mes."""
     row = settings_row(session, user_id)
@@ -245,6 +256,7 @@ def card_statement(session: Session, account: FinAccount, today: date_type) -> F
             next_cut=cut_on_or_after(day, cut + timedelta(days=1)), debt_at_cut_cents=debt,
             msi_pending_cents=pending, pay_no_interest_cents=pay, paid_since_cut_cents=0, remaining_cents=pay,
             cycle_charges_cents=charges, installments=billed, upcoming=True, estimated_cents=pay,
+            due_in_days=(due_after(cut, account.due_day) - today).days,
         )
     prev_cut = cut_on_or_before(day, last_cut - timedelta(days=1))
     next_cut = cut_on_or_after(day, last_cut + timedelta(days=1))
@@ -258,12 +270,17 @@ def card_statement(session: Session, account: FinAccount, today: date_type) -> F
     # Si el usuario escribió lo que pide su estado de cuenta, eso manda en este corte
     bank = bank_statement(session, account, last_cut)
     pay = bank.pay_no_interest_cents if bank else estimated
+    # El aviso del pago: queda algo por pagar y faltan los días que eligió, o menos
+    due_in = (due - today).days
+    remaining = max(0, pay - paid)
+    days, _ = due_notice_settings(session, account.user_id)
     return FinStatementResponse(
         account_id=account.id, currency=account.currency, statement_day=day, due_day=account.due_day,
         last_cut=last_cut, prev_cut=prev_cut, due_date=due, next_cut=next_cut, debt_at_cut_cents=debt,
         msi_pending_cents=pending, pay_no_interest_cents=pay, paid_since_cut_cents=paid,
-        remaining_cents=max(0, pay - paid), cycle_charges_cents=charges, installments=billed,
+        remaining_cents=remaining, cycle_charges_cents=charges, installments=billed,
         from_bank=bank is not None, estimated_cents=estimated,
+        due_in_days=due_in, due_soon=remaining > 0 and 0 <= due_in <= days,
     )
 
 

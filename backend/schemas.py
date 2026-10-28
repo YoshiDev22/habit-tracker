@@ -1608,6 +1608,7 @@ class FinAccountResponse(SQLModel):
     available_cents: Optional[int] = None
     parent_id: Optional[int] = None   # un apartado: la cuenta de la que cuelga
     interest_rate_bp: Optional[int] = None   # crédito: la tasa anual, de referencia
+    cancelled_on: Optional[date_type] = None  # una tarjeta dada de baja: el día
     # Con tasa de rendimiento: la de hoy y lo ganado sin anotar (desde yield_since hasta ayer)
     yield_rate_bp: Optional[int] = None
     yield_since: Optional[date_type] = None
@@ -2017,6 +2018,28 @@ class FinStatementResponse(SQLModel):
     # escribió el usuario); estimated_cents, el que calculó la app
     from_bank: bool = False
     estimated_cents: int = 0
+    # El aviso del pago (Finanzas 0.8): días que faltan para due_date y si ya toca avisar
+    # (queda algo por pagar y faltan los días que eligió o menos)
+    due_in_days: Optional[int] = None
+    due_soon: bool = False
+
+
+FIN_FIXED_ON_CANCEL = ("move", "pause")
+
+
+class FinCardCancel(SQLModel):
+    """Dar de baja una tarjeta: el día, y cómo queda en cero. Con deuda, desde qué cuenta
+    se pagó (y cuándo); con saldo a favor, a cuál va. Sus fijos, a otra cuenta o en pausa."""
+    cancelled_on: date_type
+    settle_account_id: Optional[int] = None
+    settle_date: Optional[date_type] = None
+    fixed_action: Optional[str] = None
+    fixed_account_id: Optional[int] = None
+
+    @field_validator("fixed_action")
+    @classmethod
+    def validate_fixed_action(cls, v):
+        return v if v is None else _one_of(v, FIN_FIXED_ON_CANCEL, "fixed_action")
 
 
 class FinStatementOverride(SQLModel):
@@ -2114,6 +2137,22 @@ class FinRecurringListResponse(SQLModel):
 class FinSettingsResponse(SQLModel):
     # None mientras el usuario no conteste "¿Cada cuándo cobras?": se mide por mes
     period: Optional[str] = None
+
+
+FIN_DUE_NOTICE_DAYS = (3, 5)
+
+
+class FinNoticeSettings(SQLModel):
+    """El aviso del pago de una tarjeta: con cuántos días antes y si sale en la campana."""
+    due_days: int = 5
+    due_bell: bool = True
+
+    @field_validator("due_days")
+    @classmethod
+    def validate_due_days(cls, v):
+        if v not in FIN_DUE_NOTICE_DAYS:
+            raise ValueError("due_days es 3 o 5")
+        return v
 
 
 class FinConsentResponse(SQLModel):

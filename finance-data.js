@@ -26,7 +26,7 @@ function finInitial() {
 // Las páginas del panel: la portada (root), Configuración y sus cuatro páginas,
 // Datos y el aviso. Cada una sabe a cuál vuelve ‹ (data-parent)
 const finDrawerNav = { current: 'root' };
-const FIN_SETTINGS_PAGES = ['period', 'categories', 'fixed', 'archived'];
+const FIN_SETTINGS_PAGES = ['period', 'categories', 'fixed', 'notices', 'archived'];
 
 function finDrawerPages() {
     return [...finDrawerPanel.querySelectorAll('.fin-drawer-page')];
@@ -41,6 +41,8 @@ function finDrawerShow(name, { animate = true } = {}) {
     const home = name === 'root';
     document.getElementById('finDrawerHome').hidden = !home;
     document.getElementById('finDrawerBar').hidden = home;
+    const version = document.getElementById('finDrawerVersion');
+    version.hidden = !home || !version.textContent;
     document.getElementById('finDrawerPageTitle').textContent = page.dataset.title;
     // En el teléfono, una página ocupa toda la pantalla (finance.css)
     finDrawerPanel.classList.toggle('wide', !home);

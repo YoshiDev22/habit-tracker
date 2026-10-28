@@ -17,6 +17,12 @@ referencia):
   publica scripts/announce.py). Se leen y ya. Un anuncio vencido o terminado
   desaparece de todas las campanitas.
 
+Los de Finanzas (Finanzas 0.8) solo salen en la campana de la página de Finanzas
+(`finance=True`), nunca en la de Habit Tracker ni en su círculo rojo: el pago de una
+tarjeta que se acerca (`card_due`, ref = "<id de la tarjeta>:<fecha límite>"),
+pendiente mientras quede algo por pagar de ese corte, y un fijo que quedó en pausa al dar
+de baja su tarjeta (`fixed_cancelled`, ref = id del fijo), pendiente hasta cambiarle la cuenta.
+
 El círculo rojo cuenta los pendientes más los informativos sin leer. Lo que no
 es pendiente se borra a los 60 días.
 """
@@ -29,7 +35,9 @@ from sqlmodel import Session, select
 from backend.models import (AccountMessage, Announcement, Feedback, HabitEntry, Notice, PomodoroSession, Report, User,
                             utc_now_naive)
 
-PENDING_KINDS = ("review", "missed_day")
+PENDING_KINDS = ("review", "missed_day", "card_due", "fixed_cancelled")
+# Solo en la campana de Finanzas
+FINANCE_KINDS = ("card_due", "fixed_cancelled")
 INFO_KINDS = ("report_ready", "novedades", "announcement", "feedback_closed", "message")
 KEEP_DAYS = 60
 SUBJECT_TITLE = {"time": "tiempo", "habits": "hábitos", "costs": "costos"}
@@ -71,13 +79,85 @@ def sync_pending(session: Session, user: User, today: date_type, habits_on: bool
             add_notice(session, user.id, "missed_day", missed["date"].isoformat())
 
 
+def sync_finance(session: Session, user: User, today: date_type) -> None:
+    """Crea el aviso del pago de cada tarjeta que ya toca avisar (si sale en la campana)
+    y el de cada fijo que quedó en pausa en una tarjeta dada de baja."""
+    from backend.finance import card_statement, due_notice_settings
+    from backend.models import FinAccount, FinRecurring
+    for rc_id in session.exec(select(FinRecurring.id).join(FinAccount, FinAccount.id == FinRecurring.account_id)
+                              .where(FinRecurring.user_id == user.id, FinRecurring.paused == True,  # noqa: E712
+                                     FinAccount.cancelled_on != None)).all():  # noqa: E711
+        add_notice(session, user.id, "fixed_cancelled", str(rc_id))
+    _, bell = due_notice_settings(session, user.id)
+    if not bell:
+        return
+    cards = session.exec(select(FinAccount).where(
+        FinAccount.user_id == user.id, FinAccount.kind == "credit", FinAccount.is_active == True,  # noqa: E712
+        FinAccount.statement_day != None, FinAccount.due_day != None)).all()  # noqa: E711
+    for card in cards:
+        st = card_statement(session, card, today)
+        if st.due_soon:
+            add_notice(session, user.id, "card_due", f"{card.id}:{st.due_date.isoformat()}")
+
+
+def _money(cents: int, currency: str) -> str:
+    text = f"${cents / 100:,.2f}"
+    return text if currency == "MXN" else f"{text} {currency}"
+
+
+def _due_text(days: int) -> str:
+    return "hoy" if days == 0 else "mañana" if days == 1 else f"en {days} días"
+
+
+def _describe_card_due(session: Session, notice: Notice, base: Dict, today: date_type) -> Optional[Dict]:
+    """El pago de una tarjeta: pendiente mientras quede algo de ese corte y no venza;
+    pagado o pasado, hecho. Con la campana apagada en sus ajustes, no sale."""
+    from backend.finance import card_statement, due_notice_settings
+    from backend.models import FinAccount
+    account_id, due = notice.ref.split(":")
+    card = session.exec(select(FinAccount).where(FinAccount.user_id == notice.user_id,
+                                                 FinAccount.id == int(account_id))).first()
+    if card is None or card.kind != "credit" or not card.statement_day or not card.due_day:
+        return None
+    if not due_notice_settings(session, notice.user_id)[1]:
+        return None
+    st = card_statement(session, card, today)
+    title = f"Pago de {card.name}"
+    if st.upcoming or st.due_date.isoformat() != due:
+        return {**base, "status": "done", "title": title, "detail": "Ese pago ya pasó.", "account_id": card.id}
+    if not st.remaining_cents:
+        return {**base, "status": "done", "title": title, "detail": "Pagado.", "account_id": card.id}
+    status = "dismissed" if notice.dismissed_at else "pending"
+    return {**base, "status": status, "title": title, "account_id": card.id,
+            "detail": (f"Vence {_due_text(st.due_in_days)}: {_money(st.remaining_cents, card.currency)} "
+                       f"para no generar intereses, antes del {_short(st.due_date)}."),
+            "amount_cents": st.remaining_cents}
+
+
+def _describe_fixed_cancelled(session: Session, notice: Notice, base: Dict) -> Optional[Dict]:
+    """Un fijo pausado al dar de baja su tarjeta: pendiente mientras siga ahí."""
+    from backend.models import FinAccount, FinRecurring
+    rc = session.exec(select(FinRecurring).where(FinRecurring.user_id == notice.user_id,
+                                                 FinRecurring.id == int(notice.ref))).first()
+    if rc is None:
+        return None
+    account = session.get(FinAccount, rc.account_id)
+    title = f"Fijo sin cuenta: {rc.concept}"
+    if account is not None and account.cancelled_on is not None and rc.paused:
+        status = "dismissed" if notice.dismissed_at else "pending"
+        return {**base, "status": status, "title": title, "recurring_id": rc.id,
+                "detail": f"Se pausó al dar de baja {account.name}. Cámbiale la cuenta para que se siga anotando."}
+    return {**base, "status": "done", "title": title, "recurring_id": rc.id,
+            "detail": "Ya tiene otra cuenta." if account is None or account.cancelled_on is None else "Ya no está en pausa."}
+
+
 def _day_has_habit(session: Session, user_id: int, day: date_type) -> bool:
     entry = session.exec(select(HabitEntry).where(
         HabitEntry.user_id == user_id, HabitEntry.entry_date == day)).first()
     return bool(entry and any((entry.habits_data or {}).values()))
 
 
-def describe(session: Session, notice: Notice) -> Optional[Dict]:
+def describe(session: Session, notice: Notice, today: Optional[date_type] = None) -> Optional[Dict]:
     """El aviso como lo pinta la campanita, con su estado calculado. None si ya
     no tiene a qué referirse (un reporte borrado con su cuenta, p. ej.)."""
     base = {"id": notice.id, "kind": notice.kind, "ref": notice.ref, "created_at": notice.created_at,
@@ -99,6 +179,10 @@ def describe(session: Session, notice: Notice) -> Optional[Dict]:
                 "detail": ("Ese día no anotaste ningún hábito. Si sí lo hiciste, márcalo y tu racha vuelve."
                            if status == "pending" else "Ya anotaste ese día." if done else "Lo descartaste."),
                 "date": notice.ref}
+    if notice.kind == "fixed_cancelled":
+        return _describe_fixed_cancelled(session, notice, base)
+    if notice.kind == "card_due":
+        return _describe_card_due(session, notice, base, today or date_type.today())
     if notice.kind == "report_ready":
         report = session.exec(select(Report).where(
             Report.user_id == notice.user_id, Report.id == int(notice.ref))).first()
@@ -140,9 +224,12 @@ def describe(session: Session, notice: Notice) -> Optional[Dict]:
 
 
 def list_notices(session: Session, user: User, today: date_type, habits_on: bool,
-                 current_version: Optional[str]) -> Dict:
-    """Sincroniza, limpia lo viejo y devuelve {unread, notices} (lo pendiente arriba)."""
+                 current_version: Optional[str], finance_on: bool = False) -> Dict:
+    """Sincroniza, limpia lo viejo y devuelve {unread, notices} (lo pendiente arriba).
+    Con `finance_on` (la campana de Finanzas) también sus avisos; sin él, no salen."""
     sync_pending(session, user, today, habits_on)
+    if finance_on:
+        sync_finance(session, user, today)
     if current_version:
         add_notice(session, user.id, "novedades", current_version)
     # Los anuncios vigentes para todas las cuentas
@@ -155,7 +242,9 @@ def list_notices(session: Session, user: User, today: date_type, habits_on: bool
                         .order_by(Notice.created_at.desc(), Notice.id.desc())).all()
     out: List[Dict] = []
     for notice in rows:
-        item = describe(session, notice)
+        if notice.kind in FINANCE_KINDS and not finance_on:
+            continue   # se quedan para la campana de Finanzas
+        item = describe(session, notice, today)
         if item is None or (item["status"] != "pending" and notice.created_at < cutoff):
             session.delete(notice)
             continue

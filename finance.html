@@ -582,6 +582,44 @@
                 </div>
             </div>
 
+            <!-- Dar de baja una tarjeta: en cero, con la fecha (finance-accounts.js) -->
+            <div class="fin-menu-page" id="finCancelPage" hidden>
+                <form class="fin-form" id="finCancelForm" novalidate>
+                    <p class="fin-hint wide">Para cancelarla, el banco pide que esté en cero. Anota cómo quedó y la tarjeta se
+                        archiva con la fecha de baja; su historial sigue en Movimientos.</p>
+                    <label class="fin-field wide">Fecha de baja
+                        <input type="date" id="finCancelDate">
+                    </label>
+                    <!-- Con deuda o saldo a favor: de dónde salió o a dónde va -->
+                    <div class="fin-cancel-group wide" id="finCancelSettle" hidden>
+                        <p class="fin-cancel-question" id="finCancelSettleText"></p>
+                        <div class="fin-form fin-cancel-fields">
+                            <label class="fin-field">Cuenta
+                                <select id="finCancelSettleAccount"></select>
+                            </label>
+                            <label class="fin-field">Fecha
+                                <input type="date" id="finCancelSettleDate">
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Sus fijos: a otra cuenta o en pausa -->
+                    <div class="fin-cancel-group wide" id="finCancelFixed" hidden>
+                        <p class="fin-cancel-question" id="finCancelFixedText"></p>
+                        <label class="fin-check fin-cancel-move"><input type="radio" name="finCancelFixedAction" value="move" checked>
+                            <span>Pasarlos a</span> <select id="finCancelFixedAccount" aria-label="Cuenta para los fijos"></select></label>
+                        <label class="fin-check"><input type="radio" name="finCancelFixedAction" value="pause">
+                            <span>Dejarlo para después: se pausan y la campana te lo recuerda</span></label>
+                    </div>
+                    <p class="fin-hint wide" id="finCancelMsi" hidden>Sus meses sin intereses ya cuentan en lo que debes: al
+                        quedar en cero, quedan pagados y dejan de salir en Movimientos.</p>
+                    <div id="finCancelError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                        <button type="submit" class="submit-btn btn-danger" id="finCancelSave">Dar de baja</button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Meses sin intereses que ya traía la deuda (sin compra anotada) -->
             <div class="fin-menu-page" id="finMsiPage" hidden>
                 <p class="fin-hint">Cópialas de tu estado de cuenta, de la tabla de compras a meses sin intereses. Ya van
@@ -798,6 +836,10 @@
                     <span class="settings-item-text"><strong>Fijos</strong><small>Lo que se repite: renta, suscripciones, el sueldo</small></span>
                     <span class="settings-item-go">›</span>
                 </button>
+                <button type="button" class="settings-item" data-open="notices">
+                    <span class="settings-item-text"><strong>Avisos</strong><small>Cuándo avisarte del pago de una tarjeta</small></span>
+                    <span class="settings-item-go">›</span>
+                </button>
                 <button type="button" class="settings-item" data-open="archived">
                     <span class="settings-item-text"><strong>Cuentas archivadas</strong><small>Las que ya no usas, con su historial</small></span>
                     <span class="settings-item-go">›</span>
@@ -885,6 +927,22 @@
                 <p class="fin-hint">Para agregar uno: en la hoja del monto, 📅 › Periodicidad.</p>
             </section>
 
+            <!-- Avisos: el pago de una tarjeta que se acerca (finance-settings.js) -->
+            <section class="settings-page fin-drawer-page" data-section="notices" data-parent="settings" data-title="Avisos">
+                <form class="fin-form" id="finNoticeForm" novalidate>
+                    <label class="fin-field wide">Avísame del pago de una tarjeta
+                        <select id="finDueDays">
+                            <option value="5">5 días antes</option>
+                            <option value="3">3 días antes</option>
+                        </select>
+                    </label>
+                    <label class="fin-check wide"><input type="checkbox" id="finDueBell"> También en la campana</label>
+                    <p class="fin-hint wide">Mientras quede algo por pagar para no generar intereses, la tarjeta cambia de color y
+                        dice cuántos días faltan. Con la campana, también te lo recuerda ahí hasta que la pagues.</p>
+                    <p class="fin-hint wide" id="finNoticeSaved" role="status"></p>
+                </form>
+            </section>
+
             <section class="settings-page fin-drawer-page" data-section="archived" data-parent="settings" data-title="Cuentas archivadas">
                 <ul class="fin-config-list" id="finArchivedList"></ul>
             </section>
@@ -955,6 +1013,9 @@
                 <iframe id="finPrivacyFrame" title="Aviso de privacidad"></iframe>
                 <a class="link-btn" href="/privacidad" target="_blank" rel="noopener">Abrir en otra pestaña</a>
             </div>
+
+            <!-- Al pie de la portada: la versión de Finanzas con la que abrió la página (finance-news.js) -->
+            <p class="fin-drawer-version" id="finDrawerVersion" hidden></p>
         </nav>
     </div>
 
