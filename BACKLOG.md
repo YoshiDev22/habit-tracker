@@ -669,12 +669,18 @@ su saldo no es cero, la app pregunta qué hacer** en vez de archivarla así:
   incluido) por lo que falta, y con eso queda en cero.
 - **Con saldo a favor:** a dónde va: una transferencia de la tarjeta a la cuenta que elija.
 - Con eso anotado (saldo en cero), se archiva.
-- **MSI (decidido 2026-10-28):** una compra a meses ya cuenta completa en el saldo desde el día que se hace, así que
-  en cero sus mensualidades ya están pagadas: sus planes se dan por terminados y Movimientos deja de enseñar las
-  mensualidades después de la fecha de baja.
+- **La fecha de baja la pone el usuario (decidido 2026-10-28):** puede no abrir la app el día que la cancela, así que
+  elige cuándo (hoy por defecto, o un día pasado), y el pago o el traspaso del saldo a favor llevan también su fecha.
+- **MSI (decidido 2026-10-28):** una compra a meses ya cuenta completa en el saldo desde el día que se hace, y las
+  mensualidades **nunca** son movimientos (solo se enseñan): en cero, la deuda de los MSI ya está pagada. Sus planes se
+  dan por terminados y Movimientos deja de enseñar las mensualidades después de la fecha de baja, **sin tocar el
+  saldo**. Prueba obligada: compra de 10k a 10 meses, 6k pagados, 4k transferidos después y la baja unos días más
+  tarde: el saldo queda en 0, nada suma ni resta los 4 meses que el plan no llegó a pedir, y el resumen no cambia.
 - **Fijos (decidido 2026-10-28):** si un fijo se cobra a esa tarjeta, la app recomienda pasarlo a otra cuenta (elige
   cuál) o **dejarlo para después**: se pausa (no se anota en una tarjeta cancelada), la tarjeta se archiva y en
-  Configuración › Fijos queda marcado "su tarjeta se dio de baja" hasta cambiarle la cuenta.
+  Configuración › Fijos queda marcado "su tarjeta se dio de baja" hasta cambiarle la cuenta, y la campana de Finanzas
+  lo recuerda con un aviso **pendiente** calculado de los datos (como el del pago de la 45): sale mientras haya un fijo
+  pausado en una cuenta dada de baja y se resuelve solo al cambiarle la cuenta (o borrarlo).
 - **Cómo se ve (decidido 2026-10-28):** *Dada de baja el …*, con la fecha. Lleva una columna nueva en
   `fin_accounts`, que va en la migración de la 45. Su historial sigue en Movimientos y en los reportes.
 - **Que no vuelva a usarse:** no sale al elegir cuenta en la hoja del monto ni al importar (ya pasa con las
