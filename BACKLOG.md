@@ -714,3 +714,22 @@ hacia el punto de equilibrio.
 abajo y centrada, discreta ("Finanzas 0.7.0"), como la versión en el menú de la app. Sale de `GET /api/version`
 (`finance_version`, que ya trae) o de la que se guardó al abrir la página (`finCheckUpdate()`). Solo en la página
 principal del panel, no en sus páginas internas. Sin migración.
+
+## 52 · P2 · Finanzas: Deudas en el Resumen y en Cuentas › Deudas (Finanzas 0.9)
+
+**Pedido el 2026-10-28.** Una compra a meses cuenta completa como gasto el día que se hace, y el pago de una tarjeta es
+una transferencia, que el Resumen nunca cuenta como gasto: así no se cuenta doble, pero en los meses siguientes las
+gráficas no enseñan que se sigue pagando esa deuda. Ver cuánto se paga de deudas, **sin sumarlo a los gastos**.
+
+**Decidido (2026-10-28).**
+- **Resumen › *Deudas* del periodo**, en un apartado propio: *Pagos a tarjetas* (las transferencias que llegaron a una
+  tarjeta de crédito en el periodo, por tarjeta) y *Mensualidades de MSI* (las que pedían los cortes del periodo, de
+  `installment_bills()`), con la nota "No se suma a tus gastos: la compra ya se contó el día que la hiciste". Nunca
+  entra al total de gastos ni a las categorías.
+- **Cuentas › Deudas** (hoy "Próximamente"): cada tarjeta con lo que debe, lo que paga al mes de MSI y hasta cuándo
+  (el último corte de sus planes), y el total de lo que queda. Es el arranque de la sección Deudas.
+- Descartado por ahora: repartir las compras a meses mes a mes dentro de los gastos (cambiaría los totales según un
+  interruptor y confunde).
+
+**Por decidir.** Si Deudas incluye otras deudas que no son tarjeta (un préstamo personal, a un familiar); si el
+apartado del Resumen va también en el reporte o el CSV.
