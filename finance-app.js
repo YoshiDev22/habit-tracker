@@ -900,7 +900,9 @@ function finRenderOverview() {
         row.append(finBadge(finCategoryIcon(c), finCategoryColor(c), { size: 'sm' }), body, el('span', 'fin-catbar-pct', `${pct} %`));
         byCategory.appendChild(row);
     });
-    document.getElementById('finOverview').replaceChildren(balance, chart, byCategory);
+    // Lo pagado de deudas va aparte: nunca se suma a los gastos (finance-debts.js)
+    const debts = finRenderDebtSummary();
+    document.getElementById('finOverview').replaceChildren(balance, chart, byCategory, ...(debts ? [debts] : []));
 }
 
 // Monto corto para el eje: $850, $3.2k, $12k
@@ -994,10 +996,8 @@ function finRenderAccounts() {
         return;
     }
     if (sub === 'debts') {
-        const card = el('section', 'fin-card fin-soon');
-        card.append(el('h2', 'fin-card-title', 'Deudas'), el('p', 'fin-hint',
-            'Próximamente: préstamos largos (carro, casa, negocio) con su pago y lo que falta, aparte del total de tus cuentas.'));
-        body.replaceChildren(card);
+        // Lo que debe cada tarjeta y sus MSI (finance-debts.js)
+        finRenderDebts(body);
         return;
     }
     const accounts = finActiveAccounts().filter(a => sub === 'cards' ? a.kind === 'credit' : true);

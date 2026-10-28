@@ -3224,3 +3224,78 @@ body.fin-wide .fin-main {
 .fin-notice.dismissed strong {
     color: var(--text-secondary);
 }
+
+/* Deudas (Finanzas 0.9): Resumen › Deudas y Cuentas › Deudas */
+.fin-debt-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 6px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    text-align: left;
+    border-radius: 12px;
+    font: inherit;
+}
+
+button.fin-debt-row {
+    cursor: pointer;
+}
+
+button.fin-debt-row:hover {
+    background: var(--bg-hover);
+}
+
+.fin-debt-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.fin-debt-text strong {
+    font-weight: 500;
+}
+
+.fin-debt-text small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.fin-debt-amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-debt-amount.negative {
+    color: var(--danger-fg);
+}
+
+.fin-debt-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 10px 6px 2px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.fin-debt-head strong {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-debts-summary .fin-hint {
+    margin: 10px 6px 0;
+}
+
+.fin-debt-other {
+    padding: 0 6px;
+}
+
+#finAccountsBody > .fin-hint {
+    margin-top: 12px;
+    padding: 0 6px;
+}

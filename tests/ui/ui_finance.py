@@ -888,6 +888,34 @@ async def main():
         check(bool(line), f"and the breakdown says it ({line})")
         await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
 
+        # Cuentas › Deudas: cada tarjeta con lo que debe y lo que piden sus MSI al mes, hasta cuándo
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"debts\"]').click()")
+        debt = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finAccountsBody .fin-debt-row')]
+            .find(x => x.querySelector('strong').textContent === 'Recién'); return r ? r.textContent : null; })()""", lambda v: v)
+        check(debt and "9,000.00" in debt and "MSI $1,000.00 al mes hasta" in debt and "$3,000.00 a meses" in debt,
+              f"Debts shows what each card owes and its monthly MSI until when ({debt})")
+        await b.js("""[...document.querySelectorAll('#finAccountsBody .fin-debt-row')]
+            .find(x => x.querySelector('strong').textContent === 'Recién').click()""")
+        await b.wait_for("!document.getElementById('finAccountMenu').classList.contains('hidden')")
+        check(True, "tapping a debt opens its card's menu")
+        await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
+        await b.shot("finance_debts", full=False)
+        # Resumen › Deudas: un pago a la tarjeta sale ahí y nunca en los gastos
+        before = await b.js("finPeriodTotals().expense_cents")
+        api.call("POST", "/api/finance/transactions", {"kind": "transfer", "account_id": accounts()["Efectivo"]["id"],
+                 "to_account_id": late_card["id"], "amount_cents": 50_000, "tx_date": TODAY.isoformat(),
+                 "concept": "Pago Recién"}, expect=201)
+        await b.js("finLoad()")
+        await b.js("document.querySelector('#finNav [data-tab=\"overview\"]').click()")
+        summary = await b.wait_for("(document.querySelector('[data-debt-summary]') || {}).textContent",
+                                   lambda v: v and "Recién" in v)
+        after = await b.js("finPeriodTotals().expense_cents")
+        check(summary and "Pagos a tarjetas" in summary and "500.00" in summary and "No se suma a tus gastos" in summary
+              and after == before, f"Summary › Debts shows the card payment, apart from expenses ({summary}, {before}→{after})")
+        await b.shot("finance_debts_summary")
+        await b.js("document.querySelector('#finNav [data-tab=\"accounts\"]').click()")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"cards\"]').click()")
+
         # Un fijo que aún no llega (la renta del 22): sale programado en su día, sin contar
         rent_day = TODAY + timedelta(days=2)
         api.call("POST", "/api/finance/recurring", {
