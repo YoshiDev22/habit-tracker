@@ -370,6 +370,7 @@
                         <option value="debit">Débito</option>
                         <option value="investment">Inversión</option>
                         <option value="credit">Crédito</option>
+                        <option value="loan">Préstamo</option>
                     </select>
                 </label>
                 <label class="fin-field not-pocket">Moneda
@@ -390,12 +391,37 @@
                 <label class="fin-field credit-only">Día de corte
                     <input type="number" id="finAccStatement" min="1" max="31" inputmode="numeric" placeholder="1–31">
                 </label>
-                <label class="fin-field credit-only">Día de pago
+                <label class="fin-field loan-only">Tipo de préstamo
+                    <select id="finAccDebtType">
+                        <option value="personal">Préstamo personal</option>
+                        <option value="acquaintance">De una persona conocida</option>
+                        <option value="bank">Crédito bancario</option>
+                        <option value="mortgage">Hipotecario</option>
+                        <option value="other">Otro</option>
+                    </select>
+                </label>
+                <label class="fin-field loan-only">Mensualidad
+                    <input type="text" id="finAccLoanPayment" inputmode="decimal" autocomplete="off" placeholder="Opcional">
+                </label>
+                <label class="fin-field loan-only">Plazo (meses)
+                    <input type="number" id="finAccLoanMonths" min="1" max="600" inputmode="numeric" placeholder="Opcional">
+                </label>
+                <label class="fin-field credit-or-loan">Día de pago
                     <input type="number" id="finAccDue" min="1" max="31" inputmode="numeric" placeholder="1–31">
                 </label>
-                <label class="fin-field credit-only">Tasa de interés anual (%)
+                <label class="fin-field credit-or-loan">Tasa de interés anual (%)
                     <input type="text" id="finAccInterest" inputmode="decimal" autocomplete="off" placeholder="Opcional">
                 </label>
+                <!-- Lo comprado con el préstamo: si ya contó como gasto, sus pagos solo bajan la deuda -->
+                <div class="fin-cancel-group wide loan-only" id="finAccLoanSpent">
+                    <p class="fin-cancel-question">¿Lo que pagaste con este préstamo ya está anotado como gasto?</p>
+                    <label class="fin-check"><input type="radio" name="finAccLoanSpent" value="yes" checked>
+                        <span>Sí, ya está anotado: sus pagos solo bajan la deuda</span></label>
+                    <label class="fin-check fin-cancel-move"><input type="radio" name="finAccLoanSpent" value="no">
+                        <span>No: cada pago cuenta como gasto en</span>
+                        <select id="finAccLoanCategory" aria-label="Categoría de los pagos"></select></label>
+                    <p class="fin-hint">Los intereses de cada pago siempre cuentan como gasto, en Intereses.</p>
+                </div>
                 <p class="fin-hint wide" id="finAccHint"></p>
                 <div class="fin-field wide">Icono
                     <div class="fin-icon-grid" id="finAccIcons"></div>
@@ -621,6 +647,67 @@
             </div>
 
             <!-- Meses sin intereses que ya traía la deuda (sin compra anotada) -->
+            <!-- Un préstamo (Finanzas 0.9): lo pagado a capital y a intereses, sus pagos y su tabla -->
+            <div class="fin-menu-page" id="finLoanPage" hidden>
+                <div id="finLoanSummary"></div>
+                <div class="fin-loan-buttons">
+                    <button type="button" class="submit-btn" data-loan-pay="regular">Pagar</button>
+                    <button type="button" class="link-btn" data-loan-pay="capital">Abono a capital</button>
+                    <button type="button" class="link-btn" data-loan-table>Tabla de amortización</button>
+                </div>
+                <div id="finLoanLists"></div>
+                <div class="fin-form-actions">
+                    <button type="button" class="link-btn" data-menu-back>Regresar</button>
+                </div>
+            </div>
+            <!-- Pagar un préstamo: la mensualidad (con sus intereses) o un abono a capital -->
+            <div class="fin-menu-page" id="finLoanPayPage" hidden>
+                <form class="fin-form" id="finLoanPayForm" novalidate>
+                    <p class="fin-hint wide" id="finLoanPayHint"></p>
+                    <label class="fin-field">Desde
+                        <select id="finLoanPayFrom"></select>
+                    </label>
+                    <label class="fin-field">Fecha
+                        <input type="date" id="finLoanPayDate">
+                    </label>
+                    <label class="fin-field"><span id="finLoanPayAmountLabel">Pago</span>
+                        <input type="text" id="finLoanPayAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                    </label>
+                    <label class="fin-field" id="finLoanPayInterestField">Intereses y cargos
+                        <input type="text" id="finLoanPayInterest" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                    </label>
+                    <p class="fin-hint wide" id="finLoanPaySplit"></p>
+                    <!-- El aviso de un abono a capital, con "No volver a mostrar" -->
+                    <div class="fin-capital-note wide" id="finCapitalNote" hidden>
+                        <p>Confirma con tu banco que el pago se haya aplicado a capital: algunos lo toman como adelanto de las
+                            siguientes mensualidades y no baja lo que debes.</p>
+                        <label class="fin-check"><input type="checkbox" id="finCapitalNoteHide"> <span>No volver a mostrar este mensaje</span></label>
+                    </div>
+                    <div id="finLoanPayError" class="form-error hidden wide"></div>
+                    <div class="fin-form-actions wide">
+                        <button type="button" class="link-btn" data-loan-back>Regresar</button>
+                        <button type="submit" class="submit-btn" id="finLoanPaySave">Guardar</button>
+                    </div>
+                </form>
+            </div>
+            <!-- La tabla de amortización del banco: pegarla o subir un CSV, con vista previa -->
+            <div class="fin-menu-page" id="finLoanTablePage" hidden>
+                <p class="fin-hint">Copia la tabla de amortización del banco (de un Excel, una hoja de cálculo o el PDF) y
+                    pégala aquí, o sube un CSV. Con número de pago, fecha, pago, capital, intereses, IVA o seguro y saldo; las
+                    columnas se reconocen por su nombre.</p>
+                <textarea id="finLoanTableText" class="fin-loan-table-text" rows="5"
+                    placeholder="No.&#9;Fecha&#9;Pago&#9;Capital&#9;Interés&#9;IVA&#9;Saldo"></textarea>
+                <div class="fin-loan-buttons">
+                    <label class="link-btn fin-file-btn">Subir CSV<input type="file" id="finLoanTableFile" accept=".csv,text/csv,text/plain" hidden></label>
+                    <button type="button" class="link-btn" id="finLoanTableClear" hidden>Quitar la tabla</button>
+                </div>
+                <div id="finLoanTablePreview"></div>
+                <div id="finLoanTableError" class="form-error hidden"></div>
+                <div class="fin-form-actions">
+                    <button type="button" class="link-btn" data-loan-back>Regresar</button>
+                    <button type="button" class="submit-btn" id="finLoanTableSave" disabled>Guardar tabla</button>
+                </div>
+            </div>
             <div class="fin-menu-page" id="finMsiPage" hidden>
                 <p class="fin-hint">Cópialas de tu estado de cuenta, de la tabla de compras a meses sin intereses. Ya van
                     en tu deuda: aquí solo se dice cuánto pide cada corte.</p>
@@ -1146,5 +1233,6 @@
     <script src="finance-news.js"></script>
     <script src="finance-search.js"></script>
     <script src="finance-debts.js"></script>
+    <script src="finance-loans.js"></script>
 </body>
 </html>

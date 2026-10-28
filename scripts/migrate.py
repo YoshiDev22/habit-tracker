@@ -108,6 +108,17 @@ MIGRATIONS = [
     {"table": "fin_settings", "column": "due_notice_bell", "type": "BOOLEAN", "new_table": True},
     # Una tarjeta dada de baja (Finanzas 0.8): el día que se canceló
     {"table": "fin_accounts", "column": "cancelled_on", "type": "DATE", "new_table": True},
+    # Préstamos (Finanzas 0.9): tipo de deuda, mensualidad, plazo y la categoría de lo comprado
+    {"table": "fin_accounts", "column": "debt_type", "type": "VARCHAR", "new_table": True},
+    {"table": "fin_accounts", "column": "loan_payment_cents", "type": "INTEGER", "new_table": True},
+    {"table": "fin_accounts", "column": "loan_months", "type": "INTEGER", "new_table": True},
+    {"table": "fin_accounts", "column": "loan_category_id", "type": "INTEGER", "new_table": True},
+    # El pago de un préstamo: lo que no baja la deuda (intereses y cargos) y si fue abono a capital
+    {"table": "fin_transactions", "column": "interest_cents", "type": "INTEGER", "new_table": True},
+    {"table": "fin_transactions", "column": "interest_category_id", "type": "INTEGER", "new_table": True},
+    {"table": "fin_transactions", "column": "principal_only", "type": "BOOLEAN", "default": 0, "new_table": True},
+    # "No volver a mostrar" del aviso de un abono a capital
+    {"table": "fin_settings", "column": "capital_note_hidden", "type": "BOOLEAN", "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

@@ -3299,3 +3299,110 @@ button.fin-debt-row:hover {
     margin-top: 12px;
     padding: 0 6px;
 }
+
+/* Préstamos (Finanzas 0.9): su página, pagar y la tabla de amortización */
+.fin-loan-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: center;
+    margin: 12px 0;
+}
+
+.fin-loan-stat-detail {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.fin-loan-facts {
+    margin-top: 10px;
+}
+
+.fin-loan-list {
+    margin-top: 14px;
+}
+
+.fin-loan-list-title {
+    margin: 0 0 4px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.fin-loan-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 2px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fin-loan-table-wrap {
+    max-height: 50vh;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.fin-loan-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-loan-table th,
+.fin-loan-table td {
+    padding: 5px 6px;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fin-loan-table th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.fin-loan-table td:first-child,
+.fin-loan-table th:first-child {
+    text-align: left;
+}
+
+.fin-loan-table tr.paid td {
+    color: var(--text-secondary);
+}
+
+.fin-loan-table-text {
+    width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    resize: vertical;
+}
+
+.fin-file-btn {
+    cursor: pointer;
+}
+
+.fin-capital-note {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: var(--bg-surface);
+    font-size: 0.88rem;
+}
+
+.fin-capital-note p {
+    margin: 0 0 8px;
+}

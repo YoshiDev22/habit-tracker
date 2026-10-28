@@ -26,6 +26,15 @@ const FIN_MENU_ACTIONS = {
         ['msi', 'calendar-days', 'Meses sin intereses', '#5c6bc0'],
         ['cancel', 'archive', 'Dar de baja', '#95a5a6'],
     ],
+    // Un préstamo (finance-loans.js): pagar, abonar a capital, su página y su tabla
+    loan: [
+        ['loanpay', 'arrow-up', 'Pagar', '#27ae60'],
+        ['capital', 'arrow-down', 'Abono a capital', '#00b894'],
+        ['loan', 'hand-coins', 'Pagos e intereses', '#5c6bc0'],
+        ['table', 'calendar-days', 'Tabla de amortización', '#16a085'],
+        ['edit', 'pencil', 'Editar', '#f1c40f'],
+        ['movements', 'list', 'Movimientos', '#95a5a6'],
+    ],
 };
 
 function openFinAccountMenu(account) {
@@ -66,13 +75,14 @@ async function finLoadMenuStatement() {
 
 function finRenderAccountMenu() {
     const a = finMenu.account;
-    const credit = a.kind === 'credit';
+    const credit = ['credit', 'loan'].includes(a.kind);
     document.getElementById('finMenuHead').style.setProperty('--band', finAccountColor(a));
     document.getElementById('finMenuIcon').replaceChildren(financeIcon(finAccountIcon(a), 26));
     document.getElementById('finMenuName').textContent = a.name;
     // En crédito, la deuda en positivo; si se pagó de más, lo que queda a favor
     const inFavor = credit && a.balance_cents > 0;
-    document.getElementById('finMenuLabel').textContent = !credit ? 'Saldo de la cuenta' : inFavor ? 'A favor' : 'Deuda';
+    document.getElementById('finMenuLabel').textContent = !credit ? 'Saldo de la cuenta' : inFavor ? 'A favor'
+        : a.kind === 'loan' ? 'Lo que debes' : 'Deuda';
     document.getElementById('finMenuBalance').textContent = formatMoney(credit ? Math.abs(a.balance_cents)
         : a.balance_cents, a.currency);
     const more = [];
@@ -98,7 +108,7 @@ function finRenderAccountMenu() {
         history.textContent = `Antes del ${finShortDate(a.opening_date)}: ${n} (entró ${formatMoney(a.before_in_cents, a.currency)}, `
             + `salió ${formatMoney(a.before_out_cents, a.currency)}). Son historial: no cambian el saldo.`;
     }
-    const list = credit ? FIN_MENU_ACTIONS.credit : [...FIN_MENU_ACTIONS.base,
+    const list = a.kind === 'loan' ? FIN_MENU_ACTIONS.loan : credit ? FIN_MENU_ACTIONS.credit : [...FIN_MENU_ACTIONS.base,
         ['yield', 'trending-up', 'Rendimiento', '#00b894'],
         ['term', 'landmark', 'Plazo fijo', '#2980b9'],
         // Una cuenta suelta puede tener apartados; un apartado, no
@@ -124,6 +134,9 @@ function finMenuPage(name) {
     document.getElementById('finCancelPage').hidden = name !== 'cancel';
     document.getElementById('finMsiPage').hidden = name !== 'msi';
     document.getElementById('finStatementPage').hidden = name !== 'statement';
+    document.getElementById('finLoanPage').hidden = name !== 'loan';
+    document.getElementById('finLoanPayPage').hidden = name !== 'loanpay';
+    document.getElementById('finLoanTablePage').hidden = name !== 'table';
     document.getElementById('finMenuStatement').hidden = Boolean(name) || !finMenu.statement;
 }
 
@@ -164,6 +177,12 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
     } else if (act === 'term') {
         closeFinSheet(finAccountMenu);
         openFinTerm(null, a.id);
+    } else if (act === 'loan') {
+        openFinLoan();
+    } else if (act === 'loanpay' || act === 'capital') {
+        openFinLoanPay(act === 'capital');
+    } else if (act === 'table') {
+        openFinLoanTable();
     }
 });
 

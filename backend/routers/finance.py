@@ -21,7 +21,8 @@ from backend.finance import (account_balances, account_currencies, first_transac
 from backend.finance_yield import (YIELD_CATEGORY, YIELD_CONCEPT, YIELD_SOURCE, account_rates, open_terms_by_account,
                                    rate_on, rates_by_account, term_interest, term_maturity, yield_category,
                                    yield_estimate)
-from backend.models import (FinAccount, FinBudgetItem, FinCategory, FinInstallment, FinRecurring, FinSettings, FinSplit,
+from backend.finance_loans import capital_note_hidden, interest_category, loan_response
+from backend.models import (FinAccount, FinBudgetItem, FinCategory, FinInstallment, FinLoanRow, FinRecurring, FinSettings, FinSplit,
                             FinNote, FinStatement, FinTerm, FinTransaction, FinYieldRate, User, utc_now_naive)
 from backend.routers.auth import require_module
 from backend.schemas import (
@@ -40,6 +41,9 @@ from backend.schemas import (
     FinRecurringResponse,
     FinRecurringUpdate,
     FinCardCancel,
+    FinCapitalNote,
+    FinLoanResponse,
+    FinLoanSchedule,
     FinNoticeSettings,
     FinSettingsResponse,
     FinSettingsUpdate,
@@ -177,7 +181,7 @@ def _check_transaction(session: Session, user_id: int, kind: str, account_id: in
     de la misma moneda y ninguna categoría. La app no convierte entre monedas."""
     account = _own_account(session, user_id, account_id)
     if kind == "transfer":
-        if category_id is not None or has_splits:
+        if has_splits or (category_id is not None and to_account_id is None):
             raise _unprocessable("Una transferencia no lleva categoría")
         if to_account_id is None:
             raise _unprocessable("Elige la cuenta a la que va la transferencia")
@@ -186,6 +190,13 @@ def _check_transaction(session: Session, user_id: int, kind: str, account_id: in
             raise _unprocessable("Una transferencia va a otra cuenta")
         if target.currency != account.currency:
             raise _conflict("Solo se transfiere entre cuentas de la misma moneda: la app no convierte entre monedas")
+        # El pago de un préstamo puede llevar la categoría de lo comprado con él: su capital es gasto
+        if category_id is not None:
+            if target.kind != "loan":
+                raise _unprocessable("Una transferencia no lleva categoría")
+            category = _own_category(session, user_id, category_id)
+            if category.kind != "expense":
+                raise _unprocessable(f"'{category.name}' es una categoría de ingresos")
         return
     if to_account_id is not None:
         raise _unprocessable("Solo una transferencia lleva cuenta de destino")
@@ -233,6 +244,33 @@ def _save_splits(session: Session, user_id: int, tx: FinTransaction, splits: Lis
                              amount_cents=part.amount_cents, order=order))
 
 
+def _loan_payment(session: Session, user_id: int, tx: FinTransaction, default_category: bool) -> None:
+    """Los intereses y el abono a capital son solo del pago de un préstamo (una
+    transferencia a él). Los intereses van a la categoría "Intereses" (perezosa) y
+    no pueden pasar del pago; un abono a capital no lleva. Con `default_category`,
+    el pago toma la categoría de lo comprado con el préstamo, si la tiene."""
+    target = session.get(FinAccount, tx.to_account_id) if tx.kind == "transfer" and tx.to_account_id else None
+    if target is None or target.kind != "loan":
+        if tx.interest_cents or tx.principal_only:
+            raise _unprocessable("Los intereses y el abono a capital son solo del pago de un préstamo")
+        tx.interest_cents = tx.interest_category_id = None
+        tx.principal_only = False
+        return
+    if tx.principal_only and tx.interest_cents:
+        raise _unprocessable("Un abono a capital va completo a la deuda: sin intereses")
+    if (tx.interest_cents or 0) > tx.amount_cents:
+        raise _unprocessable("Los intereses no pueden ser más que el pago")
+    if not tx.interest_cents:
+        tx.interest_cents = tx.interest_category_id = None
+    elif tx.interest_category_id is None:
+        category = interest_category(session, user_id)
+        if category is None:
+            raise _conflict("Ya tienes una categoría de ingresos llamada 'Intereses': cámbiale el nombre para anotar intereses")
+        tx.interest_category_id = category.id
+    if default_category and tx.category_id is None:
+        tx.category_id = target.loan_category_id
+
+
 def _new_transaction(session: Session, user_id: int, body: FinTransactionFields, source: str):
     """El movimiento (sin guardar) y sus partes ya revisadas."""
     splits = _check_splits(session, user_id, body.kind, body.amount_cents, body.splits)
@@ -242,7 +280,9 @@ def _new_transaction(session: Session, user_id: int, body: FinTransactionFields,
         user_id=user_id, account_id=body.account_id, kind=body.kind, amount_cents=body.amount_cents,
         tx_date=body.tx_date, category_id=body.category_id, to_account_id=body.to_account_id,
         concept=_clean_concept(body.concept), note=_clean_note(body.note), source=source,
+        interest_cents=body.interest_cents, principal_only=bool(body.principal_only),
     )
+    _loan_payment(session, user_id, tx, default_category=True)
     return tx, splits
 
 
@@ -254,7 +294,7 @@ def _tx_response(tx: FinTransaction, currencies: Dict[int, str], splits: Optiona
         tx_date=tx.tx_date, concept=tx.concept, note=tx.note, source=tx.source,
         recurring_id=tx.recurring_id, needs_review=tx.needs_review,
         splits=[FinSplitFields(category_id=p.category_id, amount_cents=p.amount_cents) for p in splits or []],
-        installment_id=installment_id,
+        installment_id=installment_id, interest_cents=tx.interest_cents, principal_only=bool(tx.principal_only),
     )
 
 
@@ -398,6 +438,8 @@ def _account_response(account: FinAccount, counts: Dict[int, int], balances: Dic
         statement_day=account.statement_day, due_day=account.due_day, balance_cents=balance,
         available_cents=account.credit_limit_cents + balance if credit and account.credit_limit_cents is not None else None,
         parent_id=account.parent_id, interest_rate_bp=account.interest_rate_bp, cancelled_on=account.cancelled_on,
+        debt_type=account.debt_type, loan_payment_cents=account.loan_payment_cents, loan_months=account.loan_months,
+        loan_category_id=account.loan_category_id,
     )
 
 
@@ -409,9 +451,30 @@ def _opening_date(value: Optional[date_type], today: date_type) -> Optional[date
 
 
 def _credit_only(account: FinAccount) -> None:
-    """Límite, corte, pago y tasa son de una tarjeta de crédito: en otra, se vacían."""
+    """Límite y corte son de una tarjeta de crédito; día de pago y tasa, de una tarjeta o
+    un préstamo; tipo de deuda, mensualidad, plazo y categoría, de un préstamo. En otra
+    cuenta, se vacían."""
     if account.kind != "credit":
-        account.credit_limit_cents = account.statement_day = account.due_day = account.interest_rate_bp = None
+        account.credit_limit_cents = account.statement_day = None
+    if account.kind not in ("credit", "loan"):
+        account.due_day = account.interest_rate_bp = None
+    if account.kind != "loan":
+        account.debt_type = account.loan_payment_cents = account.loan_months = account.loan_category_id = None
+
+
+def _check_loan(session: Session, user_id: int, account: FinAccount) -> None:
+    """Un préstamo no es apartado, ni la cuenta por defecto, y lo comprado con él va a
+    una categoría de gastos."""
+    if account.kind != "loan":
+        return
+    if account.parent_id is not None:
+        raise _conflict("Un préstamo no puede ser un apartado")
+    if account.is_default:
+        raise _conflict("Un préstamo no puede ser tu cuenta por defecto")
+    if account.loan_category_id is not None:
+        category = _own_category(session, user_id, account.loan_category_id)
+        if category.kind != "expense":
+            raise _unprocessable(f"'{category.name}' es una categoría de ingresos")
 
 
 def _children(session: Session, user_id: int, account_id: Optional[int]) -> List[FinAccount]:
@@ -437,6 +500,8 @@ def _set_parent(session: Session, user_id: int, account: FinAccount, parent_id: 
         raise _conflict(f"'{parent.name}' ya es un apartado: un apartado no tiene apartados")
     if parent.kind == "credit":
         raise _conflict("Una tarjeta de crédito no tiene apartados")
+    if parent.kind == "loan":
+        raise _conflict("Un préstamo no tiene apartados")
     if not parent.is_active:
         raise _conflict(f"'{parent.name}' está archivada")
     if _children(session, user_id, account.id):
@@ -494,11 +559,16 @@ def create_account(body: FinAccountCreate, session: Session = Depends(get_sessio
                          opening_balance_cents=body.opening_balance_cents, opening_date=opening_date,
                          credit_limit_cents=body.credit_limit_cents,
                          statement_day=body.statement_day, due_day=body.due_day,
-                         interest_rate_bp=body.interest_rate_bp)
+                         interest_rate_bp=body.interest_rate_bp, debt_type=body.debt_type,
+                         loan_payment_cents=body.loan_payment_cents, loan_months=body.loan_months,
+                         loan_category_id=body.loan_category_id)
+    if account.kind == "loan" and body.parent_id is not None:
+        raise _conflict("Un préstamo no puede ser un apartado")
     _set_parent(session, user.id, account, body.parent_id)
     _credit_only(account)
     if body.is_default:
         _make_default(session, user.id, account)
+    _check_loan(session, user.id, account)
     session.add(account)
     session.commit()
     session.refresh(account)
@@ -545,6 +615,14 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
             raise _conflict(f"Primero reactiva '{parent.name}', la cuenta de este apartado")
     if children and changes.get("kind", account.kind) == "credit":
         raise _conflict(f"'{account.name}' tiene apartados: no puede ser tarjeta de crédito")
+    if children and changes.get("kind", account.kind) == "loan":
+        raise _conflict(f"'{account.name}' tiene apartados: no puede ser un préstamo")
+    if "kind" in changes and changes["kind"] != account.kind and "loan" in (changes["kind"], account.kind):
+        if counts.get(account.id, 0) or _recurring_count(session, user.id, account_id=account.id):
+            raise _conflict(f"'{account.name}' ya tiene movimientos: no se puede volver préstamo ni dejar de serlo")
+        if changes["kind"] == "loan" and (_term_uses(session, user.id, account.id)
+                                          or account_rates(session, user.id, account.id)):
+            raise _conflict(f"'{account.name}' tiene rendimiento o plazos: no puede ser un préstamo")
     if changes.get("kind") == "credit" and account.kind != "credit" and account_rates(session, user.id, account.id):
         raise _conflict(f"'{account.name}' tiene rendimiento: quítale la tasa antes de volverla tarjeta de crédito")
     if children and changes.get("currency", account.currency) != account.currency:
@@ -569,6 +647,7 @@ def update_account(account_id: int, body: FinAccountUpdate, session: Session = D
             child.kind = account.kind
             session.add(child)
     _credit_only(account)
+    _check_loan(session, user.id, account)
     if account.is_active:
         account.cancelled_on = None   # reactivarla deshace la baja
     session.add(account)
@@ -673,8 +752,60 @@ def delete_account(account_id: int, session: Session = Depends(get_session), use
         session.delete(row)
     for row in account_rates(session, user.id, account.id):
         session.delete(row)
+    for row in session.exec(select(FinLoanRow).where(FinLoanRow.user_id == user.id,
+                                                     FinLoanRow.account_id == account.id)).all():
+        session.delete(row)
     session.delete(account)
     session.commit()
+
+
+# ==================== Préstamos ====================
+
+def _own_loan(session: Session, user_id: int, account_id: int) -> FinAccount:
+    account = _own_account(session, user_id, account_id)
+    if account.kind != "loan":
+        raise _conflict(f"'{account.name}' no es un préstamo")
+    return account
+
+
+@router.put("/capital-note", response_model=FinCapitalNote)
+def put_capital_note(body: FinCapitalNote, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """El "No volver a mostrar" del aviso de un abono a capital."""
+    row = settings_row(session, user.id) or FinSettings(user_id=user.id)
+    row.capital_note_hidden = body.hidden or None
+    session.add(row)
+    session.commit()
+    return FinCapitalNote(hidden=capital_note_hidden(session, user.id))
+
+
+@router.get("/accounts/{account_id}/loan", response_model=FinLoanResponse)
+def get_loan(account_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
+    """Lo que se debe, lo pagado a capital y a intereses, sus pagos y su tabla."""
+    return loan_response(session, _own_loan(session, user.id, account_id), _today(session, user))
+
+
+@router.put("/accounts/{account_id}/loan-schedule", response_model=FinLoanResponse)
+def put_loan_schedule(account_id: int, body: FinLoanSchedule, session: Session = Depends(get_session),
+                      user: User = Depends(finance_user)):
+    """La tabla de amortización del banco: reemplaza la anterior (vacía, la quita).
+    Números y fechas en orden, y cada pago = capital + intereses y cargos."""
+    account = _own_loan(session, user.id, account_id)
+    rows = sorted(body.rows, key=lambda r: r.number)
+    for before, row in zip(rows, rows[1:]):
+        if row.number == before.number:
+            raise _unprocessable(f"El pago {row.number} está dos veces")
+        if row.due_date <= before.due_date:
+            raise _unprocessable(f"El pago {row.number} tiene que ir después del {before.number}")
+    for row in rows:
+        if row.principal_cents + row.interest_cents != row.payment_cents:
+            raise _unprocessable(f"Pago {row.number}: capital más intereses no da el pago")
+    for old in session.exec(select(FinLoanRow).where(FinLoanRow.user_id == user.id,
+                                                     FinLoanRow.account_id == account.id)).all():
+        session.delete(old)
+    for row in rows:
+        session.add(FinLoanRow(user_id=user.id, account_id=account.id, **row.model_dump()))
+    session.commit()
+    return loan_response(session, account, _today(session, user))
 
 
 # ==================== Notas ====================
@@ -946,6 +1077,12 @@ def _category_counts(session: Session, user_id: int) -> Dict[int, int]:
     for category_id, count in session.exec(select(FinSplit.category_id, func.count())
                                            .where(FinSplit.user_id == user_id).group_by(FinSplit.category_id)).all():
         counts[category_id] = counts.get(category_id, 0) + count
+    # Los intereses del pago de un préstamo
+    for category_id, count in session.exec(select(FinTransaction.interest_category_id, func.count())
+                                           .where(FinTransaction.user_id == user_id,
+                                                  FinTransaction.interest_category_id.is_not(None))
+                                           .group_by(FinTransaction.interest_category_id)).all():
+        counts[category_id] = counts.get(category_id, 0) + count
     return counts
 
 
@@ -1089,6 +1226,10 @@ def delete_category(category_id: int, session: Session = Depends(get_session), u
     count = _category_counts(session, user.id).get(category.id, 0)
     if count:
         raise _conflict(f"'{category.name}' tiene {_plural(count, 'movimiento', 'movimientos')}: cámbialos de categoría antes de borrarla")
+    loan = session.exec(select(FinAccount).where(FinAccount.user_id == user.id,
+                                                 FinAccount.loan_category_id == category.id)).first()
+    if loan is not None:
+        raise _conflict(f"'{category.name}' la usa el préstamo '{loan.name}': cámbiale la categoría antes de borrarla")
     same_kind = session.exec(select(func.count()).select_from(FinCategory).where(
         FinCategory.user_id == user.id, FinCategory.kind == category.kind)).one()
     if same_kind <= 1:
@@ -1327,11 +1468,23 @@ def update_transaction(tx_id: int, body: FinTransactionUpdate, session: Session 
     splits = _check_splits(session, user.id, kind, changes.get("amount_cents", tx.amount_cents), new_splits)
     if splits:
         changes["category_id"] = None
+    if "principal_only" in changes and changes["principal_only"] is None:
+        changes["principal_only"] = False
+    # Una transferencia que deja de ir a un préstamo deja su categoría (era la de su capital),
+    # y la que pasa a ir a uno toma la del préstamo
+    asked_category = "category_id" in changes
+    target_changes = "to_account_id" in changes or "kind" in changes
+    if target_changes and not asked_category and changes.get("kind", tx.kind) == "transfer":
+        target_id = changes.get("to_account_id", tx.to_account_id)
+        target = session.get(FinAccount, target_id) if target_id else None
+        if target is None or target.kind != "loan" or target.user_id != user.id:
+            changes["category_id"] = None
     merged = {field: changes.get(field, getattr(tx, field))
               for field in ("kind", "account_id", "category_id", "to_account_id")}
     _check_transaction(session, user.id, **merged, has_splits=bool(splits))
     for field, value in changes.items():
         setattr(tx, field, value)
+    _loan_payment(session, user.id, tx, default_category=target_changes and not asked_category)
     session.add(tx)
     if replace_splits:
         _save_splits(session, user.id, tx, splits)

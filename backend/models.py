@@ -789,7 +789,38 @@ class FinAccount(SQLModel, table=True):
     # nivel, de efectivo o débito, misma moneda y tipo. Mover dinero entre ellas
     # es una transferencia. NULL = cuenta suelta.
     parent_id: Optional[int] = Field(default=None, foreign_key="fin_accounts.id")
+    # Solo préstamo (kind = "loan", Finanzas 0.9): lo que se debe es el saldo inicial en
+    # negativo (como la deuda inicial de una tarjeta) y nunca es gasto. El tipo de deuda
+    # (FIN_DEBT_TYPES), la mensualidad y el plazo en meses son de referencia; due_day es el
+    # día de pago e interest_rate_bp la tasa anual, con la que se propone el interés de un pago.
+    debt_type: Optional[str] = Field(default=None)
+    loan_payment_cents: Optional[int] = Field(default=None)
+    loan_months: Optional[int] = Field(default=None)
+    # Lo comprado con el préstamo: NULL = ya está anotado como gasto (sus pagos solo bajan
+    # la deuda); con categoría, el capital de cada pago es gasto en ella
+    loan_category_id: Optional[int] = Field(default=None, foreign_key="fin_categories.id")
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
+
+
+class FinLoanRow(SQLModel, table=True):
+    """
+    Una fila de la tabla de amortización de un préstamo, copiada del banco: el
+    número de pago, su fecha, el pago y cuánto de él va a capital y cuánto a
+    intereses y cargos (IVA, seguros, comisiones), y el saldo que queda. Solo de
+    referencia: propone el interés del siguiente pago y dice hasta cuándo. Subir
+    otra tabla reemplaza la anterior; borrar el préstamo se la lleva.
+    """
+    __tablename__ = "fin_loan_rows"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    account_id: int = Field(foreign_key="fin_accounts.id", index=True)
+    number: int
+    due_date: date_type
+    payment_cents: int
+    principal_cents: int
+    interest_cents: int
+    balance_cents: Optional[int] = Field(default=None)
 
 
 class FinYieldRate(SQLModel, table=True):
@@ -934,6 +965,12 @@ class FinTransaction(SQLModel, table=True):
     linked_id: Optional[int] = Field(default=None)   # la factura (CFDI) ↔ la compra del banco
     recurring_id: Optional[int] = Field(default=None, foreign_key="fin_recurring.id")
     needs_review: bool = Field(default=False)    # llegó solo y quedó dudoso: cuenta igual
+    # El pago de un préstamo (Finanzas 0.9): de su monto, lo que no baja la deuda (intereses,
+    # IVA, seguros), que cuenta como gasto en interest_category_id; la deuda baja el resto.
+    # principal_only: un abono a capital (no es una de las mensualidades).
+    interest_cents: Optional[int] = Field(default=None)
+    interest_category_id: Optional[int] = Field(default=None, foreign_key="fin_categories.id")
+    principal_only: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
@@ -1055,3 +1092,5 @@ class FinSettings(SQLModel, table=True):
     # también sale en la campana. NULL = por defecto (5 días, sí)
     due_notice_days: Optional[int] = Field(default=None)
     due_notice_bell: Optional[bool] = Field(default=None)
+    # "No volver a mostrar" del aviso de un abono a capital (Finanzas 0.9). NULL = se muestra
+    capital_note_hidden: Optional[bool] = Field(default=None)

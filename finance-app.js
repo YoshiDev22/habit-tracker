@@ -38,8 +38,9 @@ const FIN_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'juli
     'octubre', 'noviembre', 'diciembre'];
 const FIN_MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const FIN_WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const FIN_KIND_ICONS = { cash: 'banknote', debit: 'landmark', credit: 'credit-card', investment: 'trending-up' };
-const FIN_KIND_LABELS = { cash: 'Efectivo', debit: 'Débito', credit: 'Crédito' };
+const FIN_KIND_ICONS = { cash: 'banknote', debit: 'landmark', credit: 'credit-card', investment: 'trending-up',
+    loan: 'hand-coins' };
+const FIN_KIND_LABELS = { cash: 'Efectivo', debit: 'Débito', credit: 'Crédito', loan: 'Préstamo' };
 // Las categorías de inicio guardadas antes de que hubiera iconos
 const FIN_DEFAULT_ICONS = {
     'súper': 'shopping-basket', 'comer fuera': 'utensils', 'transporte': 'bus', 'casa y servicios': 'house',
@@ -289,7 +290,9 @@ function finRender() {
 
 function finRenderTop() {
     const byCurrency = new Map();
-    finActiveAccounts().forEach(a => byCurrency.set(a.currency, (byCurrency.get(a.currency) || 0) + a.balance_cents));
+    // Los préstamos van aparte, en Cuentas › Deudas: el total es el dinero de tus cuentas y tarjetas
+    finActiveAccounts().filter(a => a.kind !== 'loan')
+        .forEach(a => byCurrency.set(a.currency, (byCurrency.get(a.currency) || 0) + a.balance_cents));
     const main = finMainCurrency();
     const total = byCurrency.get(main) || 0;
     const totalEl = document.getElementById('finTotal');
@@ -658,7 +661,11 @@ function finTxRow(tx) {
     const where = [account ? account.name : '', to ? `→ ${to.name}` : ''].filter(Boolean).join(' ');
     const concept = tx.concept && tx.concept !== title ? tx.concept : '';
     const msi = tx.installment_id ? 'a meses' : '';
-    text.append(el('strong', '', title), el('small', '', [concept, where, msi].filter(Boolean).join(' · ')));
+    // El pago de un préstamo: cuánto fue de intereses, o que fue abono a capital (un solo movimiento)
+    const loan = tx.principal_only ? 'abono a capital'
+        : tx.interest_cents ? `incluye ${formatMoney(tx.interest_cents, tx.currency)} de intereses` : '';
+    if (to && to.kind === 'loan') title = 'Pago de préstamo';
+    text.append(el('strong', '', title), el('small', '', [concept, where, msi, loan].filter(Boolean).join(' · ')));
     const amount = el('span', 'fin-tx-amount', finTxAmountText(tx));
     if (tx.recurring_id) amount.prepend(financeIcon('repeat', 14));
     row.append(badge, text, amount);
@@ -671,7 +678,7 @@ function finOpeningRow(account) {
     const row = el('button', 'fin-tx opening');
     row.type = 'button';
     row.dataset.openingAccount = String(account.id);
-    const debt = account.kind === 'credit' && account.opening_balance_cents < 0;
+    const debt = ['credit', 'loan'].includes(account.kind) && account.opening_balance_cents < 0;
     const text = el('span', 'fin-tx-text');
     text.append(el('strong', '', debt ? 'Deuda inicial' : 'Saldo inicial'), el('small', '', account.name));
     row.append(finBadge(finAccountIcon(account), finAccountColor(account), { square: true }), text,
@@ -1000,7 +1007,7 @@ function finRenderAccounts() {
         finRenderDebts(body);
         return;
     }
-    const accounts = finActiveAccounts().filter(a => sub === 'cards' ? a.kind === 'credit' : true);
+    const accounts = finActiveAccounts().filter(a => (sub === 'cards' ? a.kind === 'credit' : a.kind !== 'loan'));
     const main = finMainCurrency();
     const head = el('div', 'fin-accounts-head');
     const sum = accounts.filter(a => a.currency === main).reduce((acc, a) => acc + a.balance_cents, 0);

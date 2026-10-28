@@ -215,7 +215,7 @@ def finance_page():
 FINANCE_FILES = ("finance.css", "finance-icons.js", "finance-app.js", "finance-entry.js",
                  "finance-settings.js", "finance-accounts.js", "finance-import.js",
                  "finance-data.js", "finance-budget.js", "finance-news.js", "finance-search.js",
-                 "finance-debts.js")
+                 "finance-debts.js", "finance-loans.js")
 
 
 # Una ruta por archivo, como todo el frontend (una genérica "/{name}" taparía

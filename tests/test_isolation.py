@@ -264,6 +264,12 @@ def test_personal_finance(seeded):
     other.call("DELETE", f"/api/finance/accounts/{their_card['id']}", expect=204)
     _, their_tx = other.call("POST", "/api/finance/transactions", tx(theirs, 1, "suyo", their_cat), expect=201)
     assert other.call("PATCH", f"/api/finance/transactions/{their_tx['id']}", {"account_id": mine["id"]})[0] == 404
+    # Ni ver mi préstamo ni subirle una tabla, ni poner mi categoría en el suyo
+    _, my_loan = api.call("POST", "/api/finance/accounts", {"name": "Mi préstamo", "kind": "loan"}, expect=201)
+    assert other.call("GET", f"/api/finance/accounts/{my_loan['id']}/loan")[0] == 404
+    assert other.call("PUT", f"/api/finance/accounts/{my_loan['id']}/loan-schedule", {"rows": []})[0] == 404
+    assert other.call("POST", "/api/finance/accounts", {"name": "Suyo", "kind": "loan",
+                                                        "loan_category_id": cat["id"]})[0] == 404
 
     _, sm = other.call("GET", "/api/finance/summary", expect=200)
     assert [a["name"] for a in sm["accounts"]] == ["Efectivo"] and sm["totals"][0]["expense_cents"] == 1

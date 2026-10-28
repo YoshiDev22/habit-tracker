@@ -1421,7 +1421,12 @@ class FeedbackResponse(SQLModel):
 
 # investment: una cuenta de inversión (CETES, una casa de bolsa, un exchange); se
 # porta como débito, pero se lista en Cuentas › Inversiones
-FIN_ACCOUNT_KINDS = ("cash", "debit", "credit", "investment")
+# loan: un préstamo (Finanzas 0.9), que se lista en Cuentas › Deudas
+FIN_ACCOUNT_KINDS = ("cash", "debit", "credit", "investment", "loan")
+# El tipo de un préstamo: cambia su icono y lo que pide
+FIN_DEBT_TYPES = ("personal", "acquaintance", "bank", "mortgage", "other")
+FIN_MAX_LOAN_MONTHS = 600
+FIN_MAX_LOAN_ROWS = 600
 FIN_CATEGORY_KINDS = ("expense", "income")
 FIN_TX_KINDS = ("expense", "income", "transfer")
 # La quincenal (el 15 y el último día) es solo de Finanzas: el sueldo
@@ -1508,6 +1513,17 @@ class FinAccountCreate(SQLModel):
     interest_rate_bp: Optional[int] = Field(default=None, ge=0, le=100_000)
     # Un apartado de esa cuenta: toma su moneda y su tipo
     parent_id: Optional[int] = None
+    # Solo préstamo (en otra cuenta se ignoran): tipo, mensualidad, plazo en meses y la
+    # categoría de lo comprado con él (null = ya está anotado como gasto)
+    debt_type: Optional[str] = None
+    loan_payment_cents: Optional[int] = Field(default=None, ge=1, le=MAX_MONEY_CENTS)
+    loan_months: Optional[int] = Field(default=None, ge=1, le=FIN_MAX_LOAN_MONTHS)
+    loan_category_id: Optional[int] = None
+
+    @field_validator("debt_type")
+    @classmethod
+    def validate_debt_type(cls, v):
+        return _one_of(v, FIN_DEBT_TYPES, "debt_type")
 
     @field_validator("icon")
     @classmethod
@@ -1554,6 +1570,17 @@ class FinAccountUpdate(SQLModel):
     due_day: Optional[int] = Field(default=None, ge=1, le=31)
     interest_rate_bp: Optional[int] = Field(default=None, ge=0, le=100_000)
     parent_id: Optional[int] = None            # null: vuelve a ser cuenta suelta
+    # Solo préstamo (en otra cuenta se ignoran): tipo, mensualidad, plazo en meses y la
+    # categoría de lo comprado con él (null = ya está anotado como gasto)
+    debt_type: Optional[str] = None
+    loan_payment_cents: Optional[int] = Field(default=None, ge=1, le=MAX_MONEY_CENTS)
+    loan_months: Optional[int] = Field(default=None, ge=1, le=FIN_MAX_LOAN_MONTHS)
+    loan_category_id: Optional[int] = None
+
+    @field_validator("debt_type")
+    @classmethod
+    def validate_debt_type(cls, v):
+        return _one_of(v, FIN_DEBT_TYPES, "debt_type")
 
     @field_validator("icon")
     @classmethod
@@ -1609,6 +1636,10 @@ class FinAccountResponse(SQLModel):
     parent_id: Optional[int] = None   # un apartado: la cuenta de la que cuelga
     interest_rate_bp: Optional[int] = None   # crédito: la tasa anual, de referencia
     cancelled_on: Optional[date_type] = None  # una tarjeta dada de baja: el día
+    debt_type: Optional[str] = None           # un préstamo: su tipo, mensualidad, plazo y categoría
+    loan_payment_cents: Optional[int] = None
+    loan_months: Optional[int] = None
+    loan_category_id: Optional[int] = None
     # Con tasa de rendimiento: la de hoy y lo ganado sin anotar (desde yield_since hasta ayer)
     yield_rate_bp: Optional[int] = None
     yield_since: Optional[date_type] = None
@@ -1803,6 +1834,10 @@ class FinTransactionFields(SQLModel):
     concept: str = Field(min_length=1, max_length=200)
     note: Optional[str] = Field(default=None, max_length=500)
     splits: Optional[List[FinSplitFields]] = Field(default=None, max_length=FIN_MAX_SPLITS)
+    # Solo el pago de un préstamo: lo que no baja la deuda (intereses, IVA, seguros), que
+    # cuenta como gasto en "Intereses", y si fue un abono a capital
+    interest_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    principal_only: Optional[bool] = None
 
     @field_validator("kind")
     @classmethod
@@ -1823,6 +1858,10 @@ class FinTransactionUpdate(SQLModel):
     needs_review: Optional[bool] = None
     # Una lista las reemplaza; null las quita (y entonces lleva categoría)
     splits: Optional[List[FinSplitFields]] = Field(default=None, max_length=FIN_MAX_SPLITS)
+    # Solo el pago de un préstamo: lo que no baja la deuda (intereses, IVA, seguros), que
+    # cuenta como gasto en "Intereses", y si fue un abono a capital
+    interest_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    principal_only: Optional[bool] = None
 
     @field_validator("kind")
     @classmethod
@@ -1856,6 +1895,8 @@ class FinTransactionResponse(SQLModel):
     needs_review: bool = False
     splits: List[FinSplitFields] = []
     installment_id: Optional[int] = None    # si es una compra a meses
+    interest_cents: Optional[int] = None    # el pago de un préstamo: intereses y cargos
+    principal_only: bool = False            # un abono a capital
 
 
 class FinInstallmentCreate(SQLModel):
@@ -2153,6 +2194,63 @@ class FinNoticeSettings(SQLModel):
         if v not in FIN_DUE_NOTICE_DAYS:
             raise ValueError("due_days es 3 o 5")
         return v
+
+
+class FinLoanRowFields(SQLModel):
+    """Una fila de la tabla de amortización, como la da el banco."""
+    number: int = Field(ge=1, le=FIN_MAX_LOAN_ROWS)
+    due_date: date_type
+    payment_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)
+    principal_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)
+    interest_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)   # intereses, IVA, seguros y comisiones
+    balance_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+
+
+class FinLoanSchedule(SQLModel):
+    """La tabla entera: reemplaza la anterior. Vacía, la quita."""
+    rows: List[FinLoanRowFields] = Field(max_length=FIN_MAX_LOAN_ROWS)
+
+
+class FinLoanRowResponse(FinLoanRowFields):
+    paid: bool = False        # ya hay una mensualidad que la cubre
+
+
+class FinLoanPayment(SQLModel):
+    id: int
+    tx_date: date_type
+    account_id: int           # de dónde salió
+    amount_cents: int
+    principal_cents: int      # lo que bajó la deuda
+    interest_cents: int
+    principal_only: bool
+
+
+class FinLoanResponse(SQLModel):
+    account_id: int
+    currency: str
+    owed_cents: int                   # lo que se debe hoy
+    opening_cents: int                # lo que se debía al darlo de alta
+    paid_cents: int                   # todo lo pagado
+    paid_principal_cents: int         # de eso, a capital
+    paid_interest_cents: int          # y a intereses y cargos
+    regular_count: int                # mensualidades
+    capital_count: int                # abonos a capital
+    last_payment: Optional[date_type] = None
+    ends_on: Optional[date_type] = None   # el último pago de la tabla
+    # El siguiente pago: de la tabla (from_table) o estimado con la tasa
+    next_payment_cents: Optional[int] = None
+    next_interest_cents: Optional[int] = None
+    next_due: Optional[date_type] = None
+    next_number: Optional[int] = None
+    from_table: bool = False
+    payments: List[FinLoanPayment] = []
+    rows: List[FinLoanRowResponse] = []
+    capital_note_hidden: bool = False
+
+
+class FinCapitalNote(SQLModel):
+    """El aviso de un abono a capital: True = "No volver a mostrar"."""
+    hidden: bool
 
 
 class FinConsentResponse(SQLModel):
