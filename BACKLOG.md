@@ -731,5 +731,25 @@ gráficas no enseñan que se sigue pagando esa deuda. Ver cuánto se paga de deu
 - Descartado por ahora: repartir las compras a meses mes a mes dentro de los gastos (cambiaría los totales según un
   interruptor y confunde).
 
-**Por decidir.** Si Deudas incluye otras deudas que no son tarjeta (un préstamo personal, a un familiar); si el
-apartado del Resumen va también en el reporte o el CSV.
+- **Tipos de deuda:** al crear una se elige el tipo (tarjeta de crédito, préstamo personal, préstamo de una persona
+  conocida, crédito bancario, hipotecario, otro). El tipo cambia el icono y lo que pide: una tarjeta, corte y pago; un
+  préstamo, mensualidad, plazo y, si cobra, su tasa.
+
+**Préstamos: cuándo un pago es gasto (decidido 2026-10-28).** Un préstamo es una cuenta de deuda con lo que se debe
+como saldo inicial (como la deuda inicial de una tarjeta), que no es un gasto. Al crearlo, la app pregunta si **lo que
+se pagó con él ya está anotado como gasto**:
+- **Ya está anotado** (como una compra con tarjeta): sus pagos son transferencias que solo bajan la deuda.
+- **No está anotado** (por ejemplo, algo comprado antes de usar la app): se elige la **categoría de sus pagos**, y cada
+  pago cuenta como gasto en esa categoría **y** baja la deuda, en un solo movimiento (se cuenta una vez). Así el gasto
+  sale mes a mes donde corresponde, y la deuda en Deudas.
+- Con tasa, la parte de interés de cada pago es gasto (categoría *Intereses*) y el resto baja la deuda.
+- Prueba obligada: en ningún caso un mismo peso cuenta dos veces entre gastos, saldo de la deuda y Resumen › Deudas.
+
+**Exportar (propuesta).** En *Datos › Exportar*, un CSV de deudas: cada una con lo que queda y sus pagos con fecha. El
+CSV de movimientos ya trae cada pago. El apartado del Resumen entraría en un reporte de Finanzas cuando lo haya.
+
+**Compartir una deuda (decidido 2026-10-28), en dos pasos:**
+1. *Compartir* en la deuda arma un resumen para mandar (texto o PDF): lo pagado, lo que falta, cuántos pagos van y el
+   último. No abre acceso a nadie: quien lo usa decide qué manda y cuándo.
+2. Después, si hace falta, un enlace de solo lectura de **esa** deuda (nada más de la cuenta), que se puede apagar y
+   caduca. Cambia el aviso de privacidad (lo de una cuenta queda a la vista de otra persona): va con su 📢.
