@@ -663,12 +663,21 @@ async def main():
         items = await b.js("[...document.querySelectorAll('#finDrawer .fin-drawer-item')].map(i => i.textContent.trim())")
         check(items == ["Configuración", "Datos", "Notas", "Novedades", "Aviso de privacidad", "Regresar a Habit Tracker"],
               f"the gear opens a side menu ({items})")
+        # Al pie de la portada, la versión de Finanzas, centrada; en una página, no
+        finance_version = (Path(__file__).resolve().parents[2] / "FINANCE_VERSION").read_text().strip()
+        st = await b.js("""(() => { const v = document.getElementById('finDrawerVersion'), p = document.getElementById('finDrawerPanel');
+            const r = v.getBoundingClientRect(), q = p.getBoundingClientRect();
+            return {text: v.textContent, shown: !v.hidden, align: getComputedStyle(v).textAlign,
+                    bottom: Math.round(q.bottom - r.bottom)}; })()""")
+        check(st["text"] == f"Finanzas {finance_version}" and st["shown"] and st["align"] == "center" and st["bottom"] < 60,
+              f"the side menu shows the Finanzas version at its foot, centered ({st})")
         await b.shot("finance_drawer", full=False)
         await b.js("document.querySelector('#finDrawer [data-go=\"data\"]').click()")
         st = await b.wait_for("""(() => { const page = document.querySelector('#finDrawer [data-section="data"]');
             return page.classList.contains('active') ? {title: document.getElementById('finDrawerPageTitle').textContent,
                 open: !document.getElementById('finDrawer').classList.contains('hidden')} : null; })()""", lambda v: v)
         check(st and st["title"] == "Datos" and st["open"], f"Datos opens inside the side menu, with its title ({st})")
+        check(await b.js("document.getElementById('finDrawerVersion').hidden"), "the version only shows on the menu's front page")
         await b.js("document.getAnimations().forEach(a => a.finish())")
         await b.shot("finance_drawer_data", full=False)
         lines = await b.js("finExportLines(finState.transactions)")

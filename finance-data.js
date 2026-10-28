@@ -41,6 +41,8 @@ function finDrawerShow(name, { animate = true } = {}) {
     const home = name === 'root';
     document.getElementById('finDrawerHome').hidden = !home;
     document.getElementById('finDrawerBar').hidden = home;
+    const version = document.getElementById('finDrawerVersion');
+    version.hidden = !home || !version.textContent;
     document.getElementById('finDrawerPageTitle').textContent = page.dataset.title;
     // En el teléfono, una página ocupa toda la pantalla (finance.css)
     finDrawerPanel.classList.toggle('wide', !home);

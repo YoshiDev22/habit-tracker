@@ -106,6 +106,10 @@ async function finCheckUpdate() {
     const now = `${info.version}|${info.finance_version}`;
     if (!finNews.pageVersions) {
         finNews.pageVersions = now;   // con lo que abrió esta página
+        // Al pie del panel lateral: la que corre en esta página (si hay otra, Actualizar lo dice)
+        const version = document.getElementById('finDrawerVersion');
+        version.textContent = `Finanzas ${info.finance_version}`;
+        version.hidden = finDrawerNav.current !== 'root';
         return;
     }
     document.getElementById('finUpdateBanner').hidden = now === finNews.pageVersions || now === finNews.dismissed;

@@ -2661,6 +2661,19 @@
     padding: 0 4px;
 }
 
+/* La versión, hasta abajo y centrada (solo en la portada del panel) */
+.fin-drawer-version {
+    margin: auto 0 0;
+    padding-top: 16px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.fin-drawer-version[hidden] {
+    display: none;
+}
+
 .fin-drawer-privacy.active {
     display: flex;
     flex-direction: column;
