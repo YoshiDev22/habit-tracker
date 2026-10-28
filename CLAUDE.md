@@ -666,6 +666,9 @@ Lo que no se ve en Swagger:
   dada de baja no se reanuda ahí (409), sale en Fijos como "su tarjeta se dio de baja" y en la campana de Finanzas es
   el pendiente `fixed_cancelled` hasta cambiarle la cuenta. Archivadas dicen "Dada de baja el …", y la lupa de
   Movimientos sigue ofreciéndola para buscar su historial.
+  **Deudas** (Finanzas 0.9, `finance-debts.js`, sin API propia): *Resumen › Deudas* lista los pagos que llegaron a
+  una tarjeta en el periodo (transferencias) y las mensualidades de MSI de sus cortes (`finBillsInPeriod()`), **nunca
+  sumados a los gastos**; *Cuentas › Deudas*, lo que debe cada tarjeta, lo que piden al mes sus MSI y hasta cuándo.
   **Buscar en Movimientos** (Finanzas 0.7, `finance-search.js`): la lupa de arriba, solo en Movimientos, abre la hoja
   *Buscar* (texto en concepto, categoría o monto, sin acentos ni mayúsculas; tipo; cuentas; categorías de gasto e
   ingreso). Filtra **en el navegador** lo cargado del periodo que se ve (para todo, *Siempre*); dentro de un grupo vale
