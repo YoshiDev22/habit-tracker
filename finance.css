@@ -3437,3 +3437,126 @@ button.fin-debt-row:hover {
     background: var(--accent);
     color: var(--text-on-accent);
 }
+
+/* Presupuesto › Pagos del mes (Finanzas 0.9, finance-plan.js) */
+.fin-budget-views {
+    max-width: 640px;
+}
+
+.fin-plan {
+    max-width: 640px;
+}
+
+.fin-plan-start {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4px 12px;
+}
+
+.fin-plan-start > strong {
+    font-size: 1.25rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-plan-start .fin-hint {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.fin-plan .short {
+    color: var(--danger-fg);
+}
+
+.fin-plan-half {
+    margin: 12px 6px 2px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.fin-plan-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-top: 1px solid var(--border-color);
+}
+
+.fin-plan-row .fin-debt-text strong svg {
+    margin-right: 4px;
+    vertical-align: -2px;
+}
+
+.fin-plan-row.done .fin-debt-text strong,
+.fin-plan-row.done .fin-plan-amount,
+.fin-plan-estimate.off .fin-plan-input {
+    color: var(--text-secondary);
+}
+
+.fin-plan-date {
+    flex: none;
+    width: 3.6rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-plan-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex: none;
+}
+
+.fin-plan-amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-plan-left {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-plan-subtotal {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 6px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+.fin-plan-subtotal strong {
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-plan-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.fin-plan-check input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.fin-plan-input {
+    flex: none;
+    width: 7.5rem;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}

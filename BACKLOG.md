@@ -658,7 +658,8 @@ hacia el punto de equilibrio.
 **Hecho en la 0.9 (2026-10-28):** Resumen › Deudas (pagos a tarjetas y a préstamos, mensualidades de MSI, sin sumarlos a
 los gastos), Cuentas › Deudas, y los préstamos: tipo, mensualidad, plazo y tasa; un pago es un solo movimiento con sus
 intereses dentro (gasto en Intereses; el capital también si lo comprado no estaba anotado), el abono a capital con su
-aviso, y la tabla de amortización pegada o en CSV.
+aviso, y la tabla de amortización pegada o en CSV. Después, *Presupuesto › Pagos del mes*: el plan de pagos de este mes
+y el siguiente.
 
 **Falta:**
 - **La mensualidad como fijo:** que un préstamo genere su pago cada mes (un fijo que sea transferencia, con sus intereses

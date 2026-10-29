@@ -164,7 +164,13 @@
             <p class="fin-hint fin-ring-hint" id="finBudgetHint" hidden>Toca un grupo y luego otro para
                 cambiarlos de lugar; igual con lo que va dentro de ellos o dos ingresos. Con el ratón, también
                 arrastrándolos. ✓ arriba para terminar.</p>
+            <div class="fin-subtabs fin-budget-views" role="tablist" id="finBudgetViews">
+                <button type="button" class="fin-subtab" data-budget-view="budget" aria-selected="true">Presupuesto</button>
+                <button type="button" class="fin-subtab" data-budget-view="plan" aria-selected="false">Pagos del mes</button>
+            </div>
             <div id="finBudget" class="fin-budget"></div>
+            <!-- Pagos del mes (finance-plan.js): lo que hay que pagar y lo que entra, por fecha -->
+            <div id="finPlan" class="fin-plan" hidden></div>
             <div id="finBudgetError" class="form-error hidden"></div>
         </section>
 
@@ -1238,5 +1244,6 @@
     <script src="finance-search.js"></script>
     <script src="finance-debts.js"></script>
     <script src="finance-loans.js"></script>
+    <script src="finance-plan.js"></script>
 </body>
 </html>

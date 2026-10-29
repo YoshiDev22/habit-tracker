@@ -226,6 +226,7 @@ def test_personal_finance(seeded):
         ("DELETE", f"/api/finance/budget/groups/{group['id']}", None),
         ("PATCH", f"/api/finance/budget/items/{line['id']}", {"name": "hack"}),
         ("DELETE", f"/api/finance/budget/items/{line['id']}", None),
+        ("PUT", f"/api/finance/budget/plan/items/{line['id']}", {"month": date.today().isoformat(), "included": True}),
         ("POST", "/api/finance/budget/items", {"group_id": group["id"], "name": "x"}),
         ("POST", "/api/finance/budget/items", {"group_id": their_group["id"], "name": "x", "category_id": cat["id"]}),
         ("POST", "/api/finance/budget/items", {"group_id": their_group["id"], "name": "x", "recurring_id": rc["id"]}),

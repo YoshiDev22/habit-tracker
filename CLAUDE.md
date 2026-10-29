@@ -73,6 +73,7 @@ habit-tracker/
 │   ├── finance.py         # Finanzas personales: lo de inicio, el resumen y los fijos (épica 37)
 │   ├── finance_yield.py   # Finanzas: rendimiento diario (estimado) y plazos fijos (vencimientos)
 │   ├── finance_loans.py   # Finanzas: préstamos (lo pagado a capital e intereses, su tabla de amortización)
+│   ├── finance_plan.py    # Finanzas: el plan de pagos del mes (tarjetas, préstamos, fijos y aproximados, por fecha)
 │   ├── days.py            # Calendario de trabajo: huso, país y qué días son hábiles
 │   ├── holidays.py        # Festivos oficiales de Nager.Date, en caché por país y año
 │   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
@@ -149,6 +150,7 @@ habit-tracker/
 ├── finance-search.js      # Finanzas: la lupa de Movimientos (texto, tipo, cuentas y categorías) y su barra de filtros
 ├── finance-debts.js       # Finanzas: Resumen › Deudas y Cuentas › Deudas (tarjetas y préstamos)
 ├── finance-loans.js       # Finanzas: las páginas de un préstamo (pagos e intereses, pagar o abonar a capital, su tabla)
+├── finance-plan.js        # Finanzas: Presupuesto › Pagos del mes (el plan de pagos de este mes y el siguiente)
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -222,7 +224,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
 `ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`, las de Finanzas (`FinAccount`, `FinCategory`,
 `FinTransaction`, `FinRecurring`, `FinSettings`, `FinSplit`, `FinInstallment`, `FinStatement`, `FinBudgetGroup`,
-`FinBudgetItem`, `FinYieldRate`, `FinTerm`, `FinNote`, `FinLoanRow`),
+`FinBudgetItem`, `FinPlanChoice`, `FinYieldRate`, `FinTerm`, `FinNote`, `FinLoanRow`),
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -693,6 +695,20 @@ Lo que no se ve en Swagger:
   comisiones aparte; una fila sin fecha, como el total, se salta). Cada mensualidad hecha desde un mes antes de la primera fila cubre una fila. El
   abono a capital avisa que se confirme con el banco, con "No volver a mostrar" (`fin_settings.capital_note_hidden`,
   `PUT /capital-note`).
+  **Pagos del mes** (Finanzas 0.9, *Presupuesto › Pagos del mes*, `finance-plan.js`, `backend/finance_plan.py`):
+  el plan de pagos del mes en curso o del siguiente (`GET /api/finance/budget/plan?month=`; otro mes, 422), calculado
+  y **sin crear movimientos**. Por fecha: el pago de cada tarjeta con fecha límite en el mes (el del banco o el calculado
+  de `card_statement()`; un corte que aún no llega, **estimado**: lo que se debe hoy + sus fijos hasta el corte − los MSI
+  que se facturan después − lo que ya pide un corte anterior), la mensualidad de cada préstamo (de su tabla o
+  `loan_payment_cents`; hecha con un pago en el mes) y los fijos de efectivo, débito o inversión. **Nada cuenta dos veces**:
+  un fijo cargado a una tarjeta va dentro de su pago y uno anotado en un préstamo sube la deuda, así que ninguno sale
+  suelto; un renglón del presupuesto con fijo sale como fijo. Empieza con el saldo de hoy en efectivo y débito (sin
+  apartados ni inversiones); el siguiente mes, con eso más lo que aún falta del mes en curso. Al final, los
+  **aproximados**: los gastos del presupuesto sin fijo, que **no entran hasta que el usuario los elige**, por mes y con su
+  monto de ese mes (`fin_plan_choices`, `PUT /api/finance/budget/plan/items/{id}`; tabla nueva, sin migración). **Nunca
+  cambian el presupuesto**: un monto igual al del renglón se guarda como NULL. En el mes en curso, lo que falta es el monto
+  menos lo gastado en su categoría. Con periodo quincenal la pantalla lo parte en dos mitades; va en la moneda principal.
+  Borrar el renglón (o su grupo) se lleva lo elegido.
   Cada sección de Cuentas (Cuentas, Tarjetas, Deudas › Tarjetas y Préstamos, Inversiones y Plazos) agrega con el **+** al
   final de su encabezado, después de su monto (`finHeadAdd()`), no con un enlace abajo.
   **Buscar en Movimientos** (Finanzas 0.7, `finance-search.js`): la lupa de arriba, solo en Movimientos, abre la hoja
@@ -1094,7 +1110,7 @@ al cierre de sesión),
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?"), `finance_tab` (la pestaña abierta de la página de Finanzas, de este dispositivo), `finance_range` (qué
 periodo ve: el suyo, semana, mes, año o siempre), `finance_hide_total` (el total de Finanzas oculto con
-el 👁, de este dispositivo),
+el 👁, de este dispositivo), `finance_budget_view` (Presupuesto o Pagos del mes, de este dispositivo),
 `work_calendar_cache` (huso, país y festivos por año, para
 no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
 `text_size` (`large` | `xlarge`, en **Configuración › Accesibilidad**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —

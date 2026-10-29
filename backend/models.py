@@ -1052,6 +1052,23 @@ class FinBudgetItem(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 
 
+class FinPlanChoice(SQLModel, table=True):
+    """
+    El plan de pagos de un mes (Finanzas 0.9): qué aproximados del presupuesto (los
+    renglones sin fijo) entran ese mes y con cuánto. Sin fila, no entra: el usuario
+    elige. Nunca cambia el presupuesto: amount_cents NULL = el monto del renglón.
+    """
+    __tablename__ = "fin_plan_choices"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", "month", name="uq_fin_plan_choices_item_month"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    item_id: int = Field(foreign_key="fin_budget_items.id")
+    month: date_type                             # el día 1 del mes
+    included: bool = Field(default=False)
+    amount_cents: Optional[int] = Field(default=None)
+
+
 class FinInstallment(SQLModel, table=True):
     """
     Una compra a meses sin intereses en una tarjeta de crédito. La compra cuenta

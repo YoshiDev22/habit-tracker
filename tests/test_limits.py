@@ -295,6 +295,12 @@ def test_personal_finance(api):
     for bad in ({"name": "x" * 81}, {"amount_cents": -1}, {"amount_cents": 10 ** 13}, {"note": "x" * 201},
                 {"kind": "transfer"}):
         assert api.call("POST", "/api/finance/budget/items", {**line, **bad})[0] == 422, bad
+    # El plan de pagos: un monto con tope y un mes de verdad
+    _, row = api.call("POST", "/api/finance/budget/items", line, expect=201)
+    plan_url = f"/api/finance/budget/plan/items/{row['id']}"
+    month = api.call("GET", "/api/finance/budget/plan", expect=200)[1]["month"]
+    for bad in ({"amount_cents": -1}, {"amount_cents": 10 ** 13}, {"month": "x" * 5000}, {"included": "x" * 5000}):
+        assert api.call("PUT", plan_url, {"month": month, "included": True, **bad})[0] == 422, bad
     for bad in ({"months": 0}, {"months": 49}, {"months": 3, "concept": "x" * 201}, {"months": 3, "total_cents": 0},
                 {"months": 3, "bank_cut": "2030-01-01", "bank_part": 0},
                 {"months": 3, "bank_cut": "2030-01-01", "bank_part": 49},

@@ -2001,6 +2001,56 @@ class FinBudgetResponse(SQLModel):
     items: List[FinBudgetItemResponse]
 
 
+# ---------- El plan de pagos del mes (Finanzas 0.9) ----------
+
+FIN_PLAN_KINDS = ("card", "loan", "fixed", "estimate")
+
+
+class FinPlanChoiceFields(SQLModel):
+    """Un aproximado del presupuesto en el plan de un mes: si entra y con cuánto
+    (null = el monto del presupuesto, que nunca cambia desde aquí)."""
+    month: date_type
+    included: bool
+    amount_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+
+
+class FinPlanEntry(SQLModel):
+    kind: str                     # FIN_PLAN_KINDS
+    direction: str                # out (sale dinero) | in (entra)
+    ref_id: int                   # la tarjeta, el préstamo, el fijo o el renglón del presupuesto
+    name: str
+    currency: str
+    tx_date: Optional[date_type] = None   # None = a lo largo del mes (los aproximados)
+    amount_cents: int             # lo del mes
+    pending_cents: int            # lo que aún falta: lo que mueve el saldo del plan
+    status: str                   # pending | partial | done | past
+    source: Optional[str] = None  # tarjeta: bank | calculated | estimated; préstamo: table | payment
+    account_name: Optional[str] = None    # de qué cuenta sale (o a cuál entra) un fijo
+    cut_date: Optional[date_type] = None  # el corte de una tarjeta
+    msi_cents: int = 0            # lo que el pago de una tarjeta trae de MSI
+    # Solo aproximados
+    included: bool = False
+    budget_cents: Optional[int] = None    # el monto del presupuesto
+    spent_cents: int = 0          # lo que ya llevas este mes en su categoría
+
+
+class FinPlanStart(SQLModel):
+    currency: str
+    cents: int
+
+
+class FinPlanResponse(SQLModel):
+    month: date_type
+    date_from: date_type
+    date_to: date_type
+    today: date_type
+    current: bool                 # el mes de hoy (si no, el siguiente)
+    period: str                   # month | biweekly: la pantalla lo parte en quincenas
+    currency: str                 # la principal: el plan va en ella
+    start: List[FinPlanStart]     # hoy, o lo que quedaría al empezar el mes siguiente
+    entries: List[FinPlanEntry]
+
+
 class FinInstallmentBill(SQLModel):
     cut: date_type                # el corte que la pide
     part: int                     # 11 (de 12)

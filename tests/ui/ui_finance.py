@@ -1196,6 +1196,49 @@ async def main():
         await b.wait_for("!document.querySelector('.fin-budget-group[draggable=\"true\"]')")
         await b.viewport(390, 844, mobile=True)
 
+        # Pagos del mes: por fecha, con cuánto queda; los aproximados del presupuesto entran
+        # solo si se eligen, y su monto cambia solo ese mes (el presupuesto no)
+        def plan_end(body):
+            cur = body["currency"]
+            total = next((x["cents"] for x in body["start"] if x["currency"] == cur), 0)
+            for e in body["entries"]:
+                if e["currency"] == cur and e["status"] != "done" and (e["kind"] != "estimate" or e["included"]):
+                    total += e["pending_cents"] * (1 if e["direction"] == "in" else -1)
+            return total
+        await b.js("document.querySelector('#finBudgetViews [data-budget-view=\"plan\"]').click()")
+        await b.wait_for("!!document.querySelector('#finPlan .fin-plan-end strong')")
+        plan = api.call("GET", "/api/finance/budget/plan", expect=200)[1]
+        rent = next(e for e in plan["entries"] if e["kind"] == "estimate" and e["name"] == "Renta")
+        st = await b.js(f"""(() => {{ const box = document.querySelector('[data-plan-item="{rent['ref_id']}"]');
+            return {{hidden: document.getElementById('finBudget').hidden, checked: box && box.checked,
+                     internet: [...document.querySelectorAll('#finPlan [data-plan-item]')].length}}; }})()""")
+        check(st["hidden"] and st["checked"] is False and not rent["included"],
+              f"Pagos del mes replaces the budget view, and estimates start out of the plan ({st})")
+        await b.js(f"document.querySelector('[data-plan-item=\"{rent['ref_id']}\"]').click()")
+        await wait_api("/api/finance/budget/plan", lambda body: any(
+            e["kind"] == "estimate" and e["ref_id"] == rent["ref_id"] and e["included"] for e in body["entries"]))
+        await b.wait_for(f"document.querySelector('[data-plan-amount=\"{rent['ref_id']}\"]') && "
+                         f"document.querySelector('[data-plan-item=\"{rent['ref_id']}\"]').checked")
+        await b.js(f"""(() => {{ const i = document.querySelector('[data-plan-amount="{rent['ref_id']}"]');
+            i.value = '5000'; i.dispatchEvent(new Event('change', {{bubbles: true}})); }})()""")
+        plan = await wait_api("/api/finance/budget/plan", lambda body: any(
+            e["kind"] == "estimate" and e["ref_id"] == rent["ref_id"] and e["amount_cents"] == 500_000
+            for e in body["entries"]))
+        line = next(i for i in api.call("GET", "/api/finance/budget", expect=200)[1]["items"] if i["id"] == rent["ref_id"])
+        check(line["amount_cents"] == 450_000, f"changing it in the plan never changes the budget ({line})")
+        want = await b.js(f"formatMoney({abs(plan_end(plan))}, '{plan['currency']}')")
+        end = await b.wait_for("document.querySelector('#finPlan .fin-plan-end').textContent",
+                               lambda v: v and want in v and "5,000.00" not in (v or "x"))
+        check(bool(end), f"what is left at the end adds every pending row and the chosen estimate ({want}, {end})")
+        await no_sideways("payment plan")
+        await b.shot("finance_plan", full=False)
+        await b.js("document.querySelector('#finPlan [data-plan-month=\"next\"]').click()")
+        nxt = await b.wait_for("(document.querySelector('#finPlan .fin-plan-start span') || {}).textContent",
+                               lambda v: v and v.startswith("Te quedaría"))
+        check(bool(nxt), f"the next month starts with what would be left of this one ({nxt})")
+        await b.js("document.querySelector('#finBudgetViews [data-budget-view=\"budget\"]').click()")
+        await b.wait_for("!document.getElementById('finBudget').hidden && document.getElementById('finPlan').hidden")
+
         # La campana de Finanzas: un anuncio para todas las cuentas sí; un aviso de Habit
         # Tracker (sus Novedades) no, y abrirla no lo da por leído en la app
         db = Path(os.environ["HABIT_UI_TMP"]) / "test_finance.db"
