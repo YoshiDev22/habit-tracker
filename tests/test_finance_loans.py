@@ -28,9 +28,9 @@ def new_loan(api, name, owed, **extra):
     return api.call("POST", URL, body, expect=201)[1]
 
 
-def pay(api, source, loan, amount, interest=None, principal_only=False, day=TODAY, expect=201):
+def pay(api, source, loan, amount, interest=None, principal_only=False, day=TODAY, expect=201, charges=None):
     body = {**tx(source, amount, f"Pago {loan['name']}", kind="transfer", to=loan, day=day),
-            "interest_cents": interest, "principal_only": principal_only}
+            "interest_cents": interest, "charges_cents": charges, "principal_only": principal_only}
     return api.call("POST", "/api/finance/transactions", body, expect=expect)[1]
 
 
@@ -171,3 +171,54 @@ def test_capital_note_can_be_hidden(api):
     assert api.call("GET", f"{URL}/{loan['id']}/loan", expect=200)[1]["capital_note_hidden"] is True
     api.call("PUT", "/api/finance/capital-note", {"hidden": False}, expect=200)
     assert api.call("GET", f"{URL}/{loan['id']}/loan", expect=200)[1]["capital_note_hidden"] is False
+
+
+def test_insurance_apart_from_interest_and_charges_that_raise_the_debt(api):
+    """Un pago con intereses y seguro: cada uno en su categoría, solo el capital baja la deuda.
+    Un cargo (el seguro del año) sube la deuda y es gasto; y como se debe más, el interés que
+    se propone también sube."""
+    cash, debit, credit, cats = setup(api, "seguro@test.com")
+    api.call("POST", "/api/finance/transactions", tx(debit, 5_000_000, "Nómina", cats["Sueldo"], kind="income",
+                                                     day=days_ago(30)), expect=201)
+    loan = new_loan(api, "Hipotecario", 1_200_000, debt_type="mortgage", interest_rate_bp=1200,
+                    loan_payment_cents=50_000)
+    before, _ = totals(api)
+    payment = pay(api, debit, loan, 50_000, interest=12_000, charges=3_000)
+    assert payment["interest_cents"] == 12_000 and payment["charges_cents"] == 3_000
+    expense, by_cat = totals(api)
+    assert expense - before == 15_000 and by_cat["Intereses"] == 12_000 and by_cat["Seguros y comisiones"] == 3_000
+    assert account(api, loan)["balance_cents"] == -1_200_000 + 35_000
+    pay(api, debit, loan, 10_000, interest=6_000, charges=5_000, expect=422)
+    pay(api, debit, loan, 10_000, charges=1, principal_only=True, expect=422)
+    _, info = api.call("GET", f"{URL}/{loan['id']}/loan", expect=200)
+    assert (info["paid_principal_cents"], info["paid_interest_cents"], info["paid_charges_cents"]) == (35_000, 12_000, 3_000)
+    estimate = info["next_interest_cents"]
+    assert estimate == 11_650   # 1 % al mes de 1,165,000
+
+    # El seguro del año, anotado en el préstamo: sube la deuda, es gasto, y el interés propuesto sube
+    _, cat = api.call("POST", "/api/finance/categories", {"name": "Seguro anual", "kind": "expense"}, expect=201)
+    _, charge = api.call("POST", "/api/finance/transactions", tx(loan, 100_000, "Seguro", cat), expect=201)
+    assert account(api, loan)["balance_cents"] == -1_200_000 + 35_000 - 100_000
+    assert totals(api)[0] - before == 115_000
+    _, info = api.call("GET", f"{URL}/{loan['id']}/loan", expect=200)
+    assert info["added_cents"] == 100_000 and [c["id"] for c in info["charges"]] == [charge["id"]]
+    assert info["next_interest_cents"] == 12_650 > estimate
+    # Y la hoja del monto no propone el préstamo como la cuenta de un gasto
+    _, listed = api.call("GET", "/api/finance/categories", expect=200)
+    assert listed["last_expense_account_id"] != loan["id"]
+    assert next(c for c in listed["categories"] if c["id"] == cat["id"])["usual_account_id"] is None
+
+    # Ajustar la deuda (lo que dice el banco): cambia el punto de partida, sin gasto ni movimiento
+    real = 1_250_000
+    current = account(api, loan)
+    api.call("PATCH", f"{URL}/{loan['id']}",
+             {"opening_balance_cents": current["opening_balance_cents"] + (-real - current["balance_cents"])}, expect=200)
+    assert account(api, loan)["balance_cents"] == -real and totals(api)[0] - before == 115_000
+
+    # La tabla con seguros aparte: el pago es capital + intereses + seguros
+    row = {"number": 1, "due_date": (TODAY + timedelta(days=10)).isoformat(), "payment_cents": 50_000,
+           "principal_cents": 35_000, "interest_cents": 12_000, "charges_cents": 3_000}
+    _, info = api.call("PUT", f"{URL}/{loan['id']}/loan-schedule", {"rows": [row]}, expect=200)
+    assert info["rows"][0]["charges_cents"] == 3_000
+    assert api.call("PUT", f"{URL}/{loan['id']}/loan-schedule",
+                    {"rows": [dict(row, charges_cents=0)]})[0] == 422, "they no longer add up to the payment"

@@ -805,8 +805,8 @@ class FinAccount(SQLModel, table=True):
 class FinLoanRow(SQLModel, table=True):
     """
     Una fila de la tabla de amortización de un préstamo, copiada del banco: el
-    número de pago, su fecha, el pago y cuánto de él va a capital y cuánto a
-    intereses y cargos (IVA, seguros, comisiones), y el saldo que queda. Solo de
+    número de pago, su fecha, el pago y cuánto de él va a capital, a intereses
+    (con su IVA) y a seguros y comisiones, y el saldo que queda. Solo de
     referencia: propone el interés del siguiente pago y dice hasta cuándo. Subir
     otra tabla reemplaza la anterior; borrar el préstamo se la lleva.
     """
@@ -820,6 +820,7 @@ class FinLoanRow(SQLModel, table=True):
     payment_cents: int
     principal_cents: int
     interest_cents: int
+    charges_cents: int = Field(default=0)
     balance_cents: Optional[int] = Field(default=None)
 
 
@@ -965,11 +966,14 @@ class FinTransaction(SQLModel, table=True):
     linked_id: Optional[int] = Field(default=None)   # la factura (CFDI) ↔ la compra del banco
     recurring_id: Optional[int] = Field(default=None, foreign_key="fin_recurring.id")
     needs_review: bool = Field(default=False)    # llegó solo y quedó dudoso: cuenta igual
-    # El pago de un préstamo (Finanzas 0.9): de su monto, lo que no baja la deuda (intereses,
-    # IVA, seguros), que cuenta como gasto en interest_category_id; la deuda baja el resto.
-    # principal_only: un abono a capital (no es una de las mensualidades).
+    # El pago de un préstamo (Finanzas 0.9): de su monto, lo que no baja la deuda. Los intereses
+    # (con su IVA) cuentan como gasto en interest_category_id, y los seguros y comisiones en
+    # charges_category_id; la deuda baja el resto (el capital). principal_only: un abono a
+    # capital (no es una de las mensualidades, y no lleva ni intereses ni cargos).
     interest_cents: Optional[int] = Field(default=None)
     interest_category_id: Optional[int] = Field(default=None, foreign_key="fin_categories.id")
+    charges_cents: Optional[int] = Field(default=None)
+    charges_category_id: Optional[int] = Field(default=None, foreign_key="fin_categories.id")
     principal_only: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: utc_now_naive())
 

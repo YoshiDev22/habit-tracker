@@ -31,9 +31,11 @@ const FIN_MENU_ACTIONS = {
         ['loanpay', 'arrow-up', 'Pagar', '#27ae60'],
         ['capital', 'arrow-down', 'Abono a capital', '#00b894'],
         ['loan', 'hand-coins', 'Pagos e intereses', '#5c6bc0'],
+        ['charge', 'plus', 'Agregar cargo', '#e84393'],
+        ['adjust', 'rotate-ccw', 'Ajustar deuda', '#95a5a6'],
         ['table', 'calendar-days', 'Tabla de amortización', '#16a085'],
         ['edit', 'pencil', 'Editar', '#f1c40f'],
-        ['movements', 'list', 'Movimientos', '#95a5a6'],
+        ['movements', 'list', 'Movimientos', '#16a085'],
     ],
 };
 
@@ -183,6 +185,8 @@ document.getElementById('finMenuActions').addEventListener('click', (event) => {
         openFinLoanPay(act === 'capital');
     } else if (act === 'table') {
         openFinLoanTable();
+    } else if (act === 'charge') {
+        openFinLoanCharge();
     }
 });
 
@@ -333,8 +337,13 @@ async function finPayCard(card) {
 
 function openFinAdjust() {
     const a = finMenu.account;
-    const credit = a.kind === 'credit';
+    // Una tarjeta o un préstamo: se escribe lo que se debe (lo que dice el banco hoy)
+    const credit = ['credit', 'loan'].includes(a.kind);
     document.getElementById('finAdjustLabel').textContent = credit ? 'Deuda real hoy' : 'Saldo real hoy';
+    document.getElementById('finAdjustHint').textContent = a.kind === 'loan'
+        ? 'Lo que el banco dice que debes hoy. No crea movimientos ni cuenta como gasto: corrige el punto de partida. '
+          + 'Un seguro o una comisión que sube la deuda, anótalo con Agregar cargo.'
+        : 'Cuadra la cuenta sin crear movimientos: cambia el saldo inicial por la diferencia.';
     const shown = credit ? Math.max(0, -a.balance_cents) : a.balance_cents;
     document.getElementById('finAdjustAmount').value = (shown / 100).toFixed(2);
     document.getElementById('finAdjustError').classList.add('hidden');
@@ -348,8 +357,8 @@ document.getElementById('finAdjustForm').addEventListener('submit', async (event
     const errorEl = document.getElementById('finAdjustError');
     const cents = parseMoneyCents(document.getElementById('finAdjustAmount').value.trim());
     if (cents == null) return showError(errorEl, 'Escribe el monto: solo números.');
-    // En crédito se escribe la deuda (positiva); el saldo es negativo
-    const target = a.kind === 'credit' ? -Math.abs(cents) : cents;
+    // En crédito o un préstamo se escribe la deuda (positiva); el saldo es negativo
+    const target = ['credit', 'loan'].includes(a.kind) ? -Math.abs(cents) : cents;
     const opening = a.opening_balance_cents + (target - a.balance_cents);
     try {
         await apiFetch(`/api/finance/accounts/${a.id}`, { method: 'PATCH', json: { opening_balance_cents: opening } });
@@ -820,17 +829,15 @@ async function finRenderInvestments(body) {
     const investHead = el('div', 'fin-accounts-head');
     const investSum = invest.filter(a => a.currency === main).reduce((acc, a) => acc + a.balance_cents, 0);
     investHead.append(el('span', '', 'Cuentas de inversión'), el('strong', '', finMoney(investSum, main)));
+    finHeadAdd(investHead, { newAccount: 'investment' }, 'Nueva cuenta de inversión');
     blocks.push(investHead);
     if (!invest.length) blocks.push(el('p', 'fin-empty', 'Agrega aquí CETES, tu casa de bolsa o tu exchange: cada una con su saldo.'));
     invest.forEach(a => blocks.push(finInvestmentRow(a)));
-    const addAccount = el('button', 'link-btn fin-add-account', '＋ Nueva cuenta de inversión');
-    addAccount.type = 'button';
-    addAccount.dataset.newAccount = 'investment';
-    blocks.push(addAccount);
 
     const open = terms.filter(t => !t.matured);
     const head = el('div', 'fin-accounts-head spaced');
     head.append(el('span', '', 'Plazos fijos'));
+    finHeadAdd(head, { newTerm: '1' }, 'Nuevo plazo fijo');
     blocks.push(head);
     if (!open.length) blocks.push(el('p', 'fin-empty', 'Sin plazos abiertos.'));
     open.forEach(t => {
@@ -849,10 +856,6 @@ async function finRenderInvestments(body) {
         row.append(finBadge('landmark', a ? finAccountColor(a) : FIN_NEUTRAL, { size: 'md', square: true }), text, side);
         blocks.push(row);
     });
-    const add = el('button', 'link-btn fin-add-account', '＋ Nuevo plazo fijo');
-    add.type = 'button';
-    add.dataset.newTerm = '1';
-    blocks.push(add);
     const done = terms.filter(t => t.matured).slice(0, 10);
     if (done.length) {
         const past = el('details', 'fin-terms-past');

@@ -1834,9 +1834,10 @@ class FinTransactionFields(SQLModel):
     concept: str = Field(min_length=1, max_length=200)
     note: Optional[str] = Field(default=None, max_length=500)
     splits: Optional[List[FinSplitFields]] = Field(default=None, max_length=FIN_MAX_SPLITS)
-    # Solo el pago de un préstamo: lo que no baja la deuda (intereses, IVA, seguros), que
-    # cuenta como gasto en "Intereses", y si fue un abono a capital
+    # Solo el pago de un préstamo: lo que no baja la deuda, como gasto: los intereses (con IVA)
+    # en "Intereses" y los seguros y comisiones en "Seguros y comisiones"; y si fue abono a capital
     interest_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    charges_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     principal_only: Optional[bool] = None
 
     @field_validator("kind")
@@ -1858,9 +1859,10 @@ class FinTransactionUpdate(SQLModel):
     needs_review: Optional[bool] = None
     # Una lista las reemplaza; null las quita (y entonces lleva categoría)
     splits: Optional[List[FinSplitFields]] = Field(default=None, max_length=FIN_MAX_SPLITS)
-    # Solo el pago de un préstamo: lo que no baja la deuda (intereses, IVA, seguros), que
-    # cuenta como gasto en "Intereses", y si fue un abono a capital
+    # Solo el pago de un préstamo: lo que no baja la deuda, como gasto: los intereses (con IVA)
+    # en "Intereses" y los seguros y comisiones en "Seguros y comisiones"; y si fue abono a capital
     interest_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
+    charges_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
     principal_only: Optional[bool] = None
 
     @field_validator("kind")
@@ -1895,7 +1897,8 @@ class FinTransactionResponse(SQLModel):
     needs_review: bool = False
     splits: List[FinSplitFields] = []
     installment_id: Optional[int] = None    # si es una compra a meses
-    interest_cents: Optional[int] = None    # el pago de un préstamo: intereses y cargos
+    interest_cents: Optional[int] = None    # el pago de un préstamo: intereses (con IVA)
+    charges_cents: Optional[int] = None     # y seguros y comisiones
     principal_only: bool = False            # un abono a capital
 
 
@@ -2202,7 +2205,8 @@ class FinLoanRowFields(SQLModel):
     due_date: date_type
     payment_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)
     principal_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)
-    interest_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)   # intereses, IVA, seguros y comisiones
+    interest_cents: int = Field(ge=0, le=MAX_MONEY_CENTS)   # intereses con su IVA
+    charges_cents: int = Field(default=0, ge=0, le=MAX_MONEY_CENTS)   # seguros y comisiones
     balance_cents: Optional[int] = Field(default=None, ge=0, le=MAX_MONEY_CENTS)
 
 
@@ -2222,7 +2226,18 @@ class FinLoanPayment(SQLModel):
     amount_cents: int
     principal_cents: int      # lo que bajó la deuda
     interest_cents: int
+    charges_cents: int
     principal_only: bool
+
+
+class FinLoanCharge(SQLModel):
+    """Un cargo que subió la deuda (un gasto anotado en el préstamo: el seguro del año)."""
+    id: int
+    tx_date: date_type
+    amount_cents: int
+    concept: str
+    category_id: Optional[int] = None
+    recurring_id: Optional[int] = None
 
 
 class FinLoanResponse(SQLModel):
@@ -2232,7 +2247,9 @@ class FinLoanResponse(SQLModel):
     opening_cents: int                # lo que se debía al darlo de alta
     paid_cents: int                   # todo lo pagado
     paid_principal_cents: int         # de eso, a capital
-    paid_interest_cents: int          # y a intereses y cargos
+    paid_interest_cents: int          # a intereses
+    paid_charges_cents: int           # y a seguros y comisiones
+    added_cents: int                  # los cargos que subieron la deuda
     regular_count: int                # mensualidades
     capital_count: int                # abonos a capital
     last_payment: Optional[date_type] = None
@@ -2240,10 +2257,12 @@ class FinLoanResponse(SQLModel):
     # El siguiente pago: de la tabla (from_table) o estimado con la tasa
     next_payment_cents: Optional[int] = None
     next_interest_cents: Optional[int] = None
+    next_charges_cents: Optional[int] = None
     next_due: Optional[date_type] = None
     next_number: Optional[int] = None
     from_table: bool = False
     payments: List[FinLoanPayment] = []
+    charges: List[FinLoanCharge] = []
     rows: List[FinLoanRowResponse] = []
     capital_note_hidden: bool = False
 

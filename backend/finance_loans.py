@@ -26,17 +26,18 @@ from sqlalchemy import func
 
 from backend.finance import account_balances, _clamp, _shift
 from backend.models import FinAccount, FinCategory, FinLoanRow, FinSettings, FinTransaction
-from backend.schemas import FinLoanPayment, FinLoanResponse, FinLoanRowResponse
+from backend.schemas import FinLoanCharge, FinLoanPayment, FinLoanResponse, FinLoanRowResponse
 
 INTEREST_CATEGORY = ("Intereses", "#c0392b", "expense", "landmark")
+CHARGES_CATEGORY = ("Seguros y comisiones", "#7f8c8d", "expense", "receipt")
 # Una fila de la tabla cuenta como pagada con una mensualidad hecha desde un mes antes de su fecha
 TABLE_LEAD_DAYS = 31
 
 
-def interest_category(session: Session, user_id: int) -> Optional[FinCategory]:
-    """La categoría de gasto "Intereses": la del usuario, o una nueva al final.
-    None si ya tiene una de ingresos con ese nombre (el nombre es único)."""
-    name, color, kind, icon = INTEREST_CATEGORY
+def interest_category(session: Session, user_id: int, which: tuple = INTEREST_CATEGORY) -> Optional[FinCategory]:
+    """La categoría de gasto "Intereses" (o "Seguros y comisiones"): la del usuario, o
+    una nueva al final. None si ya tiene una de ingresos con ese nombre (es único)."""
+    name, color, kind, icon = which
     category = session.exec(select(FinCategory).where(FinCategory.user_id == user_id,
                                                       FinCategory.name == name)).first()
     if category is not None:
@@ -95,9 +96,17 @@ def loan_response(session: Session, account: FinAccount, today: date_type) -> Fi
         FinTransaction.user_id == user_id, FinTransaction.kind == "transfer",
         FinTransaction.to_account_id == account.id).order_by(FinTransaction.tx_date.desc(), FinTransaction.id.desc())).all()
     payments = [FinLoanPayment(id=tx.id, tx_date=tx.tx_date, account_id=tx.account_id, amount_cents=tx.amount_cents,
-                               principal_cents=tx.amount_cents - (tx.interest_cents or 0),
-                               interest_cents=tx.interest_cents or 0, principal_only=tx.principal_only)
+                               principal_cents=tx.amount_cents - (tx.interest_cents or 0) - (tx.charges_cents or 0),
+                               interest_cents=tx.interest_cents or 0, charges_cents=tx.charges_cents or 0,
+                               principal_only=tx.principal_only)
                 for tx in txs]
+    # Los cargos que suben la deuda: los gastos anotados en el préstamo (el seguro de cada año)
+    charges = [FinLoanCharge(id=tx.id, tx_date=tx.tx_date, amount_cents=tx.amount_cents, concept=tx.concept,
+                             category_id=tx.category_id, recurring_id=tx.recurring_id)
+               for tx in session.exec(select(FinTransaction).where(
+                   FinTransaction.user_id == user_id, FinTransaction.kind == "expense",
+                   FinTransaction.account_id == account.id)
+                   .order_by(FinTransaction.tx_date.desc(), FinTransaction.id.desc())).all()]
     regular = [p for p in payments if not p.principal_only]
     rows = loan_rows(session, user_id, account.id)
     response = FinLoanResponse(
@@ -105,6 +114,8 @@ def loan_response(session: Session, account: FinAccount, today: date_type) -> Fi
         paid_cents=sum(p.amount_cents for p in payments),
         paid_principal_cents=sum(p.principal_cents for p in payments),
         paid_interest_cents=sum(p.interest_cents for p in payments),
+        paid_charges_cents=sum(p.charges_cents for p in payments),
+        added_cents=sum(c.amount_cents for c in charges), charges=charges,
         regular_count=len(regular), capital_count=len(payments) - len(regular),
         last_payment=payments[0].tx_date if payments else None,
         payments=payments, capital_note_hidden=capital_note_hidden(session, user_id),
@@ -115,18 +126,22 @@ def loan_response(session: Session, account: FinAccount, today: date_type) -> Fi
         covered = sum(1 for p in regular if p.tx_date >= start)
         response.rows = [FinLoanRowResponse(number=r.number, due_date=r.due_date, payment_cents=r.payment_cents,
                                             principal_cents=r.principal_cents, interest_cents=r.interest_cents,
-                                            balance_cents=r.balance_cents, paid=i < covered)
+                                            charges_cents=r.charges_cents or 0, balance_cents=r.balance_cents,
+                                            paid=i < covered)
                          for i, r in enumerate(rows)]
         response.ends_on = rows[-1].due_date
         if covered < len(rows) and owed > 0:
             row = rows[covered]
             response.next_payment_cents = row.payment_cents
             response.next_interest_cents = row.interest_cents
+            response.next_charges_cents = row.charges_cents or 0
             response.next_due = row.due_date
             response.next_number = row.number
             response.from_table = True
         return response
     if owed > 0:
+        # Sin tabla: el interés con la tasa sobre lo que se debe hoy, así que un cargo que sube
+        # la deuda (el seguro del año) también sube el interés que se propone
         response.next_payment_cents = account.loan_payment_cents
         response.next_interest_cents = monthly_interest(owed, account.interest_rate_bp)
         response.next_due = next_due(account.due_day, today)

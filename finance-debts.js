@@ -9,12 +9,13 @@
 // de MSI): no hay API propia.
 
 // Por cuenta y moneda: { account, currency, cents, count, interest }
-function finDebtGroup(map, account, currency, cents, interest = 0) {
+function finDebtGroup(map, account, currency, cents, interest = 0, charges = 0) {
     const key = `${account.id}:${currency}`;
-    const row = map.get(key) || { account, currency, cents: 0, count: 0, interest: 0 };
+    const row = map.get(key) || { account, currency, cents: 0, count: 0, interest: 0, charges: 0 };
     row.cents += cents;
     row.count += 1;
     row.interest += interest;
+    row.charges += charges;
     map.set(key, row);
 }
 
@@ -30,7 +31,9 @@ function finDebtPeriod() {
         if (tx.kind !== 'transfer') return;
         const target = finAccount(tx.to_account_id);
         if (target && target.kind === 'credit') finDebtGroup(payments, target, tx.currency, tx.amount_cents);
-        if (target && target.kind === 'loan') finDebtGroup(loans, target, tx.currency, tx.amount_cents, tx.interest_cents || 0);
+        if (target && target.kind === 'loan') {
+            finDebtGroup(loans, target, tx.currency, tx.amount_cents, tx.interest_cents || 0, tx.charges_cents || 0);
+        }
     });
     const bills = new Map();
     finBillsInPeriod().forEach(({ plan, bill }) => {
@@ -80,9 +83,10 @@ function finRenderDebtSummary() {
     group('Pagos a tarjetas', payments, r => (r.count === 1 ? '1 pago' : `${r.count} pagos`));
     group('Mensualidades de MSI', bills, r => (r.count === 1 ? '1 mensualidad' : `${r.count} mensualidades`));
     group('Pagos a préstamos', loans, r => [r.count === 1 ? '1 pago' : `${r.count} pagos`,
-        r.interest ? `${formatMoney(r.interest, r.currency)} de intereses` : ''].filter(Boolean).join(' · '));
+        r.interest ? `${formatMoney(r.interest, r.currency)} de intereses` : '',
+        r.charges ? `${formatMoney(r.charges, r.currency)} de seguros` : ''].filter(Boolean).join(' · '));
     card.appendChild(el('p', 'fin-hint', 'No se suma a tus gastos: la compra ya se contó el día que la hiciste.'
-        + (loans.length ? ' De un préstamo, sus intereses sí están en tus gastos (en Intereses), y su capital también si lo que compraste con él no estaba anotado.' : '')));
+        + (loans.length ? ' De un préstamo, sus intereses y seguros sí están en tus gastos, y su capital también si lo que compraste con él no estaba anotado.' : '')));
     return card;
 }
 
@@ -120,13 +124,14 @@ function finRenderDebts(body) {
         rows.push(el('p', 'fin-hint fin-debt-other',
             `Además, ${finDebtTotals(others.map(a => ({ currency: a.currency, cents: owedOf(a) })))}`));
     }
-    const section = (title, list) => {
-        if (!list.length) return;
+    // Cada sección siempre, con su total y su + (así se agrega la primera)
+    const section = (title, list, kind, label) => {
         const sub = el('div', 'fin-debt-head');
-        sub.append(el('span', '', title), el('strong', '', finDebtTotals(list.map(a => ({ currency: a.currency, cents: owedOf(a) })))));
-        rows.push(sub);
+        sub.append(el('span', '', title), el('strong', '', list.length
+            ? finDebtTotals(list.map(a => ({ currency: a.currency, cents: owedOf(a) }))) : finMoney(0, main)));
+        rows.push(finHeadAdd(sub, { newAccount: kind }, label));
     };
-    section('Tarjetas', cards);
+    section('Tarjetas', cards, 'credit', 'Nueva tarjeta');
     cards.forEach(account => {
         const owed = owedOf(account);
         const msi = finDebtMsi(account);
@@ -136,7 +141,8 @@ function finRenderDebts(body) {
         if (!owed) detail.push(account.balance_cents > 0 ? `${formatMoney(account.balance_cents, account.currency)} a favor` : 'Sin deuda');
         rows.push(finDebtRow(account, detail.join(' · '), formatMoney(owed, account.currency), { button: true, negative: owed > 0 }));
     });
-    section('Préstamos', loans);
+    if (!cards.length) rows.push(el('p', 'fin-empty', 'Aún no tienes tarjetas de crédito.'));
+    section('Préstamos', loans, 'loan', 'Nuevo préstamo');
     loans.forEach(account => {
         const owed = owedOf(account);
         const detail = [FIN_DEBT_TYPE_LABELS[account.debt_type] || 'Préstamo'];
@@ -145,13 +151,10 @@ function finRenderDebts(body) {
         if (!owed) detail.push('Pagado');
         rows.push(finDebtRow(account, detail.join(' · '), formatMoney(owed, account.currency), { button: true, negative: owed > 0 }));
     });
-    if (!all.length) rows.push(el('p', 'fin-empty', 'Aún no tienes tarjetas de crédito ni préstamos.'));
-    const add = el('button', 'link-btn fin-add-account', '＋ Nuevo préstamo');
-    add.type = 'button';
-    add.dataset.newAccount = 'loan';
+    if (!loans.length) rows.push(el('p', 'fin-empty', 'Aún no tienes préstamos.'));
     const hint = el('p', 'fin-hint', 'Lo que debe cada tarjeta, con lo que piden al mes sus compras a meses y hasta cuándo, '
         + 'y cada préstamo. Toca una para pagarla y ver sus pagos.');
-    body.replaceChildren(head, ...rows, add, hint);
+    body.replaceChildren(head, ...rows, hint);
 }
 
 // "oct 2026"

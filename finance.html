@@ -550,7 +550,7 @@
                 <label class="fin-field wide"><span id="finAdjustLabel">Saldo real hoy</span>
                     <input type="text" id="finAdjustAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
                 </label>
-                <p class="fin-hint">Cuadra la cuenta sin crear movimientos: cambia el saldo inicial por la diferencia.</p>
+                <p class="fin-hint" id="finAdjustHint">Cuadra la cuenta sin crear movimientos: cambia el saldo inicial por la diferencia.</p>
                 <div id="finAdjustError" class="form-error hidden"></div>
                 <div class="fin-form-actions">
                     <button type="button" class="link-btn" data-menu-back>Regresar</button>
@@ -653,6 +653,7 @@
                 <div class="fin-loan-buttons">
                     <button type="button" class="submit-btn" data-loan-pay="regular">Pagar</button>
                     <button type="button" class="link-btn" data-loan-pay="capital">Abono a capital</button>
+                    <button type="button" class="link-btn" data-loan-charge>Agregar cargo</button>
                     <button type="button" class="link-btn" data-loan-table>Tabla de amortización</button>
                 </div>
                 <div id="finLoanLists"></div>
@@ -673,8 +674,11 @@
                     <label class="fin-field"><span id="finLoanPayAmountLabel">Pago</span>
                         <input type="text" id="finLoanPayAmount" inputmode="decimal" autocomplete="off" placeholder="0.00">
                     </label>
-                    <label class="fin-field" id="finLoanPayInterestField">Intereses y cargos
+                    <label class="fin-field" id="finLoanPayInterestField">Intereses (con IVA)
                         <input type="text" id="finLoanPayInterest" inputmode="decimal" autocomplete="off" placeholder="0.00">
+                    </label>
+                    <label class="fin-field" id="finLoanPayChargesField">Seguros y comisiones
+                        <input type="text" id="finLoanPayCharges" inputmode="decimal" autocomplete="off" placeholder="0.00">
                     </label>
                     <p class="fin-hint wide" id="finLoanPaySplit"></p>
                     <!-- El aviso de un abono a capital, con "No volver a mostrar" -->

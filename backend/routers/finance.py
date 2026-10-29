@@ -21,7 +21,7 @@ from backend.finance import (account_balances, account_currencies, first_transac
 from backend.finance_yield import (YIELD_CATEGORY, YIELD_CONCEPT, YIELD_SOURCE, account_rates, open_terms_by_account,
                                    rate_on, rates_by_account, term_interest, term_maturity, yield_category,
                                    yield_estimate)
-from backend.finance_loans import capital_note_hidden, interest_category, loan_response
+from backend.finance_loans import CHARGES_CATEGORY, capital_note_hidden, interest_category, loan_response
 from backend.models import (FinAccount, FinBudgetItem, FinCategory, FinInstallment, FinLoanRow, FinRecurring, FinSettings, FinSplit,
                             FinNote, FinStatement, FinTerm, FinTransaction, FinYieldRate, User, utc_now_naive)
 from backend.routers.auth import require_module
@@ -251,22 +251,27 @@ def _loan_payment(session: Session, user_id: int, tx: FinTransaction, default_ca
     el pago toma la categoría de lo comprado con el préstamo, si la tiene."""
     target = session.get(FinAccount, tx.to_account_id) if tx.kind == "transfer" and tx.to_account_id else None
     if target is None or target.kind != "loan":
-        if tx.interest_cents or tx.principal_only:
-            raise _unprocessable("Los intereses y el abono a capital son solo del pago de un préstamo")
-        tx.interest_cents = tx.interest_category_id = None
+        if tx.interest_cents or tx.charges_cents or tx.principal_only:
+            raise _unprocessable("Los intereses, los seguros y el abono a capital son solo del pago de un préstamo")
+        tx.interest_cents = tx.interest_category_id = tx.charges_cents = tx.charges_category_id = None
         tx.principal_only = False
         return
-    if tx.principal_only and tx.interest_cents:
-        raise _unprocessable("Un abono a capital va completo a la deuda: sin intereses")
-    if (tx.interest_cents or 0) > tx.amount_cents:
-        raise _unprocessable("Los intereses no pueden ser más que el pago")
-    if not tx.interest_cents:
-        tx.interest_cents = tx.interest_category_id = None
-    elif tx.interest_category_id is None:
-        category = interest_category(session, user_id)
-        if category is None:
-            raise _conflict("Ya tienes una categoría de ingresos llamada 'Intereses': cámbiale el nombre para anotar intereses")
-        tx.interest_category_id = category.id
+    if tx.principal_only and (tx.interest_cents or tx.charges_cents):
+        raise _unprocessable("Un abono a capital va completo a la deuda: sin intereses ni seguros")
+    if (tx.interest_cents or 0) + (tx.charges_cents or 0) > tx.amount_cents:
+        raise _unprocessable("Los intereses y los seguros no pueden ser más que el pago")
+    # Cada parte que no baja la deuda, a su categoría (perezosa)
+    for field, category_field, which in (("interest_cents", "interest_category_id", None),
+                                         ("charges_cents", "charges_category_id", CHARGES_CATEGORY)):
+        if not getattr(tx, field):
+            setattr(tx, field, None)
+            setattr(tx, category_field, None)
+        elif getattr(tx, category_field) is None:
+            category = interest_category(session, user_id, which) if which else interest_category(session, user_id)
+            if category is None:
+                name = which[0] if which else "Intereses"
+                raise _conflict(f"Ya tienes una categoría de ingresos llamada '{name}': cámbiale el nombre para anotar este pago")
+            setattr(tx, category_field, category.id)
     if default_category and tx.category_id is None:
         tx.category_id = target.loan_category_id
 
@@ -280,7 +285,7 @@ def _new_transaction(session: Session, user_id: int, body: FinTransactionFields,
         user_id=user_id, account_id=body.account_id, kind=body.kind, amount_cents=body.amount_cents,
         tx_date=body.tx_date, category_id=body.category_id, to_account_id=body.to_account_id,
         concept=_clean_concept(body.concept), note=_clean_note(body.note), source=source,
-        interest_cents=body.interest_cents, principal_only=bool(body.principal_only),
+        interest_cents=body.interest_cents, charges_cents=body.charges_cents, principal_only=bool(body.principal_only),
     )
     _loan_payment(session, user_id, tx, default_category=True)
     return tx, splits
@@ -294,7 +299,8 @@ def _tx_response(tx: FinTransaction, currencies: Dict[int, str], splits: Optiona
         tx_date=tx.tx_date, concept=tx.concept, note=tx.note, source=tx.source,
         recurring_id=tx.recurring_id, needs_review=tx.needs_review,
         splits=[FinSplitFields(category_id=p.category_id, amount_cents=p.amount_cents) for p in splits or []],
-        installment_id=installment_id, interest_cents=tx.interest_cents, principal_only=bool(tx.principal_only),
+        installment_id=installment_id, interest_cents=tx.interest_cents, charges_cents=tx.charges_cents,
+        principal_only=bool(tx.principal_only),
     )
 
 
@@ -788,7 +794,7 @@ def get_loan(account_id: int, session: Session = Depends(get_session), user: Use
 def put_loan_schedule(account_id: int, body: FinLoanSchedule, session: Session = Depends(get_session),
                       user: User = Depends(finance_user)):
     """La tabla de amortización del banco: reemplaza la anterior (vacía, la quita).
-    Números y fechas en orden, y cada pago = capital + intereses y cargos."""
+    Números y fechas en orden, y cada pago = capital + intereses + seguros y comisiones."""
     account = _own_loan(session, user.id, account_id)
     rows = sorted(body.rows, key=lambda r: r.number)
     for before, row in zip(rows, rows[1:]):
@@ -797,8 +803,8 @@ def put_loan_schedule(account_id: int, body: FinLoanSchedule, session: Session =
         if row.due_date <= before.due_date:
             raise _unprocessable(f"El pago {row.number} tiene que ir después del {before.number}")
     for row in rows:
-        if row.principal_cents + row.interest_cents != row.payment_cents:
-            raise _unprocessable(f"Pago {row.number}: capital más intereses no da el pago")
+        if row.principal_cents + row.interest_cents + row.charges_cents != row.payment_cents:
+            raise _unprocessable(f"Pago {row.number}: capital, intereses y seguros no suman el pago")
     for old in session.exec(select(FinLoanRow).where(FinLoanRow.user_id == user.id,
                                                      FinLoanRow.account_id == account.id)).all():
         session.delete(old)
@@ -1077,12 +1083,12 @@ def _category_counts(session: Session, user_id: int) -> Dict[int, int]:
     for category_id, count in session.exec(select(FinSplit.category_id, func.count())
                                            .where(FinSplit.user_id == user_id).group_by(FinSplit.category_id)).all():
         counts[category_id] = counts.get(category_id, 0) + count
-    # Los intereses del pago de un préstamo
-    for category_id, count in session.exec(select(FinTransaction.interest_category_id, func.count())
-                                           .where(FinTransaction.user_id == user_id,
-                                                  FinTransaction.interest_category_id.is_not(None))
-                                           .group_by(FinTransaction.interest_category_id)).all():
-        counts[category_id] = counts.get(category_id, 0) + count
+    # Los intereses, seguros y comisiones del pago de un préstamo
+    for column in (FinTransaction.interest_category_id, FinTransaction.charges_category_id):
+        for category_id, count in session.exec(select(column, func.count())
+                                               .where(FinTransaction.user_id == user_id, column.is_not(None))
+                                               .group_by(column)).all():
+            counts[category_id] = counts.get(category_id, 0) + count
     return counts
 
 
@@ -1107,8 +1113,9 @@ USUAL_SCAN = 2000
 
 def _usual_accounts(session: Session, user_id: int) -> Tuple[Dict[int, int], Dict[str, int]]:
     """({categoría: cuenta habitual}, {"expense"|"income": la última cuenta usada}),
-    solo con cuentas activas. Una parte de un dividido cuenta en su categoría."""
-    active = set(session.exec(select(FinAccount.id).where(FinAccount.user_id == user_id,
+    solo con cuentas activas y sin préstamos (un cargo anotado en un préstamo no lo vuelve
+    la cuenta que se propone). Una parte de un dividido cuenta en su categoría."""
+    active = set(session.exec(select(FinAccount.id).where(FinAccount.user_id == user_id, FinAccount.kind != "loan",
                                                           FinAccount.is_active == True)).all())  # noqa: E712
     rows = session.exec(select(FinTransaction.id, FinTransaction.account_id, FinTransaction.kind,
                                FinTransaction.category_id)

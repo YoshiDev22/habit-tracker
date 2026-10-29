@@ -113,9 +113,11 @@ MIGRATIONS = [
     {"table": "fin_accounts", "column": "loan_payment_cents", "type": "INTEGER", "new_table": True},
     {"table": "fin_accounts", "column": "loan_months", "type": "INTEGER", "new_table": True},
     {"table": "fin_accounts", "column": "loan_category_id", "type": "INTEGER", "new_table": True},
-    # El pago de un préstamo: lo que no baja la deuda (intereses y cargos) y si fue abono a capital
+    # El pago de un préstamo: lo que no baja la deuda (intereses; seguros y comisiones) y si fue abono a capital
     {"table": "fin_transactions", "column": "interest_cents", "type": "INTEGER", "new_table": True},
     {"table": "fin_transactions", "column": "interest_category_id", "type": "INTEGER", "new_table": True},
+    {"table": "fin_transactions", "column": "charges_cents", "type": "INTEGER", "new_table": True},
+    {"table": "fin_transactions", "column": "charges_category_id", "type": "INTEGER", "new_table": True},
     {"table": "fin_transactions", "column": "principal_only", "type": "BOOLEAN", "default": 0, "new_table": True},
     # "No volver a mostrar" del aviso de un abono a capital
     {"table": "fin_settings", "column": "capital_note_hidden", "type": "BOOLEAN", "new_table": True},

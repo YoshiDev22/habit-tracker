@@ -3406,3 +3406,34 @@ button.fin-debt-row:hover {
 .fin-capital-note p {
     margin: 0 0 8px;
 }
+
+/* El + al final del encabezado de una sección (Cuentas, Tarjetas, Deudas, Inversiones) */
+.fin-accounts-head,
+.fin-debt-head {
+    align-items: center;
+    gap: 8px;
+}
+
+.fin-accounts-head > span:first-child,
+.fin-debt-head > span:first-child {
+    flex: 1;
+}
+
+.fin-head-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border: 1.5px solid var(--accent);
+    border-radius: 50%;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.fin-head-add:hover {
+    background: var(--accent);
+    color: var(--text-on-accent);
+}

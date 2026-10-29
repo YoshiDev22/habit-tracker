@@ -676,18 +676,25 @@ Lo que no se ve en Swagger:
   saldo inicial en negativo (nunca gasto); `debt_type` (`FIN_DEBT_TYPES`), `loan_payment_cents`, `loan_months`, y `due_day`
   e `interest_rate_bp` como en una tarjeta (columnas en `migrate.py`). No es apartado ni la cuenta por defecto, no sale en
   Cuentas ni en el total de arriba, y no se vuelve préstamo (ni deja de serlo) con movimientos. **Un pago es un solo
-  movimiento**: una transferencia al préstamo con `interest_cents` (intereses, IVA y seguros: lo que no baja la deuda) y
-  `principal_only` (abono a capital, sin intereses); `account_balances()` le llega solo el capital, y `summary()` cuenta
-  los intereses como gasto en `interest_category_id` ("Intereses", perezosa, `interest_category()`) y el capital como gasto
+  movimiento**: una transferencia al préstamo con `interest_cents` (intereses con su IVA), `charges_cents` (seguros y
+  comisiones) y `principal_only` (abono a capital, sin ninguno de los dos); a `account_balances()` le llega solo el capital, y
+  `summary()` cuenta los intereses como gasto en `interest_category_id` ("Intereses") y los seguros en `charges_category_id`
+  ("Seguros y comisiones"), las dos perezosas (`interest_category()`), y el capital como gasto
   en `category_id` solo si el préstamo tiene `loan_category_id` (lo comprado no estaba anotado; el pago la toma sola).
+  Un **cargo** que sube la deuda (el seguro del año, una comisión) es un gasto anotado en el préstamo (*Agregar cargo*, la
+  hoja de siempre: puede ser un fijo anual), y como el interés propuesto sale de lo que se debe hoy, también lo sube.
+  *Ajustar deuda* corrige lo que se debe sin gasto (mueve el saldo inicial). Un préstamo nunca es la cuenta que propone la
+  hoja del monto (`_usual_accounts()` lo deja fuera).
   Solo una transferencia a un préstamo lleva categoría, intereses o abono a capital (422). `test_finance_loans.py`
   comprueba que nada cuenta dos veces. `GET /accounts/{id}/loan` da lo pagado a capital e intereses, los pagos, la tabla y
   el siguiente pago (de la tabla, o con la tasa: deuda × tasa ÷ 12); `PUT /accounts/{id}/loan-schedule` reemplaza la
-  **tabla de amortización** (`fin_loan_rows`, pago = capital + intereses y cargos), que la página lee de lo pegado o de un
-  CSV por el nombre de sus columnas (`finLoanParseTable()`: IVA, seguros y comisiones se suman a los intereses; una fila
-  sin fecha, como el total, se salta). Cada mensualidad hecha desde un mes antes de la primera fila cubre una fila. El
+  **tabla de amortización** (`fin_loan_rows`, pago = capital + intereses + seguros y comisiones), que la página lee de lo
+  pegado o de un CSV por el nombre de sus columnas (`finLoanParseTable()`: el IVA va con los intereses, seguros y
+  comisiones aparte; una fila sin fecha, como el total, se salta). Cada mensualidad hecha desde un mes antes de la primera fila cubre una fila. El
   abono a capital avisa que se confirme con el banco, con "No volver a mostrar" (`fin_settings.capital_note_hidden`,
   `PUT /capital-note`).
+  Cada sección de Cuentas (Cuentas, Tarjetas, Deudas › Tarjetas y Préstamos, Inversiones y Plazos) agrega con el **+** al
+  final de su encabezado, después de su monto (`finHeadAdd()`), no con un enlace abajo.
   **Buscar en Movimientos** (Finanzas 0.7, `finance-search.js`): la lupa de arriba, solo en Movimientos, abre la hoja
   *Buscar* (texto en concepto, categoría o monto, sin acentos ni mayúsculas; tipo; cuentas; categorías de gasto e
   ingreso). Filtra **en el navegador** lo cargado del periodo que se ve (para todo, *Siempre*); dentro de un grupo vale

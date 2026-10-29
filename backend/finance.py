@@ -112,9 +112,10 @@ def account_balances(session: Session, user_id: int, today: date_type) -> Dict[i
     for kind, account_id, cents in rows:
         balances[account_id] = balances.get(account_id, 0) + (cents if kind == "income" else -cents)
     # Lo que llega por transferencia, con el día de la cuenta que recibe. Al pago de un
-    # préstamo le llega solo el capital: los intereses y cargos no bajan la deuda
+    # préstamo le llega solo el capital: intereses, seguros y comisiones no bajan la deuda
     arrivals = session.exec(select(FinTransaction.to_account_id,
-                                   func.sum(FinTransaction.amount_cents - func.coalesce(FinTransaction.interest_cents, 0)))
+                                   func.sum(FinTransaction.amount_cents - func.coalesce(FinTransaction.interest_cents, 0)
+                                            - func.coalesce(FinTransaction.charges_cents, 0)))
                             .join(FinAccount, FinAccount.id == FinTransaction.to_account_id)
                             .where(FinTransaction.user_id == user_id, FinTransaction.kind == "transfer",
                                    FinTransaction.tx_date <= today, _after_opening())
@@ -142,7 +143,7 @@ def history_before_opening(session: Session, user_id: int) -> Dict[int, tuple]:
         if tx.kind == "transfer" and tx.to_account_id in accounts and tx.tx_date < accounts[tx.to_account_id]:
             row = out.setdefault(tx.to_account_id, [0, 0, 0])
             row[0] += 1
-            row[1] += tx.amount_cents - (tx.interest_cents or 0)
+            row[1] += tx.amount_cents - (tx.interest_cents or 0) - (tx.charges_cents or 0)
     return {k: tuple(v) for k, v in out.items()}
 
 
@@ -338,14 +339,16 @@ def summary(session: Session, user_id: int, day: date_type,
             account.transfer_out_cents += tx.amount_cents
             target = by_account.get(tx.to_account_id)
             if target is not None:
-                target.transfer_in_cents += tx.amount_cents - (tx.interest_cents or 0)
-            # El pago de un préstamo: sus intereses y cargos son gasto, y su capital también si
-            # lo comprado con el préstamo no estaba anotado (category_id). Lo demás de una
-            # transferencia nunca es gasto
-            interest = tx.interest_cents or 0
+                target.transfer_in_cents += tx.amount_cents - (tx.interest_cents or 0) - (tx.charges_cents or 0)
+            # El pago de un préstamo: sus intereses, seguros y comisiones son gasto, y su capital
+            # también si lo comprado con el préstamo no estaba anotado (category_id). Lo demás de
+            # una transferencia nunca es gasto
+            interest, charges = tx.interest_cents or 0, tx.charges_cents or 0
             parts = [(tx.interest_category_id, interest)] if interest else []
-            if tx.category_id is not None and tx.amount_cents > interest:
-                parts.append((tx.category_id, tx.amount_cents - interest))
+            if charges:
+                parts.append((tx.charges_category_id, charges))
+            if tx.category_id is not None and tx.amount_cents > interest + charges:
+                parts.append((tx.category_id, tx.amount_cents - interest - charges))
             if parts:
                 total = totals.setdefault(account.currency, FinCurrencyTotal(currency=account.currency))
                 for category_id, cents in parts:

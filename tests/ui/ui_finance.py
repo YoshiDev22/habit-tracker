@@ -948,6 +948,17 @@ async def main():
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"accounts\"]').click()")
         listed = await b.js("[...document.querySelectorAll('#finAccountsBody .fin-account strong')].map(s => s.textContent)")
         check("Préstamo de prueba" not in listed, f"a loan is not among the accounts, nor in the total above ({listed})")
+        # Cada sección agrega con el + de su encabezado, después de su monto (no con un enlace abajo)
+        plus = await b.js("""(() => { const h = document.querySelector('#finAccountsBody .fin-accounts-head');
+            const add = h.querySelector('.fin-head-add');
+            return {last: h.lastElementChild === add, kind: add.dataset.newAccount, links: document.querySelectorAll('#finAccountsBody .fin-add-account').length}; })()""")
+        check(plus == {"last": True, "kind": "debit", "links": 0}, f"Accounts adds with the + of its header ({plus})")
+        await b.js("document.querySelector('#finAccountTabs [data-sub=\"debts\"]').click()")
+        plus = await b.wait_for("""[...document.querySelectorAll('#finAccountsBody .fin-debt-head')]
+            .map(h => [h.querySelector('span').textContent, (h.querySelector('.fin-head-add') || {dataset: {}}).dataset.newAccount])""",
+                                lambda v: v and len(v) == 2)
+        check(plus == [["Tarjetas", "credit"], ["Préstamos", "loan"]], f"Debts adds a card or a loan from each section ({plus})")
+        await b.shot("finance_debts_plus", full=False)
         # Pagar la mensualidad: propone el pago y los intereses con la tasa; un solo movimiento
         await b.js("document.querySelector('#finAccountTabs [data-sub=\"debts\"]').click()")
         await b.js("""[...document.querySelectorAll('#finAccountsBody .fin-debt-row')]
@@ -962,9 +973,11 @@ async def main():
         await b.shot("finance_loan_pay", full=False)
         before = await b.js("finPeriodTotals().expense_cents")
         await b.js("document.getElementById('finLoanPaySave').click()")
-        info = await wait_api(f"/api/finance/accounts/{loan['id']}/loan", lambda body: body["payments"])
+        # Hasta que se vean el pago y la deuda que bajó: una lectura a la mitad del guardado trae el pago sin la baja
+        info = await wait_api(f"/api/finance/accounts/{loan['id']}/loan",
+                              lambda body: body["payments"] and body["owed_cents"] < 1_200_000)
         check(info["owed_cents"] == 1_200_000 - 76_000 and info["paid_interest_cents"] == 24_000,
-              f"the debt goes down by the principal only ({info['owed_cents']}, {info['paid_interest_cents']})")
+              f"the debt goes down by the principal only ({info['owed_cents']}, {info['paid_interest_cents']}, {info['payments']})")
         await b.wait_for("!document.getElementById('finLoanPage').hidden && document.getElementById('finLoanLists').textContent.includes('de intereses')")
         after = await b.js("finPeriodTotals().expense_cents")
         check(after - before == 100_000, f"the payment counts once as an expense: principal and interest ({before}→{after})")
@@ -977,7 +990,7 @@ async def main():
         await b.shot("finance_loan_capital", full=False)
         await set_value("#finLoanPayAmount", "500")
         await b.js("document.getElementById('finCapitalNoteHide').checked = true; document.getElementById('finLoanPaySave').click()")
-        info = await wait_api(f"/api/finance/accounts/{loan['id']}/loan", lambda body: body["capital_count"] == 1)
+        info = await wait_api(f"/api/finance/accounts/{loan['id']}/loan", lambda body: body["capital_count"] == 1 and body["capital_note_hidden"])
         check(info["capital_count"] == 1 and info["capital_note_hidden"] and info["owed_cents"] == 1_200_000 - 76_000 - 50_000,
               f"the payment to principal lowers the debt whole, and the note stays hidden ({info['owed_cents']})")
         await b.wait_for("!document.getElementById('finLoanPage').hidden")
@@ -1004,7 +1017,20 @@ async def main():
               and info["from_table"] and info["next_number"] == 2,
               f"the table is saved; the payment made covers row 1 and the next is row 2 ({info['rows']}, {info['next_number']})")
         await b.shot("finance_loan_table", full=False)
-        await b.js("document.querySelector('#finAccountMenu [data-close-sheet]').click()")
+        # Ajustar deuda: lo que dice el banco, sin gasto
+        await b.js("finMenuPage(null)")
+        await b.js("document.querySelector('[data-menu-act=\"adjust\"]').click()")
+        st = await b.js("""({label: document.getElementById('finAdjustLabel').textContent,
+            amount: document.getElementById('finAdjustAmount').value, hint: document.getElementById('finAdjustHint').textContent})""")
+        check(st["label"] == "Deuda real hoy" and st["amount"] == "10740.00" and "Agregar cargo" in st["hint"],
+              f"Adjust debt starts at what is owed and points to Add charge ({st})")
+        await b.js("finMenuPage(null)")
+        # Agregar cargo: la hoja de siempre, un gasto desde el préstamo (sube la deuda)
+        await b.js("document.querySelector('[data-menu-act=\"charge\"]').click()")
+        await b.wait_for("!document.getElementById('finEntry').classList.contains('hidden')")
+        st = await b.js("({kind: finEntry.kind, account: finEntry.accountId})")
+        check(st == {"kind": "expense", "account": loan["id"]}, f"Add charge opens an expense from the loan ({st})")
+        await b.js("closeFinSheet(document.getElementById('finEntry'))")
         # En Movimientos, un solo renglón con sus intereses
         await b.js("document.querySelector('#finNav [data-tab=\"transactions\"]').click()")
         line = await b.wait_for("""(() => { const r = [...document.querySelectorAll('#finTxList .fin-tx')]

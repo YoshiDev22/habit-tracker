@@ -662,8 +662,9 @@ function finTxRow(tx) {
     const concept = tx.concept && tx.concept !== title ? tx.concept : '';
     const msi = tx.installment_id ? 'a meses' : '';
     // El pago de un préstamo: cuánto fue de intereses, o que fue abono a capital (un solo movimiento)
-    const loan = tx.principal_only ? 'abono a capital'
-        : tx.interest_cents ? `incluye ${formatMoney(tx.interest_cents, tx.currency)} de intereses` : '';
+    const fees = [tx.interest_cents ? `${formatMoney(tx.interest_cents, tx.currency)} de intereses` : '',
+        tx.charges_cents ? `${formatMoney(tx.charges_cents, tx.currency)} de seguros` : ''].filter(Boolean);
+    const loan = tx.principal_only ? 'abono a capital' : fees.length ? `incluye ${fees.join(' y ')}` : '';
     if (to && to.kind === 'loan') title = 'Pago de préstamo';
     text.append(el('strong', '', title), el('small', '', [concept, where, msi, loan].filter(Boolean).join(' · ')));
     const amount = el('span', 'fin-tx-amount', finTxAmountText(tx));
@@ -991,6 +992,19 @@ function finDayColumns(from, to, expenses, byMonth = false) {
 // Cuentas
 // ============================================
 
+// El + al final del encabezado de una sección (después de su monto): agrega una cuenta
+// (data-new-account) o un plazo (data-new-term) de esa sección
+function finHeadAdd(head, data, label) {
+    const button = el('button', 'fin-head-add');
+    button.type = 'button';
+    Object.assign(button.dataset, data);
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.appendChild(financeIcon('plus', 18));
+    head.appendChild(button);
+    return head;
+}
+
 function finRenderAccounts() {
     document.querySelectorAll('#finAccountTabs [data-sub]').forEach(button => {
         button.setAttribute('aria-selected', String(button.dataset.sub === finState.accountsSub));
@@ -1013,6 +1027,7 @@ function finRenderAccounts() {
     const sum = accounts.filter(a => a.currency === main).reduce((acc, a) => acc + a.balance_cents, 0);
     head.append(el('span', '', sub === 'cards' ? 'Tarjetas de crédito' : 'Cuentas'),
         el('strong', sum < 0 ? 'negative' : '', finMoney(sum, main)));
+    finHeadAdd(head, { newAccount: sub === 'cards' ? 'credit' : 'debit' }, sub === 'cards' ? 'Nueva tarjeta' : 'Nueva cuenta');
     // Los apartados, debajo de su cuenta; la cuenta enseña su total y lo que tiene a la vista
     const pocketsOf = id => accounts.filter(p => p.parent_id === id);
     const rows = accounts.map(a => {
@@ -1057,12 +1072,9 @@ function finRenderAccounts() {
         row.append(badge, text, side);
         return row;
     });
-    const add = el('button', 'link-btn fin-add-account', sub === 'cards' ? '＋ Nueva tarjeta' : '＋ Nueva cuenta');
-    add.type = 'button';
-    add.dataset.newAccount = sub === 'cards' ? 'credit' : 'debit';
     if (!rows.length) rows.push(el('p', 'fin-empty', sub === 'cards' ? 'Aún no tienes tarjetas de crédito.' : 'Sin cuentas.'));
     if (sub !== 'cards') {
-        body.replaceChildren(head, ...rows, add);
+        body.replaceChildren(head, ...rows);
         return;
     }
     // Cada tarjeta, con su estado de cuenta debajo (se pide al entrar)
@@ -1073,7 +1085,7 @@ function finRenderAccounts() {
         block.append(rows[i], statement);
         return block;
     });
-    body.replaceChildren(head, ...(blocks.length ? blocks : rows), add);
+    body.replaceChildren(head, ...(blocks.length ? blocks : rows));
     finLoadStatements(accounts);
 }
 

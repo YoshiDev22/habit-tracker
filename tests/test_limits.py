@@ -267,10 +267,12 @@ def test_personal_finance(api):
     api.call("POST", txs, {**ok, "amount_cents": 100_000_000_000, "note": "x" * 500}, expect=201)
     assert api.call("POST", txs, {**ok, "interest_cents": -1})[0] == 422
     assert api.call("POST", txs, {**ok, "interest_cents": 100_000_000_001})[0] == 422
+    assert api.call("POST", txs, {**ok, "charges_cents": -1})[0] == 422
     _, loan = api.call("POST", acc, {"name": "Préstamo tope", "kind": "loan"}, expect=201)
     row = {"number": 1, "due_date": "2030-01-01", "payment_cents": 2, "principal_cents": 1, "interest_cents": 1}
     assert api.call("PUT", f"{acc}/{loan['id']}/loan-schedule", {"rows": [row] * 601})[0] == 422
-    for bad in ({"number": 0}, {"payment_cents": -1}, {"balance_cents": 100_000_000_001}, {"due_date": "x"}):
+    for bad in ({"number": 0}, {"payment_cents": -1}, {"balance_cents": 100_000_000_001}, {"due_date": "x"},
+                {"charges_cents": -1}):
         assert api.call("PUT", f"{acc}/{loan['id']}/loan-schedule", {"rows": [{**row, **bad}]})[0] == 422, bad
     assert api.call("POST", f"{txs}/import", {"rows": []})[0] == 422
     assert api.call("POST", f"{txs}/import", {"rows": [ok] * 5001})[0] == 422
