@@ -80,6 +80,8 @@ async def main():
         })()""")
         data = await wait_api(f"/api/costs?project_id={ht['id']}", lambda body: len(body["costs"]) == 1)
         check(data["costs"][0]["concept"] == "Base de madera", "a new row is created once it has a concept")
+        # Saved before the sheet repaints it with its id
+        await b.wait_for("!!document.querySelector('#costsRows tr[data-cost-id]')")
         await b.js("""(() => {
             const row = document.querySelector('#costsRows tr[data-cost-id]');
             const i = row.querySelector('[data-field="unit_cost_cents"]'); i.value = '250.50';
