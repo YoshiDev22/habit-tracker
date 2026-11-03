@@ -9,7 +9,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
-## [1.33.1] — 2026-10-26
+## [1.33.1] — 2026-11-03
 
 Las fechas personalizadas de Reportes se escriben sin pelear con los campos, y 2 semanas avanza de
 semana en semana.
