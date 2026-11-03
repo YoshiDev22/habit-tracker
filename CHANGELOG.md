@@ -9,6 +9,39 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.34.0] — 2026-11-03
+
+Los proyectos se pueden juntar en **grupos**: un emprendimiento con sus productos y campañas, o
+"Personal". La Lista, el tablero, Reportes y Costos enseñan cada grupo con sus proyectos y su
+subtotal.
+
+### Nuevo
+- **Grupos de proyectos**: un grupo es un proyecto más, con sus propias tareas, tiempo y gastos
+  (lo general, lo que no es de un proyecto en particular), y otros proyectos dentro. Se elige en la
+  ficha del proyecto, *✎ Editar* › **Grupo**; *Sin grupo* lo saca. Un solo nivel: un grupo no va
+  dentro de otro, un proyecto va en un solo grupo y "Sin asignar" no entra en ninguno. Archivar un
+  grupo no archiva sus proyectos, y eliminarlo los deja sin grupo. Es opcional: quien no lo usa no
+  ve cambios.
+- **Lista y *⚙ Organizar***: cada grupo sale seguido de sus proyectos, sangrados, y dice cuántos
+  tiene y su tiempo total (el suyo más el de sus proyectos).
+- **Filtro del tablero**: elegir un grupo enseña también las tareas de sus proyectos, y su chip
+  aparece aunque el grupo no tenga tareas propias en ese tablero.
+- **Reportes**: *Por proyecto* enseña cada grupo con su subtotal y debajo *General* (su tiempo
+  propio) y sus proyectos.
+  - El CSV de tiempo trae la columna **Grupo**.
+  - *📋 Copiar para IA* suma una tabla *Por grupo* y la columna Grupo, con cifras que siguen sumando
+    exacto el total y el 100 %.
+  - Los reportes guardados de tiempo traen "Por grupo" y una línea en Observaciones. La IA recibe el
+    grupo de cada proyecto. Los reportes ya guardados no cambian; solo los nuevos o regenerados.
+- **Costos (plan Maker)**: la tabla *Por proyecto* enseña cada grupo con una fila de subtotal (una
+  por moneda si sus proyectos usan varias: el dinero nunca se convierte) y debajo *General* y sus
+  proyectos. Los gastos de todo el grupo (material, equipo) se anotan en *General*. El reporte de
+  costos del mes también suma cada grupo.
+
+### Para actualizar
+Agrega la columna `projects.parent_id`: correr `python3 scripts/migrate.py` **antes** de reiniciar la
+app (sin ella, la app no arranca y el log dice qué correr). Sin dependencias nuevas.
+
 ## [1.33.1] — 2026-11-03
 
 Las fechas personalizadas de Reportes se escriben sin pelear con los campos, y 2 semanas avanza de
@@ -1130,6 +1163,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.34.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.34.0
 [1.33.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.33.1
 [1.33.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.33.0
 [1.32.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.32.0

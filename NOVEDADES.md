@@ -4,6 +4,18 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.34.0 — 2026-11-03
+### Nuevas funciones
+- **Grupos de proyectos**: junta los proyectos que van juntos (un emprendimiento, "Personal"). En
+  la ficha del proyecto, *✎ Editar* › **Grupo**. El grupo también puede llevar su propio tiempo y
+  gastos.
+- **Lista y Organizar por grupo**: cada grupo sale con sus proyectos debajo y su tiempo total.
+- **Filtrar el tablero por un grupo** enseña también las tareas de sus proyectos.
+- **Grupos en Reportes**: *Por proyecto* da el subtotal de cada grupo. El CSV de tiempo trae la
+  columna *Grupo*, y *Copiar para IA* y los reportes guardados también suman cada grupo.
+- **Grupos en Costos** (plan Maker): el subtotal de cada grupo, por moneda, también en el reporte
+  de costos del mes.
+
 ## 1.33.1 — 2026-11-03
 ### Cambios
 - **Fechas personalizadas en Reportes**: al escribir *Hasta*, el número ya no brinca a *Desde*. Si
