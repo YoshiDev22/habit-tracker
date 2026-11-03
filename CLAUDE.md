@@ -322,7 +322,12 @@ Lo que no se deduce leyendo los modelos:
   `groupedProjects()` (`projects.js`) ordena cada grupo seguido de sus proyectos (`.in-group`, sangrados)
   para la Lista y Organizar; el grupo se elige en el formulario del proyecto (`#projectParent`, con las
   mismas reglas; al editar, `parent_id` solo viaja si cambió) y el filtro del tablero por un grupo
-  incluye a sus proyectos (`groupMemberIds()`).
+  incluye a sus proyectos (`groupMemberIds()`). En Reportes, cada fila de `by_project` de
+  `compute_metrics()` trae `group` (el grupo al que suma; el propio si es el grupo, con `is_group`) y
+  `by_group` da el subtotal de cada grupo (`own_seconds` es su tiempo propio, "General"); los usan el
+  reporte guardado, su texto (`_group_line()`) y la IA. En pantalla, *Por proyecto* lo arma
+  `groupedTimeRows()` (`reports.js`) desde las sesiones, el CSV lleva la columna *Grupo* y *Copiar
+  para IA* la tabla *Por grupo*, con subtotales que son la suma de sus filas ya redondeadas.
 - **"Sin asignar"** es un `Project` con `is_system=True` que cada usuario recibe para las
   tareas sin proyecto (existe porque `tasks.project_id` es NOT NULL y quitarlo en SQLite
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;
