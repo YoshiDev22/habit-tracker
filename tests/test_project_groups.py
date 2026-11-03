@@ -3,6 +3,14 @@ Grupos de proyectos (1.34, docs/specs/grupos-de-proyectos.md): un grupo es un
 proyecto con hijos (projects.parent_id). Un solo nivel, un solo grupo por
 proyecto, de la misma cuenta, y "Sin asignar" fuera.
 """
+from datetime import date, timedelta
+
+# Aquí arriba, al recolectar: dentro de una prueba, `conftest` ya puede ser el de tests/ui
+from backend.report_ai import ai_payload
+from conftest import log_time
+from test_costs import add
+from test_finance import maker_on
+from test_metrics import post
 
 
 def project(api, name, **extra):
@@ -90,11 +98,6 @@ def test_deleting_a_group_leaves_its_projects_ungrouped(api):
 def test_metrics_and_the_saved_report_add_up_each_group(api):
     """Fase 3: cada proyecto dice su grupo y by_group da el subtotal (lo propio
     del grupo más sus proyectos); el reporte guardado y lo que recibe la IA, igual."""
-    from datetime import date, timedelta
-
-    from backend.report_ai import ai_payload
-    from test_metrics import post
-
     api.login("reporte-grupos@test.com")
     group = project(api, "Emprendimiento")
     campaign = project(api, "Campaña", parent_id=group["id"])
@@ -134,12 +137,6 @@ def test_metrics_and_the_saved_report_add_up_each_group(api):
 def test_costs_add_up_each_group_by_currency(api):
     """Fase 4: el resumen de Costos da el subtotal de cada grupo por moneda (nunca
     se suman monedas) y el reporte de costos del mes, igual."""
-    from datetime import date
-
-    from conftest import log_time
-    from test_costs import add
-    from test_finance import maker_on
-
     api.login("costos-grupos@test.com")
     maker_on(api, "costos-grupos@test.com")
     _, cats = api.call("GET", "/api/costs/categories", expect=200)
