@@ -318,7 +318,11 @@ Lo que no se deduce leyendo los modelos:
   gastos propios. Un solo nivel y un solo grupo por proyecto; `_set_group()` (`routers/projects.py`)
   lo hace cumplir con 409 en español: un grupo no entra en otro, nada va dentro de un proyecto que ya
   está en un grupo, el grupo debe estar activo y "Sin asignar" ni va en uno ni lo es. Un grupo ajeno
-  es 404. Archivar un grupo no archiva sus proyectos; borrarlo los deja sin grupo.
+  es 404. Archivar un grupo no archiva sus proyectos; borrarlo los deja sin grupo. En pantalla,
+  `groupedProjects()` (`projects.js`) ordena cada grupo seguido de sus proyectos (`.in-group`, sangrados)
+  para la Lista y Organizar; el grupo se elige en el formulario del proyecto (`#projectParent`, con las
+  mismas reglas; al editar, `parent_id` solo viaja si cambió) y el filtro del tablero por un grupo
+  incluye a sus proyectos (`groupMemberIds()`).
 - **"Sin asignar"** es un `Project` con `is_system=True` que cada usuario recibe para las
   tareas sin proyecto (existe porque `tasks.project_id` es NOT NULL y quitarlo en SQLite
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;

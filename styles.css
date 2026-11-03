@@ -336,6 +336,20 @@ body {
     margin-top: 2px;
 }
 
+/* Grupos (1.34): los proyectos de un grupo, sangrados bajo él con una raya */
+.project-card.in-group,
+.task-list.in-group {
+    margin-left: 22px;
+}
+
+.project-card.in-group {
+    border-left: 3px solid var(--border-color);
+}
+
+.project-group-meta {
+    font-weight: 600;
+}
+
 .project-toggle,
 .project-log-time {
     background: none;
@@ -3515,6 +3529,11 @@ body.board-wide .board-column {
 
 .config-archived .config-row + .config-row {
     margin-top: 6px;
+}
+
+/* Un proyecto de un grupo, bajo su grupo (1.34) */
+.config-row.in-group {
+    padding-left: 18px;
 }
 
 .config-name {

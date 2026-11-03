@@ -936,6 +936,12 @@
                     <label for="projectDescription">Descripción (opcional)</label>
                     <input type="text" id="projectDescription" name="description" maxlength="200" placeholder="Ej: Proyecto final de la universidad">
                 </div>
+                <!-- Grupos (1.34): projects.js llena las opciones al abrir -->
+                <div class="form-group" id="projectParentGroup">
+                    <label for="projectParent">Grupo</label>
+                    <select id="projectParent" name="parent_id"></select>
+                    <p class="form-hint" id="projectParentHint"></p>
+                </div>
                 <div class="form-group">
                     <label for="projectIcon">Ícono (emoji, opcional)</label>
                     <input type="text" id="projectIcon" name="icon" maxlength="4" placeholder="🎯">

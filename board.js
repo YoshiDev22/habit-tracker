@@ -132,10 +132,13 @@ function boardTaskSeconds(task) {
 // Filtros
 // ============================================
 
-// Proyectos y etiquetas combinan con Y; dentro de cada grupo, con O.
+// Proyectos y etiquetas combinan con Y; dentro de cada fila, con O. Un grupo de
+// proyectos elegido (1.34) incluye a sus proyectos (groupMemberIds, projects.js).
 function filteredTasks() {
+    const projectIds = new Set(boardState.filterProjects);
+    boardState.filterProjects.forEach(id => groupMemberIds(id).forEach(member => projectIds.add(member)));
     return boardState.tasks.filter(task => {
-        if (boardState.filterProjects.size && !boardState.filterProjects.has(task.project_id)) return false;
+        if (projectIds.size && !projectIds.has(task.project_id)) return false;
         if (boardState.filterTags.size && !task.tag_ids.some(id => boardState.filterTags.has(id))) return false;
         return true;
     });
@@ -208,8 +211,9 @@ function renderFilters(countByColumn) {
     const projectIds = new Set(boardState.tasks.map(t => t.project_id));
     const tagIds = new Set(boardState.tasks.flatMap(t => t.tag_ids));
 
+    // Un grupo sale si él o alguno de sus proyectos tiene tareas aquí
     const projects = boardState.projects
-        .filter(p => projectIds.has(p.id))
+        .filter(p => projectIds.has(p.id) || groupMemberIds(p.id).some(id => projectIds.has(id)))
         .sort((a, b) => Number(a.is_system) - Number(b.is_system) || a.name.localeCompare(b.name));
     const tags = boardState.tags.filter(t => tagIds.has(t.id));
 
@@ -225,10 +229,15 @@ function renderFilters(countByColumn) {
         boardFilters.appendChild(row);
     };
 
-    addRow('Proyectos', projects.map(p => buildFilterChip(
-        p.icon ? `${p.icon} ${p.name}` : p.name,
-        p.color, boardState.filterProjects.has(p.id), { filterProject: p.id }
-    )));
+    addRow('Proyectos', projects.map(p => {
+        const chip = buildFilterChip(
+            p.icon ? `${p.icon} ${p.name}` : p.name,
+            p.color, boardState.filterProjects.has(p.id), { filterProject: p.id }
+        );
+        const members = groupMemberIds(p.id).length;
+        if (members) chip.title = `Grupo: incluye sus ${members} ${members === 1 ? 'proyecto' : 'proyectos'}`;
+        return chip;
+    }));
     addRow('Etiquetas', tags.map(t => buildFilterChip(
         t.name, t.color, boardState.filterTags.has(t.id), { filterTag: t.id }
     )));
@@ -2068,12 +2077,15 @@ function renderConfigProjects() {
         hint.textContent = 'Todavía no hay proyectos.';
         configProjectsEl.appendChild(hint);
     }
-    configState.projects.forEach(project => {
+    // Cada grupo con sus proyectos debajo (groupedProjects, projects.js); el
+    // grupo se cambia en la ficha (📊) › ✎ Editar
+    groupedProjects(configState.projects).forEach(({ project, depth }) => {
         const row = buildConfigRow({
             id: project.id, color: project.color, name: project.name, maxLength: 80,
             reorder: false, deleteClass: 'config-archive-project',
             deleteText: 'Archivar', deleteLabel: `Archivar ${project.name}`,
         });
+        if (depth) row.classList.add('in-group');
         // La ficha (project-overview.js) se abre encima de este modal
         row.insertBefore(configButton('config-action config-overview-project', `Ficha de ${project.name}`, '📊'), row.lastChild);
         configProjectsEl.appendChild(row);

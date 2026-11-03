@@ -360,6 +360,17 @@ total de la tarjeta y con Reportes. También se abre con el **📊** de cada pro
 
 **Editar un proyecto**: desde su ficha, con **✎ Editar**.
 
+**Grupos**: un grupo junta proyectos que van juntos, por ejemplo un emprendimiento con sus
+productos y campañas, o "Personal". Un grupo es un proyecto más: puede tener sus propias
+tareas, tiempo y gastos (lo general, lo que no es de un proyecto en particular). Para meter un
+proyecto en un grupo, en **✎ Editar** elige el **Grupo**; *Sin grupo* lo saca.
+
+- En la Lista y en *⚙ Organizar*, cada grupo sale con sus proyectos debajo, y dice cuántos
+  tiene y su tiempo total: el suyo más el de sus proyectos.
+- En el filtro del tablero, elegir un grupo enseña también las tareas de sus proyectos.
+- Un solo nivel: un grupo no va dentro de otro, y un proyecto va en un solo grupo.
+- Archivar un grupo no archiva sus proyectos, y eliminarlo los deja sin grupo.
+
 **Costeo (plan Maker)**: si tu cuenta tiene el plan Maker y lo enciendes en *⚙️ Configuración ›
 Módulos*, la ficha de cada proyecto trae una tarjeta **Costeo**: tipo
 (personal, producto o servicio), moneda, cliente, tarifa por hora, precio y presupuesto (en

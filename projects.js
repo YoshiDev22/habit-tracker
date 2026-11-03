@@ -45,6 +45,9 @@ const projectForm = document.getElementById('projectForm');
 const projectNameInput = document.getElementById('projectName');
 const projectDescriptionInput = document.getElementById('projectDescription');
 const projectIconInput = document.getElementById('projectIcon');
+const projectParentGroup = document.getElementById('projectParentGroup');
+const projectParentSelect = document.getElementById('projectParent');
+const projectParentHint = document.getElementById('projectParentHint');
 const projectColorInput = document.getElementById('projectColor');
 const projectFormError = document.getElementById('projectFormError');
 const closeProjectModalBtn = document.getElementById('closeProjectModalBtn');
@@ -575,6 +578,35 @@ function taskTimeCompact(seconds, estimateMinutes) {
     return { text: `${compactHours(seconds)}/${compactHours(estimateMinutes * 60)}`, over: exact.over, title: exact.title };
 }
 
+// ============================================
+// Grupos de proyectos (1.34, docs/specs/grupos-de-proyectos.md)
+// ============================================
+
+// Cada grupo seguido de sus proyectos, en el orden de siempre: [{project, depth,
+// members}]. Un proyecto cuyo grupo no está en la lista (archivado) va suelto.
+// La usan la Lista y Organizar (board.js).
+function groupedProjects(projects) {
+    const ids = new Set(projects.map(p => p.id));
+    const inGroup = p => p.parent_id && ids.has(p.parent_id);
+    const members = new Map();
+    projects.filter(inGroup).forEach(p => {
+        if (!members.has(p.parent_id)) members.set(p.parent_id, []);
+        members.get(p.parent_id).push(p);
+    });
+    const out = [];
+    projects.filter(p => !inGroup(p)).forEach(p => {
+        const own = members.get(p.id) || [];
+        out.push({ project: p, depth: 0, members: own.length });
+        own.forEach(m => out.push({ project: m, depth: 1, members: 0 }));
+    });
+    return out;
+}
+
+// Los ids de los proyectos de un grupo (activos)
+function groupMemberIds(projectId) {
+    return projectsState.projects.filter(p => p.parent_id === projectId).map(p => p.id);
+}
+
 function formatProjectMeta(summary) {
     if (!summary || summary.task_total === 0) {
         return 'Sin tareas';
@@ -587,12 +619,12 @@ function formatProjectMeta(summary) {
     return meta;
 }
 
-function buildProjectCard(project) {
+function buildProjectCard(project, { depth = 0, members = 0 } = {}) {
     const summary = projectsState.summaryByProject[project.id];
     const isExpanded = projectsState.expanded.has(project.id);
 
     const card = document.createElement('article');
-    card.className = 'project-card';
+    card.className = depth ? 'project-card in-group' : 'project-card';
     card.dataset.projectId = String(project.id);
 
     const chip = document.createElement('span');
@@ -612,6 +644,16 @@ function buildProjectCard(project) {
 
     main.appendChild(name);
     main.appendChild(meta);
+    // Un grupo dice cuántos proyectos tiene y el tiempo de todo: lo suyo más lo de ellos
+    if (members) {
+        const total = [project.id, ...groupMemberIds(project.id)]
+            .reduce((sum, id) => sum + ((projectsState.summaryByProject[id] || {}).total_seconds || 0), 0);
+        const groupMeta = document.createElement('p');
+        groupMeta.className = 'project-meta project-group-meta';
+        groupMeta.textContent = `Grupo · ${members} ${members === 1 ? 'proyecto' : 'proyectos'}`
+            + (total ? ` · ${formatDuration(total)} en total` : '');
+        main.appendChild(groupMeta);
+    }
 
     const toggleBtn = document.createElement('button');
     toggleBtn.type = 'button';
@@ -862,11 +904,13 @@ function renderProjects() {
     const projects = projectsState.projects;
     projectsEmpty.classList.toggle('hidden', projects.length > 0);
 
-    projects.forEach(project => {
-        projectsList.appendChild(buildProjectCard(project));
+    groupedProjects(projects).forEach(({ project, depth, members }) => {
+        projectsList.appendChild(buildProjectCard(project, { depth, members }));
 
         if (projectsState.expanded.has(project.id)) {
-            projectsList.appendChild(buildTaskListElement(project.id));
+            const list = buildTaskListElement(project.id);
+            if (depth) list.classList.add('in-group');
+            projectsList.appendChild(list);
             if (!projectsState.tasksByProject[project.id]) {
                 loadTasks(project.id);
             }
@@ -996,22 +1040,63 @@ async function addTask(projectId, title) {
 // Modal de crear/editar proyecto
 // ============================================
 
+// El grupo que tenía al abrir: al editar, parent_id solo se manda si cambia (un
+// grupo que se archivó después rechazaría volver a mandarlo)
+let editingProjectParent = null;
+
+// Las mismas reglas que el servidor (_set_group): un grupo es un proyecto activo
+// que no está dentro de otro; un grupo con proyectos no entra en otro, y "Sin
+// asignar" ni va en uno ni lo es
+function fillProjectParentSelect(project) {
+    projectParentSelect.innerHTML = '';
+    projectParentGroup.hidden = Boolean(project && project.is_system);
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = 'Sin grupo';
+    projectParentSelect.appendChild(none);
+    const members = project ? groupMemberIds(project.id).length : 0;
+    projectsState.projects
+        .filter(p => !p.is_system && !p.parent_id && (!project || p.id !== project.id))
+        .forEach(p => {
+            const option = document.createElement('option');
+            option.value = String(p.id);
+            option.textContent = p.icon ? `${p.icon} ${p.name}` : p.name;
+            projectParentSelect.appendChild(option);
+        });
+    const current = project ? project.parent_id : null;
+    if (current && !projectParentSelect.querySelector(`option[value="${current}"]`)) {
+        const archived = document.createElement('option');
+        archived.value = String(current);
+        archived.textContent = 'Un grupo archivado';
+        projectParentSelect.appendChild(archived);
+    }
+    projectParentSelect.value = current ? String(current) : '';
+    projectParentSelect.disabled = members > 0;
+    projectParentHint.textContent = members > 0
+        ? `Es un grupo (${members} ${members === 1 ? 'proyecto' : 'proyectos'}): no puede ir dentro de otro.`
+        : 'Un grupo junta proyectos (un emprendimiento, "Personal") y suma su tiempo y sus costos.';
+}
+
 function openCreateProjectModal() {
     editingProjectId = null;
+    editingProjectParent = null;
     projectModalTitle.textContent = 'Nuevo Proyecto';
     projectForm.reset();
     projectColorInput.value = '#3498db';
+    fillProjectParentSelect(null);
     projectFormError.classList.add('hidden');
     showModal(projectModal);
 }
 
 function openEditProjectModal(project) {
     editingProjectId = project.id;
+    editingProjectParent = project.parent_id || null;
     projectModalTitle.textContent = 'Editar Proyecto';
     projectNameInput.value = project.name;
     projectDescriptionInput.value = project.description || '';
     projectIconInput.value = project.icon || '';
     projectColorInput.value = project.color || '#3498db';
+    fillProjectParentSelect(project);
     projectFormError.classList.add('hidden');
     showModal(projectModal);
 }
@@ -1046,6 +1131,10 @@ async function submitProjectForm(event) {
         icon: projectIconInput.value.trim() || null,
         color: projectColorInput.value,
     };
+    const parentId = projectParentSelect.value ? Number(projectParentSelect.value) : null;
+    if (!projectParentGroup.hidden && (!editingProjectId || parentId !== editingProjectParent)) {
+        payload.parent_id = parentId;
+    }
 
     try {
         if (editingProjectId) {
