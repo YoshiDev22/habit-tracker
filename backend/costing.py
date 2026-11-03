@@ -18,8 +18,8 @@ from sqlmodel import Session, select
 
 from backend.models import (CostCategory, PomodoroSession, Project, ProjectCost, ProjectFinance, Tag, Task,
                             TaskTag)
-from backend.schemas import (CostsCategorySummary, CostsCurrencyTotal, CostsProjectSummary, CostsSummaryResponse,
-                             EstimateDeviation, EstimateRow, EstimateTagRow, ProjectFinanceResponse)
+from backend.schemas import (CostsCategorySummary, CostsCurrencyTotal, CostsGroupSummary, CostsProjectSummary,
+                             CostsSummaryResponse, EstimateDeviation, EstimateRow, EstimateTagRow, ProjectFinanceResponse)
 
 # Con menos tareas que esto, una fila dice "todavía hay poco historial": una
 # sola tarea que salió muy mal (o muy bien) no es una tendencia
@@ -240,6 +240,10 @@ def costs_summary(session: Session, user_id: int, date_from: Optional[date_type]
     for cost in costs:
         costs_by_project[cost.project_id] = costs_by_project.get(cost.project_id, 0) + cost_total_cents(cost)
 
+    # Grupos (1.34): un proyecto con proyectos dentro
+    known = {p.id for p in projects}
+    group_ids = {p.parent_id for p in projects if p.parent_id in known}
+
     rows: List[CostsProjectSummary] = []
     currency_of: Dict[int, str] = {}
     for p in projects:
@@ -264,6 +268,8 @@ def costs_summary(session: Session, user_id: int, date_from: Optional[date_type]
             price_cents=finance.price_cents if finance else None,
             margin_cents=margin_cents(finance.price_cents if finance else None, total_cost),
             is_quote=bool(budget or budget_minutes) and total_seconds == 0,
+            group_id=p.id if p.id in group_ids else (p.parent_id if p.parent_id in group_ids else None),
+            is_group=p.id in group_ids,
         ))
 
     categories = {c.id: c for c in session.exec(select(CostCategory).where(CostCategory.user_id == user_id)).all()}
@@ -296,5 +302,22 @@ def costs_summary(session: Session, user_id: int, date_from: Optional[date_type]
         t.costs_cents += row.costs_cents
         t.total_cost_cents += row.total_cost_cents
         t.budget_cents += row.budget_cents or 0
+    # Un subtotal por grupo y moneda: nunca se suman monedas distintas
+    names = {p.id: p for p in projects}
+    groups: Dict[tuple, CostsGroupSummary] = {}
+    for row in rows:
+        if row.group_id is None:
+            continue
+        group = names[row.group_id]
+        g = groups.setdefault((row.group_id, row.currency), CostsGroupSummary(
+            group_id=group.id, name=group.name, color=group.color, currency=row.currency, total_seconds=0,
+            labor_cents=0, costs_cents=0, total_cost_cents=0, budget_cents=0, project_ids=[]))
+        g.total_seconds += row.total_seconds
+        g.labor_cents += row.labor_cents or 0
+        g.costs_cents += row.costs_cents
+        g.total_cost_cents += row.total_cost_cents
+        g.budget_cents += row.budget_cents or 0
+        g.project_ids.append(row.project_id)
     return CostsSummaryResponse(projects=rows, categories=category_rows,
-                                totals=sorted(totals.values(), key=lambda t: t.currency))
+                                totals=sorted(totals.values(), key=lambda t: t.currency),
+                                groups=list(groups.values()))

@@ -830,6 +830,9 @@ class CostsProjectSummary(SQLModel):
     is_quote: bool = False
     # Gasto por categoría de este proyecto, para filtrar la gráfica "Costos"
     categories: List[Dict[str, int]] = []
+    # Grupos (1.34): el grupo al que suma (el propio, si es el grupo)
+    group_id: Optional[int] = None
+    is_group: bool = False
 
 
 class CostsCategorySummary(SQLModel):
@@ -849,10 +852,25 @@ class CostsCurrencyTotal(SQLModel):
     budget_cents: int
 
 
+class CostsGroupSummary(SQLModel):
+    """El subtotal de un grupo en una moneda: lo suyo (General) más sus proyectos"""
+    group_id: int
+    name: str
+    color: Optional[str] = None
+    currency: str
+    total_seconds: int
+    labor_cents: int
+    costs_cents: int
+    total_cost_cents: int
+    budget_cents: int
+    project_ids: List[int]        # las filas que suma, el grupo incluido si tiene fila
+
+
 class CostsSummaryResponse(SQLModel):
     projects: List[CostsProjectSummary]
     categories: List[CostsCategorySummary]   # por moneda, de mayor a menor
     totals: List[CostsCurrencyTotal]
+    groups: List[CostsGroupSummary] = []      # por grupo y moneda (1.34)
 
 
 class ProjectFinanceResponse(SQLModel):

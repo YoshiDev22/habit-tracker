@@ -5233,6 +5233,21 @@ button.day-log-date:focus-visible {
     min-width: 120px;
 }
 
+/* Grupos (1.34): la fila del subtotal y sus proyectos sangrados */
+.costs-projects tbody tr.costs-group-row {
+    cursor: default;
+    background: var(--bg-surface-2);
+}
+
+.costs-projects tbody tr.costs-group-row td {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.costs-projects tbody tr.in-group .costs-project-name {
+    padding-left: 24px;
+}
+
 .costs-projects td.negative {
     color: var(--danger-fg);
     font-weight: 600;

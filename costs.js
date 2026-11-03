@@ -158,7 +158,7 @@ function renderCostsSummary() {
     if (summary.projects.length === 0) {
         cards.push(reportsMessage('Todavía no tienes proyectos. Crea uno en Tableros para costearlo.'));
     } else {
-        cards.push(reportCard('Por proyecto', costsProjectTable(summary.projects)));
+        cards.push(reportCard('Por proyecto', costsProjectTable(summary.projects, summary.groups || [])));
     }
 
     // Costos: la mano de obra (horas × tarifa) como una columna más, y cada
@@ -342,7 +342,59 @@ function costsBreakdownChart(rows, currency) {
     return wrap;
 }
 
-function costsProjectTable(projects) {
+// Grupos (1.34): cada grupo es una fila de subtotal por moneda y, debajo y
+// sangradas, su General (la fila del propio grupo, que se edita como cualquier
+// proyecto) y sus proyectos. Un grupo cuya única fila es la suya sale suelto.
+function costsTableItems(projects, groups) {
+    const byId = new Map(projects.map(p => [p.project_id, p]));
+    const items = [];
+    const done = new Set();
+    projects.forEach(p => {
+        if (p.group_id == null) {
+            items.push({ project: p });
+            return;
+        }
+        if (done.has(p.group_id)) return;
+        done.add(p.group_id);
+        const own = groups.filter(g => g.group_id === p.group_id);
+        own.forEach(g => {
+            const rows = g.project_ids.map(id => byId.get(id)).filter(Boolean)
+                .sort((a, b) => Number(b.is_group) - Number(a.is_group));
+            if (rows.length === 1 && rows[0].is_group) {
+                items.push({ project: rows[0] });
+                return;
+            }
+            items.push({ group: g, label: own.length > 1 ? `${g.name} · ${g.currency}` : g.name });
+            rows.forEach(r => items.push({ project: r, child: true }));
+        });
+    });
+    return items;
+}
+
+function costsGroupRow(g, label) {
+    const row = el('tr', 'costs-group-row');
+    const name = el('td', 'costs-project-name');
+    const dot = el('i', 'report-bar-dot');
+    if (g.color) dot.style.background = g.color;
+    name.append(dot, document.createTextNode(label), el('span', 'report-bar-note', ' grupo'));
+    const money = cents => formatMoney(cents, g.currency);
+    row.append(
+        name,
+        el('td', 'col-hide-narrow', formatDuration(g.total_seconds)),
+        // Sin tarifa en ninguna de sus filas, "—" como ellas
+        el('td', 'col-hide-narrow', g.labor_cents ? money(g.labor_cents) : '—'),
+        el('td', 'col-hide-narrow', money(g.costs_cents)),
+        el('td', '', money(g.total_cost_cents)),
+        el('td', 'col-hide-narrow', g.budget_cents ? money(g.budget_cents) : '—'),
+        el('td', '', '—'),
+        el('td', 'col-hide-narrow', '—'),
+        el('td', '', '—'),
+    );
+    row.title = 'Subtotal del grupo: lo general más sus proyectos';
+    return row;
+}
+
+function costsProjectTable(projects, groups = []) {
     const wrap = el('div', 'costs-sheet-scroll');
     const table = el('table', 'costs-projects');
     const head = el('tr');
@@ -354,15 +406,22 @@ function costsProjectTable(projects) {
     const thead = el('thead');
     thead.appendChild(head);
     const tbody = el('tbody');
-    projects.forEach(p => {
-        const row = el('tr', p.project_id === costsState.projectId ? 'selected' : '');
+    costsTableItems(projects, groups).forEach(({ project: p, group, label, child }) => {
+        if (group) {
+            tbody.appendChild(costsGroupRow(group, label));
+            return;
+        }
+        const row = el('tr', [p.project_id === costsState.projectId ? 'selected' : '', child ? 'in-group' : '']
+            .filter(Boolean).join(' '));
         row.dataset.projectId = String(p.project_id);
         row.tabIndex = 0;
         row.title = 'Ver sus gastos';
         const name = el('td', 'costs-project-name');
         const dot = el('i', 'report-bar-dot');
         if (p.color) dot.style.background = p.color;
-        name.append(dot, document.createTextNode(p.name));
+        // Dentro de su grupo, la fila del grupo es lo general: lo que no es de un proyecto
+        name.append(dot, document.createTextNode(child && p.is_group ? 'General' : p.name));
+        if (child && p.is_group) name.appendChild(el('span', 'report-bar-note', ' del grupo'));
         if (!p.is_active) name.appendChild(el('span', 'report-bar-note', ' archivado'));
         if (p.is_quote) name.appendChild(el('span', 'costing-badge', 'Cotización'));
         const money = cents => (cents == null ? '—' : formatMoney(cents, p.currency));

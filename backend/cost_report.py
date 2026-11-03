@@ -11,7 +11,7 @@ con la pestaña:
 Nunca se suman monedas distintas: los totales van por moneda.
 """
 from datetime import date as date_type, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlmodel import Session, select
 
@@ -44,6 +44,7 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
     category_names = {c.id: c.name for c in session.exec(
         select(CostCategory).where(CostCategory.user_id == user.id)).all()}
 
+    group_names = {g.group_id: g.name for g in month.groups}
     projects = []
     for row in month.projects:
         if not row.total_seconds and not row.costs_cents:
@@ -55,6 +56,7 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
             "labor_cents": row.labor_cents, "costs_cents": row.costs_cents, "total_cost_cents": row.total_cost_cents,
             "categories": [{"name": category_names.get(c["category_id"], "Sin categoría"), "cents": c["cents"]}
                            for c in row.categories],
+            "group": group_names.get(row.group_id), "is_group": row.is_group,
             "to_date": {
                 "total_cost_cents": acc.total_cost_cents if acc else row.total_cost_cents,
                 "budget_cents": acc.budget_cents if acc else None,
@@ -65,6 +67,22 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
         })
     projects.sort(key=lambda p: (p["currency"], -p["total_cost_cents"], p["name"]))
     currencies_used = {p["currency"] for p in projects}
+    # Grupos (1.34): el subtotal del mes de cada grupo en cada moneda, con lo que lo formó
+    groups: Dict[tuple, dict] = {}
+    for p in projects:
+        if not p["group"]:
+            continue
+        g = groups.setdefault((p["group"], p["currency"]), {
+            "name": p["group"], "currency": p["currency"], "total_seconds": 0, "labor_cents": 0,
+            "costs_cents": 0, "total_cost_cents": 0, "own_cost_cents": 0, "projects": []})
+        g["total_seconds"] += p["total_seconds"]
+        g["labor_cents"] += p["labor_cents"] or 0
+        g["costs_cents"] += p["costs_cents"]
+        g["total_cost_cents"] += p["total_cost_cents"]
+        if p["is_group"]:
+            g["own_cost_cents"] = p["total_cost_cents"]
+        else:
+            g["projects"].append(p["name"])
 
     costs = session.exec(select(ProjectCost).where(
         ProjectCost.user_id == user.id, ProjectCost.cost_date >= start, ProjectCost.cost_date <= through)).all()
@@ -79,6 +97,7 @@ def cost_metrics(session: Session, user: User, start: date_type, end: date_type,
                                                                if p["currency"] == t.currency)}
                        for t in month.totals if t.currency in currencies_used],
         "projects": projects,
+        "groups": sorted(groups.values(), key=lambda g: (g["currency"], -g["total_cost_cents"], g["name"])),
         "categories": [{"name": c.name, "color": c.color, "currency": c.currency, "cents": c.cents}
                        for c in month.categories],
         "top_costs": [{"date": c.cost_date.isoformat(), "concept": c.concept,
@@ -182,6 +201,11 @@ def _patterns(m: dict) -> List[str]:
             top = rows[0]
             out.append(f"{top['name']} fue el proyecto que más costó: {money(top['total_cost_cents'], cur)}"
                        + (f" con {_hours(top['total_seconds'])} de trabajo." if top["total_seconds"] else "."))
+        for g in m.get("groups") or []:
+            parts = g["projects"] + (["lo general del grupo"] if g["own_cost_cents"] else [])
+            if g["currency"] == cur and g["total_cost_cents"] and len(parts) >= 2:
+                out.append(f"El grupo {g['name']} costó {money(g['total_cost_cents'], cur)} entre {_join(parts)}.")
+                break
         cats = [c for c in m["categories"] if c["currency"] == cur]
         if cats:
             out.append(f"El gasto más grande por categoría fue {cats[0]['name']}: {money(cats[0]['cents'], cur)}.")

@@ -778,6 +778,13 @@ function costsBreakdown(report, currency) {
     }
     donuts.appendChild(donut(`${savedPeriodLabel(report)} · ${money(now.total)}`, now.rows, now.total, money, 'Sin costos.'));
     const parts = [donuts];
+    // Grupos (1.34): el subtotal del mes de cada uno, con lo que lo formó
+    const groups = (m.groups || []).filter(g => g.currency === currency && g.total_cost_cents > 0);
+    if (groups.length) {
+        parts.push(el('p', 'saved-chart-title', 'Por grupo'));
+        parts.push(barList(groups.map(g => ({ name: g.name, seconds: g.total_cost_cents,
+            note: [...g.projects, ...(g.own_cost_cents ? ['general'] : [])].join(', ') })), now.total, money));
+    }
     const top = m.top_costs.filter(c => c.currency === currency);
     if (top.length) {
         // Cada gasto con el color de su categoría, el mismo de la gráfica de columnas
@@ -804,7 +811,9 @@ function costsProjectsTable(m) {
         const left = el('td', acc.budget_left_cents < 0 ? 'negative' : '', money(acc.budget_left_cents, p.currency));
         const margin = el('td', acc.margin_cents < 0 ? 'negative' : '',
             p.kind === 'personal' ? '—' : money(acc.margin_cents, p.currency));
-        tr.append(el('th', '', p.name), el('td', '', hoursText(p.total_seconds)),
+        // El grupo entre paréntesis; la fila del grupo mismo es su parte general
+        const label = !p.group ? p.name : (p.is_group ? `${p.name} (general del grupo)` : `${p.name} (${p.group})`);
+        tr.append(el('th', '', label), el('td', '', hoursText(p.total_seconds)),
             el('td', '', p.labor_cents === null ? 'sin tarifa' : money(p.labor_cents, p.currency)),
             el('td', '', money(p.costs_cents, p.currency)), el('td', '', money(p.total_cost_cents, p.currency)),
             left, margin);

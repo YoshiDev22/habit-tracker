@@ -129,3 +129,51 @@ def test_metrics_and_the_saved_report_add_up_each_group(api):
                                    "projects": ["App", "Campaña"], "pct": 60}
     assert {"name": "Campaña", "minutes": 60, "pct": 20, "group": "Emprendimiento", "is_group": False} \
         in sent["by_project"]
+
+
+def test_costs_add_up_each_group_by_currency(api):
+    """Fase 4: el resumen de Costos da el subtotal de cada grupo por moneda (nunca
+    se suman monedas) y el reporte de costos del mes, igual."""
+    from datetime import date
+
+    from conftest import log_time
+    from test_costs import add
+    from test_finance import maker_on
+
+    api.login("costos-grupos@test.com")
+    maker_on(api, "costos-grupos@test.com")
+    _, cats = api.call("GET", "/api/costs/categories", expect=200)
+    cat = cats["categories"][0]["id"]
+    group = project(api, "Taller")
+    lamp = project(api, "Lámpara", parent_id=group["id"])
+    abroad = project(api, "Encargo", parent_id=group["id"])
+    loose = project(api, "Suelto")
+    api.call("PUT", f"/api/projects/{abroad['id']}/finance", {"currency": "USD"}, expect=200)
+    api.call("PUT", f"/api/projects/{lamp['id']}/finance", {"hourly_rate_cents": 20000, "budget_cents": 100000},
+             expect=200)
+    add(api, group["id"], cat, "Filamento", 30000)       # lo general del grupo
+    add(api, lamp["id"], cat, "Foco", 5000)
+    add(api, abroad["id"], cat, "Envío", 2000)
+    add(api, loose["id"], cat, "Otro", 1000)
+    log_time(api, lamp["id"], None, 3600)                # 1 h × $200 = mano de obra
+
+    _, summary = api.call("GET", "/api/costs/summary", expect=200)
+    rows = {p["name"]: (p["group_id"], p["is_group"]) for p in summary["projects"]}
+    assert rows["Taller"] == (group["id"], True) and rows["Lámpara"] == (group["id"], False)
+    assert rows["Suelto"] == (None, False)
+    by_currency = {g["currency"]: g for g in summary["groups"]}
+    assert set(by_currency) == {"MXN", "USD"}
+    mxn = by_currency["MXN"]
+    assert (mxn["name"], mxn["labor_cents"], mxn["costs_cents"], mxn["total_cost_cents"], mxn["budget_cents"]) \
+        == ("Taller", 20000, 35000, 55000, 100000)
+    assert sorted(mxn["project_ids"]) == sorted([group["id"], lamp["id"]])
+    assert by_currency["USD"]["total_cost_cents"] == 2000 and by_currency["USD"]["project_ids"] == [abroad["id"]]
+
+    _, rep = api.call("POST", "/api/reports", {"kind": "costs-month", "period_start": date.today().replace(day=1)
+                                               .isoformat(), "today": date.today().isoformat()}, expect=200)
+    groups = {(g["name"], g["currency"]): g for g in rep["metrics"]["groups"]}
+    assert groups[("Taller", "MXN")]["total_cost_cents"] == 55000
+    assert groups[("Taller", "MXN")]["own_cost_cents"] == 30000 and groups[("Taller", "MXN")]["projects"] == ["Lámpara"]
+    assert groups[("Taller", "USD")]["projects"] == ["Encargo"]
+    assert any(line.startswith("El grupo Taller costó $550.00 MXN entre Lámpara y lo general del grupo")
+               for line in rep["text"]["patterns"]), rep["text"]["patterns"]
