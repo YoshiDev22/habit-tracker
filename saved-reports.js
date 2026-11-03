@@ -401,6 +401,14 @@ function whereTimeWent(report) {
     donuts.appendChild(donut(`${rangeShort(report.period_start, report.period_end)} · ${hoursText(m.total_seconds)}`,
         m.by_project, m.total_seconds));
     const parts = [donuts];
+    // Grupos (1.34): el subtotal de cada uno, con lo que lo formó
+    if (m.by_group && m.by_group.length) {
+        parts.push(el('p', 'saved-chart-title', 'Por grupo'));
+        parts.push(barList(m.by_group.map(g => ({
+            name: g.name, color: g.color, seconds: g.seconds,
+            note: [...g.projects, ...(g.own_seconds ? ['general'] : [])].join(', '),
+        })), m.total_seconds, hoursText));
+    }
     if (m.top_tasks.length) {
         parts.push(el('p', 'saved-chart-title', report.kind === 'week' ? 'Tareas principales de esta semana' : 'Tareas principales'));
         parts.push(barList(m.top_tasks.map(task => ({ name: task.title, color: task.color, seconds: task.seconds })), null, hoursText));

@@ -282,8 +282,8 @@ async def main():
             };
             const total = Number(text.match(/- Total: .* \\((\\d+) min\\)/)[1]);
             return {total, days: table('Por día').reduce((a, r) => a + Number(r[3]), 0),
-                    projects: table('Por proyecto').reduce((a, r) => a + Number(r[1]), 0),
-                    pct: table('Por proyecto').reduce((a, r) => a + Number(r[2]), 0),
+                    projects: table('Por proyecto').reduce((a, r) => a + Number(r[2]), 0),
+                    pct: table('Por proyecto').reduce((a, r) => a + Number(r[3]), 0),
                     head: text.split('\\n')[0]};
         })()""")
         check(ai["total"] > 0 and ai["days"] == ai["total"] and ai["projects"] == ai["total"] and ai["pct"] == 100

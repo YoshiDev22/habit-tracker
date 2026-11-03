@@ -57,18 +57,20 @@ async def main():
         check(text.startswith("﻿"), "starts with a UTF-8 BOM for Excel")
         rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
         header, body = rows[0], rows[1:]
-        check(header == ["Fecha", "Inicio", "Fin", "Duración", "Horas", "Tarea", "Proyecto", "Etiquetas", "Origen", "Nota"],
+        check(header == ["Fecha", "Inicio", "Fin", "Duración", "Horas", "Tarea", "Proyecto", "Grupo", "Etiquetas", "Origen",
+                         "Nota"],
               f"header ({header})")
         check(len(body) == len(focus), f"one row per focus entry ({len(body)} / {len(focus)})")
         hours = round(sum(float(r[4]) for r in body), 2)
         check(abs(hours - sum(s["duration_seconds"] for s in focus) / 3600) < 0.02, f"hours add up ({hours})")
-        mine = next(r for r in body if r[9].startswith("Leí"))
+        mine = next(r for r in body if r[10].startswith("Leí"))
         check(mine[0] == monday.isoformat() and mine[1] == "09:00" and mine[2] == "10:30" and mine[3] == "1:30"
-              and mine[4] == "1.50" and mine[8] == "Registrado a mano", f"times, duration and origin ({mine})")
+              and mine[4] == "1.50" and mine[9] == "Registrado a mano" and mine[7] == "",
+              f"times, duration, no group and origin ({mine})")
         check(mine[5] == "'=HYPERLINK(\"x\")", f"a formula-like title is neutralized ({mine[5]})")
-        check(mine[9] == 'Leí "docs", y notas' and mine[6] == "Sin asignar", f"quotes and commas survive ({mine[9]}, {mine[6]})")
-        tagged = [r for r in body if r[7]]
-        check(any("documentación" in r[7] for r in tagged), f"tags are listed ({[r[7] for r in tagged][:2]})")
+        check(mine[10] == 'Leí "docs", y notas' and mine[6] == "Sin asignar", f"quotes and commas survive ({mine[10]}, {mine[6]})")
+        tagged = [r for r in body if r[8]]
+        check(any("documentación" in r[8] for r in tagged), f"tags are listed ({[r[8] for r in tagged][:2]})")
         check(body == sorted(body, key=lambda r: (r[0], r[1])), "rows in chronological order")
 
         # An empty range says so instead of downloading an empty file

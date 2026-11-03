@@ -562,7 +562,8 @@ function barList(rows, total, format = formatDuration) {
     const max = Math.max(1, ...rows.map(r => r.seconds));
     const list = el('ul', 'report-bars');
     rows.forEach(row => {
-        const item = el('li', `report-bar-row${row.muted ? ' muted' : ''}`);
+        const item = el('li', `report-bar-row${row.muted ? ' muted' : ''}${row.child ? ' in-group' : ''}`
+            + `${row.group ? ' is-group' : ''}`);
         const head = el('div', 'report-bar-head');
         const name = el('span', 'report-bar-name');
         const dot = el('i', 'report-bar-dot');
@@ -609,17 +610,47 @@ function renderByProject({ sessions, projects }) {
     const total = sumSeconds(sessions);
     if (total === 0) return reportCard('Por proyecto', reportsMessage('Sin tiempo registrado en este periodo.'));
 
-    const rows = [...seconds.entries()]
-        .map(([id, secs]) => {
-            const p = byId.get(id);
-            return { name: p.icon ? `${p.icon} ${p.name}` : p.name, color: p.color, seconds: secs,
-                note: p.is_active ? '' : 'archivado' };
-        })
-        .sort((a, b) => b.seconds - a.seconds);
+    const rows = groupedTimeRows(seconds, byId);
     if (unassigned > 0) {
         rows.push({ name: 'Sin asignar', seconds: unassigned, note: 'sin clasificar', muted: true });
     }
     return reportCard('Por proyecto', barList(rows, total));
+}
+
+// Grupos (1.34): cada grupo es una fila con su subtotal y, debajo y sangrados,
+// lo general del grupo (su tiempo propio) y sus proyectos. Un grupo cuyo único
+// tiempo es el propio sale como un proyecto más. `seconds`: id → segundos.
+function groupedTimeRows(seconds, byId) {
+    const label = p => (p.icon ? `${p.icon} ${p.name}` : p.name);
+    const archived = p => (p.is_active ? '' : 'archivado');
+    const isGroup = new Set([...byId.values()].filter(p => p.parent_id && byId.has(p.parent_id)).map(p => p.parent_id));
+    const groupOf = p => (isGroup.has(p.id) ? p.id : (isGroup.has(p.parent_id) ? p.parent_id : null));
+    const tops = new Map();   // id del grupo o del proyecto suelto → { seconds, children }
+    seconds.forEach((secs, id) => {
+        const p = byId.get(id);
+        const key = groupOf(p) ?? id;
+        if (!tops.has(key)) tops.set(key, { seconds: 0, children: [] });
+        const top = tops.get(key);
+        top.seconds += secs;
+        if (groupOf(p) !== null) {
+            top.children.push(p.id === key
+                ? { name: 'General', note: 'del grupo', seconds: secs, child: true, color: p.color, own: true }
+                : { name: label(p), color: p.color, seconds: secs, note: archived(p), child: true });
+        }
+    });
+    const rows = [];
+    [...tops.entries()].sort((a, b) => b[1].seconds - a[1].seconds).forEach(([id, top]) => {
+        const p = byId.get(id);
+        const onlyOwn = top.children.length === 1 && top.children[0].own;
+        if (!top.children.length || onlyOwn) {
+            rows.push({ name: label(p), color: p.color, seconds: top.seconds, note: archived(p) });
+            return;
+        }
+        rows.push({ name: label(p), color: p.color, seconds: top.seconds, group: true,
+            note: ['grupo', archived(p)].filter(Boolean).join(' · ') });
+        rows.push(...top.children.sort((a, b) => b.seconds - a.seconds));
+    });
+    return rows;
 }
 
 // ============================================
@@ -837,7 +868,8 @@ function renderBySource({ sessions }) {
 // Un registro por fila, del rango que se ve, para abrirlo en Excel o Google
 // Sheets. Se arma en el navegador con los mismos endpoints de la vista.
 
-const CSV_HEADER = ['Fecha', 'Inicio', 'Fin', 'Duración', 'Horas', 'Tarea', 'Proyecto', 'Etiquetas', 'Origen', 'Nota'];
+const CSV_HEADER = ['Fecha', 'Inicio', 'Fin', 'Duración', 'Horas', 'Tarea', 'Proyecto', 'Grupo', 'Etiquetas', 'Origen',
+    'Nota'];
 
 function csvCell(value) {
     let text = value === null || value === undefined ? '' : String(value);
@@ -855,6 +887,13 @@ function buildTimeCsv(sessions, tasks, projects, tags) {
     const projectById = new Map(projects.map(p => [p.id, p]));
     const tagById = new Map(tags.map(t => [t.id, t]));
     const sourceLabel = Object.fromEntries(SOURCE_KINDS.map(k => [k.key, k.label]));
+    // El grupo de cada sesión: el del proyecto, o él mismo si es un grupo (su tiempo general)
+    const groupIds = new Set(projects.filter(p => p.parent_id && projectById.has(p.parent_id)).map(p => p.parent_id));
+    const groupName = p => {
+        if (!p) return '';
+        if (groupIds.has(p.id)) return p.name;
+        return groupIds.has(p.parent_id) ? projectById.get(p.parent_id).name : '';
+    };
 
     const rows = [...sessions]
         .sort((a, b) => a.started_at.localeCompare(b.started_at))
@@ -871,6 +910,7 @@ function buildTimeCsv(sessions, tasks, projects, tags) {
                 (s.duration_seconds / 3600).toFixed(2),
                 task ? task.title : '',
                 project ? project.name : '',
+                groupName(project),
                 tagNames.join(', '),
                 sourceLabel[s.source] || s.source,
                 s.note || '',
@@ -1066,8 +1106,26 @@ function buildAiSummary(data) {
                 dayMin[i]])));
         const projMin = splitRounded(metrics.by_project.map(p => p.seconds / 60), totalMin);
         const projPct = splitRounded(metrics.by_project.map(p => p.seconds * 100 / total), 100);
-        lines.push('', '### Por proyecto', '', mdTable(['Proyecto', 'Minutos', '%'],
-            metrics.by_project.map((p, i) => [p.name, projMin[i], projPct[i]])));
+        const projRows = metrics.by_project.map((p, i) => ({ p, min: projMin[i], pct: projPct[i] }));
+        const groups = metrics.by_group || [];
+        if (groups.length) {
+            // Cada grupo junto, del de más tiempo al de menos; su subtotal es la suma de
+            // sus filas ya redondeadas, así que cuadra con la tabla de proyectos
+            const subtotal = new Map(groups.map(g => [g.name, g.seconds]));
+            const topSeconds = r => (r.p.group ? subtotal.get(r.p.group) : r.p.seconds);
+            const topName = r => r.p.group || r.p.name;
+            projRows.sort((a, b) => topSeconds(b) - topSeconds(a) || topName(a).localeCompare(topName(b))
+                || b.min - a.min);
+            lines.push('', '### Por grupo', '',
+                'Un grupo junta varios proyectos; su subtotal incluye su tiempo general (anotado directo en el grupo).', '',
+                mdTable(['Grupo', 'Minutos', '%', 'Proyectos'], groups.map(g => {
+                    const own = projRows.filter(r => r.p.group === g.name);
+                    return [g.name, own.reduce((s, r) => s + r.min, 0), own.reduce((s, r) => s + r.pct, 0),
+                        own.map(r => (r.p.is_group ? 'General' : r.p.name)).join(', ')];
+                })));
+        }
+        lines.push('', '### Por proyecto', '', mdTable(['Proyecto', 'Grupo', 'Minutos', '%'],
+            projRows.map(r => [r.p.is_group ? 'General (del grupo)' : r.p.name, r.p.group || '', r.min, r.pct])));
         if (metrics.by_tag.length) {
             lines.push('', '### Por etiqueta', '',
                 'Una sesión cuenta en cada etiqueta de su tarea: estas filas no se suman entre sí.', '',
