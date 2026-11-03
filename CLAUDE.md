@@ -327,7 +327,12 @@ Lo que no se deduce leyendo los modelos:
   `by_group` da el subtotal de cada grupo (`own_seconds` es su tiempo propio, "General"); los usan el
   reporte guardado, su texto (`_group_line()`) y la IA. En pantalla, *Por proyecto* lo arma
   `groupedTimeRows()` (`reports.js`) desde las sesiones, el CSV lleva la columna *Grupo* y *Copiar
-  para IA* la tabla *Por grupo*, con subtotales que son la suma de sus filas ya redondeadas.
+  para IA* la tabla *Por grupo*, con subtotales que son la suma de sus filas ya redondeadas. En
+  Costos, `costs_summary()` pone `group_id`/`is_group` en cada fila y `groups` da un subtotal **por
+  grupo y moneda** (nunca se suman monedas); `costsTableItems()` (`costs.js`) pinta la fila del
+  subtotal (sin `data-project-id`: no se elige) y debajo *General* (la fila del propio grupo, editable)
+  y sus proyectos. El reporte de costos del mes lleva `groups` (con `own_cost_cents`) y una línea en
+  Patrones.
 - **"Sin asignar"** es un `Project` con `is_system=True` que cada usuario recibe para las
   tareas sin proyecto (existe porque `tasks.project_id` es NOT NULL y quitarlo en SQLite
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;

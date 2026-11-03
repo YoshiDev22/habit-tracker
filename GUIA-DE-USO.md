@@ -371,6 +371,10 @@ proyecto en un grupo, en **✎ Editar** elige el **Grupo**; *Sin grupo* lo saca.
 - En **Reportes**, *Por proyecto* enseña cada grupo con su subtotal y debajo *General* (su
   tiempo propio) y sus proyectos. El CSV de tiempo lleva la columna **Grupo**, y *Copiar para
   IA* y los reportes guardados también traen el subtotal de cada grupo.
+- En **Costos** (plan Maker), la tabla *Por proyecto* enseña cada grupo con su subtotal (uno
+  por moneda, si sus proyectos usan varias) y debajo *General* y sus proyectos. Los gastos que
+  son de todo el grupo (material, equipo) se anotan en *General*. El reporte de costos del mes
+  también suma cada grupo.
 - Un solo nivel: un grupo no va dentro de otro, y un proyecto va en un solo grupo.
 - Archivar un grupo no archiva sus proyectos, y eliminarlo los deja sin grupo.
 
