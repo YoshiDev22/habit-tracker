@@ -70,8 +70,11 @@ def previous_summary(metrics: dict) -> dict:
     summary["date_to"] = metrics["date_to"]
     summary["night_count"] = len(metrics["night_sessions"])
     summary["night_sessions"] = metrics["night_sessions"]
-    summary["by_project"] = [{"name": p["name"], "color": p["color"], "seconds": p["seconds"], "pct": p["pct"]}
+    summary["by_project"] = [{"name": p["name"], "color": p["color"], "seconds": p["seconds"], "pct": p["pct"],
+                              "group": p.get("group")}
                              for p in metrics["by_project"]]
+    summary["by_group"] = [{"name": g["name"], "seconds": g["seconds"], "pct": g["pct"]}
+                           for g in metrics.get("by_group", [])]
     summary["by_day"] = [{"date": d["date"], "seconds": d["seconds"]} for d in metrics["by_day"]]
     return summary
 

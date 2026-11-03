@@ -85,3 +85,47 @@ def test_deleting_a_group_leaves_its_projects_ungrouped(api):
     # Sus tareas no se tocan: siguen en su proyecto
     _, tasks = api.call("GET", "/api/tasks", expect=200)
     assert next(t for t in tasks["tasks"] if t["id"] == task["id"])["project_id"] == child["id"]
+
+
+def test_metrics_and_the_saved_report_add_up_each_group(api):
+    """Fase 3: cada proyecto dice su grupo y by_group da el subtotal (lo propio
+    del grupo más sus proyectos); el reporte guardado y lo que recibe la IA, igual."""
+    from datetime import date, timedelta
+
+    from backend.report_ai import ai_payload
+    from test_metrics import post
+
+    api.login("reporte-grupos@test.com")
+    group = project(api, "Emprendimiento")
+    campaign = project(api, "Campaña", parent_id=group["id"])
+    app = project(api, "App", parent_id=group["id"])
+    loose = project(api, "Tesis")
+    project(api, "Vacío", parent_id=group["id"])   # sin tiempo: no sale
+    monday = date.today() - timedelta(days=date.today().weekday() + 7)
+    post(api, group, None, monday, 9, 30)
+    post(api, campaign, None, monday, 10, 60)
+    post(api, app, None, monday + timedelta(days=1), 9, 90)
+    post(api, loose, None, monday + timedelta(days=2), 9, 120)
+
+    sunday = monday + timedelta(days=6)
+    _, m = api.call("GET", f"/api/metrics?date_from={monday}&date_to={sunday}&today={date.today()}", expect=200)
+    rows = {p["name"]: (p["group"], p["is_group"]) for p in m["by_project"]}
+    assert rows == {"Tesis": (None, False), "App": ("Emprendimiento", False),
+                    "Campaña": ("Emprendimiento", False), "Emprendimiento": ("Emprendimiento", True)}
+    assert len(m["by_group"]) == 1
+    g = m["by_group"][0]
+    assert (g["name"], g["seconds"], g["own_seconds"], g["pct"]) == ("Emprendimiento", 180 * 60, 30 * 60, 60)
+    assert g["projects"] == ["App", "Campaña"]
+    assert g["seconds"] == sum(p["seconds"] for p in m["by_project"] if p["group"] == "Emprendimiento")
+
+    _, rep = api.call("POST", "/api/reports", {"kind": "week", "period_start": monday.isoformat(),
+                                               "today": date.today().isoformat()}, expect=200)
+    assert rep["metrics"]["by_group"][0]["seconds"] == 180 * 60
+    observations = " ".join(rep["text"]["observations"])
+    assert "El grupo Emprendimiento sumó 3.0 h (60 % del tiempo) entre App, Campaña y lo general del grupo." \
+        in observations, observations
+    sent = ai_payload("week", rep["metrics"], rep["text"])["metrics"]
+    assert sent["by_group"][0] == {"name": "Emprendimiento", "minutes": 180, "own_minutes": 30,
+                                   "projects": ["App", "Campaña"], "pct": 60}
+    assert {"name": "Campaña", "minutes": 60, "pct": 20, "group": "Emprendimiento", "is_group": False} \
+        in sent["by_project"]

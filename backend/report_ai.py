@@ -29,7 +29,8 @@ from backend.models import AiCall, AiGrant, User
 from backend.report_kinds import AI_POOL, period_of, subject_of
 
 KIND_NAME = {"week": "semana", "month": "mes"}
-DROP_KEYS = {"project_id", "task_id", "tag_id", "session_id", "category_id", "color", "timezone", "key", "icon"}
+DROP_KEYS = {"project_id", "task_id", "tag_id", "session_id", "category_id", "group_id", "color", "timezone", "key",
+             "icon"}
 MAX_ITEM = 400
 MAX_STEPS = 4
 # Lo que las reglas ya escribieron y la IA recibe como hecho: sin next_steps ni

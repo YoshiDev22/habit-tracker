@@ -221,10 +221,24 @@ def _observations(kind: str, m: dict) -> List[str]:
         out.append(f"{top['name']} se llevó el {top['pct']} % del tiempo ({hours(top['seconds'])}).")
         if len(projects) > 1:
             out.append(f"Le siguió {projects[1]['name']}, con {projects[1]['pct']} % ({hours(projects[1]['seconds'])}).")
+    group = _group_line(m)
+    if group:
+        out.append(group)
     if m["top_tasks"]:
         task = m["top_tasks"][0]
         out.append(f"La tarea con más horas fue «{task['title']}» ({hours(task['seconds'])}).")
     return out[:MAX_ITEMS]
+
+
+def _group_line(m: dict) -> Optional[str]:
+    """El grupo con más tiempo y de qué se formó (1.34). Solo si sumó más de una
+    fila: un grupo con un solo proyecto con tiempo ya lo dicen las líneas de arriba."""
+    for g in m.get("by_group") or []:
+        parts = list(g["projects"]) + (["lo general del grupo"] if g["own_seconds"] else [])
+        if len(parts) < 2:
+            continue
+        return f"El grupo {g['name']} sumó {hours(g['seconds'])} ({g['pct']} % del tiempo) entre {_join(parts)}."
+    return None
 
 
 def _work_days_word(n: int) -> str:

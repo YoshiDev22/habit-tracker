@@ -151,16 +151,42 @@ def compute_metrics(session: Session, user: User, date_from: date_type, date_to:
     def pct(seconds: int) -> Optional[int]:
         return round(seconds * 100 / total) if total else None
 
+    # Grupos (1.34): un grupo es un proyecto con proyectos dentro. Cada fila dice
+    # a qué grupo suma (el propio, si es el grupo) y by_group da los subtotales
+    group_ids = {p.parent_id for p in projects.values() if p.parent_id in projects}
+
+    def group_of(project: Optional[Project]) -> Optional[Project]:
+        if project is None:
+            return None
+        if project.id in group_ids:
+            return project
+        return projects.get(project.parent_id) if project.parent_id in group_ids else None
+
     projects_out = []
+    groups: Dict[int, dict] = {}
     for project_id, seconds in by_project.most_common():
         project = projects.get(project_id)
+        group = group_of(project)
         projects_out.append({
             "project_id": project_id,
             "name": project.name if project else "Sin proyecto",
             "color": project.color if project else None,
             "seconds": seconds,
             "pct": pct(seconds),
+            "group": group.name if group else None,
+            "is_group": group is not None and group is project,
         })
+        if group is not None:
+            entry = groups.setdefault(group.id, {"group_id": group.id, "name": group.name, "color": group.color,
+                                                 "seconds": 0, "own_seconds": 0, "projects": []})
+            entry["seconds"] += seconds
+            if group is project:
+                entry["own_seconds"] = seconds
+            else:
+                entry["projects"].append(project.name)
+    groups_out = sorted(groups.values(), key=lambda g: -g["seconds"])
+    for entry in groups_out:
+        entry["pct"] = pct(entry["seconds"])
     tasks_out = []
     for task_id, seconds in by_task.most_common(TOP_TASKS):
         task = tasks.get(task_id)
@@ -247,6 +273,7 @@ def compute_metrics(session: Session, user: User, date_from: date_type, date_to:
         "schedule": schedule,
         "seconds_after_16h": after_afternoon,
         "by_project": projects_out,
+        "by_group": groups_out,
         "top_tasks": tasks_out,
         "by_tag": tags_out,
         "untagged_seconds": untagged,
