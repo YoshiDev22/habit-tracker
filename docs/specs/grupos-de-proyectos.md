@@ -1,8 +1,8 @@
 # Spec: Grupos de proyectos
 
 > Base: Habit Tracker 1.32.0 · Planteado el 2026-10-26 · Para la **1.34.0** (la 1.33.0 lleva lo
-> de Reportes: días de trabajo, 2 semanas y Copiar para IA). Fase 1 (base) hecha el 2026-11-03 en
-> `feat/grupos`; las fases 2 a 4, pendientes.
+> de Reportes: días de trabajo, 2 semanas y Copiar para IA). Fases 1 (base) y 2 (Proyectos) hechas el
+> 2026-11-03 en `feat/grupos`; las 3 (Reportes) y 4 (Costos), pendientes.
 
 ## El problema
 
