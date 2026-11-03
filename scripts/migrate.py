@@ -108,6 +108,8 @@ MIGRATIONS = [
     {"table": "fin_settings", "column": "due_notice_bell", "type": "BOOLEAN", "new_table": True},
     # Una tarjeta dada de baja (Finanzas 0.8): el día que se canceló
     {"table": "fin_accounts", "column": "cancelled_on", "type": "DATE", "new_table": True},
+    # Grupos de proyectos (1.34): el grupo de un proyecto. Nace NULL: nadie queda en un grupo
+    {"table": "projects", "column": "parent_id", "type": "INTEGER"},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado

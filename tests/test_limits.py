@@ -50,6 +50,9 @@ def test_project_fields(api):
     assert api.call("PATCH", f"{url}/{p['id']}", {"name": "x" * 81})[0] == 422
     assert api.call("PATCH", f"{url}/{p['id']}", {"color": "red"})[0] == 422
     api.call("PATCH", f"{url}/{p['id']}", {"color": None}, expect=200)
+    # El grupo es el id de un proyecto de la cuenta: otra cosa es 422, uno que no existe 404
+    assert api.call("POST", url, {"name": "q", "parent_id": "grupo"})[0] == 422
+    assert api.call("PATCH", f"{url}/{p['id']}", {"parent_id": 999999})[0] == 404
 
 
 def test_session_note_and_mode(seeded):

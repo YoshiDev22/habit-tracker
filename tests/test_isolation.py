@@ -58,6 +58,17 @@ def test_project_overview(seeded):
     assert own["total_seconds"] == 0 and [t["title"] for t in own["tasks"]] == ["Tarea ajena"]
 
 
+def test_project_groups(seeded):
+    other = seeded["other"]
+    own = seeded["other_project"]
+    # Ni meter mi proyecto en un grupo ajeno, ni crear uno dentro, ni tocar el grupo de uno ajeno
+    assert other.call("PATCH", f"/api/projects/{own['id']}", {"parent_id": seeded["project"]["id"]})[0] == 404
+    assert other.call("POST", "/api/projects", {"name": "x", "parent_id": seeded["project"]["id"]})[0] == 404
+    assert other.call("PATCH", f"/api/projects/{seeded['project']['id']}", {"parent_id": own["id"]})[0] == 404
+    _, mine_now = seeded["api"].call("GET", f"/api/projects/{seeded['project']['id']}", expect=200)
+    assert mine_now["parent_id"] is None
+
+
 def test_project_finance(seeded):
     from test_finance import maker_on
     api, other = seeded["api"], seeded["other"]

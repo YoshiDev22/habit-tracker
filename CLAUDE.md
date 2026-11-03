@@ -313,6 +313,12 @@ Lo que no se deduce leyendo los modelos:
   tarjeta del tablero, en corto y en la línea de las etiquetas, "1.5h/3h" con `taskTimeCompact()`
   (solo horas, minutos truncados como `formatDuration()`; lo exacto en el tooltip): al lado del
   título lo partía en varias líneas (1.29, BACKLOG 41). En `--danger-fg` al pasarse y sin avisos.
+- **Grupos de proyectos** (1.34, `docs/specs/grupos-de-proyectos.md`): `projects.parent_id` (en
+  `migrate.py`) mete un proyecto en un **grupo**, que es otro proyecto con hijos y con su tiempo y
+  gastos propios. Un solo nivel y un solo grupo por proyecto; `_set_group()` (`routers/projects.py`)
+  lo hace cumplir con 409 en español: un grupo no entra en otro, nada va dentro de un proyecto que ya
+  está en un grupo, el grupo debe estar activo y "Sin asignar" ni va en uno ni lo es. Un grupo ajeno
+  es 404. Archivar un grupo no archiva sus proyectos; borrarlo los deja sin grupo.
 - **"Sin asignar"** es un `Project` con `is_system=True` que cada usuario recibe para las
   tareas sin proyecto (existe porque `tasks.project_id` es NOT NULL y quitarlo en SQLite
   obliga a reconstruir la tabla en producción). No se renombra, ni se archiva, ni se borra;

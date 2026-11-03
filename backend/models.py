@@ -405,6 +405,11 @@ class Project(SQLModel, table=True):
     # Si es False, el proyecto está "archivado" pero sus tareas se conservan
     is_active: bool = Field(default=True)
 
+    # El grupo al que pertenece (1.34, docs/specs/grupos-de-proyectos.md): un
+    # grupo es un proyecto con hijos, con su tiempo y sus gastos propios. Un
+    # solo nivel y un solo grupo por proyecto. NULL = sin grupo.
+    parent_id: Optional[int] = Field(default=None, foreign_key="projects.id")
+
     # True solo en "Sin asignar", el proyecto que cada usuario recibe para las
     # tareas sin proyecto. Existe porque tasks.project_id es NOT NULL y quitar
     # eso en SQLite obliga a reconstruir la tabla en producción. No se

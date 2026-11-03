@@ -475,6 +475,7 @@ class ProjectCreate(SQLModel):
     color: Optional[str] = None
     icon: Optional[str] = Field(default=None, max_length=16)
     order: Optional[int] = 0
+    parent_id: Optional[int] = None   # su grupo (otro proyecto de la cuenta)
 
     @field_validator("color")
     @classmethod
@@ -493,6 +494,7 @@ class ProjectUpdate(SQLModel):
     icon: Optional[str] = Field(default=None, max_length=16)
     order: Optional[int] = None
     is_active: Optional[bool] = None  # False = archivar (conserva las tareas)
+    parent_id: Optional[int] = None   # su grupo; null lo saca del grupo
 
     @field_validator("color")
     @classmethod
@@ -510,6 +512,7 @@ class ProjectResponse(SQLModel):
     order: int
     is_active: bool
     is_system: bool = False           # "Sin asignar": no se renombra, archiva ni borra
+    parent_id: Optional[int] = None   # su grupo, o None
     created_at: date_type
 
     model_config = ConfigDict(from_attributes=True)

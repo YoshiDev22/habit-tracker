@@ -27,7 +27,7 @@ def test_the_app_refuses_to_start_without_migrating():
     assert first.returncode == 0, first.stderr
     assert "tasks.column_id" in first.stdout and "users.pomodoro_focus_seconds" in first.stdout
     assert "pomodoro_sessions.idempotency_key" in first.stdout and "tasks.estimate_minutes" in first.stdout
-    assert "pomodoro_sessions.needs_review" in first.stdout
+    assert "pomodoro_sessions.needs_review" in first.stdout and "projects.parent_id" in first.stdout
     assert "index uq_pomodoro_sessions_user_key" in first.stdout
     again = run_migrate(db)
     assert again.returncode == 0 and "nothing, already up to date" in again.stdout

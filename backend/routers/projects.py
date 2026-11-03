@@ -85,6 +85,7 @@ def create_project(
         order=project_in.order or 0,
         is_active=True,
     )
+    _set_group(session, current_user.id, new_project, project_in.parent_id)
     session.add(new_project)
     session.commit()
     session.refresh(new_project)
@@ -170,6 +171,46 @@ def _own_project(session: Session, user_id: int, project_id: int) -> Project:
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
     return project
+
+
+def _group_members(session: Session, user_id: int, project_id: Optional[int]) -> list:
+    """Los proyectos de un grupo (archivados incluidos)."""
+    if project_id is None:
+        return []
+    return session.exec(select(Project).where(Project.user_id == user_id, Project.parent_id == project_id)).all()
+
+
+def _set_group(session: Session, user_id: int, project: Project, parent_id: Optional[int]) -> None:
+    """
+    Mete `project` en el grupo `parent_id` (o lo saca con None). Un grupo es un
+    proyecto con hijos: un solo nivel (ni el grupo va dentro de otro, ni un
+    grupo entra en otro), de la misma cuenta (otro → 404) y activo. "Sin
+    asignar" ni va en un grupo ni lo es. docs/specs/grupos-de-proyectos.md.
+    """
+    if parent_id is None:
+        project.parent_id = None
+        return
+    parent = _own_project(session, user_id, parent_id)
+    if project.id is not None and parent.id == project.id:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="Un proyecto no puede ser su propio grupo")
+    system = project if project.is_system else parent if parent.is_system else None
+    if system is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"'{system.name}' junta las tareas sin proyecto: ni va en un grupo ni es uno")
+    if parent.parent_id is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"'{parent.name}' ya está dentro de un grupo: un grupo no va dentro de otro")
+    if not parent.is_active:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"'{parent.name}' está archivado")
+    members = _group_members(session, user_id, project.id)
+    if members:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"'{project.name}' es un grupo ({len(members)} "
+                   f"{'proyecto' if len(members) == 1 else 'proyectos'}): no puede ir dentro de otro",
+        )
+    project.parent_id = parent.id
 
 
 def _focus_seconds(session: Session, user_id: int, project_id: int) -> int:
@@ -377,7 +418,8 @@ def update_project(
 ):
     """
     Actualiza parcialmente un proyecto.
-    Para archivarlo sin borrar sus tareas, envía is_active=false.
+    Para archivarlo sin borrar sus tareas, envía is_active=false. Archivar un
+    grupo no archiva sus proyectos. parent_id lo mete en un grupo (null lo saca).
     """
     project = session.exec(
         select(Project).where(
@@ -416,6 +458,9 @@ def update_project(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"'{project.name}' es el proyecto de las tareas sin proyecto: no se renombra ni se archiva"
         )
+
+    if "parent_id" in update_data:
+        _set_group(session, current_user.id, project, update_data.pop("parent_id"))
 
     for field, value in update_data.items():
         setattr(project, field, value)
@@ -485,6 +530,11 @@ def delete_project(
         else:
             s.project_id = unassigned_id
             session.add(s)
+
+    # Un grupo que se borra deja a sus proyectos sin grupo (no los borra)
+    for member in _group_members(session, current_user.id, project_id):
+        member.parent_id = None
+        session.add(member)
 
     # Su costeo y sus gastos (plan maker) no tienen sentido sin él: se van con
     # el proyecto. Archivarlo los conserva.
