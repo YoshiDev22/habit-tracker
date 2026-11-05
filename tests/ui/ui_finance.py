@@ -616,7 +616,13 @@ async def main():
         await b.js("document.querySelector('#finNav [data-tab=\"transactions\"]').click()")
         await b.wait_for("document.querySelectorAll('.fin-tx').length >= 2")
         heads = await b.js("[...document.querySelectorAll('.fin-day-head')].map(h => h.textContent)")
-        check(heads and heads[0].startswith("Hoy"), f"grouped by day, newest first ({heads})")
+        # Del más nuevo al más viejo. Arriba de Hoy pueden ir días por venir: la mensualidad
+        # en el corte de la tarjeta (el 5) o un fijo programado, así que del 1 al 4 de cada
+        # mes Hoy no es el primero
+        today_i = next((i for i, h in enumerate(heads or []) if h.startswith("Hoy")), None)
+        yday_i = next((i for i, h in enumerate(heads or []) if h.startswith("Ayer")), None)
+        check(today_i is not None and (yday_i is None or today_i < yday_i),
+              f"grouped by day, newest first ({heads})")
         await b.js("[...document.querySelectorAll('.fin-tx')].find(t => t.textContent.includes('Tacos')).click()")
         await b.wait_for("!document.getElementById('finEntryDelete').hidden")
         expr = await b.js("document.getElementById('finEntryExpr').textContent")

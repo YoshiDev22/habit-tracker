@@ -2,7 +2,7 @@ import asyncio
 import json
 import sys
 
-from api import call
+from api import call, wait_api
 from cdp import Browser
 from ui_board import seed, CLOSE_WELCOME, BASE
 
@@ -102,12 +102,16 @@ async def main():
         await js("document.querySelector('[data-projects-view=\"board\"]').click()", wait=0.4)
 
         # Organizar: clear column badges and the "done" checkbox
-        await js("document.getElementById('boardConfigBtn').click()", wait=1.5)
-        badges = await b.js("[...document.querySelectorAll('#configColumns .config-row')].map(r => r.querySelector('.config-name').value + ':' + r.querySelector('.config-type').textContent)")
+        await js("document.getElementById('boardConfigBtn').click()")
+        # Las columnas de Organizar se pintan tras pedir el tablero
+        badges = await b.wait_for("[...document.querySelectorAll('#configColumns .config-row')].map(r => r.querySelector('.config-name').value + ':' + r.querySelector('.config-type').textContent)",
+                                  lambda v: v and len(v) == 3)
         check(badges == ["Por hacer:📥 Entrada", "Haciendo:", "Hecho:✓ Terminada"], f"columns show Entrada / nothing / Terminada ({badges})")
-        await js("(() => { const f = document.getElementById('configColumnForm'); f.querySelector('input[type=text]').value = 'Entregado'; document.getElementById('configColumnDone').checked = true; f.requestSubmit(); })()", wait=1.5)
-        _, bl = call("GET", "/api/boards", expect=200)
+        await js("(() => { const f = document.getElementById('configColumnForm'); f.querySelector('input[type=text]').value = 'Entregado'; document.getElementById('configColumnDone').checked = true; f.requestSubmit(); })()")
+        # Se espera a que la API tenga la columna nueva, no un tiempo fijo
+        bl = await wait_api("/api/boards", lambda body: any(c["name"] == "Entregado" for c in body["boards"][0]["columns"]))
         cats = {c["name"]: c["category"] for c in bl["boards"][0]["columns"]}
+        await b.wait_for("!document.getElementById('configColumnDone').checked")
         check(cats.get("Entregado") == "done", f"the checkbox makes a 'done' column ({cats})")
         check(not await b.js("document.getElementById('configColumnDone').checked"), "the checkbox resets after adding")
         # Empty "Haciendo" first: the seed left the kanban card there
@@ -115,9 +119,10 @@ async def main():
         for t in tl["tasks"]:
             if t["column_id"] == col["Haciendo"]:
                 call("PATCH", f"/api/tasks/{t['id']}", {"column_id": col["Por hacer"]}, expect=200)
-        await b.js("[...document.querySelectorAll('#configColumns .config-row')].find(r => r.querySelector('.config-name').value === 'Haciendo').querySelector('.config-delete-column').click()")
-        await asyncio.sleep(1.2)
-        _, bl = call("GET", "/api/boards", expect=200)
+        doing = "[...document.querySelectorAll('#configColumns .config-row')].find(r => r.querySelector('.config-name').value === 'Haciendo')"
+        await b.wait_for(doing)   # la lista se vuelve a pintar tras agregar 'Entregado'
+        await b.js(f"{doing}.querySelector('.config-delete-column').click()")
+        bl = await wait_api("/api/boards", lambda body: all(c["name"] != "Haciendo" for c in body["boards"][0]["columns"]))
         names = [c["name"] for c in bl["boards"][0]["columns"]]
         check("Haciendo" not in names, f"the last 'in progress' column can be deleted when empty ({names})")
         await b.shot("config_columns_new", full=False)

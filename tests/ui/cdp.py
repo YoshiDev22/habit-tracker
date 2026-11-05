@@ -158,8 +158,49 @@ class Browser:
                 return value
             await asyncio.sleep(0.1)
 
+    async def wait_idle(self, timeout=5.0, quiet=0.3):
+        """Espera a que no quede ninguna petición en curso durante `quiet` segundos (como
+        mucho `timeout`). Navegar con una a medias la cancela, y la app anota ese
+        "Failed to fetch" en la consola, que hace fallar la prueba."""
+        deadline = time.monotonic() + timeout
+        calm_since = None
+        while time.monotonic() < deadline:
+            if self.requests:
+                calm_since = None
+            elif calm_since is None:
+                calm_since = time.monotonic()
+            elif time.monotonic() - calm_since >= quiet:
+                return
+            await asyncio.sleep(0.05)
+
+    async def mark_page(self):
+        """Marca el documento actual, para que wait_loaded() reconozca el siguiente."""
+        try:
+            await self.js("window.__cdpOldPage = true")
+        except RuntimeError:
+            pass
+
+    async def wait_loaded(self, timeout=15.0):
+        """Espera a que el documento nuevo (sin la marca de mark_page) termine de cargar
+        sus scripts. Justo después de navegar sigue el anterior, y evaluar en medio del
+        cambio lanza un error: se reintenta. Vale también si la página redirige."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                if await self.js("!window.__cdpOldPage && document.readyState === 'complete'"):
+                    return
+            except RuntimeError:
+                pass
+            await asyncio.sleep(0.1)
+
     async def goto(self, url, wait=1.5):
+        # Antes, que la página de antes termine lo que pide; después, que la nueva cargue.
+        # `wait` queda para lo que la app pide al arrancar: lo que una prueba revise
+        # después se espera con wait_for
+        await self.wait_idle()
+        await self.mark_page()
         await self.send("Page.navigate", url=url)
+        await self.wait_loaded()
         await asyncio.sleep(wait)
         # Sin historial: un deslizamiento táctil desde el borde es "atrás" para el navegador,
         # y volvía a /api/health (la página que solo sirve para guardar el token)

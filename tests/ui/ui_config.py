@@ -2,7 +2,7 @@ import asyncio
 import json
 import sys
 
-from api import call
+from api import call, wait_api
 from cdp import Browser
 from ui_board import seed, CLOSE_WELCOME, BASE
 
@@ -114,10 +114,13 @@ async def main():
         # Delete the (empty) Ventas board from Organizar; the board falls back
         await js("document.getElementById('boardConfigBtn').click()", wait=1.5)
         await row_click("configBoards", "Ventas", "config-delete-board", confirm=True)
-        check("Ventas" not in boards(), "delete empty board after confirm")
+        # El DELETE puede seguir en curso: se espera a que la API ya no tenga el tablero
+        bl = await wait_api("/api/boards?include_inactive=true",
+                            lambda body: all(x["name"] != "Ventas" for x in body["boards"]))
+        check(all(x["name"] != "Ventas" for x in bl["boards"]), "delete empty board after confirm")
         await b.send("Input.dispatchKeyEvent", type="keyDown", key="Escape", code="Escape", windowsVirtualKeyCode=27)
-        await asyncio.sleep(2.0)
-        fb = await b.js("({closed: document.getElementById('boardConfigModal').classList.contains('hidden'), current: document.getElementById('boardSelect').selectedOptions[0].textContent})")
+        fb = await b.wait_for("({closed: document.getElementById('boardConfigModal').classList.contains('hidden'), current: document.getElementById('boardSelect').selectedOptions[0].textContent})",
+                              lambda v: v and v["closed"] and v["current"] == "Mi tablero")
         check(fb["closed"] and fb["current"] == "Mi tablero", f"Escape closes; deleted current board falls back to the first ({fb})")
 
         # Mobile look

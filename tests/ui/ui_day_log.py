@@ -149,8 +149,9 @@ async def main():
         await js("document.getElementById('confirmModalCancelBtn').click()", wait=0.8)
         n = len((await js(STATE))["rows"])
         await js("document.querySelectorAll('#dayLogList .session-row [data-action=delete]')[1].click()", wait=0.6)
-        await js("document.getElementById('confirmModalConfirmBtn').click()", wait=2.5)
-        s = await js(STATE)
+        await js("document.getElementById('confirmModalConfirmBtn').click()")
+        # Se repinta tras el DELETE y el total de hoy tras volver a pedirlo: se esperan los dos
+        s = await b.wait_for(STATE, lambda v: v and len(v["rows"]) == 1 and v["today"] == "Hoy: 3h 0m")
         check(n == 2 and len(s["rows"]) == 1 and s["today"] == "Hoy: 3h 0m", f"delete asks first, then removes ({n} -> {len(s['rows'])}, {s['today']})")
 
         # Escape: log on top closes first, then the day list

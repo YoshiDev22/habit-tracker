@@ -139,19 +139,23 @@ async def main():
                     window.__firstView = typeof currentViewIndex !== 'undefined' ? currentViewIndex : null;
                     window.__firstTransform = document.getElementById('viewsTrack').style.transform;
                 });""")
-            await b.goto(BASE + "/", wait=3.0)
-            r = await js("""({view: currentViewIndex, first: window.__firstView, firstT: window.__firstTransform,
+            await b.goto(BASE + "/", wait=1.0)
+            # Las tarjetas de Reportes llegan tras sus peticiones: se espera a que estén
+            r = await b.wait_for("""({view: currentViewIndex, first: window.__firstView, firstT: window.__firstTransform,
                 sel: document.getElementById('tabReports').getAttribute('aria-selected'),
                 cards: document.querySelectorAll('#reportsBody .report-card').length,
-                reqs: performance.getEntriesByType('resource').filter(e => e.name.includes('/api/pomodoro?date_from')).length})""")
+                reqs: performance.getEntriesByType('resource').filter(e => e.name.includes('/api/pomodoro?date_from')).length})""",
+                                 lambda v: v and v["cards"] >= 5)
             check(stored == "reports" and r["view"] == 2 and r["sel"] == "true", f"reload stays on Reportes ({stored}, {r})")
             check(r["first"] == 2 and r["firstT"] == "translateX(-200%)", f"already on Reportes before the first paint ({r['first']}, {r['firstT']})")
             check(r["cards"] >= 5 and r["reqs"] == 2, f"reports load once on reload ({r['cards']} cards, {r['reqs']} session requests)")
 
             # Tableros: reload keeps it and the wide board layout
             await js("document.getElementById('tabProjects').click()", wait=1.0)
-            await b.goto(BASE + "/", wait=3.0)
-            r = await js("({view: currentViewIndex, wide: document.body.classList.contains('board-wide'), cards: document.querySelectorAll('.board-card').length, doc: document.documentElement.scrollHeight, h: document.getElementById('viewProjects').offsetHeight})")
+            await b.goto(BASE + "/", wait=1.0)
+            # Las tarjetas llegan tras pedir el tablero: se espera a que estén
+            r = await b.wait_for("({view: currentViewIndex, wide: document.body.classList.contains('board-wide'), cards: document.querySelectorAll('.board-card').length, doc: document.documentElement.scrollHeight, h: document.getElementById('viewProjects').offsetHeight})",
+                                 lambda v: v and v["cards"] > 0 and v["wide"])
             check(r["view"] == 1 and r["wide"] and r["cards"] > 0, f"reload stays on Tableros, wide and loaded ({r})")
 
             # Calendario: back to the default

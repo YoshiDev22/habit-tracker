@@ -179,7 +179,8 @@ async def main():
         await open_card("Idea suelta sin proyecto")
         await b.js("document.getElementById('cardDeleteBtn').click()")
         await confirm_yes()
-        _, tl = call("GET", "/api/tasks", expect=200)
+        # El DELETE sale al confirmar: se espera su respuesta, no un tiempo fijo
+        tl = await wait_api("/api/tasks", lambda body: all(x["title"] != "Idea suelta sin proyecto" for x in body["tasks"]))
         check(all(x["title"] != "Idea suelta sin proyecto" for x in tl["tasks"]), "delete card after confirm")
 
         # Mobile + dark
@@ -188,8 +189,10 @@ async def main():
         await b.goto(BASE + "/", wait=2.5)
         await b.js(CLOSE_WELCOME)
         await b.js("document.getElementById('tabProjects').click()")
-        await asyncio.sleep(1.0)
-        await b.js("[...document.querySelectorAll('.board-column-tab')].find(t => t.textContent.startsWith('Hecho')).click()")
+        # Las pestañas de columna salen cuando el tablero termina de pintar
+        done_tab = "[...document.querySelectorAll('.board-column-tab')].find(t => t.textContent.startsWith('Hecho'))"
+        await b.wait_for(done_tab)
+        await b.js(f"{done_tab}.click()")
         await asyncio.sleep(0.3)
         await open_card("Rediseño kanban")
         fits = await b.js("(() => { const r = document.querySelector('.card-modal').getBoundingClientRect(); return r.left >= 0 && r.right <= 390; })()")

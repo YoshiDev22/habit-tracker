@@ -3,6 +3,7 @@ import asyncio
 import itertools
 import json
 import sys
+import time
 import urllib.request
 
 import websockets
@@ -60,6 +61,27 @@ class Tab:
         r = await self.send("Runtime.evaluate", expression=expr, awaitPromise=True, returnByValue=True)
         return r.get("result", {}).get("value")
 
+    async def reload(self, timeout=15.0):
+        """Recarga y espera a que el documento nuevo termine de cargar (el de antes
+        lleva una marca), como Browser.goto: con una espera fija, a veces aún no estaba."""
+        await self.js("window.__cdpOldPage = true")
+        await self.send("Page.reload")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if await self.js("!window.__cdpOldPage && document.readyState === 'complete'"):
+                return
+            await asyncio.sleep(0.1)
+
+
+async def wait_sessions(title, count, timeout=10.0):
+    """Las sesiones de la tarea, cuando ya son `count` (o al acabar el tiempo)."""
+    deadline = time.monotonic() + timeout
+    while True:
+        found = sessions_for(title)
+        if len(found) >= count or time.monotonic() > deadline:
+            return found
+        await asyncio.sleep(0.2)
+
 
 async def main():
     token, _ = seed()
@@ -94,8 +116,8 @@ async def main():
         await b.js(f"startTimerForTask({task['project_id']}, {task['id']}, 'stopwatch', {json.dumps(TITLE)})")
         await asyncio.sleep(0.5)
         await b.js("pomoState.startedEpochMs = Date.now() - 180000; savePomoState();")
-        await tab2.send("Page.reload")
-        await asyncio.sleep(3.0)
+        await tab2.reload()
+        await asyncio.sleep(1.0)   # la pestaña adopta el cronómetro guardado al arrancar
         st2 = await tab2.js("[pomoState.status, pomoState.mode]")
         await b.js("stopTimer()")
         await asyncio.sleep(2.0)
@@ -112,10 +134,15 @@ async def main():
                    "started_at": "2026-09-23T03:00:00", "ended_at": "2026-09-23T03:02:00", "duration_seconds": 120,
                    "planned_seconds": 120, "mode": "focus", "was_completed": True, "source": "stopwatch"}
         await b.js(f"localStorage.setItem('pomodoro_pending', JSON.stringify([{json.dumps(payload)}]))")
-        await tab2.send("Page.reload")
-        await b.goto(BASE + "/", wait=4.0)
+        await tab2.reload()
+        await b.goto(BASE + "/", wait=1.0)
+        # El envío de la cola corre al arrancar: se espera a que la API la tenga y a que
+        # no quede nada en curso (la parte 4 reemplaza apiFetch y no debe tocar este envío)
+        await wait_sessions(TITLE, len(s2) + 1)
+        await b.wait_idle()
+        await asyncio.sleep(1.0)   # si la otra pestaña también la enviara, ya se vería
         s3 = sessions_for(TITLE)
-        left = await b.js("localStorage.getItem('pomodoro_pending')")
+        left = await b.wait_for("localStorage.getItem('pomodoro_pending')", lambda v: v is None)
         check(len(s3) == len(s2) + 1 and left is None, f"a queued session is sent once ({len(s3) - len(s2)} new, queue {left})")
 
         # 4. Something queued while a flush is sending is kept

@@ -128,9 +128,10 @@ async def main():
         m2 = await tab2.js(ELAPSED)
         check(m2 == 30, f"the other tab follows the adjustment ({m2} min)")
         await tab2.js("stopTimer()")
-        await asyncio.sleep(2.0)
-        st1 = await js("pomoState.status")
-        saved = new_sessions()
+        # Esta pestaña se entera por el evento storage; hasta entonces, arrancar otro
+        # cronómetro abriría "Ya tienes un cronómetro en curso…" y la prueba esperaría
+        st1 = await b.wait_for("pomoState.status", lambda v: v == "idle")
+        saved = new_sessions()   # stopTimer() de la otra pestaña ya esperó el guardado
         check(len(saved) == 1 and 29 * 60 <= saved[0]["duration_seconds"] <= 31 * 60 and st1 == "idle",
               f"stopping from the other tab saves the adjusted 30 min once; this tab goes idle ({[s['duration_seconds'] for s in saved]}, {st1})")
         await tab2.ws.close()
@@ -144,8 +145,10 @@ async def main():
         before_k = len(sessions_of(kanban["id"]))
         await js("document.getElementById('tabProjects').click()", wait=1.0)
         await js(start("stopwatch"), wait=0.6)
-        await js("pomodoroBarAdjustBtn.click()", wait=1.0)
-        opts = await js("[...document.getElementById('adjustStartTask').options].map(o => o.textContent)")
+        await js("pomodoroBarAdjustBtn.click()")
+        # Las demás tareas llegan por una petición: hasta entonces solo está la actual
+        opts = await b.wait_for("[...document.getElementById('adjustStartTask').options].map(o => o.textContent)",
+                                lambda v: v and len(v) > 1)
         groups = await js("[...document.querySelectorAll('#adjustStartTask optgroup')].map(g => g.label)")
         await js(f"document.getElementById('adjustStartTask').value = '{kanban['id']}';" + set_elapsed(0, 30, 0)
                  + "document.getElementById('adjustStartApplyBtn').click()", wait=1.0)
