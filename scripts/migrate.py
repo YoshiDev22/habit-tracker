@@ -121,6 +121,8 @@ MIGRATIONS = [
     {"table": "fin_transactions", "column": "principal_only", "type": "BOOLEAN", "default": 0, "new_table": True},
     # "No volver a mostrar" del aviso de un abono a capital
     {"table": "fin_settings", "column": "capital_note_hidden", "type": "BOOLEAN", "new_table": True},
+    # Una fila de la tabla de amortización: seguros y comisiones aparte de los intereses
+    {"table": "fin_loan_rows", "column": "charges_cents", "type": "INTEGER", "default": 0, "new_table": True},
 ]
 
 # La nota que pomodoro.js (POMO_AUTOCLOSE_NOTE) le ponía a un cronómetro cerrado
