@@ -239,7 +239,8 @@ def test_personal_finance(api):
     for bad in ({"kind": "savings"}, {"currency": "BTC"}, {"last4": "12345"}, {"last4": "12a4"},
                 {"last4": "4111111111111111"}, {"icon": "<svg>"}, {"color": "verde"},
                 {"opening_balance_cents": 100_000_000_001}, {"credit_limit_cents": -1},
-                {"statement_day": 0}, {"due_day": 32}):
+                {"statement_day": 0}, {"due_day": 32}, {"kind": "loan", "debt_type": "x"},
+                {"kind": "loan", "loan_months": 601}, {"kind": "loan", "loan_payment_cents": 0}):
         assert api.call("POST", acc, {"name": "y", **bad})[0] == 422, bad
     assert api.call("PATCH", f"{acc}/{cash['id']}", {"order": -1})[0] == 422
     assert api.call("PATCH", f"{acc}/{cash['id']}", {"name": None})[0] == 422
@@ -264,6 +265,15 @@ def test_personal_finance(api):
                 {"amount_cents": 1.5}, {"amount_cents": 100_000_000_001}, {"kind": "refund"}):
         assert api.call("POST", txs, {**ok, **bad})[0] == 422, bad
     api.call("POST", txs, {**ok, "amount_cents": 100_000_000_000, "note": "x" * 500}, expect=201)
+    assert api.call("POST", txs, {**ok, "interest_cents": -1})[0] == 422
+    assert api.call("POST", txs, {**ok, "interest_cents": 100_000_000_001})[0] == 422
+    assert api.call("POST", txs, {**ok, "charges_cents": -1})[0] == 422
+    _, loan = api.call("POST", acc, {"name": "Préstamo tope", "kind": "loan"}, expect=201)
+    row = {"number": 1, "due_date": "2030-01-01", "payment_cents": 2, "principal_cents": 1, "interest_cents": 1}
+    assert api.call("PUT", f"{acc}/{loan['id']}/loan-schedule", {"rows": [row] * 601})[0] == 422
+    for bad in ({"number": 0}, {"payment_cents": -1}, {"balance_cents": 100_000_000_001}, {"due_date": "x"},
+                {"charges_cents": -1}):
+        assert api.call("PUT", f"{acc}/{loan['id']}/loan-schedule", {"rows": [{**row, **bad}]})[0] == 422, bad
     assert api.call("POST", f"{txs}/import", {"rows": []})[0] == 422
     assert api.call("POST", f"{txs}/import", {"rows": [ok] * 5001})[0] == 422
 
@@ -285,6 +295,12 @@ def test_personal_finance(api):
     for bad in ({"name": "x" * 81}, {"amount_cents": -1}, {"amount_cents": 10 ** 13}, {"note": "x" * 201},
                 {"kind": "transfer"}):
         assert api.call("POST", "/api/finance/budget/items", {**line, **bad})[0] == 422, bad
+    # El plan de pagos: un monto con tope y un mes de verdad
+    _, row = api.call("POST", "/api/finance/budget/items", line, expect=201)
+    plan_url = f"/api/finance/budget/plan/items/{row['id']}"
+    month = api.call("GET", "/api/finance/budget/plan", expect=200)[1]["month"]
+    for bad in ({"amount_cents": -1}, {"amount_cents": 10 ** 13}, {"month": "x" * 5000}, {"included": "x" * 5000}):
+        assert api.call("PUT", plan_url, {"month": month, "included": True, **bad})[0] == 422, bad
     for bad in ({"months": 0}, {"months": 49}, {"months": 3, "concept": "x" * 201}, {"months": 3, "total_cents": 0},
                 {"months": 3, "bank_cut": "2030-01-01", "bank_part": 0},
                 {"months": 3, "bank_cut": "2030-01-01", "bank_part": 49},

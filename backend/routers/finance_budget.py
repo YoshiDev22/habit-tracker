@@ -6,19 +6,23 @@ su parte del ingreso. Nada de aquí crea movimientos; un renglón enlazado a un 
 (`recurring_id`) solo dice que ese gasto ya se anota solo. Todo tras finance_user,
 como el resto de Finanzas.
 """
+from datetime import date as date_type
 from typing import Optional
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from backend.database import get_session
-from backend.models import FinBudgetGroup, FinBudgetItem, User
+from backend.finance import generate_due
+from backend.finance_plan import month_bounds, next_month, plan
+from backend.models import FinBudgetGroup, FinBudgetItem, FinPlanChoice, User
 from backend.routers.finance import (_clean_name, _conflict, _not_found, _own_category, _own_recurring,
-                                     _unprocessable, finance_user)
+                                     _today, _unprocessable, finance_user)
 from backend.schemas import (FIN_BUDGET_MAX_GROUPS, FIN_BUDGET_MAX_ITEMS, FIN_BUDGET_TEMPLATES,
                              FinBudgetGroupFields, FinBudgetGroupResponse, FinBudgetGroupUpdate, FinBudgetItemFields,
-                             FinBudgetItemResponse, FinBudgetItemUpdate, FinBudgetResponse, FinBudgetTemplate)
+                             FinBudgetItemResponse, FinBudgetItemUpdate, FinBudgetResponse, FinBudgetTemplate,
+                             FinPlanChoiceFields, FinPlanResponse)
 
 router = APIRouter()
 
@@ -88,9 +92,60 @@ def _check_links(session: Session, user_id: int, item: FinBudgetItem) -> None:
             raise _conflict(f"'{rc.concept}' ya está en el presupuesto")
 
 
+def _drop_choices(session: Session, user_id: int, item_ids) -> None:
+    """Lo elegido en el plan de pagos para esos renglones (se van con ellos)."""
+    if not item_ids:
+        return
+    for choice in session.exec(select(FinPlanChoice).where(FinPlanChoice.user_id == user_id,
+                                                           FinPlanChoice.item_id.in_(list(item_ids)))).all():
+        session.delete(choice)
+
+
+def _plan_month(session: Session, user: User, day: Optional[date_type]) -> tuple:
+    """(el día 1 del mes pedido, hoy): solo el mes de hoy o el siguiente."""
+    today = _today(session, user)
+    month = month_bounds(day or today)[0]
+    if month not in (today.replace(day=1), next_month(today)):
+        raise _unprocessable("El plan de pagos es del mes en curso o del siguiente")
+    return month, today
+
+
 def _clean_note(value: Optional[str]) -> Optional[str]:
     note = (value or "").strip()
     return note or None
+
+
+@router.get("/plan", response_model=FinPlanResponse)
+def get_plan(month: Optional[date_type] = Query(default=None), session: Session = Depends(get_session),
+             user: User = Depends(finance_user)):
+    """El plan de pagos del mes en curso o del siguiente (cualquier día del mes)."""
+    month, today = _plan_month(session, user, month)
+    generate_due(session, user.id, today)
+    return plan(session, user.id, month, today)
+
+
+@router.put("/plan/items/{item_id}", response_model=FinPlanResponse)
+def set_plan_item(item_id: int, body: FinPlanChoiceFields, session: Session = Depends(get_session),
+                  user: User = Depends(finance_user)):
+    """Si un aproximado del presupuesto entra en el plan de ese mes, y con cuánto
+    (null = el del presupuesto). Nunca cambia el renglón del presupuesto."""
+    item = _own_item(session, user.id, item_id)
+    if item.recurring_id is not None:
+        raise _unprocessable(f"'{item.name}' es un fijo: ya entra solo en el plan")
+    if item.kind != "expense":
+        raise _unprocessable("En el plan solo se eligen los gastos aproximados")
+    month, today = _plan_month(session, user, body.month)
+    choice = session.exec(select(FinPlanChoice).where(FinPlanChoice.user_id == user.id,
+                                                      FinPlanChoice.item_id == item.id,
+                                                      FinPlanChoice.month == month)).first()
+    if choice is None:
+        choice = FinPlanChoice(user_id=user.id, item_id=item.id, month=month)
+    choice.included = body.included
+    choice.amount_cents = None if body.amount_cents == item.amount_cents else body.amount_cents
+    session.add(choice)
+    session.commit()
+    generate_due(session, user.id, today)
+    return plan(session, user.id, month, today)
 
 
 @router.get("", response_model=FinBudgetResponse)
@@ -145,8 +200,10 @@ def update_group(group_id: int, body: FinBudgetGroupUpdate, session: Session = D
 def delete_group(group_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
     """Borra el grupo con sus renglones. Los fijos enlazados se quedan: siguen cobrándose."""
     group = _own_group(session, user.id, group_id)
-    for item in session.exec(select(FinBudgetItem).where(FinBudgetItem.user_id == user.id,
-                                                         FinBudgetItem.group_id == group.id)).all():
+    items = session.exec(select(FinBudgetItem).where(FinBudgetItem.user_id == user.id,
+                                                     FinBudgetItem.group_id == group.id)).all()
+    _drop_choices(session, user.id, [i.id for i in items])
+    for item in items:
         session.delete(item)
     session.delete(group)
     session.commit()
@@ -192,5 +249,7 @@ def update_item(item_id: int, body: FinBudgetItemUpdate, session: Session = Depe
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_item(item_id: int, session: Session = Depends(get_session), user: User = Depends(finance_user)):
     """Quita el renglón; su fijo, si tenía, sigue cobrándose."""
-    session.delete(_own_item(session, user.id, item_id))
+    item = _own_item(session, user.id, item_id)
+    _drop_choices(session, user.id, [item.id])
+    session.delete(item)
     session.commit()

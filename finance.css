@@ -3224,3 +3224,339 @@ body.fin-wide .fin-main {
 .fin-notice.dismissed strong {
     color: var(--text-secondary);
 }
+
+/* Deudas (Finanzas 0.9): Resumen › Deudas y Cuentas › Deudas */
+.fin-debt-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 6px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    text-align: left;
+    border-radius: 12px;
+    font: inherit;
+}
+
+button.fin-debt-row {
+    cursor: pointer;
+}
+
+button.fin-debt-row:hover {
+    background: var(--bg-hover);
+}
+
+.fin-debt-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.fin-debt-text strong {
+    font-weight: 500;
+}
+
+.fin-debt-text small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.fin-debt-amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-debt-amount.negative {
+    color: var(--danger-fg);
+}
+
+.fin-debt-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 10px 6px 2px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.fin-debt-head strong {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-debts-summary .fin-hint {
+    margin: 10px 6px 0;
+}
+
+.fin-debt-other {
+    padding: 0 6px;
+}
+
+#finAccountsBody > .fin-hint {
+    margin-top: 12px;
+    padding: 0 6px;
+}
+
+/* Préstamos (Finanzas 0.9): su página, pagar y la tabla de amortización */
+.fin-loan-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: center;
+    margin: 12px 0;
+}
+
+.fin-loan-stat-detail {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.fin-loan-facts {
+    margin-top: 10px;
+}
+
+.fin-loan-list {
+    margin-top: 14px;
+}
+
+.fin-loan-list-title {
+    margin: 0 0 4px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.fin-loan-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 2px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fin-loan-table-wrap {
+    max-height: 50vh;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.fin-loan-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-loan-table th,
+.fin-loan-table td {
+    padding: 5px 6px;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fin-loan-table th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.fin-loan-table td:first-child,
+.fin-loan-table th:first-child {
+    text-align: left;
+}
+
+.fin-loan-table tr.paid td {
+    color: var(--text-secondary);
+}
+
+.fin-loan-table-text {
+    width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    resize: vertical;
+}
+
+.fin-file-btn {
+    cursor: pointer;
+}
+
+.fin-capital-note {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: var(--bg-surface);
+    font-size: 0.88rem;
+}
+
+.fin-capital-note p {
+    margin: 0 0 8px;
+}
+
+/* El + al final del encabezado de una sección (Cuentas, Tarjetas, Deudas, Inversiones) */
+.fin-accounts-head,
+.fin-debt-head {
+    align-items: center;
+    gap: 8px;
+}
+
+.fin-accounts-head > span:first-child,
+.fin-debt-head > span:first-child {
+    flex: 1;
+}
+
+.fin-head-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border: 1.5px solid var(--accent);
+    border-radius: 50%;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.fin-head-add:hover {
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+
+/* Presupuesto › Pagos del mes (Finanzas 0.9, finance-plan.js) */
+.fin-budget-views {
+    max-width: 640px;
+}
+
+.fin-plan {
+    max-width: 640px;
+}
+
+.fin-plan-start {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4px 12px;
+}
+
+.fin-plan-start > strong {
+    font-size: 1.25rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-plan-start .fin-hint {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.fin-plan .short {
+    color: var(--danger-fg);
+}
+
+.fin-plan-half {
+    margin: 12px 6px 2px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.fin-plan-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-top: 1px solid var(--border-color);
+}
+
+.fin-plan-row .fin-debt-text strong svg {
+    margin-right: 4px;
+    vertical-align: -2px;
+}
+
+.fin-plan-row.done .fin-debt-text strong,
+.fin-plan-row.done .fin-plan-amount,
+.fin-plan-estimate.off .fin-plan-input {
+    color: var(--text-secondary);
+}
+
+.fin-plan-date {
+    flex: none;
+    width: 3.6rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-plan-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex: none;
+}
+
+.fin-plan-amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-plan-left {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fin-plan-subtotal {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 6px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+.fin-plan-subtotal strong {
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-plan-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.fin-plan-check input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.fin-plan-input {
+    flex: none;
+    width: 7.5rem;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}

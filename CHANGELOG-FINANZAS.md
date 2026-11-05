@@ -9,6 +9,42 @@ indica. Va en 0.x mientras Finanzas esté en prueba por invitación.
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado:
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de `CLAUDE.md`.
 
+## [0.9.0] — 2026-11-05
+
+Las deudas aparte de los gastos, los préstamos y el plan de pagos del mes. Lleva migración.
+
+### Nuevo
+- **Deudas**: *Cuentas › Deudas* enseña lo que debe cada tarjeta (con lo que piden al mes sus compras a meses y hasta
+  cuándo) y cada préstamo. *Resumen › Deudas* lista los pagos del periodo a tarjetas y préstamos y las mensualidades de
+  MSI, sin sumarlos a tus gastos.
+- **Préstamos**: una cuenta de préstamo con su tipo, lo que debes, la mensualidad, el plazo, la tasa y el día de pago.
+  Cada pago es un solo movimiento que separa el capital (lo único que baja la deuda), los intereses con su IVA (gasto en
+  *Intereses*) y los seguros y comisiones (gasto en *Seguros y comisiones*). Si lo que compraste con el préstamo no
+  estaba anotado, el capital de cada pago también cuenta como gasto en la categoría que elijas.
+- **Abono a capital**, con el aviso de confirmar con el banco que se aplicó a capital (y *No volver a mostrar*).
+- **Tabla de amortización**: pégala o súbela en CSV; propone cada pago y dice hasta cuándo pagas.
+- **Agregar cargo** (un seguro anual o una comisión que sube la deuda) y **Ajustar deuda** a lo que dice el banco, sin
+  contarlo como gasto.
+- **Pagos del mes** (*Presupuesto › Pagos del mes*): por fecha, lo que hay que pagar este mes y el siguiente (el pago de
+  cada tarjeta, del banco, calculado o estimado si su corte aún no llega; la mensualidad de cada préstamo; los fijos) y
+  lo que entra, con cuánto te va quedando después de cada uno. Empieza con lo que tienes en efectivo y débito. Al final,
+  los aproximados del presupuesto que elijas, con un monto de ese mes que no cambia tu presupuesto. Si cobras quincenal,
+  va partido en dos quincenas. Nunca crea movimientos.
+
+### Cambios
+- Cada sección de Cuentas (Cuentas, Tarjetas, Deudas, Inversiones y Plazos) agrega con un **+** arriba a la derecha,
+  junto a su monto, en lugar del enlace de abajo.
+- Un fijo cargado a una tarjeta cuenta dentro del pago de esa tarjeta, no aparte.
+- Un préstamo nunca es la cuenta que se propone al anotar un gasto.
+- El aviso de privacidad menciona los préstamos, sus pagos y su tabla, y los aproximados que eliges en el plan de pagos.
+
+### Para actualizar
+- Correr `python3 scripts/migrate.py` **antes** de reiniciar: agrega las columnas de préstamos en `fin_accounts`, las de
+  un pago en `fin_transactions` (`interest_cents`, `interest_category_id`, `charges_cents`, `charges_category_id`,
+  `principal_only`), `fin_settings.capital_note_hidden` y `fin_loan_rows.charges_cents`. Sin ella el servicio no
+  arranca. Las tablas nuevas (`fin_loan_rows`, `fin_plan_choices`) se crean solas.
+- Publicar el aviso 📢 del cambio en el aviso de privacidad.
+
 ## [0.8.0] — 2026-10-28
 
 El aviso del pago de una tarjeta, dar de baja una tarjeta en cero y la versión en el panel lateral. Lleva migración.
@@ -209,6 +245,7 @@ Publicada con Habit Tracker 1.29.0. La primera versión, en prueba y por invitac
 - **Pegar un estado de cuenta** o un CSV, con vista previa y sin duplicar.
 - El **consentimiento expreso** para guardar datos financieros, la primera vez.
 
+[0.9.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.9.0
 [0.8.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.8.0
 [0.7.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.7.0
 [0.6.0]: https://github.com/YoshiDev22/habit-tracker/tree/finanzas-v0.6.0

@@ -72,6 +72,8 @@ habit-tracker/
 │   ├── series.py          # La regla de la serie de cobros y el periodo (mes o quincena), sin base
 │   ├── finance.py         # Finanzas personales: lo de inicio, el resumen y los fijos (épica 37)
 │   ├── finance_yield.py   # Finanzas: rendimiento diario (estimado) y plazos fijos (vencimientos)
+│   ├── finance_loans.py   # Finanzas: préstamos (lo pagado a capital e intereses, su tabla de amortización)
+│   ├── finance_plan.py    # Finanzas: el plan de pagos del mes (tarjetas, préstamos, fijos y aproximados, por fecha)
 │   ├── days.py            # Calendario de trabajo: huso, país y qué días son hábiles
 │   ├── holidays.py        # Festivos oficiales de Nager.Date, en caché por país y año
 │   ├── metrics.py         # Capa de métricas de los reportes (épica 30)
@@ -146,6 +148,9 @@ habit-tracker/
 ├── finance-data.js        # Finanzas: el panel lateral (la inicial, arriba a la izquierda) y Datos (exportar a CSV, importar varias cuentas)
 ├── finance-budget.js      # Finanzas: el presupuesto del mes (ingreso, grupos con su %, renglones estimados o fijos)
 ├── finance-search.js      # Finanzas: la lupa de Movimientos (texto, tipo, cuentas y categorías) y su barra de filtros
+├── finance-debts.js       # Finanzas: Resumen › Deudas y Cuentas › Deudas (tarjetas y préstamos)
+├── finance-loans.js       # Finanzas: las páginas de un préstamo (pagos e intereses, pagar o abonar a capital, su tabla)
+├── finance-plan.js        # Finanzas: Presupuesto › Pagos del mes (el plan de pagos de este mes y el siguiente)
 ├── novedades.js           # Novedades: la ventana tras actualizar y Mi perfil › Novedades
 ├── notifications.js       # La campanita: centro de avisos (pendientes, avisos y hechos)
 ├── workdays.js            # Configuración › Días y horario: festivos y huso; festivos del calendario (🎉)
@@ -219,7 +224,7 @@ Documentación interactiva: `/api/docs` (Swagger) y `/api/redoc`. **No** están 
 Tablas en `backend/models.py`: `User`, `UserModule`, `HabitEntry`, `Habit`, `StreakPause`, `Project`,
 `ProjectFinance`, `CostCategory`, `ProjectCost`, `Task`, las de Finanzas (`FinAccount`, `FinCategory`,
 `FinTransaction`, `FinRecurring`, `FinSettings`, `FinSplit`, `FinInstallment`, `FinStatement`, `FinBudgetGroup`,
-`FinBudgetItem`, `FinYieldRate`, `FinTerm`, `FinNote`),
+`FinBudgetItem`, `FinPlanChoice`, `FinYieldRate`, `FinTerm`, `FinNote`, `FinLoanRow`),
 `PomodoroSession`, y las del tablero: `Board`, `BoardColumn`, `Tag`,
 `TaskTag`, `TaskChecklistItem`, `TaskComment`. Todas cuelgan de `users.id` con un `user_id`
 (el dueño). **Toda query filtra por `current_user.id`**, nunca solo por el id del recurso —
@@ -666,6 +671,46 @@ Lo que no se ve en Swagger:
   dada de baja no se reanuda ahí (409), sale en Fijos como "su tarjeta se dio de baja" y en la campana de Finanzas es
   el pendiente `fixed_cancelled` hasta cambiarle la cuenta. Archivadas dicen "Dada de baja el …", y la lupa de
   Movimientos sigue ofreciéndola para buscar su historial.
+  **Deudas** (Finanzas 0.9, `finance-debts.js`, sin API propia): *Resumen › Deudas* lista los pagos que llegaron a
+  una tarjeta en el periodo (transferencias) y las mensualidades de MSI de sus cortes (`finBillsInPeriod()`), **nunca
+  sumados a los gastos**; *Cuentas › Deudas*, lo que debe cada tarjeta, lo que piden al mes sus MSI y hasta cuándo, y
+  cada préstamo. **Préstamos** (`kind = "loan"`, `backend/finance_loans.py`, `finance-loans.js`): lo que se debe es el
+  saldo inicial en negativo (nunca gasto); `debt_type` (`FIN_DEBT_TYPES`), `loan_payment_cents`, `loan_months`, y `due_day`
+  e `interest_rate_bp` como en una tarjeta (columnas en `migrate.py`). No es apartado ni la cuenta por defecto, no sale en
+  Cuentas ni en el total de arriba, y no se vuelve préstamo (ni deja de serlo) con movimientos. **Un pago es un solo
+  movimiento**: una transferencia al préstamo con `interest_cents` (intereses con su IVA), `charges_cents` (seguros y
+  comisiones) y `principal_only` (abono a capital, sin ninguno de los dos); a `account_balances()` le llega solo el capital, y
+  `summary()` cuenta los intereses como gasto en `interest_category_id` ("Intereses") y los seguros en `charges_category_id`
+  ("Seguros y comisiones"), las dos perezosas (`interest_category()`), y el capital como gasto
+  en `category_id` solo si el préstamo tiene `loan_category_id` (lo comprado no estaba anotado; el pago la toma sola).
+  Un **cargo** que sube la deuda (el seguro del año, una comisión) es un gasto anotado en el préstamo (*Agregar cargo*, la
+  hoja de siempre: puede ser un fijo anual), y como el interés propuesto sale de lo que se debe hoy, también lo sube.
+  *Ajustar deuda* corrige lo que se debe sin gasto (mueve el saldo inicial). Un préstamo nunca es la cuenta que propone la
+  hoja del monto (`_usual_accounts()` lo deja fuera).
+  Solo una transferencia a un préstamo lleva categoría, intereses o abono a capital (422). `test_finance_loans.py`
+  comprueba que nada cuenta dos veces. `GET /accounts/{id}/loan` da lo pagado a capital e intereses, los pagos, la tabla y
+  el siguiente pago (de la tabla, o con la tasa: deuda × tasa ÷ 12); `PUT /accounts/{id}/loan-schedule` reemplaza la
+  **tabla de amortización** (`fin_loan_rows`, pago = capital + intereses + seguros y comisiones), que la página lee de lo
+  pegado o de un CSV por el nombre de sus columnas (`finLoanParseTable()`: el IVA va con los intereses, seguros y
+  comisiones aparte; una fila sin fecha, como el total, se salta). Cada mensualidad hecha desde un mes antes de la primera fila cubre una fila. El
+  abono a capital avisa que se confirme con el banco, con "No volver a mostrar" (`fin_settings.capital_note_hidden`,
+  `PUT /capital-note`).
+  **Pagos del mes** (Finanzas 0.9, *Presupuesto › Pagos del mes*, `finance-plan.js`, `backend/finance_plan.py`):
+  el plan de pagos del mes en curso o del siguiente (`GET /api/finance/budget/plan?month=`; otro mes, 422), calculado
+  y **sin crear movimientos**. Por fecha: el pago de cada tarjeta con fecha límite en el mes (el del banco o el calculado
+  de `card_statement()`; un corte que aún no llega, **estimado**: lo que se debe hoy + sus fijos hasta el corte − los MSI
+  que se facturan después − lo que ya pide un corte anterior), la mensualidad de cada préstamo (de su tabla o
+  `loan_payment_cents`; hecha con un pago en el mes) y los fijos de efectivo, débito o inversión. **Nada cuenta dos veces**:
+  un fijo cargado a una tarjeta va dentro de su pago y uno anotado en un préstamo sube la deuda, así que ninguno sale
+  suelto; un renglón del presupuesto con fijo sale como fijo. Empieza con el saldo de hoy en efectivo y débito (sin
+  apartados ni inversiones); el siguiente mes, con eso más lo que aún falta del mes en curso. Al final, los
+  **aproximados**: los gastos del presupuesto sin fijo, que **no entran hasta que el usuario los elige**, por mes y con su
+  monto de ese mes (`fin_plan_choices`, `PUT /api/finance/budget/plan/items/{id}`; tabla nueva, sin migración). **Nunca
+  cambian el presupuesto**: un monto igual al del renglón se guarda como NULL. En el mes en curso, lo que falta es el monto
+  menos lo gastado en su categoría. Con periodo quincenal la pantalla lo parte en dos mitades; va en la moneda principal.
+  Borrar el renglón (o su grupo) se lleva lo elegido.
+  Cada sección de Cuentas (Cuentas, Tarjetas, Deudas › Tarjetas y Préstamos, Inversiones y Plazos) agrega con el **+** al
+  final de su encabezado, después de su monto (`finHeadAdd()`), no con un enlace abajo.
   **Buscar en Movimientos** (Finanzas 0.7, `finance-search.js`): la lupa de arriba, solo en Movimientos, abre la hoja
   *Buscar* (texto en concepto, categoría o monto, sin acentos ni mayúsculas; tipo; cuentas; categorías de gasto e
   ingreso). Filtra **en el navegador** lo cargado del periodo que se ve (para todo, *Siempre*); dentro de un grupo vale
@@ -1065,7 +1110,7 @@ al cierre de sesión),
 pintado, y se borra al cerrar sesión; un número de antes de la 1.17 se lee como posición), `missed_day_asked` (`<user_id>:<fecha>` del último día por
 el que se preguntó "¿Olvidaste anotar?"), `finance_tab` (la pestaña abierta de la página de Finanzas, de este dispositivo), `finance_range` (qué
 periodo ve: el suyo, semana, mes, año o siempre), `finance_hide_total` (el total de Finanzas oculto con
-el 👁, de este dispositivo),
+el 👁, de este dispositivo), `finance_budget_view` (Presupuesto o Pagos del mes, de este dispositivo),
 `work_calendar_cache` (huso, país y festivos por año, para
 no pedirlos cada vez; ↻ y cualquier cambio los refrescan; se borra al cerrar sesión) y
 `text_size` (`large` | `xlarge`, en **Configuración › Accesibilidad**: escala el `font-size` de `<html>`, así que todo lo que va en `rem` crece —

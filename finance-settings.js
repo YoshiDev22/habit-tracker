@@ -579,15 +579,25 @@ const finAccountForm = { account: null, icon: 'wallet', color: FIN_PALETTE[3] };
 function finSyncAccountKind() {
     const kind = document.getElementById('finAccKind').value;
     const credit = kind === 'credit' && !finAccountForm.pocket;
+    const loan = kind === 'loan' && !finAccountForm.pocket;
     finAccountSheet.querySelectorAll('.credit-only').forEach(field => { field.hidden = !credit; });
-    document.getElementById('finAccOpeningLabel').textContent = credit ? 'Deuda total' : 'Saldo';
+    finAccountSheet.querySelectorAll('.loan-only').forEach(field => { field.hidden = !loan; });
+    finAccountSheet.querySelectorAll('.credit-or-loan').forEach(field => { field.hidden = !credit && !loan; });
+    document.getElementById('finAccOpeningLabel').textContent = credit ? 'Deuda total' : loan ? 'Lo que debes' : 'Saldo';
     document.getElementById('finAccHint').textContent = credit
         ? 'La deuda de ese día, completa. Si parte está a meses sin intereses, agrégala después en la tarjeta › '
           + 'Meses sin intereses: el pago solo pedirá la mensualidad. Los movimientos de antes de ese día son '
           + 'historial: salen en el resumen, pero no cambian la deuda.'
-        : 'El saldo es el de ese día más lo que entra y sale desde entonces. Los movimientos de antes son '
-          + 'historial: salen en el resumen, pero no cambian el saldo.';
+        : loan
+            ? 'Lo que debes ese día no es un gasto: es el punto de partida. Cada pago baja la deuda por su capital; '
+              + 'mensualidad, plazo y tasa sirven para proponerte el siguiente pago y saber hasta cuándo.'
+            : 'El saldo es el de ese día más lo que entra y sale desde entonces. Los movimientos de antes son '
+              + 'historial: salen en el resumen, pero no cambian el saldo.';
 }
+
+// El icono de cada tipo de préstamo (se puede cambiar después)
+const FIN_DEBT_TYPE_ICONS = { personal: 'hand-coins', acquaintance: 'heart-handshake', bank: 'landmark',
+    mortgage: 'house', other: 'receipt' };
 
 function finRenderAccountPickers() {
     finRenderIconGrid(document.getElementById('finAccIcons'), finAccountForm.icon, finAccountForm.color);
@@ -596,7 +606,7 @@ function finRenderAccountPickers() {
 
 // Las cuentas de las que puede colgar un apartado: activas, sueltas, de efectivo o débito
 function finPocketParents(account) {
-    return finState.accounts.filter(a => a.is_active && a.parent_id == null && a.kind !== 'credit'
+    return finState.accounts.filter(a => a.is_active && a.parent_id == null && !['credit', 'loan'].includes(a.kind)
         && (!account || a.id !== account.id));
 }
 
@@ -606,7 +616,7 @@ function finSyncAccountParent() {
     const account = finAccountForm.account;
     const hasPockets = account && finState.accounts.some(a => a.parent_id === account.id);
     const field = document.getElementById('finAccParentField');
-    field.hidden = hasPockets || document.getElementById('finAccKind').value === 'credit'
+    field.hidden = hasPockets || ['credit', 'loan'].includes(document.getElementById('finAccKind').value)
         || !finPocketParents(account).length;
     const pocket = !field.hidden && Boolean(document.getElementById('finAccParent').value);
     finAccountForm.pocket = pocket;
@@ -621,7 +631,8 @@ function openFinAccount(account, kind = 'debit', { parentId = null } = {}) {
     finAccountForm.icon = account ? finAccountIcon(account) : FIN_KIND_ICONS[k];
     finAccountForm.color = account ? finAccountColor(account) : FIN_PALETTE[(finState.accounts.length * 4 + 3) % FIN_PALETTE.length];
     document.getElementById('finAccountTitle').textContent = account ? account.name
-        : k === 'credit' ? 'Nueva tarjeta' : k === 'investment' ? 'Nueva cuenta de inversión' : 'Nueva cuenta';
+        : k === 'credit' ? 'Nueva tarjeta' : k === 'investment' ? 'Nueva cuenta de inversión'
+            : k === 'loan' ? 'Nuevo préstamo' : 'Nueva cuenta';
     document.getElementById('finAccName').value = account ? account.name : '';
     document.getElementById('finAccKind').value = k;
     const currency = document.getElementById('finAccCurrency');
@@ -644,6 +655,21 @@ function openFinAccount(account, kind = 'debit', { parentId = null } = {}) {
     document.getElementById('finAccDue').value = account && account.due_day ? String(account.due_day) : '';
     document.getElementById('finAccInterest').value = account && account.interest_rate_bp != null
         ? String(account.interest_rate_bp / 100) : '';
+    // Un préstamo: su tipo, mensualidad, plazo y si lo comprado ya estaba anotado
+    document.getElementById('finAccDebtType').value = account && account.debt_type ? account.debt_type : 'personal';
+    document.getElementById('finAccLoanPayment').value = account && account.loan_payment_cents
+        ? (account.loan_payment_cents / 100).toFixed(2) : '';
+    document.getElementById('finAccLoanMonths').value = account && account.loan_months ? String(account.loan_months) : '';
+    const loanCategory = document.getElementById('finAccLoanCategory');
+    loanCategory.replaceChildren(...finKindCategories('expense').map(c => {
+        const option = el('option', '', c.name);
+        option.value = String(c.id);
+        return option;
+    }));
+    if (account && account.loan_category_id) loanCategory.value = String(account.loan_category_id);
+    finAccountSheet.querySelector(`[name="finAccLoanSpent"][value="${account && account.loan_category_id ? 'no' : 'yes'}"]`)
+        .checked = true;
+    if (!account && k === 'loan') finAccountForm.icon = FIN_DEBT_TYPE_ICONS.personal;
     document.getElementById('finAccArchive').hidden = !account;
     document.getElementById('finAccArchive').textContent = 'Archivar';
     document.getElementById('finAccError').classList.add('hidden');
@@ -681,6 +707,14 @@ function finOptionalDay(id) {
 }
 
 document.getElementById('finAccKind').addEventListener('change', finSyncAccountParent);
+// Elegir el tipo de préstamo cambia su icono
+document.getElementById('finAccDebtType').addEventListener('change', (event) => {
+    finAccountForm.icon = FIN_DEBT_TYPE_ICONS[event.target.value] || finAccountForm.icon;
+    finRenderAccountPickers();
+});
+document.getElementById('finAccLoanCategory').addEventListener('change', () => {
+    finAccountSheet.querySelector('[name="finAccLoanSpent"][value="no"]').checked = true;
+});
 document.getElementById('finAccParent').addEventListener('change', finSyncAccountParent);
 document.getElementById('finAccIcons').addEventListener('click', (event) => {
     const button = event.target.closest('[data-icon]');
@@ -716,18 +750,27 @@ document.getElementById('finAccountForm').addEventListener('submit', async (even
     const name = document.getElementById('finAccName').value.trim();
     const kind = document.getElementById('finAccKind').value;
     const credit = kind === 'credit';
+    const loan = kind === 'loan';
     const opening = finOptionalCents('finAccOpening');
     const limit = credit ? finOptionalCents('finAccLimit') : null;
     const statement = credit ? finOptionalDay('finAccStatement') : null;
-    const due = credit ? finOptionalDay('finAccDue') : null;
+    const due = credit || loan ? finOptionalDay('finAccDue') : null;
+    const loanPayment = loan ? finOptionalCents('finAccLoanPayment') : null;
+    const monthsText = loan ? document.getElementById('finAccLoanMonths').value.trim() : '';
+    const loanMonths = monthsText ? Number(monthsText) : null;
     const last4 = document.getElementById('finAccLast4').value.trim();
-    // La tasa de la tarjeta, de referencia: "45.5" o "45,5 %"
-    const interestText = credit ? document.getElementById('finAccInterest').value.trim().replace(',', '.').replace('%', '') : '';
+    // La tasa de la tarjeta o del préstamo: "45.5" o "45,5 %"
+    const interestText = credit || loan ? document.getElementById('finAccInterest').value.trim().replace(',', '.').replace('%', '') : '';
     const interest = interestText ? Number(interestText) : null;
     const openingDate = document.getElementById('finAccOpeningDate').value || null;
     if (!name) return showError(errorEl, 'Escribe el nombre de la cuenta.');
     if (openingDate && openingDate > finToday()) return showError(errorEl, 'El día del saldo no puede ser futuro.');
-    if (Number.isNaN(opening) || Number.isNaN(limit)) return showError(errorEl, 'Revisa los montos: solo números.');
+    if (Number.isNaN(opening) || Number.isNaN(limit) || Number.isNaN(loanPayment)) {
+        return showError(errorEl, 'Revisa los montos: solo números.');
+    }
+    if (loanMonths != null && !(Number.isInteger(loanMonths) && loanMonths >= 1 && loanMonths <= 600)) {
+        return showError(errorEl, 'El plazo va de 1 a 600 meses.');
+    }
     if (Number.isNaN(statement) || Number.isNaN(due)) return showError(errorEl, 'Los días van del 1 al 31.');
     if (last4 && !/^\d{4}$/.test(last4)) return showError(errorEl, 'Los últimos 4 dígitos: exactamente 4 números.');
     if (interest != null && !(Number.isFinite(interest) && interest >= 0 && interest <= 1000)) {
@@ -736,13 +779,21 @@ document.getElementById('finAccountForm').addEventListener('submit', async (even
     const fields = {
         name, kind, currency: document.getElementById('finAccCurrency').value,
         icon: finAccountForm.icon, color: finAccountForm.color, last4: last4 || null,
-        opening_balance_cents: credit ? -(opening || 0) : (opening || 0),
+        opening_balance_cents: credit || loan ? -(opening || 0) : (opening || 0),
         // Sin día y con saldo, hoy; vacío en una que ya existe: cuentan todos sus movimientos
         opening_date: openingDate || (!finAccountForm.account && opening ? finToday() : null),
         credit_limit_cents: limit, statement_day: statement, due_day: due,
         interest_rate_bp: interest == null ? null : Math.round(interest * 100),
         parent_id: finAccountForm.pocket ? Number(document.getElementById('finAccParent').value) : null,
     };
+    if (loan) {
+        const spent = finAccountSheet.querySelector('[name="finAccLoanSpent"]:checked').value;
+        Object.assign(fields, {
+            debt_type: document.getElementById('finAccDebtType').value,
+            loan_payment_cents: loanPayment || null, loan_months: loanMonths,
+            loan_category_id: spent === 'no' ? Number(document.getElementById('finAccLoanCategory').value) : null,
+        });
+    }
     if (finAccountForm.pocket) {
         // Tipo y moneda son los de su cuenta: el servidor los pone
         delete fields.kind;
