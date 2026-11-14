@@ -4,7 +4,7 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
-## 1.34.0 — 2026-11-03
+## 1.34.0 — 2026-11-14
 ### Nuevas funciones
 - **Grupos de proyectos**: junta los proyectos que van juntos (un emprendimiento, "Personal"). En
   la ficha del proyecto, *✎ Editar* › **Grupo**. El grupo también puede llevar su propio tiempo y

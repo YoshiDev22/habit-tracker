@@ -9,7 +9,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
-## [1.34.0] — 2026-11-03
+## [1.34.0] — 2026-11-14
 
 Los proyectos se pueden juntar en **grupos**: un emprendimiento con sus productos y campañas, o
 "Personal". La Lista, el tablero, Reportes y Costos enseñan cada grupo con sus proyectos y su
