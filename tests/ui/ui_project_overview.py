@@ -84,6 +84,47 @@ async def main():
         await asyncio.sleep(0.4)
         st = await b.js("({overview: " + OPEN + ", config: !document.getElementById('boardConfigModal').classList.contains('hidden')})")
         check(st == {"overview": False, "config": True}, f"Escape closes only the overview ({st})")
+
+        # Desde Organizar también se edita (ahí se elige el grupo): el formulario
+        # sale encima, Escape cierra solo él, y guardar repinta Organizar
+        await b.js("document.querySelector('.config-overview-project').click()")
+        await b.wait_for("!document.getElementById('overviewEditBtn').hidden")
+        await b.js("document.getElementById('overviewEditBtn').click()")
+        await b.wait_for("!document.getElementById('projectModal').classList.contains('hidden')")
+        on_top = await b.js("""(() => {
+            const r = document.querySelector('#projectModal .modal-content').getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 20);
+            return !!hit && !!hit.closest('#projectModal');
+        })()""")
+        check(on_top, "Editar from Organizar opens the project form on top of it")
+        check(await b.js("!document.getElementById('projectParentGroup').hidden"),
+              "the form opened from Organizar offers Grupo")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))")
+        await asyncio.sleep(0.4)
+        st = await b.js("({form: !document.getElementById('projectModal').classList.contains('hidden'),"
+                        " config: !document.getElementById('boardConfigModal').classList.contains('hidden')})")
+        check(st == {"form": False, "config": True}, f"Escape closes only the project form ({st})")
+
+        # Meter un proyecto en un grupo desde Organizar: la fila queda dentro
+        await b.js("apiFetch('/api/projects', {method: 'POST', json: {name: 'Grupo UI', color: '#3498db'}})"
+                   ".then(() => loadProjects())")
+        await b.wait_for("document.querySelectorAll('#configProjects .config-row').length >= 2")
+        rows = await b.js("[...document.querySelectorAll('#configProjects .config-row')].map(r => r.dataset.itemId)")
+        check(len(rows) >= 2, f"Organizar lists the new project too ({rows})")
+        if len(rows) >= 2:
+            child_id, group_id = rows[0], rows[1]
+            await b.js(f"document.querySelector('#configProjects .config-row[data-item-id=\"{child_id}\"] .config-overview-project').click()")
+            await b.wait_for("!document.getElementById('overviewEditBtn').hidden")
+            await b.js("document.getElementById('overviewEditBtn').click()")
+            await b.wait_for("!document.getElementById('projectModal').classList.contains('hidden')")
+            await b.js(f"document.getElementById('projectParent').value = '{group_id}'")
+            await b.js("document.getElementById('saveProjectBtn').click()")
+            await b.wait_for("document.getElementById('projectModal').classList.contains('hidden')")
+            await b.wait_for(f"!!document.querySelector('#configProjects .config-row.in-group[data-item-id=\"{child_id}\"]')")
+            st = await b.js(f"!!document.querySelector('#configProjects .config-row.in-group[data-item-id=\"{child_id}\"]')")
+            check(st, "a project put in a group from Organizar shows inside it there")
+            await b.js(f"apiFetch('/api/projects/{child_id}', {{method: 'PATCH', json: {{parent_id: null}}}}).then(() => loadProjects())")
+            await asyncio.sleep(0.6)
         await b.js("document.getElementById('closeBoardConfigBtn').click()")
         await asyncio.sleep(0.6)
 
@@ -96,12 +137,29 @@ async def main():
         await b.wait_for("document.querySelectorAll('#overviewBody .report-card').length >= 1")
         st = await b.js("""({title: document.getElementById('overviewTitle').textContent,
             edit: !document.getElementById('overviewEditBtn').hidden})""")
-        check(project_name in st["title"] and not st["edit"],
-              f"the card's 📊 opens its project's overview, without Editar on top of the card ({project_name}, {st})")
+        check(project_name in st["title"] and st["edit"],
+              f"the card's 📊 opens its project's overview, with Editar ({project_name}, {st})")
         await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))")
         await asyncio.sleep(0.4)
         st = await b.js("({overview: " + OPEN + ", card: !document.getElementById('cardModal').classList.contains('hidden')})")
         check(st == {"overview": False, "card": True}, f"closing it leaves the card open ({st})")
+
+        # ✎ Editar desde la tarjeta: el formulario encima de ella; cerrarlo la deja abierta
+        await b.js("document.getElementById('cardProjectOverviewBtn').click()")
+        await b.wait_for("!document.getElementById('overviewEditBtn').hidden")
+        await b.js("document.getElementById('overviewEditBtn').click()")
+        await b.wait_for("!document.getElementById('projectModal').classList.contains('hidden')")
+        on_top = await b.js("""(() => {
+            const r = document.querySelector('#projectModal .modal-content').getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 20);
+            return !!hit && !!hit.closest('#projectModal');
+        })()""")
+        check(on_top, "Editar from the card opens the project form on top of it")
+        await b.js("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))")
+        await asyncio.sleep(0.4)
+        st = await b.js("({form: !document.getElementById('projectModal').classList.contains('hidden'),"
+                        " card: !document.getElementById('cardModal').classList.contains('hidden')})")
+        check(st == {"form": False, "card": True}, f"Escape closes only the project form ({st})")
     finally:
         await b.close()
 

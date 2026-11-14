@@ -45,7 +45,7 @@ async def main():
         # From the card detail
         await js(f"{CARD}.click()", wait=1.0)
         last = await b.js("[...document.getElementById('cardProject').options].pop().textContent")
-        check(last == "＋ Nuevo proyecto…", f"project select ends with '＋ Nuevo proyecto…' ({last})")
+        check(last == "＋ Nuevo proyecto o subproyecto…", f"project select ends with '＋ Nuevo proyecto o subproyecto…' ({last})")
         await js(choose_new, wait=0.4)
         st = await b.js(f"({{open: {FORM_OPEN}, focus: document.activeElement.id, select: document.getElementById('cardProject').selectedOptions[0].textContent}})")
         check(st == {"open": True, "focus": "cardNewProjectName", "select": "Sin asignar"},

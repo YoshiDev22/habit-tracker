@@ -4,6 +4,15 @@ Lo que ve quien usa la app al entrar después de una actualización (y en *Mi pe
 Novedades*). No es el CHANGELOG: es corto, para el usuario, y nunca lleva nada de
 despliegue. Se escribe en el mismo commit del bump. Formato en `backend/novedades.py`.
 
+## 1.34.1 — 2026-11-14
+### Cambios
+- **Proyecto y subproyecto desde la tarjeta**: en *Proyecto*, cada subproyecto sale debajo de su
+  grupo; elegirlo es elegir los dos.
+- **Crear un subproyecto sin salir de la tarjeta**: *＋ Nuevo proyecto o subproyecto…* trae
+  **Dentro de**, que empieza en el grupo de la tarea (*Sin grupo* lo deja aparte).
+- **Grupo desde el tablero**: el 📊 de la tarjeta y el de *⚙ Organizar* llevan a *✎ Editar* ›
+  **Grupo**, sin pasar por la Lista.
+
 ## 1.34.0 — 2026-11-14
 ### Nuevas funciones
 - **Grupos de proyectos**: junta los proyectos que van juntos (un emprendimiento, "Personal"). En
