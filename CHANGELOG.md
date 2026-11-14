@@ -9,6 +9,25 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado
 [semver](https://semver.org/lang/es/), con el criterio de la sección *Versionado* de
 `CLAUDE.md`.
 
+## [1.34.1] — 2026-11-14
+
+Los grupos de proyectos se usan desde el tablero: proyecto y subproyecto se eligen en la tarjeta, y
+el grupo de un proyecto se cambia sin pasar por la Lista.
+
+### Correcciones
+- **Elegir el grupo desde el tablero**: la ficha del proyecto abierta con el 📊 de *⚙ Organizar* o
+  con el de una tarjeta no traía *✎ Editar*, así que el grupo solo se podía poner desde la Lista.
+  Ahora lo trae: el formulario se abre encima de Organizar o de la tarjeta, Escape cierra solo el
+  formulario y Organizar enseña el proyecto dentro de su grupo al guardar.
+- **Proyecto y subproyecto en la tarjeta**: el selector *Proyecto* enseña cada subproyecto debajo
+  de su grupo (antes, todos por orden alfabético, sin decir de qué grupo eran).
+- **Crear un subproyecto desde la tarjeta**: *＋ Nuevo proyecto o subproyecto…* trae **Dentro de**,
+  que empieza en el grupo de la tarea (o en su proyecto, si no tiene grupo); *Sin grupo (proyecto
+  aparte)* lo crea suelto.
+
+### Para actualizar
+Sin cambios en la base de datos ni en las dependencias: `git pull` y reiniciar la app.
+
 ## [1.34.0] — 2026-11-14
 
 Los proyectos se pueden juntar en **grupos**: un emprendimiento con sus productos y campañas, o
@@ -1163,6 +1182,7 @@ las pendientes en *Por hacer*.
 Primera versión: hábitos con calendario mensual, rachas y estadísticas, guardados en tu
 cuenta.
 
+[1.34.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.34.1
 [1.34.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.34.0
 [1.33.1]: https://github.com/YoshiDev22/habit-tracker/tree/v1.33.1
 [1.33.0]: https://github.com/YoshiDev22/habit-tracker/tree/v1.33.0
