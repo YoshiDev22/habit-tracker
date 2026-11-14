@@ -1288,6 +1288,11 @@
                 <input type="text" id="cardNewProjectName" maxlength="80" placeholder="Nombre del proyecto nuevo" aria-label="Nombre del proyecto nuevo">
                 <button type="submit" class="card-new-project-ok">Crear</button>
                 <button type="button" class="card-new-project-cancel" id="cardNewProjectCancel" aria-label="Cancelar">×</button>
+                <!-- Grupos (1.34): crearlo ya como subproyecto; board.js llena las opciones -->
+                <label class="card-new-project-parent">
+                    <span>Dentro de</span>
+                    <select id="cardNewProjectParent"></select>
+                </label>
                 <div class="form-error hidden" id="cardNewProjectError" role="alert"></div>
             </form>
 

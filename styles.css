@@ -4118,6 +4118,28 @@ body.board-wide .board-column {
     flex-basis: 100%;
 }
 
+/* "Dentro de": el grupo del proyecto nuevo, en su propia línea */
+.card-new-project-parent {
+    display: flex;
+    flex-basis: 100%;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.card-new-project-parent select {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
 /* Dónde caerá la tarjeta que se arrastra (board.js) */
 .drop-indicator {
     height: 3px;

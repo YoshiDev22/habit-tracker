@@ -868,6 +868,7 @@ const cardNewProjectForm = document.getElementById('cardNewProjectForm');
 const cardNewProjectName = document.getElementById('cardNewProjectName');
 const cardNewProjectColor = document.getElementById('cardNewProjectColor');
 const cardNewProjectError = document.getElementById('cardNewProjectError');
+const cardNewProjectParent = document.getElementById('cardNewProjectParent');
 const NEW_PROJECT_OPTION = 'new';
 const cardTagRow = document.getElementById('cardTagRow');
 const tagPicker = document.getElementById('tagPicker');
@@ -929,18 +930,21 @@ function renderCardColumnSelect(task) {
 function renderCardProjectSelect(task) {
     cardProjectSelect.innerHTML = '';
     // Los activos, y el de la tarea aunque esté archivado, para no mentir
-    const projects = boardState.projects.filter(p => p.is_active || p.id === task.project_id);
-    projects
-        .sort((a, b) => Number(b.is_system) - Number(a.is_system) || a.name.localeCompare(b.name))
-        .forEach(project => {
-            const option = document.createElement('option');
-            option.value = String(project.id);
-            option.textContent = project.is_active ? project.name : `${project.name} (archivado)`;
-            cardProjectSelect.appendChild(option);
-        });
+    const projects = boardState.projects
+        .filter(p => p.is_active || p.id === task.project_id)
+        .sort((a, b) => Number(b.is_system) - Number(a.is_system) || a.name.localeCompare(b.name));
+    // Cada grupo con sus subproyectos debajo (groupedProjects, projects.js):
+    // elegir el subproyecto aquí ya es elegir proyecto y subproyecto
+    groupedProjects(projects).forEach(({ project, depth }) => {
+        const option = document.createElement('option');
+        option.value = String(project.id);
+        const name = project.is_active ? project.name : `${project.name} (archivado)`;
+        option.textContent = depth ? `   ↳ ${name}` : name;
+        cardProjectSelect.appendChild(option);
+    });
     const create = document.createElement('option');
     create.value = NEW_PROJECT_OPTION;
-    create.textContent = '＋ Nuevo proyecto…';
+    create.textContent = '＋ Nuevo proyecto o subproyecto…';
     cardProjectSelect.appendChild(create);
     cardProjectSelect.value = String(task.project_id);
 }
@@ -1493,9 +1497,38 @@ cardProjectSelect.addEventListener('change', () => {
     patchCardTask({ project_id: Number(cardProjectSelect.value) });
 });
 
+// "Dentro de": los proyectos que pueden ser grupo (activos, sin grupo, no
+// "Sin asignar"; las mismas reglas que _set_group en el servidor). Empieza en
+// el grupo de la tarea, para que crear un subproyecto de lo que ya tiene sea directo.
+function fillCardNewProjectParent() {
+    const task = cardTask();
+    const current = task && boardState.projects.find(p => p.id === task.project_id);
+    let preset = '';
+    if (current && current.is_active && !current.is_system) {
+        preset = String(current.parent_id || current.id);
+    }
+    cardNewProjectParent.innerHTML = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = 'Sin grupo (proyecto aparte)';
+    cardNewProjectParent.appendChild(none);
+    boardState.projects
+        .filter(p => p.is_active && !p.is_system && !p.parent_id)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(project => {
+            const option = document.createElement('option');
+            option.value = String(project.id);
+            option.textContent = project.name;
+            cardNewProjectParent.appendChild(option);
+        });
+    cardNewProjectParent.value = preset;
+    if (cardNewProjectParent.value !== preset) cardNewProjectParent.value = '';
+}
+
 function openCardNewProject() {
     cardNewProjectError.classList.add('hidden');
     cardNewProjectName.value = '';
+    fillCardNewProjectParent();
     cardNewProjectForm.classList.remove('hidden');
     cardNewProjectName.focus();
 }
@@ -1508,11 +1541,10 @@ cardNewProjectForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = cardNewProjectName.value.trim();
     if (!name || !cardTask()) return;
+    const json = { name, color: cardNewProjectColor.value };
+    if (cardNewProjectParent.value) json.parent_id = Number(cardNewProjectParent.value);
     try {
-        const project = await apiFetch('/api/projects', {
-            method: 'POST',
-            json: { name, color: cardNewProjectColor.value },
-        });
+        const project = await apiFetch('/api/projects', { method: 'POST', json });
         boardState.projects.push(project);
         closeCardNewProject();
         await patchCardTask({ project_id: project.id });

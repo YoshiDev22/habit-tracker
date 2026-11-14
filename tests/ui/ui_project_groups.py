@@ -114,6 +114,33 @@ async def main():
         check(chip and chip.startswith("Grupo: incluye sus 3"), f"board: the group has its chip, with a hint ({chip})")
         await b.js("boardState.filterProjects.clear(); renderBoard()")
 
+        # --- Card: project and subproject from the card itself
+        await b.js(f"openCardModal({ad['id']})")
+        await b.wait_for("!document.getElementById('cardModal').classList.contains('hidden')")
+        opts = await b.js("[...document.getElementById('cardProject').options].map(o => o.textContent)")
+        gi = opts.index("Emprendimiento") if "Emprendimiento" in opts else -1
+        check(gi >= 0 and any(o.endswith("↳ Campaña") for o in opts[gi + 1:gi + 4]),
+              f"card: the Proyecto select lists each subproject under its group ({opts})")
+        await b.js("const s = document.getElementById('cardProject'); s.value = 'new';"
+                   " s.dispatchEvent(new Event('change', {bubbles: true}))")
+        await b.wait_for("!document.getElementById('cardNewProjectForm').classList.contains('hidden')")
+        preset = await b.js("document.getElementById('cardNewProjectParent').value")
+        check(preset == str(group["id"]), f"card: a new project starts inside the task's group ({preset})")
+        await b.js("document.getElementById('cardNewProjectName').value = 'Landing'")
+        await b.js("document.getElementById('cardNewProjectForm').requestSubmit()")
+        await b.wait_for("document.getElementById('cardNewProjectForm').classList.contains('hidden')")
+        await asyncio.sleep(0.6)
+        _, projs = call("GET", "/api/projects", expect=200)
+        landing = next((p for p in projs["projects"] if p["name"] == "Landing"), None)
+        check(landing and landing["parent_id"] == group["id"],
+              f"card: the new subproject is inside the group ({landing})")
+        task_project = await b.js(f"boardState.tasks.find(t => t.id === {ad['id']}).project_id")
+        check(landing and task_project == landing["id"],
+              f"card: the task goes to the new subproject ({task_project})")
+        call("PATCH", f"/api/tasks/{ad['id']}", {"project_id": campaign["id"]}, expect=200)
+        await b.js("closeCardModal()")
+        await asyncio.sleep(0.4)
+
         # --- Reportes: the group with its subtotal and its projects under it
         await b.js("goToView('reports')")
         await asyncio.sleep(0.6)
