@@ -1430,8 +1430,10 @@ body.has-pomodoro-bar {
     z-index: 1050;
 }
 
-/* La ficha de proyecto se abre también encima de Organizar (1000) */
-#projectOverviewModal {
+/* La ficha de proyecto se abre también encima de Organizar (1000), y su
+   ✎ Editar abre el formulario encima de Organizar o de la tarjeta */
+#projectOverviewModal,
+#projectModal {
     z-index: 1050;
 }
 

@@ -1479,7 +1479,7 @@ cardColumnSelect.addEventListener('change', () => {
 // La ficha del proyecto de la tarjeta, encima de ella (project-overview.js)
 document.getElementById('cardProjectOverviewBtn').addEventListener('click', () => {
     const projectId = Number(cardProjectSelect.value);
-    if (projectId) openProjectOverview(projectId);
+    if (projectId) openProjectOverview(projectId, { editable: true });
 });
 
 cardProjectSelect.addEventListener('change', () => {
@@ -1834,6 +1834,13 @@ document.addEventListener('keydown', (event) => {
     if (!document.getElementById('confirmModal').classList.contains('hidden')) return;
     // El ajuste del cronómetro (pomodoro.js) maneja su propio Escape
     if (!document.getElementById('adjustStartModal').classList.contains('hidden')) return;
+    // El formulario de proyecto (✎ Editar de la ficha) se abre encima de la
+    // tarjeta o de Organizar: Escape cierra solo ese
+    const projectModalEl = document.getElementById('projectModal');
+    if (!projectModalEl.classList.contains('hidden')) {
+        hideModal(projectModalEl);
+        return;
+    }
     // Con el registro de tiempo abierto sobre la tarjeta (o sobre el tiempo
     // del día), Escape cierra ese. preventDefault: el listener del tiempo del
     // día (pomodoro.js) corre después y no debe cerrar también el suyo.
@@ -2395,7 +2402,8 @@ configProjectsEl.addEventListener('change', (event) => handleConfigItemChange(ev
 // un proyecto con ese nombre lo reactiva.
 configProjectsEl.addEventListener('click', (event) => {
     if (event.target.closest('.config-overview-project')) {
-        openProjectOverview(Number(event.target.closest('.config-row').dataset.itemId));
+        // editable: ✎ Editar es donde se elige el grupo, también desde el tablero
+        openProjectOverview(Number(event.target.closest('.config-row').dataset.itemId), { editable: true });
         return;
     }
     if (!event.target.closest('.config-archive-project')) return;
@@ -2533,5 +2541,11 @@ window.appLogoutHooks.push(resetBoard);
 // loadProjects() corre en cada cambio y al entrar; el tablero va detrás de él
 // porque usa su resumen para el tiempo de cada tarjeta.
 window.projectsChangedHooks.push(loadBoard);
+// Con Organizar abierto (p. ej. tras cambiar el grupo de un proyecto desde su
+// ficha), su lista de proyectos se vuelve a pedir para enseñar el grupo nuevo
+window.projectsChangedHooks.push(() => {
+    if (boardConfigModal.classList.contains('hidden')) return;
+    reloadConfig().catch(error => console.error('Error al recargar Organizar:', error));
+});
 window.viewChangedHooks.push(applyWideLayout);
 window.viewChangedHooks.push(maybeOfferFirstBoard);
