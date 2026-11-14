@@ -4,6 +4,18 @@ Lo que ve quien usa Finanzas al entrar a la página después de una actualizaci�
 lateral › Novedades). Mismo formato que NOVEDADES.md (`backend/novedades.py`): corto, para quien la usa,
 nunca nada de despliegue. Se escribe en el mismo commit del bump de `FINANCE_VERSION`.
 
+## 0.9.0 — 2026-11-05
+### Nuevas funciones
+- **Préstamos**: agrégalos en Cuentas › Deudas con su mensualidad, plazo y tasa. Cada pago separa
+  capital, intereses y seguros; también puedes abonar a capital y subir tu tabla de amortización.
+- **Pagos del mes**: en Presupuesto, la lista por fecha de lo que tienes que pagar este mes y el
+  siguiente (tarjetas, préstamos y fijos) y cuánto te queda después de cada pago. Elige qué
+  aproximados del presupuesto entran y con cuánto, sin cambiar tu presupuesto.
+- **Deudas**: Cuentas › Deudas muestra lo que debe cada tarjeta y préstamo, y Resumen › Deudas tus
+  pagos del periodo, aparte de tus gastos.
+### Cambios
+- **El + para agregar**: cada sección de Cuentas agrega desde el + junto a su monto, arriba a la derecha.
+
 ## 0.8.0 — 2026-10-28
 ### Nuevas funciones
 - **Aviso del pago de tu tarjeta**: cuando se acerca la fecha límite y aún debes algo, la tarjeta se

@@ -71,6 +71,12 @@ async function finRenderBudget() {
     }
     errorEl.classList.add('hidden');
     if (finState.tab !== 'budget') return;
+    // Pagos del mes: otra vista de la misma pestaña (finance-plan.js), sin el ✎ de ordenar
+    if (typeof finPlanShowView === 'function' && finPlanShowView()) {
+        finBudgetStopEditing();
+        finRenderPlan();
+        return;
+    }
     if (!finBudget.groups.length) finBudget.editing = false;
     box.classList.toggle('editing', finBudget.editing);
     box.replaceChildren(...finBudgetBody());
